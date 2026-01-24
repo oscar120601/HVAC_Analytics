@@ -1,0 +1,28 @@
+{
+    "tag_keywords": {
+        "out_air_temp": [
+            "OAT",
+            ".OAT"
+        ],
+        "out_air_humidity": [
+            "OAH",
+            "Humidity"
+        ],
+        "power_kwh": [
+            "KWH",
+            ".KWH"
+        ],
+        "valve_opening": [
+            ".CV",
+            "Valve"
+        ],
+        "supply_air_temp": [
+            ".SAT",
+            "SA"
+        ]
+    },
+    "feature_flags": {
+        "calculate_psychrometrics": true,
+        "calculate_total_power": true
+    }
+}

@@ -1,0 +1,29 @@
+{
+    "tag_keywords": {
+        "out_air_temp": [
+            "MMCB.TA",
+            ".TA"
+        ],
+        "out_air_humidity": [
+            "MMCB.RH",
+            ".RH"
+        ],
+        "power_kwh": [
+            "MMCB.KWH",
+            ".KWH",
+            "MMCB.KW"
+        ],
+        "valve_opening": [
+            ".CV",
+            "Valve"
+        ],
+        "supply_air_temp": [
+            "MMCB.SA",
+            ".SA"
+        ]
+    },
+    "feature_flags": {
+        "calculate_psychrometrics": true,
+        "calculate_total_power": true
+    }
+}
