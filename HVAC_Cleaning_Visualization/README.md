@@ -43,3 +43,4 @@
 - `data_parser.py`：專用於解析特定 BAS CSV 格式（包含 Metadata 與 Pivot 資料）的邏輯。
 - `data_pipeline.py`：負責資料清洗與特徵工程運算。
 - `app.py`：視覺化儀表板的主程式。
+test1234-20260127
