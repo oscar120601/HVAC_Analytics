@@ -1,0 +1,14 @@
+system:
+  time_interval_minutes: 5
+  min_data_points: 100
+
+constraints:
+  min_frequency_hz: 30.0
+  max_frequency_hz: 60.0
+  min_pressure_diff_bar: 0.5
+  min_return_temp_c: 7.0
+
+etl:
+  raw_data_start_line: 212
+  date_format: "%Y/%m/%d"
+  time_format: "%H:%M:%S"
