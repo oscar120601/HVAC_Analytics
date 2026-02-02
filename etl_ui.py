@@ -125,11 +125,13 @@ if processing_mode == "單一檔案" and (uploaded_file or selected_file):
         st.success(f"✅ 已選擇: {selected_file}")
     
     # Tabs for different views
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "📋 解析資料", 
         "🧹 清洗資料", 
         "📊 統計資訊", 
         "📈 時間序列",
+        "🔗 關聯矩陣",
+        "🎯 資料品質",
         "💾 匯出"
     ])
     
@@ -350,7 +352,318 @@ if processing_mode == "單一檔案" and (uploaded_file or selected_file):
         else:
             st.info("請先在「解析資料」分頁解析檔案")
     
+# 單一檔案 tab5 和 tab6 的內容
+
     with tab5:
+        st.header("🔗 關聯矩陣熱圖")
+        
+        if 'df_parsed' in st.session_state:
+            df = st.session_state.get('df_clean', st.session_state['df_parsed'])
+            
+            # Show data status indicator
+            if 'df_clean' in st.session_state:
+                st.info("📊 **目前分析：清洗後資料**")
+            else:
+                st.info("📊 **目前分析：解析後資料**")
+            
+            numeric_cols = get_analysis_numeric_cols(df)
+            
+            if numeric_cols:
+                st.subheader("選擇變數進行相關性分析")
+                
+                # Let user select variables (max 15 for readability)
+                max_vars = min(15, len(numeric_cols))
+                selected_vars = st.multiselect(
+                    f"選擇要分析的變數（最多 {max_vars} 個，建議 5-10 個）",
+                    numeric_cols,
+                    default=numeric_cols[:min(8, len(numeric_cols))],
+                    max_selections=max_vars
+                )
+                
+                if len(selected_vars) >= 2:
+                    try:
+                        # Calculate correlation matrix
+                        import plotly.figure_factory as ff
+                        import numpy as np
+                        
+                        # Extract data and convert to pandas
+                        corr_df = df.select(selected_vars).to_pandas()
+                        
+                        # Calculate correlation matrix
+                        corr_matrix = corr_df.corr()
+                        
+                        # Create heatmap using plotly
+                        fig = ff.create_annotated_heatmap(
+                            z=corr_matrix.values,
+                            x=list(corr_matrix.columns),
+                            y=list(corr_matrix.index),
+                            annotation_text=np.around(corr_matrix.values, decimals=2),
+                            colorscale='RdBu',
+                            zmid=0,
+                            showscale=True
+                        )
+                        
+                        fig.update_layout(
+                            title="變數相關性矩陣",
+                            xaxis_title="",
+                            yaxis_title="",
+                            height=600,
+                            xaxis={'side': 'bottom'}
+                        )
+                        
+                        # Rotate x-axis labels
+                        fig.update_xaxes(tickangle=45)
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Show interpretation guide
+                        st.markdown("---")
+                        st.subheader("📖 相關係數解讀")
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.markdown("**🔴 強負相關**: -1.0 ~ -0.7")
+                            st.caption("一個變數增加時，另一個明顯減少")
+                        with col2:
+                            st.markdown("**⚪ 無相關**: -0.3 ~ 0.3")
+                            st.caption("兩變數之間無明顯線性關係")
+                        with col3:
+                            st.markdown("**🔵 強正相關**: 0.7 ~ 1.0")
+                            st.caption("一個變數增加時，另一個也增加")
+                        
+                        # Highlight strong correlations
+                        st.markdown("---")
+                        st.subheader("🎯 顯著相關性（|r| > 0.7）")
+                        
+                        strong_corr = []
+                        for i in range(len(corr_matrix)):
+                            for j in range(i+1, len(corr_matrix)):
+                                corr_val = corr_matrix.iloc[i, j]
+                                if abs(corr_val) > 0.7:
+                                    var1 = corr_matrix.index[i]
+                                    var2 = corr_matrix.columns[j]
+                                    strong_corr.append({
+                                        '變數 1': var1,
+                                        '變數 2': var2,
+                                        '相關係數': f"{corr_val:.3f}",
+                                        '類型': '正相關 🔵' if corr_val > 0 else '負相關 🔴'
+                                    })
+                        
+                        if strong_corr:
+                            import pandas as pd
+                            st.dataframe(pd.DataFrame(strong_corr), use_container_width=True)
+                        else:
+                            st.info("沒有發現強相關性（|r| > 0.7）的變數對")
+                    
+                    except Exception as e:
+                        st.error(f"計算相關性失敗: {str(e)}")
+                        st.exception(e)
+                else:
+                    st.warning("請至少選擇 2 個變數進行相關性分析")
+            else:
+                st.warning("沒有數值欄位可供分析")
+        else:
+            st.info("請先在「解析資料」分頁解析檔案")
+    
+    with tab6:
+        st.header("🎯 資料品質儀表板")
+        
+        if 'df_parsed' in st.session_state:
+            df = st.session_state.get('df_clean', st.session_state['df_parsed'])
+            
+            # Show data status indicator
+            if 'df_clean' in st.session_state:
+                st.info("📊 **目前分析：清洗後資料**")
+            else:
+                st.info("📊 **目前分析：解析後資料**")
+            
+            # Overall quality metrics
+            st.subheader("📈 整體資料品質")
+            
+            total_rows = len(df)
+            total_cols = len(df.columns)
+            numeric_cols = get_analysis_numeric_cols(df)
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("總列數", f"{total_rows:,}")
+            with col2:
+                st.metric("總欄位數", f"{total_cols}")
+            with col3:
+                st.metric("數值欄位", f"{len(numeric_cols)}")
+            with col4:
+                if 'timestamp' in df.columns:
+                    time_span = df['timestamp'].max() - df['timestamp'].min()
+                    st.metric("時間跨度", str(time_span))
+            
+            # Missing data analysis
+            st.markdown("---")
+            st.subheader("🔍 缺失值分析")
+            
+            missing_data = []
+            for col in df.columns:
+                null_count = df[col].null_count()
+                if null_count > 0:
+                    null_pct = (null_count / total_rows) * 100
+                    missing_data.append({
+                        '欄位名稱': col,
+                        '缺失數量': null_count,
+                        '缺失比例': f"{null_pct:.2f}%",
+                        '嚴重程度': '🔴 高' if null_pct > 30 else ('🟡 中' if null_pct > 10 else '🟢 低')
+                    })
+            
+            if missing_data:
+                import pandas as pd
+                missing_df = pd.DataFrame(missing_data).sort_values('缺失數量', ascending=False)
+                st.dataframe(missing_df, use_container_width=True)
+                
+                # Visualize missing data
+                import plotly.express as px
+                fig = px.bar(
+                    missing_df.head(10),
+                    x='欄位名稱',
+                    y='缺失數量',
+                    title='前 10 個缺失值最多的欄位',
+                    labels={'缺失數量': '缺失數量', '欄位名稱': '欄位'}
+                )
+                fig.update_layout(xaxis_tickangle=45)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.success("✅ 沒有缺失值！")
+            
+            # Frozen data detection (only if cleaned)
+            if 'df_clean' in st.session_state:
+                st.markdown("---")
+                st.subheader("❄️ 凍結資料偵測")
+                
+                frozen_cols = [col for col in df.columns if '_frozen' in col]
+                
+                if frozen_cols:
+                    frozen_summary = []
+                    for col in frozen_cols:
+                        original_col = col.replace('_frozen', '')
+                        frozen_count = df[col].sum()
+                        if frozen_count > 0:
+                            frozen_pct = (frozen_count / total_rows) * 100
+                            frozen_summary.append({
+                                '感測器': original_col,
+                                '凍結點數': frozen_count,
+                                '凍結比例': f"{frozen_pct:.2f}%",
+                                '狀態': '🔴 警告' if frozen_pct > 5 else '🟡 注意'
+                            })
+                    
+                    if frozen_summary:
+                        import pandas as pd
+                        frozen_df = pd.DataFrame(frozen_summary).sort_values('凍結點數', ascending=False)
+                        st.dataframe(frozen_df, use_container_width=True)
+                        
+                        st.warning("⚠️ 凍結資料可能表示感測器故障或數據傳輸問題")
+                    else:
+                        st.success("✅ 沒有偵測到凍結資料")
+                else:
+                    st.info("資料中無凍結標記欄位")
+            else:
+                st.info("尚未執行凍結資料偵測（需先清洗資料）")
+            
+            # Data completeness timeline
+            if 'timestamp' in df.columns and numeric_cols:
+                st.markdown("---")
+                st.subheader("📅 資料完整性時間軸")
+                
+                # Select a representative column to check completeness
+                sample_col = st.selectbox(
+                    "選擇欄位檢視完整性",
+                    numeric_cols
+                )
+                
+                if sample_col:
+                    # Create a binary completeness indicator
+                    timeline_df = df.select(['timestamp', sample_col]).to_pandas()
+                    timeline_df['完整性'] = (~timeline_df[sample_col].isna()).astype(int)
+                    timeline_df = timeline_df.set_index('timestamp')
+                    
+                    import plotly.graph_objects as go
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(
+                        x=timeline_df.index,
+                        y=timeline_df['完整性'],
+                        mode='lines',
+                        fill='tozeroy',
+                        name='資料存在',
+                        line=dict(color='green')
+                    ))
+                    
+                    fig.update_layout(
+                        title=f"{sample_col} 資料完整性時間軸",
+                        xaxis_title="時間",
+                        yaxis_title="資料存在 (1=有, 0=無)",
+                        height=300,
+                        yaxis=dict(tickvals=[0, 1], ticktext=['缺失', '存在'])
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+            
+            # Data quality score
+            st.markdown("---")
+            st.subheader("⭐ 整體品質評分")
+            
+            # Calculate quality score (0-100)
+            quality_score = 100
+            
+            # Deduct points for missing data
+            if missing_data:
+                avg_missing_pct = sum([float(d['缺失比例'].strip('%')) for d in missing_data]) / len(df.columns)
+                quality_score -= min(avg_missing_pct, 30)
+            
+            # Deduct points for frozen data (only if cleaned)
+            if 'df_clean' in st.session_state:
+                frozen_cols = [col for col in df.columns if '_frozen' in col]
+                if frozen_cols:
+                    frozen_count = sum([df[col].sum() for col in frozen_cols])
+                    frozen_pct = (frozen_count / (total_rows * len(frozen_cols))) * 100 if frozen_cols else 0
+                    quality_score -= min(frozen_pct, 20)
+            
+            quality_score = max(0, quality_score)
+            
+            # Display score with color coding
+            col1, col2, col3 = st.columns([2, 1, 1])
+            with col1:
+                st.metric("資料品質評分", f"{quality_score:.1f}/100")
+            
+            with col2:
+                if quality_score >= 90:
+                    st.success("🟢 優秀")
+                elif quality_score >= 75:
+                    st.info("🔵 良好")
+                elif quality_score >= 60:
+                    st.warning("🟡 尚可")
+                else:
+                    st.error("🔴 需改善")
+            
+            with col3:
+                # Progress bar
+                st.progress(quality_score / 100)
+            
+            # Recommendations
+            if quality_score < 90:
+                st.markdown("---")
+                st.subheader("💡 改善建議")
+                
+                if missing_data and len(missing_data) > 0:
+                    st.markdown("- 檢查缺失比例 > 10% 的欄位，考慮補值或移除")
+                
+                if 'df_clean' in st.session_state:
+                    frozen_cols = [col for col in df.columns if '_frozen' in col]
+                    if frozen_cols:
+                        frozen_count = sum([df[col].sum() for col in frozen_cols])
+                        if frozen_count > 0:
+                            st.markdown("- 檢查凍結資料的感測器，可能需要維護")
+                
+                st.markdown("- 確認資料收集頻率與預期一致")
+                st.markdown("- 考慮進行異常值偵測與處理")
+        else:
+            st.info("請先在「解析資料」分頁解析檔案")
+
+    with tab7:
         st.header("匯出資料")
         
         if 'df_parsed' in st.session_state or 'df_clean' in st.session_state:
@@ -496,10 +809,13 @@ elif processing_mode == "批次處理（整個資料夾）" and selected_files:
         st.info("📊 **資料已載入！** 請使用下方標籤頁分析合併後的資料")
         
         # Analysis tabs
-        batch_tab1, batch_tab2, batch_tab3, batch_tab4 = st.tabs([
+        batch_tab1, batch_tab2, batch_tab3, batch_tab4, batch_tab5, batch_tab6, batch_tab7 = st.tabs([
             "📋 資料預覽",
+            "🧹 清洗資料",
             "📊 統計資訊", 
             "📈 時間序列",
+            "🔗 關聯矩陣",
+            "🎯 資料品質",
             "💾 匯出"
         ])
             
@@ -507,8 +823,28 @@ elif processing_mode == "批次處理（整個資料夾）" and selected_files:
             st.subheader("合併後資料預覽")
             st.dataframe(merged_df.head(100).to_pandas(), use_container_width=True)
             st.caption(f"顯示前 100 筆，共 {len(merged_df):,} 筆資料")
-            
         with batch_tab2:
+            st.header("清洗資料狀態")
+            
+            if auto_clean:
+                st.success("✅ 批次處理時已自動清洗資料")
+                st.markdown("""
+                已執行的清洗步驟：
+                - ✓ 重採樣至固定時間間隔
+                - ✓ 計算濕球溫度
+                - ✓ 偵測凍結資料
+                - ✓ 熱平衡驗證
+                - ✓ 親和力定律檢查
+                """)
+            else:
+                st.info("📊 批次處理時未執行清洗，資料為原始合併結果")
+                st.markdown("""
+                如需清洗資料，請：
+                1. 重新執行批次處理
+                2. 勾選「自動清洗資料」選項
+                """)
+            
+        with batch_tab3:
             st.subheader("統計資訊")
             
             # Show data status
@@ -563,7 +899,7 @@ elif processing_mode == "批次處理（整個資料夾）" and selected_files:
             else:
                 st.warning("沒有數值欄位可供分析")
             
-        with batch_tab3:
+        with batch_tab4:
             st.subheader("時間序列分析")
             
             if 'timestamp' in merged_df.columns:
@@ -592,7 +928,122 @@ elif processing_mode == "批次處理（整個資料夾）" and selected_files:
             else:
                 st.error("資料中沒有 timestamp 欄位")
             
-        with batch_tab4:
+
+        with batch_tab5:
+            st.header("🔗 關聯矩陣熱圖")
+            
+            if auto_clean:
+                st.info("📊 **目前分析：清洗後資料**")
+            else:
+                st.info("📊 **目前分析：解析後資料**")
+            
+            numeric_cols = get_analysis_numeric_cols(merged_df)
+            
+            if numeric_cols:
+                st.subheader("選擇變數進行相關性分析")
+                
+                max_vars = min(15, len(numeric_cols))
+                selected_vars = st.multiselect(
+                    f"選擇要分析的變數（最多 {max_vars} 個，建議 5-10 個）",
+                    numeric_cols,
+                    default=numeric_cols[:min(8, len(numeric_cols))],
+                    max_selections=max_vars,
+                    key="batch_corr_vars"
+                )
+                
+                if len(selected_vars) >= 2:
+                    try:
+                        import plotly.figure_factory as ff
+                        import numpy as np
+                        
+                        corr_df = merged_df.select(selected_vars).to_pandas()
+                        corr_matrix = corr_df.corr()
+                        
+                        fig = ff.create_annotated_heatmap(
+                            z=corr_matrix.values,
+                            x=list(corr_matrix.columns),
+                            y=list(corr_matrix.index),
+                            annotation_text=np.around(corr_matrix.values, decimals=2),
+                            colorscale='RdBu',
+                            zmid=0,
+                            showscale=True
+                        )
+                        
+                        fig.update_layout(
+                            title="變數相關性矩陣",
+                            height=600,
+                            xaxis={'side': 'bottom'}
+                        )
+                        fig.update_xaxes(tickangle=45)
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        st.markdown("---")
+                        st.subheader("📖 相關係數解讀")
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.markdown("**🔴 強負相關**: -1.0 ~ -0.7")
+                        with col2:
+                            st.markdown("**⚪ 無相關**: -0.3 ~ 0.3")
+                        with col3:
+                            st.markdown("**🔵 強正相關**: 0.7 ~ 1.0")
+                        
+                    except Exception as e:
+                        st.error(f"計算相關性失敗: {str(e)}")
+                else:
+                    st.warning("請至少選擇 2 個變數進行相關性分析")
+            else:
+                st.warning("沒有數值欄位可供分析")
+        
+        with batch_tab6:
+            st.header("🎯 資料品質儀表板")
+            
+            if auto_clean:
+                st.info("📊 **目前分析：清洗後資料**")
+            else:
+                st.info("📊 **目前分析：解析後資料**")
+            
+            st.subheader("📈 整體資料品質")
+            
+            total_rows = len(merged_df)
+            total_cols = len(merged_df.columns)
+            numeric_cols = get_analysis_numeric_cols(merged_df)
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("總列數", f"{total_rows:,}")
+            with col2:
+                st.metric("總欄位數", f"{total_cols}")
+            with col3:
+                st.metric("數值欄位", f"{len(numeric_cols)}")
+            with col4:
+                if 'timestamp' in merged_df.columns:
+                    time_span = merged_df['timestamp'].max() - merged_df['timestamp'].min()
+                    st.metric("時間跨度", str(time_span))
+            
+            st.markdown("---")
+            st.subheader("🔍 缺失值分析")
+            
+            missing_data = []
+            for col in merged_df.columns:
+                null_count = merged_df[col].null_count()
+                if null_count > 0:
+                    null_pct = (null_count / total_rows) * 100
+                    missing_data.append({
+                        '欄位名稱': col,
+                        '缺失數量': null_count,
+                        '缺失比例': f"{null_pct:.2f}%",
+                        '嚴重程度': '🔴 高' if null_pct > 30 else ('🟡 中' if null_pct > 10 else '🟢 低')
+                    })
+            
+            if missing_data:
+                import pandas as pd
+                missing_df = pd.DataFrame(missing_data).sort_values('缺失數量', ascending=False)
+                st.dataframe(missing_df, use_container_width=True)
+            else:
+                st.success("✅ 沒有缺失值！")
+
+        with batch_tab7:
             st.header("匯出資料")
             
             # Data selection radio (matching single file mode)

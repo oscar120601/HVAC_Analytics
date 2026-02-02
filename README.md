@@ -12,14 +12,17 @@ HVAC_Analytics/
 │   │   ├── parser.py     # CSV 資料解析器
 │   │   ├── cleaner.py    # 資料清洗與重採樣
 │   │   └── batch_processor.py  # 批次處理器
-│   ├── models/           # (未來) 機器學習模型
-│   └── optimization/     # (未來) 優化演算法
+│   ├── models/           # 機器學習模型
+│   │   └── energy_model.py  # XGBoost 能耗預測模型
+│   └── optimization/     # 優化演算法
+│       └── optimizer.py  # SLSQP/DE 最佳化引擎
 ├── data/                  # 資料目錄
 │   ├── CGMH-TY/          # 長庚醫院台北資料
 │   ├── Farglory_O3/      # 遠雄 O3 案場資料
 │   └── kmuh/             # 其他案場資料
 ├── config/                # 配置檔案
 ├── tests/                 # 單元測試
+├── main.py               # CLI 主程式
 ├── etl_ui.py             # Streamlit UI 主程式
 ├── requirements.txt      # Python 依賴套件
 └── start_ui.sh           # 啟動腳本
@@ -36,12 +39,30 @@ bash start_ui.sh
 python3 -m streamlit run etl_ui.py
 ```
 
-### 2. UI 功能
+### 2. 使用 CLI
+
+```bash
+# 解析原始報表
+python main.py parse data/raw/report.csv --output_file data/parsed/report.csv
+
+# 訓練能耗預測模型
+python main.py train data/clean/report.csv --model_output models/energy_model.pkl
+
+# 執行最佳化
+python main.py optimize models/energy_model.pkl '{"chw_pump_hz": 50, "cw_pump_hz": 50, "tower_fan_hz": 50}' '{"load_rt": 500, "temp_db_out": 85}'
+
+# 執行完整流程
+python main.py pipeline data/raw/report.csv
+```
+
+### 3. UI 功能
 
 - **單一檔案模式**: 上傳或選擇單一 CSV 檔案進行分析
 - **批次處理模式**: 選擇多個檔案批次處理並合併
 - **統計資訊**: 數值分佈、平均值、標準差等統計指標
 - **時間序列**: 多變數時間序列視覺化
+- **關聯矩陣**: 變數相關性熱圖與強度分析
+- **資料品質**: 缺失值分析、凍結偵測與品質評分
 - **資料匯出**: CSV / Parquet 格式匯出
 
 ## 📊 資料格式
@@ -53,28 +74,41 @@ python3 -m streamlit run etl_ui.py
 
 ## 🔧 開發狀態
 
-### ✅ Phase 1 - ETL 基礎建設 (95% 完成)
+### ✅ Phase 1 - ETL 基礎建設 (100% 完成)
 - [x] 資料解析器
 - [x] 資料清洗器
 - [x] 批次處理功能
 - [x] 統一 UI 設計
 - [x] 時間序列視覺化
-- [ ] 關聯矩陣熱圖
-- [ ] 資料品質儀表板
+- [x] 濕球溫度計算
+- [x] 凍結資料偵測
+- [x] 關聯矩陣熱圖
+- [x] 資料品質儀表板
 
-### 🔜 Phase 2 - 進階分析
-- [ ] 異常偵測規則
-- [ ] 效能分析指標
-- [ ] 關聯性分析
+### ✅ Phase 2 - 機器學習與最佳化 (100% 完成)
+- [x] XGBoost 能耗預測模型 (目標 MAPE < 5%)
+- [x] SLSQP 最佳化引擎
+- [x] Differential Evolution 全域優化
+- [x] 物理限制驗證（壓差、溫度、頻率）
+- [x] 特徵重要性分析
+- [x] 模型持久化（joblib）
+- [x] CLI 介面
+- [x] 單元測試與整合測試
 
-### 🤖 Phase 3 - 機器學習
-- [ ] 特徵標注系統
+### 🔜 Phase 3 - 進階分析與部署
+- [ ] 熱平衡驗證整合
+- [ ] 親和力定律檢查整合
 - [ ] 異常偵測模型 (Isolation Forest)
-- [ ] 能耗預測 (XGBoost/Random Forest)
+- [ ] Streamlit 最佳化介面
+- [ ] 實時推薦系統
+- [ ] 績效追蹤儀表板
 
 ## 📝 技術棧
 
 - **資料處理**: Polars (高效能)
 - **UI 框架**: Streamlit
 - **視覺化**: Plotly
-- **機器學習**: scikit-learn, XGBoost (Phase 3)
+- **機器學習**: scikit-learn, XGBoost
+- **最佳化**: SciPy (SLSQP, Differential Evolution)
+- **CLI**: Python Fire
+
