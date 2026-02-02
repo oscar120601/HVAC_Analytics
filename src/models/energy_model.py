@@ -35,6 +35,10 @@ class ModelConfig:
     ct_fan_hz_cols: List[str] = None  # Cooling tower fan VFD output
     temp_cols: List[str] = None  # Temperature columns
     
+    # Time feature settings
+    use_time_features: bool = True  # Enable time-based features
+    timestamp_col: str = "timestamp"  # Timestamp column name
+    
     # Target column
     target_col: str = "CH_SYS_TOTAL_KW"
     
@@ -129,6 +133,42 @@ class ChillerEnergyModel:
         
         return available
     
+    def _extract_time_features(self, df: pl.DataFrame) -> pl.DataFrame:
+        """
+        Extract time-based features from the timestamp column.
+        
+        Features extracted:
+        - hour: Hour of day (0-23) - captures daily patterns
+        - month: Month (1-12) - captures seasonal patterns
+        - day_of_week: Day of week (0-6) - captures weekday/weekend patterns
+        - is_weekend: 1 if weekend, 0 otherwise
+        
+        Args:
+            df: Input dataframe with timestamp column
+            
+        Returns:
+            DataFrame with time features added
+        """
+        ts_col = self.config.timestamp_col
+        
+        if ts_col not in df.columns:
+            logger.warning(f"Timestamp column '{ts_col}' not found. Skipping time features.")
+            return df
+        
+        try:
+            # Extract time features
+            df = df.with_columns([
+                pl.col(ts_col).dt.hour().alias("_hour"),
+                pl.col(ts_col).dt.month().alias("_month"),
+                pl.col(ts_col).dt.weekday().alias("_day_of_week"),
+                (pl.col(ts_col).dt.weekday() >= 5).cast(pl.Int32).alias("_is_weekend")
+            ])
+            logger.info("Time features extracted: hour, month, day_of_week, is_weekend")
+            return df
+        except Exception as e:
+            logger.warning(f"Failed to extract time features: {e}")
+            return df
+    
     def prepare_features(self, df: pl.DataFrame) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         """
         Extract features and target from the dataframe.
@@ -139,8 +179,18 @@ class ChillerEnergyModel:
         Returns:
             Tuple of (X features array, y target array or None if target not present)
         """
+        # Extract time features if enabled
+        if self.config.use_time_features:
+            df = self._extract_time_features(df)
+        
         # Get available feature columns
         self.feature_names = self._get_available_features(df)
+        
+        # Add time feature columns if they exist
+        time_feature_cols = ["_hour", "_month", "_day_of_week", "_is_weekend"]
+        for col in time_feature_cols:
+            if col in df.columns:
+                self.feature_names.append(col)
         
         if not self.feature_names:
             raise ValueError("No feature columns found in the dataframe")

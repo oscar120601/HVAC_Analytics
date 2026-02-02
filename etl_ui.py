@@ -14,6 +14,7 @@ from etl.cleaner import DataCleaner
 try:
     from models.energy_model import ChillerEnergyModel
     from optimization.optimizer import ChillerOptimizer, OptimizationContext
+    from optimization.history_tracker import OptimizationHistoryTracker, create_record_from_result
     ML_AVAILABLE = True
 except ImportError:
     ML_AVAILABLE = False
@@ -1176,9 +1177,10 @@ elif processing_mode == "⚡ 最佳化模擬" and ML_AVAILABLE:
             st.success(f"✅ 已載入模型: {selected_model}")
             
             # Create tabs for different functions
-            opt_tab1, opt_tab2, opt_tab3 = st.tabs([
+            opt_tab1, opt_tab2, opt_tab3, opt_tab4 = st.tabs([
                 "🎯 即時最佳化",
                 "📊 特徵重要性",
+                "📈 歷史追蹤",
                 "🔧 模型訓練"
             ])
             
@@ -1268,6 +1270,24 @@ elif processing_mode == "⚡ 最佳化模擬" and ML_AVAILABLE:
                             result = optimizer.optimize_slsqp(context)
                         else:
                             result = optimizer.optimize_global(context, maxiter=50)
+                        
+                        # Store result and context in session state for persistence
+                        st.session_state['last_optimization_result'] = result
+                        st.session_state['last_optimization_context'] = {
+                            'load_rt': load_rt,
+                            'temp_db_out': temp_db_out,
+                            'current_chw_pump_hz': current_chw_pump_hz,
+                            'current_cw_pump_hz': current_cw_pump_hz,
+                            'current_ct_fan_hz': current_ct_fan_hz,
+                            'opt_method': opt_method,
+                            'model_name': selected_model
+                        }
+                        st.session_state['optimization_saved'] = False
+                
+                # Display results if available in session state
+                if 'last_optimization_result' in st.session_state and st.session_state['last_optimization_result'] is not None:
+                    result = st.session_state['last_optimization_result']
+                    ctx = st.session_state.get('last_optimization_context', {})
                     
                     # Display results
                     st.markdown("---")
@@ -1286,7 +1306,11 @@ elif processing_mode == "⚡ 最佳化模擬" and ML_AVAILABLE:
                         import pandas as pd
                         settings_df = pd.DataFrame({
                             '項目': ['冰水泵 (Hz)', '冷卻水泵 (Hz)', '冷卻塔風扇 (Hz)'],
-                            '目前設定': [current_chw_pump_hz, current_cw_pump_hz, current_ct_fan_hz],
+                            '目前設定': [
+                                ctx.get('current_chw_pump_hz', '-'),
+                                ctx.get('current_cw_pump_hz', '-'),
+                                ctx.get('current_ct_fan_hz', '-')
+                            ],
                             '建議設定': [
                                 f"{result.optimal_chw_pump_hz:.1f}",
                                 f"{result.optimal_cw_pump_hz:.1f}",
@@ -1329,8 +1353,46 @@ elif processing_mode == "⚡ 最佳化模擬" and ML_AVAILABLE:
                         for v in result.constraint_violations:
                             st.caption(f"• {v}")
                     
-                    # Store result in session state
-                    st.session_state['last_optimization_result'] = result
+                    # Save result button - only show if not already saved
+                    st.markdown("---")
+                    if not st.session_state.get('optimization_saved', False):
+                        if st.button("💾 儲存此次結果", key="save_optimization_result"):
+                            try:
+                                # Initialize history tracker
+                                history_tracker = OptimizationHistoryTracker()
+                                
+                                # Create current and optimal settings dicts
+                                current_settings = {
+                                    'chw_pump_hz': ctx.get('current_chw_pump_hz', 0),
+                                    'cw_pump_hz': ctx.get('current_cw_pump_hz', 0),
+                                    'tower_fan_hz': ctx.get('current_ct_fan_hz', 0)
+                                }
+                                optimal_settings = {
+                                    'chw_pump_hz': result.optimal_chw_pump_hz,
+                                    'cw_pump_hz': result.optimal_cw_pump_hz,
+                                    'tower_fan_hz': result.optimal_ct_fan_hz
+                                }
+                                
+                                # Create record
+                                record = create_record_from_result(
+                                    model_name=ctx.get('model_name', 'unknown'),
+                                    load_rt=ctx.get('load_rt', 0),
+                                    outdoor_temp=ctx.get('temp_db_out', 0),
+                                    current_settings=current_settings,
+                                    optimal_settings=optimal_settings,
+                                    current_power=result.baseline_power_kw,
+                                    optimal_power=result.predicted_power_kw,
+                                    method="SLSQP" if "SLSQP" in ctx.get('opt_method', '') else "Differential Evolution"
+                                )
+                                
+                                # Save record
+                                history_tracker.add_record(record)
+                                st.session_state['optimization_saved'] = True
+                                st.success("✅ 結果已儲存！可在「📈 歷史追蹤」分頁查看。")
+                            except Exception as e:
+                                st.error(f"儲存失敗: {e}")
+                    else:
+                        st.info("✅ 此次結果已儲存。執行新的最佳化後可再次儲存。")
             
             with opt_tab2:
                 st.subheader("📊 特徵重要性分析")
@@ -1370,6 +1432,105 @@ elif processing_mode == "⚡ 最佳化模擬" and ML_AVAILABLE:
                     st.info("無法取得特徵重要性")
             
             with opt_tab3:
+                st.subheader("📈 最佳化歷史追蹤")
+                st.markdown("追蹤過去的最佳化結果並分析節能趨勢")
+                
+                try:
+                    # Load history
+                    history_tracker = OptimizationHistoryTracker()
+                    records = history_tracker.get_all_records()
+                    stats = history_tracker.get_total_savings()
+                    
+                    if records:
+                        # Summary metrics
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            st.metric("總執行次數", f"{stats['total_runs']} 次")
+                        with col2:
+                            st.metric("累計節省", f"{stats['total_savings_kw']:.1f} kW")
+                        with col3:
+                            st.metric("平均節能率", f"{stats['avg_savings_percent']:.1f}%")
+                        with col4:
+                            st.metric("最高節能率", f"{stats['max_savings_percent']:.1f}%")
+                        
+                        st.markdown("---")
+                        
+                        # Trend chart
+                        import pandas as pd
+                        import plotly.express as px
+                        import plotly.graph_objects as go
+                        
+                        # Prepare data for chart
+                        history_df = pd.DataFrame([{
+                            '時間': r.timestamp[:16].replace('T', ' '),
+                            '節能率 (%)': r.savings_percent,
+                            '節省電力 (kW)': r.savings_kw,
+                            '負載 (RT)': r.load_rt,
+                            '目前能耗 (kW)': r.current_power_kw,
+                            '最佳能耗 (kW)': r.optimal_power_kw
+                        } for r in records])
+                        
+                        # Savings trend chart
+                        fig = go.Figure()
+                        fig.add_trace(go.Scatter(
+                            x=history_df['時間'],
+                            y=history_df['節能率 (%)'],
+                            mode='lines+markers',
+                            name='節能率 (%)',
+                            line=dict(color='#00CC96', width=2),
+                            marker=dict(size=8)
+                        ))
+                        fig.update_layout(
+                            title='節能率趨勢',
+                            xaxis_title='時間',
+                            yaxis_title='節能率 (%)',
+                            height=350
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Power comparison chart
+                        fig2 = go.Figure()
+                        fig2.add_trace(go.Bar(
+                            x=history_df['時間'],
+                            y=history_df['目前能耗 (kW)'],
+                            name='目前能耗',
+                            marker_color='#EF553B'
+                        ))
+                        fig2.add_trace(go.Bar(
+                            x=history_df['時間'],
+                            y=history_df['最佳能耗 (kW)'],
+                            name='最佳能耗',
+                            marker_color='#00CC96'
+                        ))
+                        fig2.update_layout(
+                            title='能耗比較',
+                            xaxis_title='時間',
+                            yaxis_title='能耗 (kW)',
+                            barmode='group',
+                            height=350
+                        )
+                        st.plotly_chart(fig2, use_container_width=True)
+                        
+                        # History table
+                        st.markdown("##### 詳細紀錄")
+                        st.dataframe(
+                            history_df[['時間', '負載 (RT)', '目前能耗 (kW)', '最佳能耗 (kW)', '節省電力 (kW)', '節能率 (%)']],
+                            hide_index=True,
+                            use_container_width=True
+                        )
+                        
+                        # Clear history button
+                        st.markdown("---")
+                        if st.button("🗑️ 清除所有歷史紀錄", type="secondary"):
+                            history_tracker.clear_history()
+                            st.success("已清除所有紀錄")
+                            st.rerun()
+                    else:
+                        st.info("📭 尚無歷史紀錄。請先在「🎯 即時最佳化」分頁執行優化並儲存結果。")
+                except Exception as e:
+                    st.error(f"載入歷史紀錄時發生錯誤: {e}")
+            
+            with opt_tab4:
                 st.subheader("🔧 訓練新模型")
                 st.markdown("使用批次處理後的資料訓練能耗預測模型")
                 

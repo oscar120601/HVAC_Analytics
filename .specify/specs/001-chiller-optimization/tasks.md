@@ -76,9 +76,11 @@
 
 ### Model Performance Summary
 
-| Model | Files | MAPE | R² |
-|-------|-------|------|----|
-| energy_model.joblib | 8 files (Jan 2017) | 4.55% | 0.9406 |
-| energy_model_large.joblib | 50 files (2017-2018) | 14.86% | 0.9598 |
+| Model | Files | MAPE | R² | Notes |
+|-------|-------|------|------|-------|
+| energy_model.joblib | 8 files (Jan 2017) | 4.55% | 0.9406 | Single season |
+| energy_model_large.joblib | 50 files (2017-2018) | 14.86% | 0.9598 | Multi-season |
+| **energy_model_time_features.joblib** | 50 files (2017-2018) | **7.28%** | **0.9788** | ✅ **Best model with time features** |
 
 > Note: MAPE is higher with more diverse data (different seasons), but R² improved showing better generalization.
+> The time-features model uses hour, month, day_of_week, and is_weekend as additional features, reducing MAPE by 51%.
