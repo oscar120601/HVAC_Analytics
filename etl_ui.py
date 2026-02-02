@@ -10,6 +10,14 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 from etl.parser import ReportParser
 from etl.cleaner import DataCleaner
 
+# Try to import ML modules (may not be available if dependencies missing)
+try:
+    from models.energy_model import ChillerEnergyModel
+    from optimization.optimizer import ChillerOptimizer, OptimizationContext
+    ML_AVAILABLE = True
+except ImportError:
+    ML_AVAILABLE = False
+
 # Helper function to get numeric columns for analysis (excluding Date/Time)
 def get_analysis_numeric_cols(df):
     """Get numeric columns suitable for statistical analysis, excluding Date/Time/timestamp."""
@@ -36,10 +44,14 @@ st.markdown("**資料解析與清洗工具** | Chiller Plant Optimization")
 st.sidebar.header("⚙️ 設定")
 
 # Processing mode selection
+mode_options = ["單一檔案", "批次處理（整個資料夾）"]
+if ML_AVAILABLE:
+    mode_options.append("⚡ 最佳化模擬")
+
 processing_mode = st.sidebar.radio(
     "處理模式",
-    ["單一檔案", "批次處理（整個資料夾）"],
-    help="選擇單一檔案或批次處理模式"
+    mode_options,
+    help="選擇單一檔案、批次處理或最佳化模擬模式"
 )
 
 # File selection based on mode
@@ -65,7 +77,9 @@ if processing_mode == "單一檔案":
     else:
         selected_file = None
         st.sidebar.warning("找不到資料目錄")
-else:
+    selected_files = []
+
+elif processing_mode == "批次處理（整個資料夾）":
     # Batch mode
     uploaded_file = None
     selected_file = None
@@ -107,6 +121,36 @@ else:
     else:
         st.sidebar.error("找不到資料目錄")
         selected_files = []
+
+elif processing_mode == "⚡ 最佳化模擬":
+    # Optimization mode
+    uploaded_file = None
+    selected_file = None
+    selected_files = []
+    
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("模型設定")
+    
+    # Model file selection
+    model_dir = Path("models")
+    model_dir.mkdir(exist_ok=True)
+    
+    model_files = list(model_dir.glob("*.joblib"))
+    if model_files:
+        model_file_names = [f.name for f in model_files]
+        selected_model = st.sidebar.selectbox(
+            "選擇已訓練模型",
+            model_file_names
+        )
+    else:
+        selected_model = None
+        st.sidebar.warning("尚未訓練模型")
+        st.sidebar.caption("請先使用批次處理模式訓練模型")
+
+else:
+    uploaded_file = None
+    selected_file = None
+    selected_files = []
 
 # Main content
 # Main content
@@ -499,8 +543,14 @@ if processing_mode == "單一檔案" and (uploaded_file or selected_file):
             st.markdown("---")
             st.subheader("🔍 缺失值分析")
             
+            # Columns to exclude from missing value analysis (Date/Time related)
+            exclude_missing_cols = {'Date', 'Time', 'timestamp', 'date', 'time'}
+            
             missing_data = []
             for col in df.columns:
+                # Skip Date/Time columns
+                if col in exclude_missing_cols:
+                    continue
                 null_count = df[col].null_count()
                 if null_count > 0:
                     null_pct = (null_count / total_rows) * 100
@@ -1095,6 +1145,297 @@ elif processing_mode == "批次處理（整個資料夾）" and selected_files:
                 else:
                     st.warning("沒有可匯出的資料")
 
+elif processing_mode == "⚡ 最佳化模擬" and ML_AVAILABLE:
+    # Optimization Simulation Mode
+    st.header("⚡ 能耗最佳化模擬")
+    st.markdown("**使用訓練好的模型，找出最省電的變頻器設定**")
+    
+    # Check if model is selected
+    if 'selected_model' in dir() and selected_model:
+        model_path = Path("models") / selected_model
+        
+        # Load model
+        @st.cache_resource
+        def load_model(path):
+            return ChillerEnergyModel.load_model(str(path))
+        
+        try:
+            model = load_model(model_path)
+            
+            # Show model info
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                if model.training_metrics:
+                    st.metric("模型 MAPE", f"{model.training_metrics.get('mape', 0):.2f}%")
+            with col2:
+                if model.training_metrics:
+                    st.metric("模型 R²", f"{model.training_metrics.get('r2', 0):.4f}")
+            with col3:
+                st.metric("特徵數量", f"{len(model.feature_names)}")
+            
+            st.success(f"✅ 已載入模型: {selected_model}")
+            
+            # Create tabs for different functions
+            opt_tab1, opt_tab2, opt_tab3 = st.tabs([
+                "🎯 即時最佳化",
+                "📊 特徵重要性",
+                "🔧 模型訓練"
+            ])
+            
+            with opt_tab1:
+                st.subheader("設定當前運轉條件")
+                
+                # Input parameters
+                st.markdown("#### 🏭 負載條件")
+                col1, col2 = st.columns(2)
+                with col1:
+                    load_rt = st.slider(
+                        "冷凍噸負載 (RT)",
+                        min_value=100,
+                        max_value=2000,
+                        value=500,
+                        step=50,
+                        help="當前的冷卻負載"
+                    )
+                with col2:
+                    temp_db_out = st.slider(
+                        "室外乾球溫度 (°C)",
+                        min_value=15.0,
+                        max_value=40.0,
+                        value=30.0,
+                        step=0.5,
+                        help="當前室外溫度"
+                    )
+                
+                st.markdown("#### ⚙️ 當前變頻器設定")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    current_chw_pump_hz = st.slider(
+                        "冰水泵頻率 (Hz)",
+                        min_value=30.0,
+                        max_value=60.0,
+                        value=50.0,
+                        step=1.0,
+                        help="CHP 變頻器輸出"
+                    )
+                with col2:
+                    current_cw_pump_hz = st.slider(
+                        "冷卻水泵頻率 (Hz)",
+                        min_value=30.0,
+                        max_value=60.0,
+                        value=50.0,
+                        step=1.0,
+                        help="CWP 變頻器輸出"
+                    )
+                with col3:
+                    current_ct_fan_hz = st.slider(
+                        "冷卻塔風扇頻率 (Hz)",
+                        min_value=30.0,
+                        max_value=60.0,
+                        value=50.0,
+                        step=1.0,
+                        help="CT 變頻器輸出"
+                    )
+                
+                st.markdown("---")
+                
+                # Optimization options
+                col1, col2 = st.columns(2)
+                with col1:
+                    opt_method = st.radio(
+                        "最佳化方法",
+                        ["SLSQP (快速)", "Differential Evolution (全域)"],
+                        help="SLSQP 適合快速求解，DE 適合尋找全域最佳解"
+                    )
+                
+                # Run optimization button
+                if st.button("🚀 執行最佳化", type="primary", use_container_width=True):
+                    with st.spinner("正在計算最佳設定..."):
+                        # Create context
+                        context = OptimizationContext(
+                            load_rt=load_rt,
+                            temp_db_out=temp_db_out,
+                            current_chw_pump_hz=current_chw_pump_hz,
+                            current_cw_pump_hz=current_cw_pump_hz,
+                            current_ct_fan_hz=current_ct_fan_hz
+                        )
+                        
+                        # Create optimizer
+                        optimizer = ChillerOptimizer(model)
+                        
+                        # Run optimization
+                        if "SLSQP" in opt_method:
+                            result = optimizer.optimize_slsqp(context)
+                        else:
+                            result = optimizer.optimize_global(context, maxiter=50)
+                    
+                    # Display results
+                    st.markdown("---")
+                    st.subheader("📊 最佳化結果")
+                    
+                    if result.success:
+                        st.success("✅ 最佳化成功完成！")
+                    else:
+                        st.warning(f"⚠️ {result.message}")
+                    
+                    # Comparison table
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.markdown("##### 🔧 變頻器設定")
+                        import pandas as pd
+                        settings_df = pd.DataFrame({
+                            '項目': ['冰水泵 (Hz)', '冷卻水泵 (Hz)', '冷卻塔風扇 (Hz)'],
+                            '目前設定': [current_chw_pump_hz, current_cw_pump_hz, current_ct_fan_hz],
+                            '建議設定': [
+                                f"{result.optimal_chw_pump_hz:.1f}",
+                                f"{result.optimal_cw_pump_hz:.1f}",
+                                f"{result.optimal_ct_fan_hz:.1f}"
+                            ]
+                        })
+                        st.dataframe(settings_df, hide_index=True, use_container_width=True)
+                    
+                    with col2:
+                        st.markdown("##### ⚡ 能耗比較")
+                        st.metric(
+                            "目前預估能耗",
+                            f"{result.baseline_power_kw:.1f} kW"
+                        )
+                        st.metric(
+                            "最佳化後能耗",
+                            f"{result.predicted_power_kw:.1f} kW",
+                            delta=f"-{result.savings_kw:.1f} kW" if result.savings_kw > 0 else f"+{-result.savings_kw:.1f} kW",
+                            delta_color="inverse"
+                        )
+                    
+                    with col3:
+                        st.markdown("##### 💰 節能效益")
+                        st.metric(
+                            "節能比例",
+                            f"{result.savings_percent:.1f}%"
+                        )
+                        # Estimate annual savings (assuming 8760 hours/year, $0.1/kWh)
+                        annual_savings = result.savings_kw * 8760 * 3.5  # TWD per kWh
+                        if result.savings_kw > 0:
+                            st.metric(
+                                "預估年節省",
+                                f"NT$ {annual_savings:,.0f}"
+                            )
+                    
+                    # Constraint violations
+                    if result.constraint_violations:
+                        st.markdown("---")
+                        st.warning("⚠️ 限制條件警告")
+                        for v in result.constraint_violations:
+                            st.caption(f"• {v}")
+                    
+                    # Store result in session state
+                    st.session_state['last_optimization_result'] = result
+            
+            with opt_tab2:
+                st.subheader("📊 特徵重要性分析")
+                
+                importance = model.get_feature_importance()
+                
+                if importance:
+                    import pandas as pd
+                    import plotly.express as px
+                    
+                    # Create dataframe
+                    importance_df = pd.DataFrame([
+                        {'特徵': k, '重要性': v}
+                        for k, v in list(importance.items())[:15]
+                    ])
+                    
+                    # Bar chart
+                    fig = px.bar(
+                        importance_df,
+                        x='重要性',
+                        y='特徵',
+                        orientation='h',
+                        title='Top 15 特徵重要性',
+                        labels={'重要性': '重要性分數', '特徵': '特徵名稱'}
+                    )
+                    fig.update_layout(yaxis={'categoryorder': 'total ascending'})
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Table
+                    st.markdown("##### 完整特徵重要性列表")
+                    full_importance_df = pd.DataFrame([
+                        {'排名': i+1, '特徵': k, '重要性': f"{v:.4f}"}
+                        for i, (k, v) in enumerate(importance.items())
+                    ])
+                    st.dataframe(full_importance_df, hide_index=True, use_container_width=True)
+                else:
+                    st.info("無法取得特徵重要性")
+            
+            with opt_tab3:
+                st.subheader("🔧 訓練新模型")
+                st.markdown("使用批次處理後的資料訓練能耗預測模型")
+                
+                # Check if batch data is available
+                if 'df_clean' in st.session_state or 'df_parsed' in st.session_state:
+                    df_for_training = st.session_state.get('df_clean', st.session_state.get('df_parsed'))
+                    
+                    st.info(f"📊 可用資料: {len(df_for_training):,} 筆")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        new_model_name = st.text_input(
+                            "模型名稱",
+                            value=f"model_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                        )
+                    
+                    if st.button("🎓 開始訓練", type="primary"):
+                        with st.spinner("正在訓練模型..."):
+                            try:
+                                new_model = ChillerEnergyModel()
+                                metrics = new_model.train(df_for_training)
+                                
+                                # Save model
+                                model_path = f"models/{new_model_name}.joblib"
+                                new_model.save_model(model_path)
+                                
+                                st.success(f"✅ 訓練完成！")
+                                col1, col2, col3 = st.columns(3)
+                                with col1:
+                                    st.metric("MAPE", f"{metrics['mape']:.2f}%")
+                                with col2:
+                                    st.metric("R²", f"{metrics['r2']:.4f}")
+                                with col3:
+                                    st.metric("RMSE", f"{metrics['rmse']:.2f}")
+                                
+                                st.info(f"💾 模型已儲存至: {model_path}")
+                                st.caption("重新整理頁面即可選擇新模型")
+                                
+                            except Exception as e:
+                                st.error(f"❌ 訓練失敗: {str(e)}")
+                else:
+                    st.warning("請先使用「批次處理」模式載入並清洗資料")
+                    st.caption("1. 切換到「批次處理」模式")
+                    st.caption("2. 選擇檔案並執行批次處理")
+                    st.caption("3. 回到此頁面進行模型訓練")
+        
+        except Exception as e:
+            st.error(f"❌ 載入模型失敗: {str(e)}")
+            import traceback
+            st.code(traceback.format_exc())
+    else:
+        st.warning("👈 請從左側選擇已訓練的模型")
+        st.markdown("""
+        ### 如何開始？
+        
+        #### 方法一：使用現有模型
+        如果已經有訓練好的模型 (`.joblib` 檔案)，請將它放在 `models/` 資料夾中。
+        
+        #### 方法二：訓練新模型
+        1. 切換到「批次處理」模式
+        2. 選擇要用於訓練的資料檔案
+        3. 執行批次處理
+        4. 回到「最佳化模擬」模式
+        5. 在「模型訓練」分頁中訓練新模型
+        """)
+
 else:
     # Welcome screen
     st.info("👈 請從左側上傳檔案或選擇現有資料開始")
@@ -1128,6 +1469,12 @@ else:
     - 一次處理多個檔案
     - 自動合併資料
     - 進度追蹤
+    
+    #### ⚡ 最佳化模擬 (新功能!)
+    - 載入訓練好的能耗預測模型
+    - 調整變頻器參數查看預估能耗
+    - 自動找出最省電的設定組合
+    - 分析特徵重要性
     """)
 
 # Footer

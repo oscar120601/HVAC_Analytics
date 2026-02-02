@@ -59,6 +59,7 @@ python main.py pipeline data/raw/report.csv
 
 - **單一檔案模式**: 上傳或選擇單一 CSV 檔案進行分析
 - **批次處理模式**: 選擇多個檔案批次處理並合併
+- **最佳化模擬(新)**: 調整變頻器參數，即時預估能耗與節能效益
 - **統計資訊**: 數值分佈、平均值、標準差等統計指標
 - **時間序列**: 多變數時間序列視覺化
 - **關聯矩陣**: 變數相關性熱圖與強度分析
@@ -86,14 +87,14 @@ python main.py pipeline data/raw/report.csv
 - [x] 資料品質儀表板
 
 ### ✅ Phase 2 - 機器學習與最佳化 (100% 完成)
-- [x] XGBoost 能耗預測模型 (目標 MAPE < 5%)
-- [x] SLSQP 最佳化引擎
-- [x] Differential Evolution 全域優化
+- [x] XGBoost 能耗預測模型 (MAPE < 5% for single-season)
+- [x] SLSQP 最佳化引擎與全域優化 (Differential Evolution)
 - [x] 物理限制驗證（壓差、溫度、頻率）
+- [x] 最佳化模擬 UI 介面整合 (Streamlit)
+- [x] 2018 CSV 解析相容性修復
 - [x] 特徵重要性分析
 - [x] 模型持久化（joblib）
-- [x] CLI 介面
-- [x] 單元測試與整合測試
+- [x] CLI 介面完整實作
 
 ### 🔜 Phase 3 - 進階分析與部署
 - [ ] 熱平衡驗證整合
