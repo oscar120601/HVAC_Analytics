@@ -58,6 +58,8 @@
 - [x] Streamlit 最佳化模擬 UI 整合
 
 ### 🔜 Phase 4 - 進階功能與部署
+- [x] 歷史最佳化紀錄追蹤 (history_tracker.py)
+- [x] 時間特徵改善模型準確度 (MAPE 14.86% → 7.28%)
 - [ ] 熱平衡驗證整合至 Pipeline
 - [ ] 親和力定律檢查整合至 Pipeline
 
@@ -69,8 +71,14 @@
     - Model training UI
 - [x] Fix 2018 CSV parsing (auto-detect header line)
     - Parser now works with both 2017 (211 metadata lines) and 2018 (221+ metadata lines) formats
+- [x] Add performance tracking over time (history_tracker.py)
+    - Save optimization results to JSON
+    - View history with trend charts
+    - Export historical data
+- [x] Improve model accuracy with time-based features
+    - Added hour, month, day_of_week, is_weekend features
+    - MAPE improved from 14.86% to 7.28% (51% reduction)
 - [ ] Create real-time recommendation dashboard
-- [ ] Add performance tracking over time
 - [ ] Implement automated alerting for constraint violations
 - [ ] Deploy to production environment
 
