@@ -1075,8 +1075,14 @@ elif processing_mode == "批次處理（整個資料夾）" and selected_files:
             st.markdown("---")
             st.subheader("🔍 缺失值分析")
             
+            # Columns to exclude from missing value analysis (Date/Time related)
+            exclude_missing_cols = {'Date', 'Time', 'timestamp', 'date', 'time'}
+            
             missing_data = []
             for col in merged_df.columns:
+                # Skip Date/Time columns
+                if col in exclude_missing_cols:
+                    continue
                 null_count = merged_df[col].null_count()
                 if null_count > 0:
                     null_pct = (null_count / total_rows) * 100

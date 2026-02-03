@@ -90,6 +90,10 @@ class ReportParser:
                 truncate_ragged_lines=True  # Handle lines with extra/missing fields
             )
             
+            # Filter out separator lines (e.g. "**********")
+            if "<>Date" in df.columns:
+                df = df.filter(~pl.col("<>Date").str.starts_with("*"))
+            
             # 4. Clean Column Names
             # Standardize "<>Date" to "Date"
             if "<>Date" in df.columns:
