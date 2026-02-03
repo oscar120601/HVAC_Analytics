@@ -232,9 +232,115 @@ class DataCleaner:
         
         return df
     
-    def clean_data(self, df: pl.DataFrame) -> pl.DataFrame:
+    def detect_steady_state(self, df: pl.DataFrame,
+                             load_col: str = "CH_0_RT",
+                             window_minutes: int = 15,
+                             max_change_pct: float = 5.0) -> pl.DataFrame:
+        """
+        Detect steady state operation based on load stability.
+        
+        Flags rows where load change rate exceeds threshold within the window.
+        Only steady-state data should be used for model training.
+        
+        Args:
+            load_col: Column name for load (RT or kW)
+            window_minutes: Time window for change detection (default 15 min)
+            max_change_pct: Maximum allowed % change to be considered steady (default 5%)
+            
+        Returns:
+            DataFrame with 'is_steady_state' boolean column
+        """
+        if load_col not in df.columns:
+            logger.warning(f"Load column '{load_col}' not found for steady state detection")
+            # Default to True (assume steady) if column missing
+            return df.with_columns(pl.lit(True).alias("is_steady_state"))
+        
+        # Calculate number of rows in window (assuming 5-min intervals)
+        window_size = max(1, window_minutes // 5)
+        
+        # Calculate rolling min and max within window
+        df = df.with_columns([
+            pl.col(load_col).rolling_min(window_size=window_size).alias("_load_min"),
+            pl.col(load_col).rolling_max(window_size=window_size).alias("_load_max"),
+        ])
+        
+        # Calculate change percentage: (max - min) / mean * 100
+        df = df.with_columns(
+            (
+                (pl.col("_load_max") - pl.col("_load_min")) /
+                ((pl.col("_load_max") + pl.col("_load_min")) / 2 + 1e-6) * 100
+            ).alias("_load_change_pct")
+        )
+        
+        # Flag steady state (change < threshold)
+        df = df.with_columns(
+            (pl.col("_load_change_pct") <= max_change_pct)
+            .fill_null(True)
+            .alias("is_steady_state")
+        )
+        
+        # Clean up temporary columns
+        df = df.drop(["_load_min", "_load_max", "_load_change_pct"])
+        
+        steady_count = df.filter(pl.col("is_steady_state")).height
+        total_count = df.height
+        logger.info(f"Steady state detection: {steady_count}/{total_count} rows ({100*steady_count/total_count:.1f}%) are steady")
+        
+        return df
+    
+    def filter_invalid_data(self, df: pl.DataFrame,
+                            remove_heat_balance_invalid: bool = True,
+                            remove_non_steady: bool = True) -> pl.DataFrame:
+        """
+        Filter out invalid data rows based on quality flags.
+        
+        Args:
+            remove_heat_balance_invalid: Remove rows where heat balance check failed
+            remove_non_steady: Remove rows that are not in steady state
+            
+        Returns:
+            Filtered DataFrame
+        """
+        original_count = df.height
+        
+        if remove_heat_balance_invalid and "heat_balance_invalid" in df.columns:
+            before = df.height
+            df = df.filter(~pl.col("heat_balance_invalid").fill_null(False))
+            removed = before - df.height
+            if removed > 0:
+                logger.info(f"Removed {removed} rows with invalid heat balance")
+        
+        if remove_non_steady and "is_steady_state" in df.columns:
+            before = df.height
+            df = df.filter(pl.col("is_steady_state").fill_null(True))
+            removed = before - df.height
+            if removed > 0:
+                logger.info(f"Removed {removed} rows not in steady state")
+        
+        final_count = df.height
+        logger.info(f"Data filtering complete: {original_count} -> {final_count} rows ({100*final_count/original_count:.1f}% retained)")
+        
+        return df
+    
+    def clean_data(self, df: pl.DataFrame, 
+                    apply_heat_balance: bool = False,
+                    apply_steady_state: bool = False,
+                    filter_invalid: bool = False,
+                    load_col: str = "CH_0_RT",
+                    flow_col: str = None,
+                    temp_in_col: str = None,
+                    temp_out_col: str = None) -> pl.DataFrame:
         """
         Main cleaning pipeline orchestrator.
+        
+        Args:
+            apply_heat_balance: Enable heat balance validation
+            apply_steady_state: Enable steady state detection
+            filter_invalid: Remove flagged invalid rows (requires heat_balance or steady_state)
+            load_col: Column name for load (RT) - used for steady state detection
+            flow_col: Column name for flow (GPM/LPM) - used for heat balance
+            temp_in_col: Column name for inlet temperature
+            temp_out_col: Column name for outlet temperature
         """
         logger.info(f"Starting data cleaning pipeline on {df.shape[0]} rows")
         
@@ -245,17 +351,32 @@ class DataCleaner:
         # Step 2: Calculate wet-bulb if possible
         df = self.calculate_wet_bulb_temp(df)
         
-        # Step 3: Detect frozen data on key columns (example)
+        # Step 3: Detect frozen data on key columns
         for col in df.columns:
             if "kw" in col.lower() or "temp" in col.lower():
                 df = self.detect_frozen_data(df, col)
         
-        # Step 4: Heat balance validation (if columns exist)
-        # Note: Column names need to match actual data
-        # df = self.validate_heat_balance(df)
+        # Step 4: Steady state detection
+        if apply_steady_state:
+            df = self.detect_steady_state(df, load_col=load_col)
         
-        # Step 5: Affinity laws validation (if columns exist)
-        # df = self.validate_affinity_laws(df)
+        # Step 5: Heat balance validation
+        if apply_heat_balance and flow_col and temp_in_col and temp_out_col:
+            df = self.validate_heat_balance(
+                df, 
+                flow_col=flow_col,
+                delta_t_col_in=temp_in_col,
+                delta_t_col_out=temp_out_col,
+                rt_col=load_col
+            )
+        
+        # Step 6: Filter invalid data if requested
+        if filter_invalid:
+            df = self.filter_invalid_data(
+                df,
+                remove_heat_balance_invalid=apply_heat_balance,
+                remove_non_steady=apply_steady_state
+            )
         
         logger.info(f"Cleaning pipeline complete: {df.shape[0]} rows, {df.shape[1]} columns")
         return df
