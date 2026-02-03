@@ -1582,20 +1582,154 @@ elif processing_mode == "⚡ 最佳化模擬" and ML_AVAILABLE:
             import traceback
             st.code(traceback.format_exc())
     else:
-        st.warning("👈 請從左側選擇已訓練的模型")
-        st.markdown("""
-        ### 如何開始？
+        st.warning("👈 請從左側選擇已訓練的模型，或使用下方「模型訓練」分頁訓練新模型")
         
-        #### 方法一：使用現有模型
-        如果已經有訓練好的模型 (`.joblib` 檔案)，請將它放在 `models/` 資料夾中。
+        # Still show tabs so user can train a model
+        opt_tab1, opt_tab2, opt_tab3, opt_tab4 = st.tabs([
+            "🎯 即時最佳化",
+            "📊 特徵重要性",
+            "📈 歷史追蹤",
+            "🔧 模型訓練"
+        ])
         
-        #### 方法二：訓練新模型
-        1. 切換到「批次處理」模式
-        2. 選擇要用於訓練的資料檔案
-        3. 執行批次處理
-        4. 回到「最佳化模擬」模式
-        5. 在「模型訓練」分頁中訓練新模型
-        """)
+        with opt_tab1:
+            st.info("請先選擇或訓練模型後才能使用即時最佳化功能")
+            st.markdown("""
+            ### 如何開始？
+            
+            #### 方法一：使用現有模型
+            如果已經有訓練好的模型 (`.joblib` 檔案)，請將它放在 `models/` 資料夾中。
+            
+            #### 方法二：訓練新模型
+            1. 點選上方「🔧 模型訓練」分頁
+            2. 若尚無資料，請先切換到「批次處理」模式載入資料
+            3. 回到此模式後可直接訓練模型
+            """)
+        
+        with opt_tab2:
+            st.info("請先選擇模型才能查看特徵重要性")
+        
+        with opt_tab3:
+            st.subheader("📈 最佳化歷史追蹤")
+            st.markdown("追蹤過去的最佳化結果並分析節能趨勢")
+            
+            try:
+                # Load history
+                history_tracker = OptimizationHistoryTracker()
+                records = history_tracker.get_all_records()
+                stats = history_tracker.get_total_savings()
+                
+                if records:
+                    # Summary metrics
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("總執行次數", f"{stats['total_runs']} 次")
+                    with col2:
+                        st.metric("累計節省", f"{stats['total_savings_kw']:.1f} kW")
+                    with col3:
+                        st.metric("平均節能率", f"{stats['avg_savings_percent']:.1f}%")
+                    with col4:
+                        st.metric("最高節能率", f"{stats['max_savings_percent']:.1f}%")
+                    
+                    st.markdown("---")
+                    
+                    # Prepare data for chart
+                    import pandas as pd
+                    import plotly.graph_objects as go
+                    
+                    history_df = pd.DataFrame([{
+                        '時間': r.timestamp[:16].replace('T', ' '),
+                        '節能率 (%)': r.savings_percent,
+                        '節省電力 (kW)': r.savings_kw,
+                        '負載 (RT)': r.load_rt,
+                        '目前能耗 (kW)': r.current_power_kw,
+                        '最佳能耗 (kW)': r.optimal_power_kw
+                    } for r in records])
+                    
+                    # Savings trend chart
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(
+                        x=history_df['時間'],
+                        y=history_df['節能率 (%)'],
+                        mode='lines+markers',
+                        name='節能率 (%)',
+                        line=dict(color='#00CC96', width=2),
+                        marker=dict(size=8)
+                    ))
+                    fig.update_layout(
+                        title='節能率趨勢',
+                        xaxis_title='時間',
+                        yaxis_title='節能率 (%)',
+                        height=350
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # History table
+                    st.markdown("##### 詳細紀錄")
+                    st.dataframe(
+                        history_df[['時間', '負載 (RT)', '目前能耗 (kW)', '最佳能耗 (kW)', '節省電力 (kW)', '節能率 (%)']],
+                        hide_index=True,
+                        use_container_width=True
+                    )
+                    
+                    # Clear history button
+                    st.markdown("---")
+                    if st.button("🗑️ 清除所有歷史紀錄", type="secondary", key="clear_history_no_model"):
+                        history_tracker.clear_history()
+                        st.success("已清除所有紀錄")
+                        st.rerun()
+                else:
+                    st.info("📭 尚無歷史紀錄。請先訓練模型並執行優化。")
+            except Exception as e:
+                st.error(f"載入歷史紀錄時發生錯誤: {e}")
+        
+        with opt_tab4:
+            st.subheader("🔧 訓練新模型")
+            st.markdown("使用批次處理後的資料訓練能耗預測模型")
+            
+            # Check if batch data is available
+            if 'df_clean' in st.session_state or 'df_parsed' in st.session_state:
+                df_for_training = st.session_state.get('df_clean', st.session_state.get('df_parsed'))
+                
+                st.info(f"📊 可用資料: {len(df_for_training):,} 筆")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    new_model_name = st.text_input(
+                        "模型名稱",
+                        value=f"model_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                        key="new_model_name_no_model"
+                    )
+                
+                if st.button("🎓 開始訓練", type="primary", key="train_no_model"):
+                    with st.spinner("正在訓練模型..."):
+                        try:
+                            new_model = ChillerEnergyModel()
+                            metrics = new_model.train(df_for_training)
+                            
+                            # Save model
+                            model_path = f"models/{new_model_name}.joblib"
+                            new_model.save_model(model_path)
+                            
+                            st.success(f"✅ 訓練完成！")
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("MAPE", f"{metrics['mape']:.2f}%")
+                            with col2:
+                                st.metric("R²", f"{metrics['r2']:.4f}")
+                            with col3:
+                                st.metric("RMSE", f"{metrics['rmse']:.2f}")
+                            
+                            st.info(f"💾 模型已儲存至: {model_path}")
+                            st.caption("重新整理頁面即可選擇新模型")
+                            
+                        except Exception as e:
+                            st.error(f"❌ 訓練失敗: {str(e)}")
+            else:
+                st.warning("請先使用「批次處理」模式載入並清洗資料")
+                st.caption("1. 切換到「批次處理」模式")
+                st.caption("2. 選擇檔案並執行批次處理")
+                st.caption("3. 回到此頁面進行模型訓練")
 
 else:
     # Welcome screen

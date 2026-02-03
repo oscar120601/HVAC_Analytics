@@ -113,6 +113,10 @@ python main.py optimize models/energy_model_time_features.joblib
 3. ✅ **重新訓練模型** - MAPE 從 14.86% 改善到 7.28% (↓51%)
 4. ✅ **更新文件** - tasks.md, README.md
 
+## 📝 今日 (2026-02-03) 完成事項
+
+1. ✅ **改善 UI 體驗** - 在「最佳化模擬」模式中，即使未選擇模型也能顯示分頁，方便直接進行模型訓練
+
 ---
 
 ## 🔗 相關連結
