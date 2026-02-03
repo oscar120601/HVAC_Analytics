@@ -62,7 +62,7 @@
 - [x] 時間特徵改善模型準確度 (MAPE 14.86% → 7.28%)
 - [ ] 熱平衡驗證整合至 Pipeline
 - [ ] 親和力定律檢查整合至 Pipeline
-- [ ] 優化資料清洗策略：修正重採樣邏輯 (KWH 改用 last, 狀態值改用 max)
+- [x] 優化資料清洗策略：修正重採樣邏輯 (KWH 改用 last, 狀態值改用 max)
 
 ## Next Steps (Phase 4: Integration & UI)
 

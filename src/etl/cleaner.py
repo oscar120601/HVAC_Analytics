@@ -45,13 +45,50 @@ class DataCleaner:
         # Ensure timestamp is sorted
         df = df.sort("timestamp")
         
-        # Group by dynamic time windows and take mean
+        # Define aggregation expressions based on column data types
+        # - Cumulative values (KWH): take last() to preserve counter reading
+        # - Status/Fault codes (.S, .F): take max() to capture any activation
+        # - Instantaneous values (KW, Temp, Flow): take mean() for smoothing
+        agg_exprs = []
+        cumulative_cols = []
+        status_cols = []
+        instant_cols = []
+        
+        for col in df.columns:
+            if col == "timestamp":
+                continue
+            
+            col_upper = col.upper()
+            
+            # Cumulative values (KWH) -> take last value to preserve counter
+            if col_upper.endswith("KWH") or col_upper.endswith("_KWH"):
+                agg_exprs.append(pl.col(col).last().alias(col))
+                cumulative_cols.append(col)
+                
+            # Status/Fault codes (.S, .F, _S, _F) -> take max (if active at all in window)
+            elif col_upper.endswith("_S") or col_upper.endswith(".S") or \
+                 col_upper.endswith("_F") or col_upper.endswith(".F") or \
+                 "STATUS" in col_upper or "FAULT" in col_upper:
+                agg_exprs.append(pl.col(col).max().alias(col))
+                status_cols.append(col)
+                
+            # Instantaneous values (KW, Temp, Flow, Hz, etc.) -> take mean
+            else:
+                agg_exprs.append(pl.col(col).mean().alias(col))
+                instant_cols.append(col)
+        
+        # Log aggregation strategy summary
+        if cumulative_cols:
+            logger.info(f"Cumulative cols (last): {len(cumulative_cols)} - e.g., {cumulative_cols[:3]}")
+        if status_cols:
+            logger.info(f"Status cols (max): {len(status_cols)} - e.g., {status_cols[:3]}")
+        logger.info(f"Instantaneous cols (mean): {len(instant_cols)}")
+        
+        # Group by dynamic time windows with smart aggregation
         df_resampled = df.group_by_dynamic(
             "timestamp",
             every=self.resample_interval
-        ).agg([
-            pl.all().exclude("timestamp").mean()
-        ])
+        ).agg(agg_exprs)
         
         logger.info(f"Resampled from {len(df)} to {len(df_resampled)} rows")
         return df_resampled
