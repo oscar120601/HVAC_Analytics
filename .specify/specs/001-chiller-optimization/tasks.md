@@ -62,6 +62,7 @@
 - [x] 時間特徵改善模型準確度 (MAPE 14.86% → 7.28%)
 - [ ] 熱平衡驗證整合至 Pipeline
 - [ ] 親和力定律檢查整合至 Pipeline
+- [ ] 優化資料清洗策略：修正重採樣邏輯 (KWH 改用 last, 狀態值改用 max)
 
 ## Next Steps (Phase 4: Integration & UI)
 
@@ -69,8 +70,10 @@
     - Added "⚡ 最佳化模擬" mode with sliders and real-time optimization
     - Feature importance visualization
     - Model training UI
+    - **Update**: Allowed access to model training tab without pre-selected model (2026-02-03)
 - [x] Fix 2018 CSV parsing (auto-detect header line)
     - Parser now works with both 2017 (211 metadata lines) and 2018 (221+ metadata lines) formats
+    - **Fix**: Filtered out separator lines (`**********`) from parsed data (2026-02-03)
 - [x] Add performance tracking over time (history_tracker.py)
     - Save optimization results to JSON
     - View history with trend charts
@@ -78,6 +81,8 @@
 - [x] Improve model accuracy with time-based features
     - Added hour, month, day_of_week, is_weekend features
     - MAPE improved from 14.86% to 7.28% (51% reduction)
+- [x] Fix Data Quality Dashboard
+    - **Fix**: Excluded Date/Time columns from missing value analysis in batch mode (2026-02-03)
 - [ ] Create real-time recommendation dashboard
 - [ ] Implement automated alerting for constraint violations
 - [ ] Deploy to production environment
