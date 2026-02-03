@@ -87,13 +87,35 @@
 - [ ] Implement automated alerting for constraint violations
 - [ ] Deploy to production environment
 
-### Model Performance Summary
-
-| Model | Files | MAPE | R² | Notes |
-|-------|-------|------|------|-------|
-| energy_model.joblib | 8 files (Jan 2017) | 4.55% | 0.9406 | Single season |
-| energy_model_large.joblib | 50 files (2017-2018) | 14.86% | 0.9598 | Multi-season |
-| **energy_model_time_features.joblib** | 50 files (2017-2018) | **7.28%** | **0.9788** | ✅ **Best model with time features** |
-
-> Note: MAPE is higher with more diverse data (different seasons), but R² improved showing better generalization.
-> The time-features model uses hour, month, day_of_week, and is_weekend as additional features, reducing MAPE by 51%.
+92: ### Phase 5: Domain Expert Refinement (領域專家優化)
+93: 
+94: #### 1. Physics & Feature Engineering
+95: - [ ] **Add Lift & Approach Features**:
+96:     - Lift = $T_{cd\_out} - T_{ch\_out}$
+97:     - Approach = $T_{cd\_out} - T_{cw\_out}$
+98:     - PLR (Part Load Ratio)
+99: - [ ] **Enhance Cooling Tower Modeling**:
+100:     - Range = $T_{cw\_in} - T_{cw\_out}$
+101:     - Approach = $T_{cw\_out} - T_{wb}$
+102: 
+103: #### 2. Data Quality & Filtering
+104: - [ ] **Steady State Detection**: Filter out transient data (e.g., load change < 5% in 15 mins).
+105: - [ ] **Enforce Heat Balance Check**: Discard training data where $|Q_{evap} - Q_{cond}| > 10\%$.
+106: 
+107: #### 3. Control Feasibility & Safety
+108: - [ ] **Minimum Flow Protection**: Convert Hz to GPM and enforce min flow constraint (avoid freezing/fouling).
+109: - [ ] **Anti-Hunting Logic**: Add deadband control (only optimized if savings > threshold).
+110: 
+111: #### 4. Business Value
+112: - [ ] **Cost Optimization**: Switch objective from kW to Cost ($) based on TOU tariffs.
+113: 
+114: ### Model Performance Summary
+115: 
+116: | Model | Files | MAPE | R² | Notes |
+117: |-------|-------|------|------|-------|
+118: | energy_model.joblib | 8 files (Jan 2017) | 4.55% | 0.9406 | Single season |
+119: | energy_model_large.joblib | 50 files (2017-2018) | 14.86% | 0.9598 | Multi-season |
+120: | **energy_model_time_features.joblib** | 50 files (2017-2018) | **7.28%** | **0.9788** | ✅ **Best model with time features** |
+121: 
+122: > Note: MAPE is higher with more diverse data (different seasons), but R² improved showing better generalization.
+123: > The time-features model uses hour, month, day_of_week, and is_weekend as additional features, reducing MAPE by 51%.

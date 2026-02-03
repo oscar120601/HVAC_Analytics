@@ -130,8 +130,10 @@ python main.py optimize models/energy_model_time_features.joblib
 
 ---
 
-## 💡 接續開發建議
-
+## 💡 接續開發建議 (Domain Expert Roadmap)
 1. 優先完成「熱平衡驗證整合」，提升資料可信度
-2. 考慮加入更多時間特徵 (如：節日、上班時間)
-3. 嘗試不同的優化目標 (如：最小化成本而非能耗)
+2. 下一階段重點任務 (Phase 5):
+    *   **物理模型強化**: 加入 Lift (揚程), Approach (趨近溫度), PLR (部分負載率) 等特徵。
+    *   **資料品質提升**: 實作穩態偵測 (Steady State Detection) 與強制熱平衡過濾。
+    *   **控制安全保護**: 增加流量下限保護 (Min Flow GPM) 與防震盪 (Anti-Hunting) 控制。
+    *   **商業價值優化**: 將優化目標從 kW 轉為 Cost ($)，整合時間電價 (TOU) 策略。
