@@ -57,12 +57,30 @@
 - [x] 系統驗證：模型準確度與優化可行性確認
 - [x] Streamlit 最佳化模擬 UI 整合
 
-### 🔜 Phase 4 - 進階功能與部署
+### ✅ Phase 4 - 進階功能與部署 (100% 完成)
 - [x] 歷史最佳化紀錄追蹤 (history_tracker.py)
 - [x] 時間特徵改善模型準確度 (MAPE 14.86% → 7.28%)
 - [x] 熱平衡驗證整合至 Pipeline
-- [ ] 親和力定律檢查整合至 Pipeline
+- [x] 親和力定律檢查整合至 Pipeline ✅ (2026-02-03)
+  - **實現功能**:
+    - `src/etl/cleaner.py`: `validate_affinity_laws()` 方法驗證 Power ∝ Frequency³
+    - `src/etl/cleaner.py`: `_detect_pump_columns()` 自動偵測泵浦欄位
+    - `src/etl/cleaner.py`: `clean_data()` 整合親和力定律檢查參數
+    - `main.py`: CLI `--affinity` 參數支持
+    - `etl_ui.py`: 單一檔案與批次處理模式 UI 支持
+  - **驗證邏輯**: P2/P1 = (f2/f1)³, 偏差 > 20% 標記為異常
 - [x] 優化資料清洗策略：修正重採樣邏輯 (KWH 改用 last, 狀態值改用 max)
+
+### 🔧 批次處理模式優化 (2026-02-03)
+- [x] 添加物理驗證選項至批次處理設定
+  - 穩態檢測、熱平衡驗證、親和力定律檢查、移除無效資料
+- [x] 統一批次處理與單一檔案模式的資料品質儀表板
+  - 新增：缺失值長條圖、資料完整性時間軸、整體品質評分、改善建議
+- [x] 修復批次處理合併時的類型不一致問題
+  - `src/etl/batch_processor.py`: 統一數值欄位類型為 Float64
+  - 保持 timestamp 為 Datetime 類型
+- [x] 修復 `tqdm` 進度條在 Streamlit 環境的相容性問題
+- [x] 修復穩態檢測對非數值類型欄位的處理
 
 ## Next Steps (Phase 4: Integration & UI)
 

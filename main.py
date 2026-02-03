@@ -5,9 +5,17 @@ HVAC Analytics CLI - Command Line Interface.
 Usage:
     python main.py parse <file_path> [--output <output_path>]
     python main.py clean <file_path> [--interval <5m>] [--output <output_path>]
+                        [--affinity] [--steady_state] [--heat_balance] [--filter_invalid]
     python main.py train <data_dir> [--model_output <model_path>] [--files <n>]
     python main.py optimize <model_path> <setpoints_json> <context_json>
     python main.py pipeline <file_path>
+
+Examples:
+    # Basic cleaning
+    python main.py clean data.csv
+    
+    # Advanced cleaning with physics validation
+    python main.py clean data.csv --affinity --steady_state --heat_balance --filter_invalid
 """
 
 import sys
@@ -16,6 +24,7 @@ import logging
 from pathlib import Path
 
 import fire
+import polars as pl
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -62,6 +71,10 @@ class HVACAnalyticsCLI:
         self,
         file_path: str,
         interval: str = "5m",
+        affinity: bool = False,
+        steady_state: bool = False,
+        heat_balance: bool = False,
+        filter_invalid: bool = False,
         output: str = None
     ) -> None:
         """
@@ -70,6 +83,10 @@ class HVACAnalyticsCLI:
         Args:
             file_path: Path to the CSV file
             interval: Resample interval (e.g., "5m", "15m", "1h")
+            affinity: Enable affinity law validation for pumps
+            steady_state: Enable steady state detection
+            heat_balance: Enable heat balance validation
+            filter_invalid: Remove rows that fail validation checks
             output: Optional output path for the cleaned data
         """
         logger.info(f"Parsing and cleaning file: {file_path}")
@@ -80,10 +97,21 @@ class HVACAnalyticsCLI:
         
         # Clean
         cleaner = DataCleaner(resample_interval=interval)
-        df_clean = cleaner.clean_data(df)
+        df_clean = cleaner.clean_data(
+            df,
+            apply_affinity_laws=affinity,
+            apply_steady_state=steady_state,
+            apply_heat_balance=heat_balance,
+            filter_invalid=filter_invalid
+        )
         
+        # Report statistics
         print(f"✅ Cleaned {len(df_clean)} rows, {len(df_clean.columns)} columns")
         print(f"   (Original: {len(df)} rows)")
+        
+        if affinity:
+            invalid_count = df_clean.filter(pl.col("affinity_law_invalid").fill_null(False)).height if "affinity_law_invalid" in df_clean.columns else 0
+            print(f"   Affinity law violations: {invalid_count}")
         
         if output:
             df_clean.write_csv(output)

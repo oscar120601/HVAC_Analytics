@@ -31,6 +31,25 @@ class DataCleaner:
         if "timestamp" not in df.columns:
             raise ValueError("DataFrame must have 'timestamp' column")
         
+        # Ensure timestamp is datetime type
+        if not isinstance(df["timestamp"].dtype, pl.Datetime):
+            logger.warning(f"Timestamp column is {df['timestamp'].dtype}, attempting conversion...")
+            try:
+                # Try to convert from string
+                if df["timestamp"].dtype == pl.Utf8:
+                    df = df.with_columns(
+                        pl.col("timestamp").str.to_datetime().alias("timestamp")
+                    )
+                else:
+                    # Try direct cast
+                    df = df.with_columns(
+                        pl.col("timestamp").cast(pl.Datetime).alias("timestamp")
+                    )
+                logger.info("Successfully converted timestamp to Datetime")
+            except Exception as e:
+                logger.error(f"Failed to convert timestamp column: {e}")
+                raise ValueError(f"Timestamp column must be Datetime type, got {df['timestamp'].dtype}")
+        
         # Filter out rows with null timestamps (group_by_dynamic doesn't support nulls)
         original_len = len(df)
         df = df.filter(pl.col("timestamp").is_not_null())
@@ -255,6 +274,18 @@ class DataCleaner:
             # Default to True (assume steady) if column missing
             return df.with_columns(pl.lit(True).alias("is_steady_state"))
         
+        # Ensure load column is numeric
+        load_dtype = df[load_col].dtype
+        if load_dtype not in (pl.Float64, pl.Float32, pl.Int64, pl.Int32, pl.Int16, pl.Int8):
+            logger.warning(f"Load column '{load_col}' has type {load_dtype}, attempting conversion to Float64")
+            try:
+                df = df.with_columns(
+                    pl.col(load_col).cast(pl.Float64, strict=False).alias(load_col)
+                )
+            except Exception as e:
+                logger.error(f"Failed to convert load column to numeric: {e}")
+                return df.with_columns(pl.lit(True).alias("is_steady_state"))
+        
         # Calculate number of rows in window (assuming 5-min intervals)
         window_size = max(1, window_minutes // 5)
         
@@ -290,13 +321,15 @@ class DataCleaner:
     
     def filter_invalid_data(self, df: pl.DataFrame,
                             remove_heat_balance_invalid: bool = True,
-                            remove_non_steady: bool = True) -> pl.DataFrame:
+                            remove_non_steady: bool = True,
+                            remove_affinity_invalid: bool = True) -> pl.DataFrame:
         """
         Filter out invalid data rows based on quality flags.
         
         Args:
             remove_heat_balance_invalid: Remove rows where heat balance check failed
             remove_non_steady: Remove rows that are not in steady state
+            remove_affinity_invalid: Remove rows where affinity law validation failed
             
         Returns:
             Filtered DataFrame
@@ -317,6 +350,13 @@ class DataCleaner:
             if removed > 0:
                 logger.info(f"Removed {removed} rows not in steady state")
         
+        if remove_affinity_invalid and "affinity_law_invalid" in df.columns:
+            before = df.height
+            df = df.filter(~pl.col("affinity_law_invalid").fill_null(False))
+            removed = before - df.height
+            if removed > 0:
+                logger.info(f"Removed {removed} rows with invalid affinity law")
+        
         final_count = df.height
         logger.info(f"Data filtering complete: {original_count} -> {final_count} rows ({100*final_count/original_count:.1f}% retained)")
         
@@ -325,22 +365,28 @@ class DataCleaner:
     def clean_data(self, df: pl.DataFrame, 
                     apply_heat_balance: bool = False,
                     apply_steady_state: bool = False,
+                    apply_affinity_laws: bool = False,
                     filter_invalid: bool = False,
                     load_col: str = "CH_0_RT",
                     flow_col: str = None,
                     temp_in_col: str = None,
-                    temp_out_col: str = None) -> pl.DataFrame:
+                    temp_out_col: str = None,
+                    pump_freq_col: str = None,
+                    pump_power_col: str = None) -> pl.DataFrame:
         """
         Main cleaning pipeline orchestrator.
         
         Args:
             apply_heat_balance: Enable heat balance validation
             apply_steady_state: Enable steady state detection
-            filter_invalid: Remove flagged invalid rows (requires heat_balance or steady_state)
+            apply_affinity_laws: Enable affinity law validation for pumps
+            filter_invalid: Remove flagged invalid rows (requires heat_balance, steady_state, or affinity_laws)
             load_col: Column name for load (RT) - used for steady state detection
             flow_col: Column name for flow (GPM/LPM) - used for heat balance
             temp_in_col: Column name for inlet temperature
             temp_out_col: Column name for outlet temperature
+            pump_freq_col: Column name for pump frequency (Hz)
+            pump_power_col: Column name for pump power (kW)
         """
         logger.info(f"Starting data cleaning pipeline on {df.shape[0]} rows")
         
@@ -370,16 +416,62 @@ class DataCleaner:
                 rt_col=load_col
             )
         
-        # Step 6: Filter invalid data if requested
+        # Step 6: Affinity law validation
+        if apply_affinity_laws:
+            # Auto-detect pump columns if not specified
+            if pump_freq_col is None or pump_power_col is None:
+                freq_col, power_col = self._detect_pump_columns(df)
+                if freq_col and power_col:
+                    logger.info(f"Auto-detected pump columns: {freq_col}, {power_col}")
+                    df = self.validate_affinity_laws(df, freq_col=freq_col, power_col=power_col)
+                else:
+                    logger.warning("Could not auto-detect pump frequency/power columns for affinity law validation")
+            else:
+                df = self.validate_affinity_laws(df, freq_col=pump_freq_col, power_col=pump_power_col)
+        
+        # Step 7: Filter invalid data if requested
         if filter_invalid:
             df = self.filter_invalid_data(
                 df,
                 remove_heat_balance_invalid=apply_heat_balance,
-                remove_non_steady=apply_steady_state
+                remove_non_steady=apply_steady_state,
+                remove_affinity_invalid=apply_affinity_laws
             )
         
         logger.info(f"Cleaning pipeline complete: {df.shape[0]} rows, {df.shape[1]} columns")
         return df
+    
+    def _detect_pump_columns(self, df: pl.DataFrame) -> tuple:
+        """
+        Auto-detect pump frequency and power columns from DataFrame.
+        
+        Returns:
+            Tuple of (freq_col, power_col) or (None, None) if not found
+        """
+        freq_col = None
+        power_col = None
+        
+        # Common patterns for pump frequency columns
+        freq_patterns = ['pump_freq', 'pump_hz', 'chwp_hz', 'cwp_hz', 'hz', 'frequency']
+        # Common patterns for pump power columns  
+        power_patterns = ['pump_kw', 'chwp_kw', 'cwp_kw', 'pump_power']
+        
+        for col in df.columns:
+            col_lower = col.lower()
+            # Check for frequency column
+            if freq_col is None:
+                for pattern in freq_patterns:
+                    if pattern in col_lower:
+                        freq_col = col
+                        break
+            # Check for power column
+            if power_col is None:
+                for pattern in power_patterns:
+                    if pattern in col_lower:
+                        power_col = col
+                        break
+        
+        return freq_col, power_col
 
 if __name__ == "__main__":
     # Smoke test

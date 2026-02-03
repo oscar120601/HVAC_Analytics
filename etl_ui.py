@@ -226,31 +226,73 @@ if processing_mode == "單一檔案" and (uploaded_file or selected_file):
             
             # Cleaning options
             st.subheader("清洗選項")
-            col1, col2 = st.columns(2)
             
+            # Basic options
+            col1, col2 = st.columns(2)
             with col1:
                 resample_interval = st.selectbox(
                     "重採樣間隔",
                     ["5m", "10m", "15m", "30m", "1h"],
                     index=0
                 )
-            
             with col2:
                 detect_frozen = st.checkbox("檢測凍結資料", value=True)
+            
+            # Physics-based validation options
+            st.subheader("物理驗證選項")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                apply_steady_state = st.checkbox("穩態檢測", value=False, 
+                    help="只保留負載變化小於 5% 的穩態資料")
+            with col2:
+                apply_heat_balance = st.checkbox("熱平衡驗證", value=False,
+                    help="驗證 Q = Flow × ΔT 關係")
+            with col3:
+                apply_affinity = st.checkbox("親和力定律檢查", value=False,
+                    help="驗證泵浦 Power ∝ Frequency³ 關係")
+            
+            # Filter options
+            filter_invalid = st.checkbox("移除無效資料", value=False,
+                help="移除未通過上述驗證的資料列")
             
             if st.button("🧹 開始清洗", type="primary"):
                 try:
                     with st.spinner("正在清洗資料..."):
                         cleaner = DataCleaner(resample_interval=resample_interval)
-                        df_clean = cleaner.clean_data(df_parsed)
+                        df_clean = cleaner.clean_data(
+                            df_parsed,
+                            apply_steady_state=apply_steady_state,
+                            apply_heat_balance=apply_heat_balance,
+                            apply_affinity_laws=apply_affinity,
+                            filter_invalid=filter_invalid
+                        )
                     
                     st.success(f"✅ 清洗完成！")
                     
-                    col1, col2 = st.columns(2)
+                    # Show metrics
+                    col1, col2, col3 = st.columns(3)
                     with col1:
                         st.metric("原始列數", f"{len(df_parsed):,}")
                     with col2:
                         st.metric("清洗後列數", f"{len(df_clean):,}")
+                    with col3:
+                        retention = len(df_clean) / len(df_parsed) * 100 if len(df_parsed) > 0 else 0
+                        st.metric("保留率", f"{retention:.1f}%")
+                    
+                    # Show validation results
+                    validation_results = []
+                    if apply_steady_state and "is_steady_state" in df_clean.columns:
+                        steady_count = df_clean["is_steady_state"].sum()
+                        validation_results.append(f"穩態資料: {steady_count} 筆")
+                    if apply_heat_balance and "heat_balance_invalid" in df_clean.columns:
+                        invalid_count = df_clean["heat_balance_invalid"].sum()
+                        validation_results.append(f"熱平衡異常: {invalid_count} 筆")
+                    if apply_affinity and "affinity_law_invalid" in df_clean.columns:
+                        invalid_count = df_clean["affinity_law_invalid"].sum()
+                        validation_results.append(f"親和力定律異常: {invalid_count} 筆")
+                    
+                    if validation_results:
+                        st.info(" | ".join(validation_results))
                     
                     st.subheader("清洗後資料預覽")
                     st.dataframe(
@@ -615,6 +657,60 @@ if processing_mode == "單一檔案" and (uploaded_file or selected_file):
             else:
                 st.info("尚未執行凍結資料偵測（需先清洗資料）")
             
+            # Physics Validation Status Section
+            st.markdown("---")
+            st.subheader("🔬 物理驗證狀態")
+            
+            validation_cols = st.columns(3)
+            
+            with validation_cols[0]:
+                st.markdown("**📊 穩態檢測**")
+                if 'is_steady_state' in df.columns:
+                    steady_count = df['is_steady_state'].sum()
+                    total_count = len(df)
+                    steady_pct = (steady_count / total_count * 100) if total_count > 0 else 0
+                    st.metric("穩態資料", f"{steady_count:,} ({steady_pct:.1f}%)")
+                    
+                    # Small bar chart
+                    steady_data = {'狀態': ['穩態', '非穩態'], '數量': [steady_count, total_count - steady_count]}
+                    import pandas as pd
+                    st.bar_chart(pd.DataFrame(steady_data).set_index('狀態'))
+                else:
+                    st.caption("未執行穩態檢測")
+            
+            with validation_cols[1]:
+                st.markdown("**🌡️ 熱平衡驗證**")
+                if 'heat_balance_invalid' in df.columns:
+                    invalid_count = df['heat_balance_invalid'].sum()
+                    total_count = len(df)
+                    invalid_pct = (invalid_count / total_count * 100) if total_count > 0 else 0
+                    st.metric("異常資料", f"{invalid_count:,} ({invalid_pct:.1f}%)")
+                    
+                    if invalid_pct > 20:
+                        st.error("🔴 異常比例過高")
+                    elif invalid_pct > 10:
+                        st.warning("🟡 異常比例中等")
+                    else:
+                        st.success("🟢 異常比例正常")
+                else:
+                    st.caption("未執行熱平衡驗證")
+            
+            with validation_cols[2]:
+                st.markdown("**⚡ 親和力定律檢查**")
+                if 'affinity_law_invalid' in df.columns:
+                    invalid_count = df['affinity_law_invalid'].sum()
+                    total_count = len(df)
+                    invalid_pct = (invalid_count / total_count * 100) if total_count > 0 else 0
+                    st.metric("異常資料", f"{invalid_count:,} ({invalid_pct:.1f}%)")
+                    
+                    # Show affinity ratio distribution if available
+                    if 'affinity_ratio' in df.columns:
+                        ratio_data = df['affinity_ratio'].drop_nulls()
+                        if len(ratio_data) > 0:
+                            st.caption(f"比率範圍: {ratio_data.min():.4f} ~ {ratio_data.max():.4f}")
+                else:
+                    st.caption("未執行親和力定律檢查")
+            
             # Data completeness timeline
             if 'timestamp' in df.columns and numeric_cols:
                 st.markdown("---")
@@ -784,16 +880,36 @@ elif processing_mode == "批次處理（整個資料夾）" and selected_files:
                 st.text(f"  • {f}")
     
     # Processing options
+    st.subheader("⚙️ 處理選項")
+    
     col1, col2 = st.columns(2)
     with col1:
         batch_resample = st.selectbox("重採樣間隔", ["5m", "10m", "15m", "30m", "1h"], index=0)
     with col2:
         auto_clean = st.checkbox("自動清洗資料", value=True)
     
+    # Physics-based validation options (only show if auto_clean is enabled)
+    if auto_clean:
+        st.subheader("🔬 物理驗證選項")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            batch_apply_steady_state = st.checkbox("穩態檢測", value=False, 
+                help="只保留負載變化小於 5% 的穩態資料")
+        with col2:
+            batch_apply_heat_balance = st.checkbox("熱平衡驗證", value=False,
+                help="驗證 Q = Flow × ΔT 關係")
+        with col3:
+            batch_apply_affinity = st.checkbox("親和力定律檢查", value=False,
+                help="驗證泵浦 Power ∝ Frequency³ 關係")
+        
+        batch_filter_invalid = st.checkbox("移除無效資料", value=False,
+            help="移除未通過上述驗證的資料列")
+    
     # Start batch processing
     if st.button("🚀 開始批次處理", type="primary"):
         try:
             from etl.batch_processor import BatchProcessor
+            from etl.cleaner import DataCleaner
             
             # Prepare file paths
             file_paths = [str(data_dir / f) for f in selected_files]
@@ -805,8 +921,35 @@ elif processing_mode == "批次處理（整個資料夾）" and selected_files:
             status_text = st.empty()
             status_text.text("正在處理檔案...")
             
-            with st.spinner("處理中..."):
-                merged_df = processor.process_files(file_paths, clean=auto_clean)
+            if auto_clean:
+                # Process files without cleaning first
+                with st.spinner("正在解析檔案..."):
+                    merged_df = processor.process_files(file_paths, clean=False)
+                
+                # Apply advanced cleaning with physics validation
+                status_text.text("正在執行資料清洗與驗證...")
+                with st.spinner("清洗與驗證中..."):
+                    cleaner = DataCleaner(resample_interval=batch_resample)
+                    merged_df = cleaner.clean_data(
+                        merged_df,
+                        apply_steady_state=batch_apply_steady_state if auto_clean else False,
+                        apply_heat_balance=batch_apply_heat_balance if auto_clean else False,
+                        apply_affinity_laws=batch_apply_affinity if auto_clean else False,
+                        filter_invalid=batch_filter_invalid if auto_clean else False
+                    )
+                
+                # Store validation results
+                st.session_state['batch_validation_results'] = {
+                    'steady_state': batch_apply_steady_state if auto_clean else False,
+                    'heat_balance': batch_apply_heat_balance if auto_clean else False,
+                    'affinity_laws': batch_apply_affinity if auto_clean else False,
+                    'filter_invalid': batch_filter_invalid if auto_clean else False
+                }
+            else:
+                with st.spinner("處理中..."):
+                    merged_df = processor.process_files(file_paths, clean=False)
+                
+                st.session_state['batch_validation_results'] = None
             
             status_text.text("處理完成!")
             
@@ -846,6 +989,23 @@ elif processing_mode == "批次處理（整個資料夾）" and selected_files:
         # Show summary
         st.success(f"✅ 成功處理 {batch_file_count} 個檔案")
         
+        # Show validation results if any were applied
+        validation_results = st.session_state.get('batch_validation_results')
+        if validation_results:
+            result_cols = []
+            if validation_results.get('steady_state'):
+                steady_count = merged_df['is_steady_state'].sum() if 'is_steady_state' in merged_df.columns else 0
+                result_cols.append(f"穩態資料: {steady_count} 筆")
+            if validation_results.get('heat_balance'):
+                invalid_count = merged_df['heat_balance_invalid'].sum() if 'heat_balance_invalid' in merged_df.columns else 0
+                result_cols.append(f"熱平衡異常: {invalid_count} 筆")
+            if validation_results.get('affinity_laws'):
+                invalid_count = merged_df['affinity_law_invalid'].sum() if 'affinity_law_invalid' in merged_df.columns else 0
+                result_cols.append(f"親和力定律異常: {invalid_count} 筆")
+            
+            if result_cols:
+                st.info(" | ".join(result_cols))
+        
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("總列數", f"{len(merged_df):,}")
@@ -875,25 +1035,119 @@ elif processing_mode == "批次處理（整個資料夾）" and selected_files:
             st.dataframe(merged_df.head(100).to_pandas(), use_container_width=True)
             st.caption(f"顯示前 100 筆，共 {len(merged_df):,} 筆資料")
         with batch_tab2:
-            st.header("清洗資料狀態")
+            st.header("🧹 資料清洗")
             
-            if auto_clean:
-                st.success("✅ 批次處理時已自動清洗資料")
-                st.markdown("""
-                已執行的清洗步驟：
-                - ✓ 重採樣至固定時間間隔
-                - ✓ 計算濕球溫度
-                - ✓ 偵測凍結資料
-                - ✓ 熱平衡驗證
-                - ✓ 親和力定律檢查
-                """)
+            # Check if we have parsed data to clean
+            if 'df_parsed' in st.session_state:
+                df_to_clean = st.session_state['df_parsed']
+                
+                # Cleaning options
+                st.subheader("清洗選項")
+                
+                # Basic options
+                col1, col2 = st.columns(2)
+                with col1:
+                    batch_clean_resample = st.selectbox(
+                        "重採樣間隔",
+                        ["5m", "10m", "15m", "30m", "1h"],
+                        index=0,
+                        key="batch_clean_resample"
+                    )
+                with col2:
+                    batch_detect_frozen = st.checkbox("檢測凍結資料", value=True, key="batch_detect_frozen")
+                
+                # Physics-based validation options
+                st.subheader("🔬 物理驗證選項")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    batch_reapply_steady_state = st.checkbox("穩態檢測", value=False, 
+                        help="只保留負載變化小於 5% 的穩態資料",
+                        key="batch_reapply_steady")
+                with col2:
+                    batch_reapply_heat_balance = st.checkbox("熱平衡驗證", value=False,
+                        help="驗證 Q = Flow × ΔT 關係",
+                        key="batch_reapply_heat")
+                with col3:
+                    batch_reapply_affinity = st.checkbox("親和力定律檢查", value=False,
+                        help="驗證泵浦 Power ∝ Frequency³ 關係",
+                        key="batch_reapply_affinity")
+                
+                # Filter options
+                batch_refilter_invalid = st.checkbox("移除無效資料", value=False,
+                    help="移除未通過上述驗證的資料列",
+                    key="batch_refilter_invalid")
+                
+                if st.button("🧹 開始清洗", type="primary", key="batch_clean_button"):
+                    try:
+                        with st.spinner("正在清洗資料..."):
+                            cleaner = DataCleaner(resample_interval=batch_clean_resample)
+                            df_cleaned = cleaner.clean_data(
+                                df_to_clean,
+                                apply_steady_state=batch_reapply_steady_state,
+                                apply_heat_balance=batch_reapply_heat_balance,
+                                apply_affinity_laws=batch_reapply_affinity,
+                                filter_invalid=batch_refilter_invalid
+                            )
+                        
+                        st.success(f"✅ 清洗完成！")
+                        
+                        # Show metrics
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("原始列數", f"{len(df_to_clean):,}")
+                        with col2:
+                            st.metric("清洗後列數", f"{len(df_cleaned):,}")
+                        with col3:
+                            retention = len(df_cleaned) / len(df_to_clean) * 100 if len(df_to_clean) > 0 else 0
+                            st.metric("保留率", f"{retention:.1f}%")
+                        
+                        # Show validation results
+                        validation_results = []
+                        if batch_reapply_steady_state and "is_steady_state" in df_cleaned.columns:
+                            steady_count = df_cleaned["is_steady_state"].sum()
+                            validation_results.append(f"穩態資料: {steady_count} 筆")
+                        if batch_reapply_heat_balance and "heat_balance_invalid" in df_cleaned.columns:
+                            invalid_count = df_cleaned["heat_balance_invalid"].sum()
+                            validation_results.append(f"熱平衡異常: {invalid_count} 筆")
+                        if batch_reapply_affinity and "affinity_law_invalid" in df_cleaned.columns:
+                            invalid_count = df_cleaned["affinity_law_invalid"].sum()
+                            validation_results.append(f"親和力定律異常: {invalid_count} 筆")
+                        
+                        if validation_results:
+                            st.info(" | ".join(validation_results))
+                        
+                        # Show frozen data detection
+                        frozen_cols = [col for col in df_cleaned.columns if '_frozen' in col]
+                        if frozen_cols:
+                            st.subheader("⚠️ 凍結資料檢測")
+                            for col in frozen_cols:
+                                frozen_count = df_cleaned[col].sum()
+                                if frozen_count > 0:
+                                    st.warning(f"{col.replace('_frozen', '')}: {frozen_count} 筆凍結資料")
+                        
+                        # Update session state
+                        st.session_state['df_clean'] = df_cleaned
+                        merged_df = df_cleaned  # Update local reference
+                        
+                        st.subheader("清洗後資料預覽")
+                        st.dataframe(
+                            df_cleaned.head(100).to_pandas(),
+                            use_container_width=True,
+                            height=400
+                        )
+                        
+                    except Exception as e:
+                        st.error(f"❌ 清洗錯誤: {str(e)}")
+                        st.exception(e)
+                
+                # Show current cleaning status
+                if auto_clean and not batch_reapply_steady_state and not batch_reapply_heat_balance and not batch_reapply_affinity:
+                    st.markdown("---")
+                    st.success("✅ 批次處理時已自動執行基礎清洗（重採樣、濕球溫度、凍結檢測）")
+                    
             else:
-                st.info("📊 批次處理時未執行清洗，資料為原始合併結果")
-                st.markdown("""
-                如需清洗資料，請：
-                1. 重新執行批次處理
-                2. 勾選「自動清洗資料」選項
-                """)
+                st.error("❌ 沒有可清洗的資料")
+                st.info("請先執行批次處理或載入資料")
             
         with batch_tab3:
             st.subheader("統計資訊")
@@ -1097,8 +1351,206 @@ elif processing_mode == "批次處理（整個資料夾）" and selected_files:
                 import pandas as pd
                 missing_df = pd.DataFrame(missing_data).sort_values('缺失數量', ascending=False)
                 st.dataframe(missing_df, use_container_width=True)
+                
+                # Visualize missing data
+                import plotly.express as px
+                fig = px.bar(
+                    missing_df.head(10),
+                    x='欄位名稱',
+                    y='缺失數量',
+                    title='前 10 個缺失值最多的欄位',
+                    labels={'缺失數量': '缺失數量', '欄位名稱': '欄位'}
+                )
+                fig.update_layout(xaxis_tickangle=45)
+                st.plotly_chart(fig, use_container_width=True)
             else:
                 st.success("✅ 沒有缺失值！")
+            
+            # Physics Validation Status Section
+            st.markdown("---")
+            st.subheader("🔬 物理驗證狀態")
+            
+            validation_cols = st.columns(3)
+            
+            with validation_cols[0]:
+                st.markdown("**📊 穩態檢測**")
+                if 'is_steady_state' in merged_df.columns:
+                    steady_count = merged_df['is_steady_state'].sum()
+                    total_count = len(merged_df)
+                    steady_pct = (steady_count / total_count * 100) if total_count > 0 else 0
+                    st.metric("穩態資料", f"{steady_count:,} ({steady_pct:.1f}%)")
+                    
+                    # Small bar chart
+                    steady_data = {'狀態': ['穩態', '非穩態'], '數量': [steady_count, total_count - steady_count]}
+                    import pandas as pd
+                    st.bar_chart(pd.DataFrame(steady_data).set_index('狀態'))
+                else:
+                    st.caption("未執行穩態檢測")
+            
+            with validation_cols[1]:
+                st.markdown("**🌡️ 熱平衡驗證**")
+                if 'heat_balance_invalid' in merged_df.columns:
+                    invalid_count = merged_df['heat_balance_invalid'].sum()
+                    total_count = len(merged_df)
+                    invalid_pct = (invalid_count / total_count * 100) if total_count > 0 else 0
+                    st.metric("異常資料", f"{invalid_count:,} ({invalid_pct:.1f}%)")
+                    
+                    if invalid_pct > 20:
+                        st.error("🔴 異常比例過高")
+                    elif invalid_pct > 10:
+                        st.warning("🟡 異常比例中等")
+                    else:
+                        st.success("🟢 異常比例正常")
+                else:
+                    st.caption("未執行熱平衡驗證")
+            
+            with validation_cols[2]:
+                st.markdown("**⚡ 親和力定律檢查**")
+                if 'affinity_law_invalid' in merged_df.columns:
+                    invalid_count = merged_df['affinity_law_invalid'].sum()
+                    total_count = len(merged_df)
+                    invalid_pct = (invalid_count / total_count * 100) if total_count > 0 else 0
+                    st.metric("異常資料", f"{invalid_count:,} ({invalid_pct:.1f}%)")
+                    
+                    # Show affinity ratio distribution if available
+                    if 'affinity_ratio' in merged_df.columns:
+                        ratio_data = merged_df['affinity_ratio'].drop_nulls()
+                        if len(ratio_data) > 0:
+                            st.caption(f"比率範圍: {ratio_data.min():.4f} ~ {ratio_data.max():.4f}")
+                else:
+                    st.caption("未執行親和力定律檢查")
+            
+            # Frozen data detection summary
+            st.markdown("---")
+            st.subheader("❄️ 凍結資料檢測")
+            
+            if auto_clean:
+                frozen_cols = [col for col in merged_df.columns if '_frozen' in col]
+                
+                if frozen_cols:
+                    frozen_summary = []
+                    for col in frozen_cols:
+                        original_col = col.replace('_frozen', '')
+                        frozen_count = merged_df[col].sum()
+                        if frozen_count > 0:
+                            frozen_pct = (frozen_count / total_rows) * 100
+                            frozen_summary.append({
+                                '感測器': original_col,
+                                '凍結點數': frozen_count,
+                                '凍結比例': f"{frozen_pct:.2f}%",
+                                '狀態': '🔴 警告' if frozen_pct > 5 else '🟡 注意'
+                            })
+                    
+                    if frozen_summary:
+                        import pandas as pd
+                        frozen_df = pd.DataFrame(frozen_summary).sort_values('凍結點數', ascending=False)
+                        st.dataframe(frozen_df, use_container_width=True)
+                        
+                        st.warning("⚠️ 凍結資料可能表示感測器故障或數據傳輸問題")
+                    else:
+                        st.success("✅ 沒有偵測到凍結資料")
+                else:
+                    st.info("資料中無凍結標記欄位")
+            else:
+                st.info("尚未執行凍結資料偵測（需先清洗資料）")
+            
+            # Data completeness timeline
+            if 'timestamp' in merged_df.columns and numeric_cols:
+                st.markdown("---")
+                st.subheader("📅 資料完整性時間軸")
+                
+                # Select a representative column to check completeness
+                sample_col = st.selectbox(
+                    "選擇欄位檢視完整性",
+                    numeric_cols,
+                    key="batch_completeness_col"
+                )
+                
+                if sample_col:
+                    # Create a binary completeness indicator
+                    timeline_df = merged_df.select(['timestamp', sample_col]).to_pandas()
+                    timeline_df['完整性'] = (~timeline_df[sample_col].isna()).astype(int)
+                    timeline_df = timeline_df.set_index('timestamp')
+                    
+                    import plotly.graph_objects as go
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(
+                        x=timeline_df.index,
+                        y=timeline_df['完整性'],
+                        mode='lines',
+                        fill='tozeroy',
+                        name='資料存在',
+                        line=dict(color='green')
+                    ))
+                    
+                    fig.update_layout(
+                        title=f"{sample_col} 資料完整性時間軸",
+                        xaxis_title="時間",
+                        yaxis_title="資料存在 (1=有, 0=無)",
+                        height=300,
+                        yaxis=dict(tickvals=[0, 1], ticktext=['缺失', '存在'])
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+            
+            # Data quality score
+            st.markdown("---")
+            st.subheader("⭐ 整體品質評分")
+            
+            # Calculate quality score (0-100)
+            quality_score = 100
+            
+            # Deduct points for missing data
+            if missing_data:
+                avg_missing_pct = sum([float(d['缺失比例'].strip('%')) for d in missing_data]) / len(merged_df.columns)
+                quality_score -= min(avg_missing_pct, 30)
+            
+            # Deduct points for frozen data (only if cleaned)
+            if auto_clean:
+                frozen_cols = [col for col in merged_df.columns if '_frozen' in col]
+                if frozen_cols:
+                    frozen_count = sum([merged_df[col].sum() for col in frozen_cols])
+                    frozen_pct = (frozen_count / (total_rows * len(frozen_cols))) * 100 if frozen_cols else 0
+                    quality_score -= min(frozen_pct, 20)
+            
+            quality_score = max(0, quality_score)
+            
+            # Display score with color coding
+            col1, col2, col3 = st.columns([2, 1, 1])
+            with col1:
+                st.metric("資料品質評分", f"{quality_score:.1f}/100")
+            
+            with col2:
+                if quality_score >= 90:
+                    st.success("🟢 優秀")
+                elif quality_score >= 75:
+                    st.info("🔵 良好")
+                elif quality_score >= 60:
+                    st.warning("🟡 尚可")
+                else:
+                    st.error("🔴 需改善")
+            
+            with col3:
+                # Progress bar
+                st.progress(quality_score / 100)
+            
+            # Recommendations
+            if quality_score < 90:
+                st.markdown("---")
+                st.subheader("💡 改善建議")
+                
+                if missing_data and len(missing_data) > 0:
+                    st.markdown("- 檢查缺失比例 > 10% 的欄位，考慮補值或移除")
+                
+                if auto_clean:
+                    frozen_cols = [col for col in merged_df.columns if '_frozen' in col]
+                    if frozen_cols:
+                        frozen_count = sum([merged_df[col].sum() for col in frozen_cols])
+                        if frozen_count > 0:
+                            st.markdown("- 檢查凍結資料的感測器，可能需要維護")
+                
+                st.markdown("- 確認資料收集頻率與預期一致")
+                st.markdown("- 考慮進行異常值偵測與處理")
 
         with batch_tab7:
             st.header("匯出資料")
