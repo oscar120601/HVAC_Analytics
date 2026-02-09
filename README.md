@@ -14,8 +14,10 @@ HVAC_Analytics/
 │   │   └── batch_processor.py  # 批次處理器
 │   ├── models/           # 機器學習模型
 │   │   └── energy_model.py  # XGBoost 能耗預測模型
-│   └── optimization/     # 優化演算法
-│       └── optimizer.py  # SLSQP/DE 最佳化引擎
+│   ├── optimization/     # 優化演算法
+│   │   └── optimizer.py  # SLSQP/DE 最佳化引擎
+│   └── config/           # 配置系統
+│       └── feature_mapping.py  # 特徵映射配置 (V2)
 ├── data/                  # 資料目錄
 │   ├── CGMH-TY/          # 長庚醫院台北資料
 │   ├── Farglory_O3/      # 遠雄 O3 案場資料
@@ -51,15 +53,43 @@ python main.py train data/clean/report.csv --model_output models/energy_model.pk
 # 執行最佳化
 python main.py optimize models/energy_model.pkl '{"chw_pump_hz": 50, "cw_pump_hz": 50, "tower_fan_hz": 50}' '{"load_rt": 500, "temp_db_out": 85}'
 
+# 使用特徵映射訓練
+python main.py train data/CGMH-TY --mapping default
+
 # 執行完整流程
 python main.py pipeline data/raw/report.csv
 ```
 
-### 3. UI 功能
+### 3. 特徵映射配置 (Feature Mapping V2)
+
+批次處理完成後，使用視覺化界面配置特徵映射：
+
+**自動識別**: 系統自動識別 10+ 種特徵類別
+- 🏭 負載 (RT)、💧 冷凍泵 (Hz)、🌊 冷卻泵 (Hz)
+- 🌀 冷卻塔 (Hz)、🌡️ 溫度 (°C)、🌍 環境 (°C/%)
+- 📊 **壓力 (kPa)**、🌊 **流量 (LPM)**、⚡ **耗電 (kW)**、🔘 **狀態**
+
+**手動對應**: 3欄布局手動選擇欄位對應類別
+
+**自定義類別**: 支援新增無限自定義特徵類別
+
+**JSON 匯出**: 儲存配置供日後使用
+
+```bash
+# 使用預設映射
+python main.py train data/CGMH-TY --mapping default
+
+# 使用自定義映射檔案
+python main.py train data/CGMH-TY --mapping my_mapping.json
+```
+
+### 4. UI 功能
 
 - **單一檔案模式**: 上傳或選擇單一 CSV 檔案進行分析
 - **批次處理模式**: 選擇多個檔案批次處理並合併
-- **最佳化模擬(新)**: 調整變頻器參數，即時預估能耗與節能效益
+- **特徵映射配置(新)**: 視覺化配置 10+ 種特徵類別，支援自定義類別
+- **最佳化模擬**: 調整變頻器參數，即時預估能耗與節能效益
+- **模型管理(新)**: 已訓練模型列表管理與刪除功能
 - **統計資訊**: 數值分佈、平均值、標準差等統計指標
 - **時間序列**: 多變數時間序列視覺化
 - **關聯矩陣**: 變數相關性熱圖與強度分析
@@ -103,6 +133,9 @@ python main.py pipeline data/raw/report.csv
 - [x] 熱平衡驗證整合 (CLI & UI)
 - [x] 親和力定律檢查整合 (CLI & UI) ✅ 2026-02-03
 - [x] 批次處理物理驗證選項 (穩態/熱平衡/親和力) ✅ 2026-02-03
+- [x] **Feature Mapping V2** - 支援 10+ 種特徵類別與自定義類別 ✅ 2026-02-09
+- [x] **資料型態修正** - 解決批次處理數字轉字串問題 ✅ 2026-02-09
+- [x] **模型管理** - 已訓練模型刪除功能 ✅ 2026-02-09
 
 ### 🔜 Phase 4 - 未來規劃
 - [ ] 實時推薦系統
