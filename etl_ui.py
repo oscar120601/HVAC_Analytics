@@ -1,6 +1,7 @@
 import streamlit as st
 import polars as pl
 import sys
+import json
 from pathlib import Path
 from datetime import datetime
 
@@ -18,6 +19,16 @@ try:
     ML_AVAILABLE = True
 except ImportError:
     ML_AVAILABLE = False
+
+# Import feature mapping
+try:
+    from config.feature_mapping import FeatureMapping, get_feature_mapping, PREDEFINED_MAPPINGS
+    FEATURE_MAPPING_AVAILABLE = True
+except ImportError:
+    FEATURE_MAPPING_AVAILABLE = False
+    FeatureMapping = None
+    get_feature_mapping = None
+    PREDEFINED_MAPPINGS = {}
 
 # Helper function to get numeric columns for analysis (excluding Date/Time)
 def get_analysis_numeric_cols(df):
@@ -143,6 +154,18 @@ elif processing_mode == "⚡ 最佳化模擬":
             "選擇已訓練模型",
             model_file_names
         )
+        
+        # Delete model button
+        st.sidebar.markdown("---")
+        if st.sidebar.button("🗑️ 刪除選擇的模型", type="secondary"):
+            delete_path = model_dir / selected_model
+            try:
+                delete_path.unlink()
+                st.sidebar.success(f"✅ 已刪除: {selected_model}")
+                st.sidebar.caption("請重新整理頁面")
+                selected_model = None
+            except Exception as e:
+                st.sidebar.error(f"❌ 刪除失敗: {e}")
     else:
         selected_model = None
         st.sidebar.warning("尚未訓練模型")
@@ -1015,6 +1038,234 @@ elif processing_mode == "批次處理（整個資料夾）" and selected_files:
             if 'timestamp' in merged_df.columns:
                 time_range = merged_df['timestamp'].max() - merged_df['timestamp'].min()
                 st.metric("時間範圍", str(time_range))
+        
+        st.markdown("---")
+        
+        # Feature Mapping Configuration Section (V2 - Dynamic Categories)
+        st.header("🗺️ 特徵映射配置 (Feature Mapping)")
+        st.caption("將資料欄位對應到模型特徵類別，支援10+種類型與自定義類別")
+        
+        # Get available columns (exclude timestamp)
+        available_cols = [c for c in merged_df.columns if c != 'timestamp']
+        
+        # Initialize session state for batch feature mapping if not exists
+        if 'batch_feature_mapping' not in st.session_state:
+            st.session_state.batch_feature_mapping = None
+        
+        # Configuration mode selection
+        mapping_config_mode = st.radio(
+            "配置方式",
+            ["自動識別 (Auto-detect)", "手動對應 (Manual Mapping)"],
+            horizontal=True,
+            help="選擇自動根據欄位名稱識別，或手動指定每個欄位的類別"
+        )
+        
+        if mapping_config_mode == "自動識別 (Auto-detect)":
+            # Auto-create mapping from column names (V2 with all 10+ categories)
+            if st.button("🤖 執行自動識別", type="primary"):
+                with st.spinner("正在分析欄位名稱..."):
+                    auto_mapping = FeatureMapping.create_from_dataframe(available_cols)
+                    st.session_state.batch_feature_mapping = auto_mapping
+                    st.success(f"✅ 自動識別完成！識別到 {len(auto_mapping.get_all_categories())} 個類別")
+        
+        else:
+            # Manual mapping mode with dynamic categories
+            st.info("請在下方下拉式選單中，為每個欄位選擇適當的特徵類別")
+            
+            # Get all standard categories
+            from config.feature_mapping import STANDARD_CATEGORIES
+            
+            # Build category selectors dynamically
+            category_cols = st.columns(3)
+            manual_selections = {}
+            
+            # Standard categories to show (order matters for UI layout)
+            standard_cat_order = [
+                'load', 'chw_pump', 'cw_pump', 'ct_fan',
+                'temperature', 'environment', 'pressure', 'flow', 'power', 'status'
+            ]
+            
+            col_idx = 0
+            for cat_id in standard_cat_order:
+                if cat_id not in STANDARD_CATEGORIES:
+                    continue
+                    
+                meta = STANDARD_CATEGORIES[cat_id]
+                
+                # Auto-detect default columns based on patterns
+                defaults = []
+                for col in available_cols:
+                    col_upper = col.upper()
+                    if all(p.upper() in col_upper for p in meta.get('pattern', [cat_id.upper()])):
+                        if not any(exclude in col_upper for exclude in ['FROZEN', 'FLAG']):
+                            defaults.append(col)
+                
+                with category_cols[col_idx % 3]:
+                    st.markdown(f"**{meta['icon']} {meta['name']}**")
+                    st.caption(f"{meta['description']} ({meta['unit']})")
+                    
+                    manual_selections[cat_id] = st.multiselect(
+                        f"選擇{meta['name']}欄位",
+                        options=available_cols,
+                        default=defaults,
+                        key=f"manual_{cat_id}",
+                        label_visibility="collapsed"
+                    )
+                
+                col_idx += 1
+            
+            # Target variable selection
+            st.markdown("---")
+            st.markdown("**🎯 目標變數 (Target Variable)**")
+            target_candidates = [c for c in available_cols if 'TOTAL' in c.upper() and 'KW' in c.upper()]
+            if not target_candidates:
+                target_candidates = [c for c in available_cols if c.upper().endswith('_KW')]
+            if not target_candidates:
+                target_candidates = available_cols
+            
+            target_selection = st.selectbox(
+                "選擇目標欄位 (總耗電量 kW)",
+                options=available_cols,
+                index=available_cols.index(target_candidates[0]) if target_candidates else 0,
+                key="manual_target"
+            )
+            
+            # Custom category addition
+            st.markdown("---")
+            with st.expander("➕ 新增自定義類別 (Add Custom Category)"):
+                st.caption("如果需要的類別不在上方列表中，可以在此新增")
+                
+                custom_cat_id = st.text_input(
+                    "類別代碼 (英文，如: valve, pressure2)",
+                    key="custom_cat_id"
+                )
+                custom_cat_name = st.text_input(
+                    "類別名稱 (如: 閥門開度, 備用壓力)",
+                    key="custom_cat_name"
+                )
+                custom_cat_icon = st.selectbox(
+                    "圖示",
+                    options=["📦", "🔧", "📡", "⚙️", "🔩", "🔗", "📎", "🏷️"],
+                    key="custom_cat_icon"
+                )
+                custom_cat_unit = st.text_input(
+                    "單位 (如: %, kPa, m/s)",
+                    key="custom_cat_unit"
+                )
+                custom_cat_cols = st.multiselect(
+                    "選擇欄位",
+                    options=available_cols,
+                    key="custom_cat_cols"
+                )
+                
+                if st.button("新增自定義類別", type="secondary"):
+                    if custom_cat_id and custom_cat_name and custom_cat_cols:
+                        if 'custom_categories' not in st.session_state:
+                            st.session_state.custom_categories = {}
+                        
+                        st.session_state.custom_categories[custom_cat_id] = {
+                            'columns': custom_cat_cols,
+                            'name': custom_cat_name,
+                            'icon': custom_cat_icon,
+                            'unit': custom_cat_unit
+                        }
+                        st.success(f"✅ 已新增類別: {custom_cat_name}")
+                        st.rerun()
+            
+            # Save manual configuration
+            if st.button("💾 儲存手動配置", type="primary"):
+                manual_mapping = FeatureMapping(
+                    load_cols=manual_selections.get('load', []),
+                    chw_pump_hz_cols=manual_selections.get('chw_pump', []),
+                    cw_pump_hz_cols=manual_selections.get('cw_pump', []),
+                    ct_fan_hz_cols=manual_selections.get('ct_fan', []),
+                    temp_cols=manual_selections.get('temperature', []),
+                    env_cols=manual_selections.get('environment', []),
+                    target_col=target_selection
+                )
+                
+                # Add custom categories if any
+                if 'custom_categories' in st.session_state:
+                    for cat_id, cat_data in st.session_state.custom_categories.items():
+                        manual_mapping.add_custom_category(
+                            category_id=cat_id,
+                            columns=cat_data['columns'],
+                            name=cat_data['name'],
+                            icon=cat_data['icon'],
+                            unit=cat_data['unit']
+                        )
+                
+                # Add detected custom categories (pressure, flow, power, status)
+                for cat_id in ['pressure', 'flow', 'power', 'status']:
+                    if cat_id in manual_selections and manual_selections[cat_id]:
+                        manual_mapping.set_category_columns(cat_id, manual_selections[cat_id])
+                
+                st.session_state.batch_feature_mapping = manual_mapping
+                st.success(f"✅ 手動配置已儲存！共 {len(manual_mapping.get_all_feature_cols())} 個特徵")
+        
+        # Display current mapping (works for both auto and manual)
+        if st.session_state.batch_feature_mapping:
+            with st.expander("📋 查看/編輯當前映射", expanded=True):
+                mapping = st.session_state.batch_feature_mapping
+                
+                # Get all categories dynamically
+                all_categories = mapping.get_all_categories()
+                
+                # Summary metrics - dynamic columns based on detected categories
+                if all_categories:
+                    cat_cols = st.columns(min(len(all_categories) + 1, 8))  # +1 for target
+                    
+                    col_idx = 0
+                    for cat_id, cols in all_categories.items():
+                        if cols and col_idx < len(cat_cols):
+                            info = mapping.get_category_info(cat_id)
+                            with cat_cols[col_idx]:
+                                st.metric(info['name'].split('(')[0].strip(), len(cols))
+                            col_idx += 1
+                    
+                    # Target column
+                    if col_idx < len(cat_cols):
+                        with cat_cols[col_idx]:
+                            st.metric("目標", "1")
+                
+                # Show all assigned columns dynamically
+                st.markdown("**詳細對應：**")
+                
+                # Group categories into columns for display
+                display_cols = st.columns(2)
+                cat_list = list(all_categories.items())
+                mid = (len(cat_list) + 1) // 2
+                
+                for idx, (cat_id, cols) in enumerate(cat_list):
+                    if cols:
+                        info = mapping.get_category_info(cat_id)
+                        with display_cols[0 if idx < mid else 1]:
+                            st.markdown(f"• **{info['icon']} {info['name']}**: {', '.join(cols[:5])}{'...' if len(cols) > 5 else ''}")
+                
+                # Target
+                with display_cols[1]:
+                    st.markdown(f"• **🎯 目標**: {mapping.target_col}")
+                
+                # Validation
+                validation = mapping.validate_against_dataframe(merged_df.columns)
+                if validation['missing_required']:
+                    st.error(f"❌ 缺少必要欄位: {validation['missing_required']}")
+                elif validation['missing_optional']:
+                    st.warning(f"⚠️ 缺少可選欄位: {validation['missing_optional']}")
+                else:
+                    st.success("✅ 所有映射欄位都存在於資料中")
+                
+                # Export option
+                col1, col2 = st.columns([1, 3])
+                with col1:
+                    if st.button("📥 匯出 JSON"):
+                        json_str = json.dumps(mapping.to_dict(), indent=2, ensure_ascii=False)
+                        st.download_button(
+                            label="下載",
+                            data=json_str,
+                            file_name="feature_mapping.json",
+                            mime="application/json"
+                        )
         
         st.markdown("---")
         st.info("📊 **資料已載入！** 請使用下方標籤頁分析合併後的資料")
@@ -1989,6 +2240,53 @@ elif processing_mode == "⚡ 最佳化模擬" and ML_AVAILABLE:
                     st.error(f"載入歷史紀錄時發生錯誤: {e}")
             
             with opt_tab4:
+                # Model Management Section
+                st.subheader("🗂️ 模型管理")
+                st.markdown("管理已訓練的模型檔案")
+                
+                model_dir = Path("models")
+                if model_dir.exists():
+                    model_files = sorted(model_dir.glob("*.joblib"), key=lambda x: x.stat().st_mtime, reverse=True)
+                    
+                    if model_files:
+                        st.write(f"**已找到 {len(model_files)} 個模型：**")
+                        
+                        # Create a table of models
+                        model_data = []
+                        for mf in model_files:
+                            stat = mf.stat()
+                            size_mb = stat.st_size / (1024 * 1024)
+                            mod_time = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
+                            model_data.append({
+                                "模型名稱": mf.name,
+                                "大小": f"{size_mb:.1f} MB",
+                                "建立時間": mod_time
+                            })
+                        
+                        st.dataframe(model_data, use_container_width=True, hide_index=True)
+                        
+                        # Delete model selection
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            model_to_delete = st.selectbox(
+                                "選擇要刪除的模型",
+                                [f.name for f in model_files],
+                                key="delete_model_select"
+                            )
+                        with col2:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            if st.button("🗑️ 刪除模型", type="secondary"):
+                                try:
+                                    delete_path = model_dir / model_to_delete
+                                    delete_path.unlink()
+                                    st.success(f"✅ 已刪除: {model_to_delete}")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"❌ 刪除失敗: {e}")
+                    else:
+                        st.info("📭 尚未有任何模型檔案")
+                
+                st.markdown("---")
                 st.subheader("🔧 訓練新模型")
                 st.markdown("使用批次處理後的資料訓練能耗預測模型")
                 
@@ -2008,7 +2306,33 @@ elif processing_mode == "⚡ 最佳化模擬" and ML_AVAILABLE:
                     if st.button("🎓 開始訓練", type="primary"):
                         with st.spinner("正在訓練模型..."):
                             try:
-                                new_model = ChillerEnergyModel()
+                                # Pre-training diagnostics
+                                st.write("📋 **訓練前診斷:**")
+                                st.write(f"- 資料形狀: {df_for_training.shape}")
+                                
+                                # Check required columns
+                                from models.energy_model import ModelConfig
+                                config = ModelConfig()
+                                required_cols = [config.target_col] + config.load_cols + config.chw_pump_hz_cols + config.cw_pump_hz_cols + config.ct_fan_hz_cols + config.temp_cols
+                                
+                                missing = [c for c in required_cols if c not in df_for_training.columns]
+                                if missing:
+                                    st.error(f"❌ 缺少必要欄位: {missing}")
+                                else:
+                                    st.success(f"✅ 所有 {len(required_cols)} 個必要欄位都存在")
+                                
+                                # Check target column
+                                if config.target_col in df_for_training.columns:
+                                    target_valid = df_for_training[config.target_col].drop_nulls().len()
+                                    st.write(f"- 目標欄位 ({config.target_col}): {target_valid}/{len(df_for_training)} 有效")
+                                
+                                # Use feature mapping from UI if available
+                                if 'current_feature_mapping' in st.session_state and st.session_state.current_feature_mapping:
+                                    new_model = ChillerEnergyModel(feature_mapping=st.session_state.current_feature_mapping)
+                                    st.info(f"📋 使用 Feature Mapping: {len(st.session_state.current_feature_mapping.get_all_feature_cols())} 個特徵")
+                                else:
+                                    new_model = ChillerEnergyModel()
+                                
                                 metrics = new_model.train(df_for_training)
                                 
                                 # Save model
@@ -2142,6 +2466,53 @@ elif processing_mode == "⚡ 最佳化模擬" and ML_AVAILABLE:
                 st.error(f"載入歷史紀錄時發生錯誤: {e}")
         
         with opt_tab4:
+            # Model Management Section (when no model selected)
+            st.subheader("🗂️ 模型管理")
+            st.markdown("管理已訓練的模型檔案")
+            
+            model_dir = Path("models")
+            if model_dir.exists():
+                model_files = sorted(model_dir.glob("*.joblib"), key=lambda x: x.stat().st_mtime, reverse=True)
+                
+                if model_files:
+                    st.write(f"**已找到 {len(model_files)} 個模型：**")
+                    
+                    # Create a table of models
+                    model_data = []
+                    for mf in model_files:
+                        stat = mf.stat()
+                        size_mb = stat.st_size / (1024 * 1024)
+                        mod_time = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
+                        model_data.append({
+                            "模型名稱": mf.name,
+                            "大小": f"{size_mb:.1f} MB",
+                            "建立時間": mod_time
+                        })
+                    
+                    st.dataframe(model_data, use_container_width=True, hide_index=True)
+                    
+                    # Delete model selection
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        model_to_delete = st.selectbox(
+                            "選擇要刪除的模型",
+                            [f.name for f in model_files],
+                            key="delete_model_select_no_model"
+                        )
+                    with col2:
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        if st.button("🗑️ 刪除模型", type="secondary", key="delete_btn_no_model"):
+                            try:
+                                delete_path = model_dir / model_to_delete
+                                delete_path.unlink()
+                                st.success(f"✅ 已刪除: {model_to_delete}")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ 刪除失敗: {e}")
+                else:
+                    st.info("📭 尚未有任何模型檔案")
+            
+            st.markdown("---")
             st.subheader("🔧 訓練新模型")
             st.markdown("使用批次處理後的資料訓練能耗預測模型")
             
@@ -2162,7 +2533,33 @@ elif processing_mode == "⚡ 最佳化模擬" and ML_AVAILABLE:
                 if st.button("🎓 開始訓練", type="primary", key="train_no_model"):
                     with st.spinner("正在訓練模型..."):
                         try:
-                            new_model = ChillerEnergyModel()
+                            # Pre-training diagnostics
+                            st.write("📋 **訓練前診斷:**")
+                            st.write(f"- 資料形狀: {df_for_training.shape}")
+                            
+                            # Check required columns
+                            from models.energy_model import ModelConfig
+                            config = ModelConfig()
+                            required_cols = [config.target_col] + config.load_cols + config.chw_pump_hz_cols + config.cw_pump_hz_cols + config.ct_fan_hz_cols + config.temp_cols
+                            
+                            missing = [c for c in required_cols if c not in df_for_training.columns]
+                            if missing:
+                                st.error(f"❌ 缺少必要欄位: {missing}")
+                            else:
+                                st.success(f"✅ 所有 {len(required_cols)} 個必要欄位都存在")
+                            
+                            # Check target column
+                            if config.target_col in df_for_training.columns:
+                                target_valid = df_for_training[config.target_col].drop_nulls().len()
+                                st.write(f"- 目標欄位 ({config.target_col}): {target_valid}/{len(df_for_training)} 有效")
+                            
+                            # Use feature mapping from UI if available
+                            if 'current_feature_mapping' in st.session_state and st.session_state.current_feature_mapping:
+                                new_model = ChillerEnergyModel(feature_mapping=st.session_state.current_feature_mapping)
+                                st.info(f"📋 使用 Feature Mapping: {len(st.session_state.current_feature_mapping.get_all_feature_cols())} 個特徵")
+                            else:
+                                new_model = ChillerEnergyModel()
+                            
                             metrics = new_model.train(df_for_training)
                             
                             # Save model

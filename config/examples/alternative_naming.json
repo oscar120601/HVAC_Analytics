@@ -1,0 +1,43 @@
+{
+  "_comment": "替代命名規則範例 - 如果你的案場使用不同的監控點命名",
+  
+  "load_cols": [
+    "CHILLER_01_LOAD",
+    "CHILLER_02_LOAD",
+    "CHILLER_03_LOAD"
+  ],
+  
+  "chw_pump_hz_cols": [
+    "CHWP_01_SPEED",
+    "CHWP_02_SPEED",
+    "CHWP_03_SPEED"
+  ],
+  
+  "cw_pump_hz_cols": [
+    "CWP_01_SPEED",
+    "CWP_02_SPEED",
+    "CWP_03_SPEED"
+  ],
+  
+  "ct_fan_hz_cols": [
+    "CTFAN_01_SPEED",
+    "CTFAN_02_SPEED",
+    "CTFAN_03_SPEED"
+  ],
+  
+  "temp_cols": [
+    "CHILLED_WATER_SUPPLY_TEMP",
+    "CHILLED_WATER_RETURN_TEMP",
+    "CONDENSER_WATER_SUPPLY_TEMP",
+    "CONDENSER_WATER_RETURN_TEMP"
+  ],
+  
+  "target_col": "TOTAL_POWER_CONSUMPTION",
+  
+  "custom_features": {
+    "pressure_cols": [
+      "CHW_PRESSURE",
+      "CW_PRESSURE"
+    ]
+  }
+}

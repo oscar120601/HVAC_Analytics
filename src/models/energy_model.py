@@ -10,7 +10,7 @@ import numpy as np
 import logging
 import joblib
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List, Tuple, Optional, Any, Union
 from dataclasses import dataclass
 
 try:
@@ -21,19 +21,35 @@ except ImportError:
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error, r2_score
 
+# Import feature mapping system
+try:
+    from config.feature_mapping import FeatureMapping, get_feature_mapping
+except ImportError:
+    # Handle when running from different contexts
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from config.feature_mapping import FeatureMapping, get_feature_mapping
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class ModelConfig:
-    """Configuration for the energy model."""
+    """
+    Configuration for the energy model.
+    
+    Can be initialized with either:
+    1. Individual column lists (legacy mode)
+    2. A FeatureMapping object (recommended)
+    """
     # Feature column patterns
     load_cols: List[str] = None  # RT columns
     chw_pump_hz_cols: List[str] = None  # Chilled water pump VFD output
     cw_pump_hz_cols: List[str] = None  # Cooling water pump VFD output
     ct_fan_hz_cols: List[str] = None  # Cooling tower fan VFD output
     temp_cols: List[str] = None  # Temperature columns
+    env_cols: List[str] = None  # Environment columns (OAT, OAH, WBT)
     
     # Time feature settings
     use_time_features: bool = True  # Enable time-based features
@@ -48,7 +64,22 @@ class ModelConfig:
     learning_rate: float = 0.1
     random_state: int = 42
     
+    # NEW: Feature mapping (preferred way to configure)
+    feature_mapping: Optional[FeatureMapping] = None
+    
     def __post_init__(self):
+        # If feature_mapping is provided, use it to populate column lists
+        if self.feature_mapping is not None:
+            self.load_cols = self.feature_mapping.load_cols
+            self.chw_pump_hz_cols = self.feature_mapping.chw_pump_hz_cols
+            self.cw_pump_hz_cols = self.feature_mapping.cw_pump_hz_cols
+            self.ct_fan_hz_cols = self.feature_mapping.ct_fan_hz_cols
+            self.temp_cols = self.feature_mapping.temp_cols
+            self.env_cols = getattr(self.feature_mapping, 'env_cols', [])
+            self.target_col = self.feature_mapping.target_col
+            return
+        
+        # Legacy: use default values if not provided
         if self.load_cols is None:
             self.load_cols = ["CH_0_RT", "CH_1_RT", "CH_2_RT", "CH_3_RT"]
         if self.chw_pump_hz_cols is None:
@@ -71,6 +102,37 @@ class ModelConfig:
                 "CH_0_SWT", "CH_0_RWT",
                 "CW_SYS_SWT", "CW_SYS_RWT"
             ]
+        if self.env_cols is None:
+            self.env_cols = [
+                "CT_SYS_OAT",   # 外氣溫度
+                "CT_SYS_OAH",   # 外氣濕度
+                "CT_SYS_WBT"    # 外氣濕球溫度
+            ]
+    
+    @classmethod
+    def from_mapping(cls, mapping: Union[str, FeatureMapping], **kwargs) -> "ModelConfig":
+        """
+        Create ModelConfig from a FeatureMapping.
+        
+        Args:
+            mapping: Either a FeatureMapping object, or a string (name/path)
+            **kwargs: Additional config parameters (n_estimators, max_depth, etc.)
+        
+        Example:
+            # From predefined mapping
+            config = ModelConfig.from_mapping("cgmh_ty")
+            
+            # From custom JSON file
+            config = ModelConfig.from_mapping("my_mapping.json")
+            
+            # From FeatureMapping object
+            mapping = FeatureMapping(...)
+            config = ModelConfig.from_mapping(mapping)
+        """
+        if isinstance(mapping, str):
+            mapping = get_feature_mapping(mapping)
+        
+        return cls(feature_mapping=mapping, **kwargs)
 
 
 class ChillerEnergyModel:
@@ -85,17 +147,47 @@ class ChillerEnergyModel:
     Target metric: MAPE < 5%
     """
     
-    def __init__(self, config: Optional[ModelConfig] = None):
+    def __init__(
+        self,
+        config: Optional[ModelConfig] = None,
+        feature_mapping: Optional[Union[str, FeatureMapping]] = None
+    ):
         """
         Initialize the energy model.
         
         Args:
             config: Model configuration. If None, uses default config.
+            feature_mapping: Optional feature mapping (string name/path or FeatureMapping object).
+                           If provided and config is None, creates config from mapping.
+        
+        Examples:
+            # Default configuration
+            model = ChillerEnergyModel()
+            
+            # With custom config
+            config = ModelConfig(n_estimators=200)
+            model = ChillerEnergyModel(config)
+            
+            # With predefined mapping
+            model = ChillerEnergyModel(feature_mapping="cgmh_ty")
+            
+            # With custom mapping file
+            model = ChillerEnergyModel(feature_mapping="my_mapping.json")
+            
+            # With FeatureMapping object
+            mapping = FeatureMapping(load_cols=["CH_0_RT"], ...)
+            model = ChillerEnergyModel(feature_mapping=mapping)
         """
         if XGBRegressor is None:
             raise ImportError("xgboost is required. Install with: pip install xgboost")
         
+        # Handle feature_mapping parameter
+        if feature_mapping is not None and config is None:
+            config = ModelConfig.from_mapping(feature_mapping)
+        
         self.config = config or ModelConfig()
+        self.feature_mapping = self.config.feature_mapping
+        
         self.model = XGBRegressor(
             n_estimators=self.config.n_estimators,
             max_depth=self.config.max_depth,
@@ -122,7 +214,8 @@ class ChillerEnergyModel:
             self.config.chw_pump_hz_cols +
             self.config.cw_pump_hz_cols +
             self.config.ct_fan_hz_cols +
-            self.config.temp_cols
+            self.config.temp_cols +
+            self.config.env_cols
         )
         
         available = [col for col in all_feature_cols if col in df.columns]
@@ -235,7 +328,21 @@ class ChillerEnergyModel:
         logger.info(f"Training data: {len(X_clean)} samples ({len(X) - len(X_clean)} removed due to NaN)")
         
         if len(X_clean) < 10:
-            raise ValueError("Not enough valid samples for training")
+            # Provide detailed diagnostics
+            nan_per_col = np.isnan(X).sum(axis=0)
+            nan_cols = [(self.feature_names[i], int(nan_per_col[i])) 
+                        for i in range(len(nan_per_col)) if nan_per_col[i] > 0]
+            nan_cols_sorted = sorted(nan_cols, key=lambda x: x[1], reverse=True)[:5]
+            
+            y_nans = int(np.isnan(y).sum()) if y is not None else 0
+            
+            error_msg = (
+                f"Not enough valid samples for training. "
+                f"Only {len(X_clean)} samples remain after NaN removal (need >= 10). "
+                f"Total samples: {len(X)}, NaN in target: {y_nans}. "
+                f"Top NaN columns: {nan_cols_sorted}"
+            )
+            raise ValueError(error_msg)
         
         # Split data
         X_train, X_test, y_train, y_test = train_test_split(

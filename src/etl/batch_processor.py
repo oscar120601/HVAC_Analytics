@@ -94,7 +94,7 @@ class BatchProcessor:
                     all_columns[col] = set()
                 all_columns[col].add(df[col].dtype)
         
-        # Determine target types: if any column has non-integer numeric types, use Float64
+        # Determine target types: prioritize numeric types over strings
         # Skip timestamp column - keep it as Datetime
         target_types = {}
         for col, types in all_columns.items():
@@ -104,14 +104,21 @@ class BatchProcessor:
             
             # Check if any type is Float64 or Utf8 (string)
             has_float = any('Float' in str(t) for t in types)
+            has_int = any('Int' in str(t) for t in types)
             has_string = pl.Utf8 in types
             
-            if has_string:
-                target_types[col] = pl.Utf8
-            elif has_float:
+            # PRIORITY: Numeric types take precedence over strings
+            # If any file has this column as Float, use Float64
+            # If any file has this column as Int (but not Float), use Float64 for safety
+            # Only keep as string if NO numeric types are found
+            if has_float:
                 target_types[col] = pl.Float64
+            elif has_int:
+                target_types[col] = pl.Float64  # Convert Int to Float64 for consistency
+            elif has_string:
+                target_types[col] = pl.Utf8  # Only string if no numeric types found
             else:
-                target_types[col] = pl.Int64  # Default to Int64 for pure integer columns
+                target_types[col] = pl.Float64  # Default to Float64 for unknown types
         
         logger.info(f"Target schema: {len(target_types)} columns")
         
@@ -154,6 +161,27 @@ class BatchProcessor:
             merged_df = merged_df.sort("timestamp")
             # Remove duplicate timestamps (keep first occurrence)
             merged_df = merged_df.unique(subset=["timestamp"], keep="first")
+        
+        # FINAL TYPE ENFORCEMENT: Ensure all numeric columns are Float64
+        # This handles cases where string values like "334.0" need to be converted to 334.0
+        logger.info("Enforcing numeric types on all non-timestamp columns...")
+        numeric_columns = [col for col in merged_df.columns if col != 'timestamp']
+        
+        for col in numeric_columns:
+            current_type = merged_df[col].dtype
+            if current_type != pl.Float64:
+                try:
+                    # Cast to Float64, invalid values become null
+                    merged_df = merged_df.with_columns(
+                        pl.col(col).cast(pl.Float64, strict=False)
+                    )
+                    logger.debug(f"Final cast {col} from {current_type} to Float64")
+                except Exception as e:
+                    logger.warning(f"Could not cast {col} to Float64: {e}")
+        
+        # Log final schema summary
+        float_count = sum(1 for col in numeric_columns if merged_df[col].dtype == pl.Float64)
+        logger.info(f"Final schema: {float_count}/{len(numeric_columns)} columns are Float64")
         
         logger.info(f"Batch processing complete: {len(merged_df)} total rows")
         

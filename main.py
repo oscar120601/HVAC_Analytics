@@ -33,6 +33,7 @@ from etl.parser import ReportParser
 from etl.cleaner import DataCleaner
 from etl.batch_processor import BatchProcessor
 from models.energy_model import ChillerEnergyModel
+from config.feature_mapping import FeatureMapping, get_feature_mapping
 from optimization.optimizer import ChillerOptimizer, OptimizationContext
 
 logging.basicConfig(
@@ -121,7 +122,8 @@ class HVACAnalyticsCLI:
         self,
         data_dir: str,
         model_output: str = "models/energy_model.joblib",
-        files: int = None
+        files: int = None,
+        mapping: str = None
     ) -> None:
         """
         Train the energy prediction model.
@@ -130,7 +132,8 @@ class HVACAnalyticsCLI:
             data_dir: Directory containing CSV files
             model_output: Path to save the trained model
             files: Number of files to use (default: all)
-        """
+            mapping: Feature mapping to use (name or JSON path).
+                    Examples: "default", "cgmh_ty", "config/my_mapping.json"
         data_path = Path(data_dir)
         if not data_path.exists():
             print(f"❌ Directory not found: {data_dir}")
@@ -153,8 +156,12 @@ class HVACAnalyticsCLI:
         
         print(f"📊 Total data: {len(df)} rows, {len(df.columns)} columns")
         
-        # Train model
-        model = ChillerEnergyModel()
+        # Train model with optional feature mapping
+        if mapping:
+            print(f"📋 Using feature mapping: {mapping}")
+            model = ChillerEnergyModel(feature_mapping=mapping)
+        else:
+            model = ChillerEnergyModel()
         
         try:
             metrics = model.train(df)
@@ -247,6 +254,70 @@ class HVACAnalyticsCLI:
             print(f"\n⚠️ Constraint violations:")
             for v in result.constraint_violations:
                 print(f"   - {v}")
+    
+    def discover_features(self, file_path: str, output: str = None) -> None:
+        """
+        Discover feature columns from a CSV file and generate mapping config.
+        
+        Args:
+            file_path: Path to a sample CSV file
+            output: Optional path to save the generated mapping JSON
+        
+        Example:
+            python main.py discover_features data/sample.csv --output my_mapping.json
+        """
+        import polars as pl
+        
+        logger.info(f"Analyzing file: {file_path}")
+        
+        # Read file
+        try:
+            df = pl.read_csv(file_path)
+        except Exception as e:
+            print(f"❌ Failed to read file: {e}")
+            return
+        
+        columns = [c for c in df.columns if c != "timestamp"]
+        
+        print(f"\n📊 Found {len(columns)} columns in file:")
+        print(f"\n   Columns: {', '.join(columns[:10])}{'...' if len(columns) > 10 else ''}")
+        
+        # Auto-create mapping
+        mapping = FeatureMapping.create_from_dataframe(columns)
+        
+        # Validate against dataframe
+        validation = mapping.validate_against_dataframe(df.columns)
+        
+        print(f"\n✅ Generated mapping:")
+        print(f"   Load (RT): {len(mapping.load_cols)} columns")
+        print(f"   CHW Pumps: {len(mapping.chw_pump_hz_cols)} columns")
+        print(f"   CW Pumps: {len(mapping.cw_pump_hz_cols)} columns")
+        print(f"   CT Fans: {len(mapping.ct_fan_hz_cols)} columns")
+        print(f"   Temperatures: {len(mapping.temp_cols)} columns")
+        print(f"   Target: {mapping.target_col}")
+        
+        print(f"\n📈 Validation results:")
+        print(f"   Matched: {len(validation['matched'])} columns")
+        if validation['missing_optional']:
+            print(f"   Missing (optional): {validation['missing_optional']}")
+        if validation['missing_required']:
+            print(f"   ⚠️ Missing (required): {validation['missing_required']}")
+        if validation['available_in_df']:
+            print(f"   Unmapped columns: {len(validation['available_in_df'])}")
+            print(f"      {validation['available_in_df'][:5]}{'...' if len(validation['available_in_df']) > 5 else ''}")
+        
+        # Print the actual mapping
+        print(f"\n📋 Detailed mapping:")
+        print(f"   Load cols: {mapping.load_cols}")
+        print(f"   CHW Pump cols: {mapping.chw_pump_hz_cols}")
+        print(f"   CW Pump cols: {mapping.cw_pump_hz_cols}")
+        print(f"   CT Fan cols: {mapping.ct_fan_hz_cols}")
+        print(f"   Temp cols: {mapping.temp_cols}")
+        
+        if output:
+            mapping.save(output)
+            print(f"\n💾 Mapping saved to: {output}")
+            print(f"\n   Use it with: python main.py train data/ --mapping {output}")
     
     def pipeline(self, file_path: str) -> None:
         """
