@@ -106,12 +106,23 @@ def _render_parse_tab(selected_files: List[str]):
                 file_paths = [str(data_dir / f) for f in selected_files]
                 
                 parser = ReportParser()
-                merged_df = parser.merge_files(file_paths)
+                
+                # Parse each file and merge
+                dfs = []
+                for i, fp in enumerate(file_paths):
+                    df = parser.parse_file(fp)
+                    dfs.append(df)
+                
+                # Merge all dataframes
+                if len(dfs) == 1:
+                    merged_df = dfs[0]
+                else:
+                    merged_df = pl.concat(dfs, how='vertical_relaxed')
                 
                 st.session_state['batch_merged_df'] = merged_df
                 st.session_state['batch_file_count'] = len(selected_files)
                 
-                st.success(f"✅ 成功解析並合併 {len(selected_files)} 個檔案")
+                st.success(f"✅ 成功解析並合併 {len(selected_files)} 個檔案，共 {len(merged_df):,} 筆資料")
                 st.rerun()
                 
         except Exception as e:
