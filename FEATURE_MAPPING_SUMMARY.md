@@ -1,153 +1,275 @@
-# Feature Mapping 總結與擴展指南
+# Feature Mapping V3 總結與擴展指南
 
-## 問題一：為什麼是7種類型？
+## 概述
 
-### 答案：物理模型驅動設計
-
-這7種類型對應**冰水主機系統的關鍵設備群組**：
-
-| # | 類型 | 設備 | 為什麼需要？ |
-|---|------|------|------------|
-| 1 | **負載** | 冷凍機 | 能耗的主要驅動力 |
-| 2 | **冷凍泵** | CHW Pumps | 可優化的能耗設備 |
-| 3 | **冷卻泵** | CW Pumps | 可優化的能耗設備 |
-| 4 | **冷卻塔** | CT Fans | 可優化的能耗設備 |
-| 5 | **溫度** | 溫度感測器 | 熱力學狀態變數 |
-| 6 | **環境** | 外氣監測 | 外部擾動因素 |
-| 7 | **目標** | 總電表 | 模型預測目標 |
-
-這是**專為冰水主機優化問題設計**的最小完備集合。
+Feature Mapping V3 是 HVAC Analytics 專案的**物理系統層級特徵分類架構**，專為 HVAC 冰水主機系統的精細化分析與優化設計。
 
 ---
 
-## 問題二：可以增加更多類型嗎？
+## 為什麼升級到 V3？
 
-### 答案：當然可以！
+### 版本演進
 
-我建立了 **Feature Mapping V2** (`src/config/feature_mapping_v2.py`)，支援：
+| 版本 | 類別數 | 組織方式 | 主要特點 |
+|-----|-------|---------|---------|
+| **V1** | 7種 | 功能導向 | 基礎能耗預測 |
+| **V2** | 10種 | 功能導向 | 擴展監測點（壓力、流量、耗電）|
+| **V3** | **13種** | **物理系統分組** | **HVAC 物理架構對應 + 萬用字元模式** |
 
-### 內建10種標準類型
+### V3 核心優勢
 
-原有7種 + 新增3種：
-- **pressure** - 壓力 (kPa)
-- **flow** - 流量 (LPM/GPM)  
-- **power** - 設備耗電 (kW)
+1. **🏗️ 物理系統分組**：按 HVAC 實際架構組織，符合工程思維
+2. **🔍 精確定位**：快速識別哪個子系統（冰水側/冷卻水側/冷卻水塔）異常
+3. **🎯 分層優化**：針對特定設備群組進行最佳化控制
+4. **✨ 萬用字元模式**：使用 `*` 和 `?` 批量匹配大量欄位
+5. **📊 靈活 Target**：支援總用電、COP、kW/RT 等多種預測目標
 
-### 無限制自定義類型
+---
 
-```python
-from src.config.feature_mapping_v2 import FeatureMapping
+## 物理系統架構圖
 
-mapping = FeatureMapping()
-
-# 新增任意類型
-mapping.add_custom_category(
-    category_id="valve",              # 唯一ID
-    columns=["VALVE_01", "VALVE_02"], # 欄位列表
-    name="閥門開度",                   # 顯示名稱
-    icon="🔧",                        # UI圖示
-    unit="%",                         # 單位
-    description="控制閥門開度"         # 描述
-)
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          HVAC 冰水主機系統 V3 架構                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                    ❄️ 冰水側系統 (Chilled Water Side)                │   │
+│  │                              6 個類別                                │   │
+│  ├─────────────────────────────────────────────────────────────────────┤   │
+│  │                                                                     │   │
+│  │   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐             │   │
+│  │   │   chiller    │  │  chw_pump    │  │   scp_pump   │             │   │
+│  │   │   冰水機 ❄️   │  │  冰水泵 💧    │  │  區域泵 🔄    │             │   │
+│  │   │              │  │              │  │              │             │   │
+│  │   │ CH_*_RT      │  │ CHP_*_VFD    │  │ SCP_*_VFD    │             │   │
+│  │   │ CH_*_KW      │  │ CHP_*_KW     │  │ SCP_*_KW     │             │   │
+│  │   └──────────────┘  └──────────────┘  └──────────────┘             │   │
+│  │                                                                     │   │
+│  │   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐             │   │
+│  │   │   chw_temp   │  │ chw_pressure │  │   chw_flow   │             │   │
+│  │   │  冰水溫度 🌡️  │  │  冰水壓力 📊  │  │  冰水流量 🌊  │             │   │
+│  │   │              │  │              │  │              │             │   │
+│  │   │ CH_*_SWT     │  │ CHW_S_PRESS  │  │   CHW_FLOW   │             │   │
+│  │   │ CH_*_RWT     │  │ CHW_R_PRESS  │  │              │             │   │
+│  │   └──────────────┘  └──────────────┘  └──────────────┘             │   │
+│  │                                                                     │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                    │                                        │
+│                                    ▼                                        │
+│                           ┌────────────────┐                               │
+│                           │   蒸發器/冷凝器   │                               │
+│                           │ (Evaporator/    │                               │
+│                           │  Condenser)     │                               │
+│                           └────────────────┘                               │
+│                                    │                                        │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                    🔥 冷卻水側系統 (Condenser Water Side)            │   │
+│  │                              4 個類別                                │   │
+│  ├─────────────────────────────────────────────────────────────────────┤   │
+│  │                                                                     │   │
+│  │   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐             │   │
+│  │   │   cw_pump    │  │   cw_temp    │  │ cw_pressure  │             │   │
+│  │   │ 冷卻水泵 🔥   │  │ 冷卻水溫 🌡️  │  │ 冷卻水壓 📊   │             │   │
+│  │   │              │  │              │  │              │             │   │
+│  │   │ CWP_*_VFD    │  │ CW_*_SWT     │  │ CW_S_PRESS   │             │   │
+│  │   │ CWP_*_KW     │  │ CW_*_RWT     │  │ CW_R_PRESS   │             │   │
+│  │   └──────────────┘  └──────────────┘  └──────────────┘             │   │
+│  │                                                                     │   │
+│  │   ┌──────────────┐                                                 │   │
+│  │   │   cw_flow    │                                                 │   │
+│  │   │ 冷卻水流 🌊   │                                                 │   │
+│  │   │   CW_FLOW    │                                                 │   │
+│  │   └──────────────┘                                                 │   │
+│  │                                                                     │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                    │                                        │
+│                                    ▼                                        │
+│                           ┌────────────────┐                               │
+│  ┌────────────────────────┤ 🏭 冷卻水塔系統  ├────────────────────────────┐ │
+│  │                        │(Cooling Tower) │                            │ │
+│  │                        └────────────────┘                            │ │
+│  │  🏭 cooling_tower - 冷卻水塔                                          │ │
+│  │  CT_*_VFD_OUT, CT_*_KW, CT_APPROACH                                  │ │
+│  │                                                                      │ │
+│  └──────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  🌍 環境參數 (Environment)           │  ⚡🎯 系統層級 (System Level)  │   │
+│  │  CT_SYS_OAT/OAH/WBT                  │  CH_SYS_TOTAL_KW               │   │
+│  │  外氣溫濕度/濕球溫度                  │  SYS_COP / SYS_KW_RT           │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 常見擴展類型建議
+## 13 個標準類別完整對照表
 
-| 類型ID | 名稱 | 適用情境 | 單位 |
-|--------|------|---------|------|
-| `valve` | 閥門開度 | 有控制閥門 | % |
-| `damper` | 風門開度 | 空調箱系統 | % |
-| `fan_speed` | 風機轉速 | 送風機 | Hz/RPM |
-| `level` | 水位 | 冷卻水塔水槽 | %/m |
-| `vibration` | 振動 | 設備監測 | mm/s |
-| `status` | 狀態 | 設備開關 | ON/OFF |
+### ❄️ 冰水側系統 (Chilled Water Side)
+
+| # | 類別 ID | 名稱 | 圖示 | 物理意義 | 典型欄位 | 單位 |
+|---|---------|------|-----|---------|---------|------|
+| 1 | `chiller` | 冰水機 | ❄️ | 製冷能力與運行功率 | `CH_*_RT`, `CH_*_KW` | RT, kW |
+| 2 | `chw_pump` | 冰水泵 | 💧 | 一次側循環泵 | `CHP_*_VFD`, `CHP_*_KW` | Hz, kW |
+| 3 | `scp_pump` | 區域泵/二次泵 | 🔄 | 二次側/區域循環泵 | `SCP_*_VFD`, `SCP_*_KW` | Hz, kW |
+| 4 | `chw_temp` | 冰水溫度 | 🌡️ | 供水/回水溫度 | `CH_*_SWT`, `CH_*_RWT` | °C |
+| 5 | `chw_pressure` | 冰水壓力 | 📊 | 供水/回水壓力 | `CHW_*PRESSURE` | kPa |
+| 6 | `chw_flow` | 冰水流量 | 🌊 | 循環水流量 | `CHW_*FLOW*` | LPM |
+
+### 🔥 冷卻水側系統 (Condenser Water Side)
+
+| # | 類別 ID | 名稱 | 圖示 | 物理意義 | 典型欄位 | 單位 |
+|---|---------|------|-----|---------|---------|------|
+| 7 | `cw_pump` | 冷卻水泵 | 🔥 | 冷卻水循環泵 | `CWP_*_VFD`, `CWP_*_KW` | Hz, kW |
+| 8 | `cw_temp` | 冷卻水溫度 | 🌡️ | 供水/回水溫度 | `CW_*_SWT`, `CW_*_RWT` | °C |
+| 9 | `cw_pressure` | 冷卻水壓力 | 📊 | 供水/回水壓力 | `CW_*PRESSURE` | kPa |
+| 10 | `cw_flow` | 冷卻水流量 | 🌊 | 循環水流量 | `CW_*FLOW*` | LPM |
+
+### 🏭 冷卻水塔系統 (Cooling Tower)
+
+| # | 類別 ID | 名稱 | 圖示 | 物理意義 | 典型欄位 | 單位 |
+|---|---------|------|-----|---------|---------|------|
+| 11 | `cooling_tower` | 冷卻水塔 | 🏭 | 風扇與散熱 | `CT_*_VFD`, `CT_*_KW` | Hz, kW |
+
+### 🌍 環境參數 (Environment)
+
+| # | 類別 ID | 名稱 | 圖示 | 物理意義 | 典型欄位 | 單位 |
+|---|---------|------|-----|---------|---------|------|
+| 12 | `environment` | 環境參數 | 🌍 | 外氣條件 | `*_OAT`, `*_OAH`, `*_WBT` | °C, % |
+
+### ⚡🎯 系統層級 (System Level)
+
+| # | 類別 ID | 名稱 | 圖示 | 物理意義 | 典型欄位 | 單位 |
+|---|---------|------|-----|---------|---------|------|
+| 13 | `system_level` | 系統效率指標 | ⚡🎯 | 總效能指標 | `*_TOTAL_KW`, `*COP*` | kW, - |
 
 ---
 
-## 如何使用 V2？
+## 萬用字元模式快速參考
 
-### 1. 自動識別（含新類型）
+### 語法說明
 
-```python
-mapping = FeatureMapping.create_from_dataframe(
-    df_columns=your_columns,
-    auto_patterns={
-        "pressure": ("壓力", ["PRESSURE", "PSI", "KPA"]),
-        "valve": ("閥門", ["VALVE", "DAMPER"])
-    }
-)
-```
+| 符號 | 名稱 | 功能 | 範例 |
+|-----|------|------|------|
+| `*` | 星號 | 匹配任意字元序列（0個或多個） | `CH_*_RT` → `CH_0_RT`, `CH_10_RT` |
+| `?` | 問號 | 匹配單一任意字元 | `CH?_RT` → `CH0_RT`, `CH1_RT` |
+| `,` | 逗號 | 分隔多個模式 | `CH_*_RT, CH_*_KW` |
 
-### 2. 手動新增自定義類型
+### 常用萬用字元規則範例
 
 ```python
-mapping.add_custom_category(
-    category_id="my_custom_type",
-    columns=["COL1", "COL2"],
-    name="我的自定義類型",
-    icon="📦",
-    unit="unit",
-    description="描述"
-)
+# 建議的萬用字元配置模板
+WILDCARD_TEMPLATES = {
+    # ❄️ 冰水側系統
+    "chiller": ["CH_*_RT", "CH_*_KW", "CHILLER_*_KW"],
+    "chw_pump": ["CHP_*_VFD*", "CHP_*_HZ*", "CHP_*_KW"],
+    "scp_pump": ["SCP_*_VFD*", "SCP_*_HZ*", "SCP_*_KW", "SECONDARY_*_VFD*"],
+    "chw_temp": ["CH_*_SWT", "CH_*_RWT", "CHW_*_TEMP*"],
+    "chw_pressure": ["CHW_*PRESSURE*", "CHW_*PRESS*"],
+    "chw_flow": ["CHW_*FLOW*", "CHW_*LPM*"],
+    
+    # 🔥 冷卻水側系統
+    "cw_pump": ["CWP_*_VFD*", "CWP_*_HZ*", "CWP_*_KW"],
+    "cw_temp": ["CW_*_SWT", "CW_*_RWT", "CW_*_TEMP*"],
+    "cw_pressure": ["CW_*PRESSURE*", "CW_*PRESS*"],
+    "cw_flow": ["CW_*FLOW*", "CW_*LPM*"],
+    
+    # 🏭 冷卻水塔系統
+    "cooling_tower": ["CT_*_VFD*", "CT_*_KW", "CT_*_FAN*", "TOWER_*_VFD*"],
+    
+    # 🌍 環境參數
+    "environment": ["*OAT*", "*OAH*", "*WBT*", "*AMBIENT*"],
+    
+    # ⚡🎯 系統層級
+    "system_level": ["*TOTAL*KW*", "*SYS*COP*", "*KW*RT*", "*TOTAL*POWER*"]
+}
 ```
 
-### 3. 在 UI 中動態顯示
+---
 
-```python
-# 顯示所有類型（包含自定義）
-for cat_id, cols in mapping.get_all_categories().items():
-    info = mapping.get_category_info(cat_id)
-    st.markdown(f"**{info['icon']} {info['name']}**")
-    st.multiselect(..., options=cols)
-```
+## 從 V2 遷移對照表
+
+| V2 類別 | V3 類別 | 遷移說明 | 處理建議 |
+|--------|--------|---------|---------|
+| `load` | `chiller` | 負載欄位移至冰水機類別 | 將 RT 欄位移至 chiller |
+| `chw_pump` | `chw_pump` | 不變 | 直接使用 |
+| `cw_pump` | `cw_pump` | 不變 | 直接使用 |
+| `ct_fan` | `cooling_tower` | 更名 | 自動映射 |
+| `temperature` | `chw_temp` + `cw_temp` | **拆分為兩個類別** | 需手動分配 SWT/RWT |
+| `pressure` | `chw_pressure` + `cw_pressure` | **拆分為兩個類別** | 需手動分配 |
+| `flow` | `chw_flow` + `cw_flow` | **拆分為兩個類別** | 需手動分配 |
+| `power` | 分散至多個類別 | 設備耗電分散至所屬類別 | 按設備類型分配 |
+| `environment` | `environment` | 不變 | 直接使用 |
+| `target` | `system_level` | 更名 | 自動映射 |
 
 ---
 
 ## 檔案說明
 
-| 檔案 | 說明 |
-|------|------|
-| `src/config/feature_mapping.py` | 原版（7種類型） |
-| `src/config/feature_mapping_v2.py` | 增強版（10+種類型，支援自定義） |
-| `example_feature_mapping_v2.py` | 使用範例 |
-| `FEATURE_MAPPING_V2_GUIDE.md` | 完整指南 |
-
----
-
-## 建議
-
-**如果你需要更多類型：**
-
-1. **短期**：使用 `feature_mapping_v2.py` 的 `add_custom_category()`
-2. **長期**：將常用的自定義類型加入 `STANDARD_CATEGORIES`
-
-**是否要替換原版？**
-
-- 如果只是**偶爾**需要額外類型 → 維持現狀，手動新增
-- 如果**經常**需要多種類型 → 可考慮升級到 V2
+| 檔案 | 說明 | 版本 |
+|------|------|------|
+| `config/feature_mapping.py` | 原版 | V1 (7種類型) |
+| `config/feature_mapping_v2.py` | 增強版 | V2/V3 相容 (10/13種類型) |
+| `example_feature_mapping_v2.py` | 使用範例 | V3 範例 |
+| `FEATURE_MAPPING_V2_GUIDE.md` | 完整技術指南 | V3 文件 |
+| `UI_FEATURE_MAPPING_USAGE.md` | UI 使用說明 | V3 文件 |
+| `FEATURE_MAPPING_SUMMARY.md` | 本文件 | V3 摘要 |
 
 ---
 
 ## 快速測試
 
 ```python
-# 測試 V2 是否可用
+# 測試 V3 是否可用
 import sys
-sys.path.insert(0, 'src')
+sys.path.insert(0, '.')
 from config.feature_mapping_v2 import FeatureMapping
 
-mapping = FeatureMapping.create_from_dataframe([
-    "CH_0_RT", "CHP_01_VFD_OUT",
-    "CHW_PRESSURE",  # 壓力
-    "CHW_FLOW"       # 流量
-])
+# 測試自動識別
+columns = [
+    "CH_0_RT", "CH_0_KW",
+    "CHP_01_VFD_OUT", "SCP_01_VFD_OUT",
+    "CH_0_SWT", "CH_0_RWT",
+    "CWP_01_VFD_OUT", "CW_SYS_SWT",
+    "CT_01_VFD_OUT", "CT_SYS_OAT",
+    "CH_SYS_TOTAL_KW"
+]
 
-print(f"識別到 {len(mapping.get_all_categories())} 個類型")
+mapping = FeatureMapping.create_from_dataframe(columns)
+
+print(f"✅ V3 識別到 {len(mapping.get_all_categories())} 個類型")
 for cat_id, cols in mapping.get_all_categories().items():
     if cols:
-        print(f"  {cat_id}: {len(cols)} 欄位")
+        info = mapping.get_category_info(cat_id)
+        print(f"  {info['icon']} {cat_id}: {len(cols)} 欄位")
+
+# 測試萬用字元
+wildcard_rules = {
+    "chiller": ["CH_*_RT", "CH_*_KW"],
+    "chw_pump": ["CHP_*_VFD*"],
+    "scp_pump": ["SCP_*_VFD*"]
+}
+mapping2 = FeatureMapping()
+mapping2.apply_wildcard_patterns(wildcard_rules, columns)
+print("\n✅ 萬用字元模式測試通過")
 ```
 
-執行結果應該顯示壓力和流量被自動識別！
+---
+
+## 建議使用場景
+
+| 場景 | 推薦方式 | 說明 |
+|-----|---------|------|
+| 快速開始 | 使用預設 | 載入內建預設配置 |
+| 標準案場 | 自動識別 | 系統自動識別 13 個類別 |
+| 大量欄位 | 萬用字元模式 | 使用 `*` 批量匹配數十個欄位 |
+| 特殊命名 | 上傳 JSON | 自定義映射規則 |
+| 多案場管理 | 萬用字元 + JSON | 建立案場專屬萬用字元模板 |
+
+---
+
+**Feature Mapping V3** - HVAC 物理系統層級特徵分類  
+**版本**: 3.0  
+**更新日期**: 2026-02-10

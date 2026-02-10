@@ -20,15 +20,16 @@ try:
 except ImportError:
     ML_AVAILABLE = False
 
-# Import feature mapping
+# Import feature mapping (V2 with HVAC physical system hierarchy)
 try:
-    from config.feature_mapping import FeatureMapping, get_feature_mapping, PREDEFINED_MAPPINGS
+    from config.feature_mapping_v2 import FeatureMapping, get_feature_mapping, PREDEFINED_MAPPINGS, STANDARD_CATEGORIES
     FEATURE_MAPPING_AVAILABLE = True
 except ImportError:
     FEATURE_MAPPING_AVAILABLE = False
     FeatureMapping = None
     get_feature_mapping = None
     PREDEFINED_MAPPINGS = {}
+    STANDARD_CATEGORIES = {}
 
 # Helper function to get numeric columns for analysis (excluding Date/Time)
 def get_analysis_numeric_cols(df):
@@ -1055,9 +1056,9 @@ elif processing_mode == "批次處理（整個資料夾）" and selected_files:
         # Configuration mode selection
         mapping_config_mode = st.radio(
             "配置方式",
-            ["自動識別 (Auto-detect)", "手動對應 (Manual Mapping)"],
+            ["自動識別 (Auto-detect)", "手動對應 (Manual Mapping)", "萬用字元模式 (Wildcard Pattern)"],
             horizontal=True,
-            help="選擇自動根據欄位名稱識別，或手動指定每個欄位的類別"
+            help="選擇自動根據欄位名稱識別、手動指定每個欄位的類別，或使用萬用字元模式快速匹配"
         )
         
         if mapping_config_mode == "自動識別 (Auto-detect)":
@@ -1068,67 +1069,112 @@ elif processing_mode == "批次處理（整個資料夾）" and selected_files:
                     st.session_state.batch_feature_mapping = auto_mapping
                     st.success(f"✅ 自動識別完成！識別到 {len(auto_mapping.get_all_categories())} 個類別")
         
-        else:
-            # Manual mapping mode with dynamic categories
-            st.info("請在下方下拉式選單中，為每個欄位選擇適當的特徵類別")
+        elif mapping_config_mode == "手動對應 (Manual Mapping)":
+            # Manual mapping mode with HVAC physical system hierarchy
+            st.info("請在下方為每個欄位選擇適當的特徵類別。類別已按物理系統分組")
             
-            # Get all standard categories
-            from config.feature_mapping import STANDARD_CATEGORIES
+            # Group categories by parent system
+            parent_systems = {
+                "chilled_water_side": {"name": "冰水側系統", "icon": "❄️", "categories": []},
+                "condenser_water_side": {"name": "冷卻水側系統", "icon": "🔥", "categories": []},
+                "cooling_tower_system": {"name": "冷卻水塔系統", "icon": "🏭", "categories": []},
+                "environment": {"name": "環境參數", "icon": "🌍", "categories": []},
+                "system_level": {"name": "系統層級", "icon": "⚡", "categories": []},
+            }
             
-            # Build category selectors dynamically
-            category_cols = st.columns(3)
+            # Sort categories into parent systems
+            for cat_id, meta in STANDARD_CATEGORIES.items():
+                parent = meta.get('parent_system', 'other')
+                if parent in parent_systems:
+                    parent_systems[parent]['categories'].append(cat_id)
+            
             manual_selections = {}
             
-            # Standard categories to show (order matters for UI layout)
-            standard_cat_order = [
-                'load', 'chw_pump', 'cw_pump', 'ct_fan',
-                'temperature', 'environment', 'pressure', 'flow', 'power', 'status'
-            ]
-            
-            col_idx = 0
-            for cat_id in standard_cat_order:
-                if cat_id not in STANDARD_CATEGORIES:
+            # Create expander for each parent system
+            for system_id, system_info in parent_systems.items():
+                if not system_info['categories']:
                     continue
                     
-                meta = STANDARD_CATEGORIES[cat_id]
-                
-                # Auto-detect default columns based on patterns
-                defaults = []
-                for col in available_cols:
-                    col_upper = col.upper()
-                    if all(p.upper() in col_upper for p in meta.get('pattern', [cat_id.upper()])):
-                        if not any(exclude in col_upper for exclude in ['FROZEN', 'FLAG']):
-                            defaults.append(col)
-                
-                with category_cols[col_idx % 3]:
-                    st.markdown(f"**{meta['icon']} {meta['name']}**")
-                    st.caption(f"{meta['description']} ({meta['unit']})")
+                with st.expander(f"{system_info['icon']} {system_info['name']} ({len(system_info['categories'])} 類別)", expanded=True):
+                    # Create columns for this system
+                    cols = st.columns(2)
+                    col_idx = 0
                     
-                    manual_selections[cat_id] = st.multiselect(
-                        f"選擇{meta['name']}欄位",
-                        options=available_cols,
-                        default=defaults,
-                        key=f"manual_{cat_id}",
-                        label_visibility="collapsed"
-                    )
-                
-                col_idx += 1
+                    for cat_id in system_info['categories']:
+                        if cat_id not in STANDARD_CATEGORIES:
+                            continue
+                            
+                        meta = STANDARD_CATEGORIES[cat_id]
+                        
+                        # Auto-detect default columns based on patterns
+                        defaults = []
+                        patterns = meta.get('pattern', '').split(',')
+                        for col in available_cols:
+                            col_upper = col.upper()
+                            # Check if any pattern matches
+                            for pattern in patterns:
+                                pattern = pattern.strip().replace('*', '')
+                                if pattern and pattern in col_upper:
+                                    if not any(exclude in col_upper for exclude in ['FROZEN', 'FLAG']):
+                                        if col not in defaults:
+                                            defaults.append(col)
+                            # Also check for common patterns
+                            if cat_id.upper() in col_upper.replace('_', ''):
+                                if col not in defaults and not any(exclude in col_upper for exclude in ['FROZEN', 'FLAG']):
+                                    defaults.append(col)
+                        
+                        with cols[col_idx % 2]:
+                            st.markdown(f"**{meta['icon']} {meta['name']}**")
+                            st.caption(f"{meta['description']} | 單位: {meta['unit']}")
+                            
+                            manual_selections[cat_id] = st.multiselect(
+                                f"選擇{meta['name']}欄位",
+                                options=available_cols,
+                                default=defaults,
+                                key=f"manual_{cat_id}",
+                                label_visibility="collapsed"
+                            )
+                        
+                        col_idx += 1
             
-            # Target variable selection
+            # Target variable section
             st.markdown("---")
             st.markdown("**🎯 目標變數 (Target Variable)**")
-            target_candidates = [c for c in available_cols if 'TOTAL' in c.upper() and 'KW' in c.upper()]
-            if not target_candidates:
-                target_candidates = [c for c in available_cols if c.upper().endswith('_KW')]
-            if not target_candidates:
-                target_candidates = available_cols
             
-            target_selection = st.selectbox(
-                "選擇目標欄位 (總耗電量 kW)",
-                options=available_cols,
-                index=available_cols.index(target_candidates[0]) if target_candidates else 0,
-                key="manual_target"
-            )
+            col1, col2 = st.columns(2)
+            with col1:
+                # Target column selection
+                target_candidates = []
+                # 1. 優先找 COP 相關
+                target_candidates = [c for c in available_cols if 'COP' in c.upper()]
+                # 2. 其次找 kW/RT 效率指標
+                if not target_candidates:
+                    target_candidates = [c for c in available_cols if any(x in c.upper() for x in ['KW_RT', 'KW/RT', 'KW_PER_RT', 'EFFICIENCY'])]
+                # 3. 最後找總用電
+                if not target_candidates:
+                    target_candidates = [c for c in available_cols if 'TOTAL' in c.upper() and 'KW' in c.upper()]
+                if not target_candidates:
+                    target_candidates = [c for c in available_cols if c.upper().endswith('_KW')]
+                if not target_candidates:
+                    target_candidates = available_cols
+                
+                target_selection = st.selectbox(
+                    "選擇目標欄位",
+                    options=available_cols,
+                    index=available_cols.index(target_candidates[0]) if target_candidates else 0,
+                    key="manual_target"
+                )
+            
+            with col2:
+                # Target metric type selection
+                target_metric_type = st.selectbox(
+                    "目標類型",
+                    options=["efficiency", "power"],
+                    format_func=lambda x: "效率指標 (COP/kW/RT)" if x == "efficiency" else "功率 (kW)",
+                    index=0 if any(x in target_selection.upper() for x in ['COP', 'EFFICIENCY', 'KW_RT', 'KW/RT']) else 1,
+                    key="manual_target_metric",
+                    help="選擇目標變數是效率指標(越小越好)還是功率(越大越差)"
+                )
             
             # Custom category addition
             st.markdown("---")
@@ -1136,21 +1182,25 @@ elif processing_mode == "批次處理（整個資料夾）" and selected_files:
                 st.caption("如果需要的類別不在上方列表中，可以在此新增")
                 
                 custom_cat_id = st.text_input(
-                    "類別代碼 (英文，如: valve, pressure2)",
+                    "類別代碼 (英文，如: custom_valve, backup_sensor)",
                     key="custom_cat_id"
                 )
                 custom_cat_name = st.text_input(
-                    "類別名稱 (如: 閥門開度, 備用壓力)",
+                    "類別名稱 (如: 自定義閥門, 備用感測器)",
                     key="custom_cat_name"
                 )
                 custom_cat_icon = st.selectbox(
                     "圖示",
-                    options=["📦", "🔧", "📡", "⚙️", "🔩", "🔗", "📎", "🏷️"],
+                    options=["📦", "🔧", "📡", "⚙️", "🔩", "🔗", "📎", "🏷️", "🔍", "📊", "🌡️", "💧"],
                     key="custom_cat_icon"
                 )
                 custom_cat_unit = st.text_input(
-                    "單位 (如: %, kPa, m/s)",
+                    "單位 (如: %, kPa, m/s, °C)",
                     key="custom_cat_unit"
+                )
+                custom_cat_description = st.text_input(
+                    "描述",
+                    key="custom_cat_description"
                 )
                 custom_cat_cols = st.multiselect(
                     "選擇欄位",
@@ -1167,7 +1217,8 @@ elif processing_mode == "批次處理（整個資料夾）" and selected_files:
                             'columns': custom_cat_cols,
                             'name': custom_cat_name,
                             'icon': custom_cat_icon,
-                            'unit': custom_cat_unit
+                            'unit': custom_cat_unit,
+                            'description': custom_cat_description
                         }
                         st.success(f"✅ 已新增類別: {custom_cat_name}")
                         st.rerun()
@@ -1175,13 +1226,27 @@ elif processing_mode == "批次處理（整個資料夾）" and selected_files:
             # Save manual configuration
             if st.button("💾 儲存手動配置", type="primary"):
                 manual_mapping = FeatureMapping(
-                    load_cols=manual_selections.get('load', []),
-                    chw_pump_hz_cols=manual_selections.get('chw_pump', []),
-                    cw_pump_hz_cols=manual_selections.get('cw_pump', []),
-                    ct_fan_hz_cols=manual_selections.get('ct_fan', []),
-                    temp_cols=manual_selections.get('temperature', []),
-                    env_cols=manual_selections.get('environment', []),
-                    target_col=target_selection
+                    # 冰水側系統
+                    chiller_cols=manual_selections.get('chiller', []),
+                    chw_pump_cols=manual_selections.get('chw_pump', []),
+                    scp_pump_cols=manual_selections.get('scp_pump', []),
+                    chw_temp_cols=manual_selections.get('chw_temp', []),
+                    chw_pressure_cols=manual_selections.get('chw_pressure', []),
+                    chw_flow_cols=manual_selections.get('chw_flow', []),
+                    # 冷卻水側系統
+                    cw_pump_cols=manual_selections.get('cw_pump', []),
+                    cw_temp_cols=manual_selections.get('cw_temp', []),
+                    cw_pressure_cols=manual_selections.get('cw_pressure', []),
+                    cw_flow_cols=manual_selections.get('cw_flow', []),
+                    # 冷卻水塔
+                    cooling_tower_cols=manual_selections.get('cooling_tower', []),
+                    # 環境
+                    environment_cols=manual_selections.get('environment', []),
+                    # 系統層級
+                    system_level_cols=manual_selections.get('system_level', []),
+                    # 目標
+                    target_col=target_selection,
+                    target_metric=target_metric_type
                 )
                 
                 # Add custom categories if any
@@ -1192,18 +1257,183 @@ elif processing_mode == "批次處理（整個資料夾）" and selected_files:
                             columns=cat_data['columns'],
                             name=cat_data['name'],
                             icon=cat_data['icon'],
-                            unit=cat_data['unit']
+                            unit=cat_data['unit'],
+                            description=cat_data.get('description', '')
                         )
                 
-                # Add detected custom categories (pressure, flow, power, status)
-                for cat_id in ['pressure', 'flow', 'power', 'status']:
-                    if cat_id in manual_selections and manual_selections[cat_id]:
-                        manual_mapping.set_category_columns(cat_id, manual_selections[cat_id])
-                
                 st.session_state.batch_feature_mapping = manual_mapping
-                st.success(f"✅ 手動配置已儲存！共 {len(manual_mapping.get_all_feature_cols())} 個特徵")
+                st.success(f"✅ 手動配置已儲存！共 {len(manual_mapping.get_all_feature_cols())} 個特徵，目標: {target_selection} ({target_metric_type})")
         
-        # Display current mapping (works for both auto and manual)
+        elif mapping_config_mode == "萬用字元模式 (Wildcard Pattern)":
+            # Wildcard pattern mode for quick matching with HVAC physical system hierarchy
+            st.info("🎯 使用萬用字元模式快速匹配欄位。類別已按物理系統分組")
+            
+            # Default wildcard patterns for 13 new categories
+            default_patterns = {
+                # 冰水側系統
+                "chiller": "CH_*_RT|CHILLER*",
+                "chw_pump": "CHP*VFD_OUT|CHWP*",
+                "scp_pump": "SCP*VFD_OUT|SCP*",
+                "chw_temp": "*CHW*TEMP*|*CHW*ST*|*CHW*RT*",
+                "chw_pressure": "*CHW*PRESSURE*|*CHW*P*",
+                "chw_flow": "*CHW*FLOW*|*CHW*LPM*",
+                # 冷卻水側系統
+                "cw_pump": "CWP*VFD_OUT|CWP*",
+                "cw_temp": "*CW*TEMP*|*CW*ST*|*CW*RT*",
+                "cw_pressure": "*CW*PRESSURE*|*CW*P*",
+                "cw_flow": "*CW*FLOW*|*CW*LPM*",
+                # 冷卻水塔
+                "cooling_tower": "CT_*_VFD_OUT|CT*",
+                # 環境
+                "environment": "*OAT*|*OAH*|*WBT*|*OUTDOOR*",
+                # 系統層級
+                "system_level": "*TOTAL*|*COP*|*KW*RT*",
+            }
+            
+            # Group categories by parent system
+            parent_systems = {
+                "chilled_water_side": {"name": "冰水側系統", "icon": "❄️", "categories": []},
+                "condenser_water_side": {"name": "冷卻水側系統", "icon": "🔥", "categories": []},
+                "cooling_tower_system": {"name": "冷卻水塔系統", "icon": "🏭", "categories": []},
+                "environment": {"name": "環境參數", "icon": "🌍", "categories": []},
+                "system_level": {"name": "系統層級", "icon": "⚡", "categories": []},
+            }
+            
+            # Sort categories into parent systems
+            for cat_id, meta in STANDARD_CATEGORIES.items():
+                parent = meta.get('parent_system', 'other')
+                if parent in parent_systems:
+                    parent_systems[parent]['categories'].append(cat_id)
+            
+            st.caption("支援語法：`*` 匹配任意字元，`?` 匹配單一字元。多個模式可用 `|` 分隔")
+            
+            wildcard_patterns = {}
+            
+            # Create expander for each parent system
+            for system_id, system_info in parent_systems.items():
+                if not system_info['categories']:
+                    continue
+                    
+                with st.expander(f"{system_info['icon']} {system_info['name']}", expanded=True):
+                    cols = st.columns(2)
+                    col_idx = 0
+                    
+                    for cat_id in system_info['categories']:
+                        if cat_id not in STANDARD_CATEGORIES:
+                            continue
+                            
+                        meta = STANDARD_CATEGORIES[cat_id]
+                        
+                        with cols[col_idx % 2]:
+                            pattern = st.text_input(
+                                f"{meta['icon']} {meta['name']}",
+                                value=default_patterns.get(cat_id, "*"),
+                                key=f"wildcard_{cat_id}",
+                                help=f"{meta['description']} ({meta['unit']})"
+                            )
+                            wildcard_patterns[cat_id] = pattern
+                        
+                        col_idx += 1
+            
+            # Target section
+            st.markdown("---")
+            st.markdown("**🎯 目標變數設定**")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                target_pattern = st.text_input(
+                    "目標欄位模式",
+                    value="*TOTAL*KW|*SYS*_KW|*COP*",
+                    help="匹配目標欄位，多個模式可用 | 分隔"
+                )
+            
+            with col2:
+                wildcard_target_metric = st.selectbox(
+                    "目標類型",
+                    options=["efficiency", "power"],
+                    format_func=lambda x: "效率指標 (COP/kW/RT)" if x == "efficiency" else "功率 (kW)",
+                    index=0,
+                    key="wildcard_target_metric",
+                    help="選擇目標變數是效率指標(越小越好)還是功率(越大越差)"
+                )
+            
+            # Preview matches
+            if st.button("🔍 預覽匹配結果", type="secondary"):
+                st.markdown("**📋 預覽匹配結果：**")
+                
+                preview_cols = st.columns(3)
+                preview_col_idx = 0
+                total_matched = 0
+                
+                # Group preview by parent system
+                for system_id, system_info in parent_systems.items():
+                    if not system_info['categories']:
+                        continue
+                    
+                    system_matched = 0
+                    system_details = []
+                    
+                    for cat_id in system_info['categories']:
+                        if cat_id not in STANDARD_CATEGORIES:
+                            continue
+                            
+                        pattern_str = wildcard_patterns.get(cat_id, "")
+                        # Split by | to support multiple patterns
+                        patterns = [p.strip() for p in pattern_str.split("|") if p.strip()]
+                        
+                        # Match columns
+                        matched = []
+                        for pattern in patterns:
+                            matched.extend(FeatureMapping.match_columns_by_pattern(available_cols, pattern))
+                        # Remove duplicates
+                        matched = list(dict.fromkeys(matched))  # Preserves order
+                        
+                        if matched:
+                            total_matched += len(matched)
+                            system_matched += len(matched)
+                            meta = STANDARD_CATEGORIES[cat_id]
+                            system_details.append(f"{meta['icon']} {meta['name'].split('(')[0].strip()}: {len(matched)}")
+                    
+                    # Show system summary
+                    if system_details and preview_col_idx < 6:
+                        with preview_cols[preview_col_idx % 3]:
+                            st.markdown(f"**{system_info['icon']} {system_info['name']}**: {system_matched} 個")
+                            st.caption(" | ".join(system_details[:3]))
+                        preview_col_idx += 1
+                
+                # Target preview
+                target_patterns = [p.strip() for p in target_pattern.split("|") if p.strip()]
+                target_matched = []
+                for pattern in target_patterns:
+                    target_matched.extend(FeatureMapping.match_columns_by_pattern(available_cols, pattern))
+                target_matched = list(dict.fromkeys(target_matched))
+                
+                if preview_col_idx < 6:
+                    with preview_cols[preview_col_idx % 3]:
+                        st.markdown(f"**🎯 目標變數**: {len(target_matched)} 個")
+                        st.caption(", ".join(target_matched[:3]) if target_matched else "無匹配")
+                
+                st.success(f"✅ 共匹配到 {total_matched} 個特徵欄位，目標: {target_matched[0] if target_matched else '無'}")
+            
+            # Apply wildcard patterns
+            if st.button("✅ 套用萬用字元模式", type="primary"):
+                with st.spinner("正在套用萬用字元模式..."):
+                    # Filter out empty patterns
+                    valid_patterns = {k: v for k, v in wildcard_patterns.items() if v.strip()}
+                    
+                    wildcard_mapping = FeatureMapping.create_from_wildcard_patterns(
+                        df_columns=available_cols,
+                        wildcard_patterns=valid_patterns,
+                        target_pattern=target_pattern
+                    )
+                    
+                    # Set target metric type
+                    wildcard_mapping.target_metric = wildcard_target_metric
+                    
+                    st.session_state.batch_feature_mapping = wildcard_mapping
+                    st.success(f"✅ 萬用字元配置完成！共 {len(wildcard_mapping.get_all_feature_cols())} 個特徵，目標類型: {wildcard_target_metric}")
+        
+        # Display current mapping (works for all modes)
         if st.session_state.batch_feature_mapping:
             with st.expander("📋 查看/編輯當前映射", expanded=True):
                 mapping = st.session_state.batch_feature_mapping
@@ -1211,40 +1441,59 @@ elif processing_mode == "批次處理（整個資料夾）" and selected_files:
                 # Get all categories dynamically
                 all_categories = mapping.get_all_categories()
                 
-                # Summary metrics - dynamic columns based on detected categories
-                if all_categories:
-                    cat_cols = st.columns(min(len(all_categories) + 1, 8))  # +1 for target
-                    
-                    col_idx = 0
-                    for cat_id, cols in all_categories.items():
-                        if cols and col_idx < len(cat_cols):
-                            info = mapping.get_category_info(cat_id)
-                            with cat_cols[col_idx]:
-                                st.metric(info['name'].split('(')[0].strip(), len(cols))
-                            col_idx += 1
-                    
-                    # Target column
-                    if col_idx < len(cat_cols):
-                        with cat_cols[col_idx]:
-                            st.metric("目標", "1")
+                # Summary row with total features and target info
+                total_features = len(mapping.get_all_feature_cols())
+                target_info = f"{mapping.target_col} ({mapping.target_metric})" if hasattr(mapping, 'target_metric') else mapping.target_col
                 
-                # Show all assigned columns dynamically
-                st.markdown("**詳細對應：**")
+                summary_cols = st.columns(3)
+                with summary_cols[0]:
+                    st.metric("總特徵數", total_features)
+                with summary_cols[1]:
+                    st.metric("類別數", len([c for c in all_categories.values() if c]))
+                with summary_cols[2]:
+                    st.metric("目標變數", mapping.target_col.split('_')[-1] if '_' in mapping.target_col else mapping.target_col)
                 
-                # Group categories into columns for display
-                display_cols = st.columns(2)
-                cat_list = list(all_categories.items())
-                mid = (len(cat_list) + 1) // 2
+                # Show target metric type if available
+                if hasattr(mapping, 'target_metric'):
+                    target_type_label = "效率指標 📈" if mapping.target_metric == "efficiency" else "功率 ⚡"
+                    st.caption(f"🎯 目標類型: {target_type_label} | {mapping.target_col}")
                 
-                for idx, (cat_id, cols) in enumerate(cat_list):
+                st.markdown("---")
+                st.markdown("**詳細對應（按物理系統分組）：**")
+                
+                # Group categories by parent system
+                parent_systems_display = {
+                    "chilled_water_side": {"name": "冰水側系統", "icon": "❄️"},
+                    "condenser_water_side": {"name": "冷卻水側系統", "icon": "🔥"},
+                    "cooling_tower_system": {"name": "冷卻水塔系統", "icon": "🏭"},
+                    "environment": {"name": "環境參數", "icon": "🌍"},
+                    "system_level": {"name": "系統層級", "icon": "⚡"},
+                    "other": {"name": "其他類別", "icon": "📦"},
+                }
+                
+                # Organize categories by parent system
+                categories_by_system = {k: [] for k in parent_systems_display.keys()}
+                for cat_id, cols in all_categories.items():
                     if cols:
-                        info = mapping.get_category_info(cat_id)
-                        with display_cols[0 if idx < mid else 1]:
-                            st.markdown(f"• **{info['icon']} {info['name']}**: {', '.join(cols[:5])}{'...' if len(cols) > 5 else ''}")
+                        parent = STANDARD_CATEGORIES.get(cat_id, {}).get('parent_system', 'other')
+                        if parent not in categories_by_system:
+                            parent = 'other'
+                        categories_by_system[parent].append((cat_id, cols))
                 
-                # Target
-                with display_cols[1]:
-                    st.markdown(f"• **🎯 目標**: {mapping.target_col}")
+                # Display by system groups
+                for system_id, system_info in parent_systems_display.items():
+                    cat_list = categories_by_system.get(system_id, [])
+                    if not cat_list:
+                        continue
+                    
+                    with st.expander(f"{system_info['icon']} {system_info['name']} ({len(cat_list)} 類別)", expanded=False):
+                        # Two-column layout for categories
+                        display_cols = st.columns(2)
+                        for idx, (cat_id, cols) in enumerate(cat_list):
+                            info = mapping.get_category_info(cat_id)
+                            with display_cols[idx % 2]:
+                                st.markdown(f"**{info['icon']} {info['name']}** ({len(cols)} 個)")
+                                st.caption(f"• {', '.join(cols[:5])}{'...' if len(cols) > 5 else ''}")
                 
                 # Validation
                 validation = mapping.validate_against_dataframe(merged_df.columns)
@@ -2310,10 +2559,16 @@ elif processing_mode == "⚡ 最佳化模擬" and ML_AVAILABLE:
                                 st.write("📋 **訓練前診斷:**")
                                 st.write(f"- 資料形狀: {df_for_training.shape}")
                                 
-                                # Check required columns
-                                from models.energy_model import ModelConfig
-                                config = ModelConfig()
-                                required_cols = [config.target_col] + config.load_cols + config.chw_pump_hz_cols + config.cw_pump_hz_cols + config.ct_fan_hz_cols + config.temp_cols
+                                # Check required columns using feature mapping if available
+                                if 'batch_feature_mapping' in st.session_state and st.session_state.batch_feature_mapping:
+                                    mapping = st.session_state.batch_feature_mapping
+                                    required_cols = [mapping.target_col] + mapping.get_all_feature_cols()
+                                    target_col = mapping.target_col
+                                else:
+                                    from models.energy_model import ModelConfig
+                                    config = ModelConfig()
+                                    required_cols = [config.target_col] + config.load_cols + config.chw_pump_hz_cols + config.cw_pump_hz_cols + config.ct_fan_hz_cols + config.temp_cols
+                                    target_col = config.target_col
                                 
                                 missing = [c for c in required_cols if c not in df_for_training.columns]
                                 if missing:
@@ -2322,9 +2577,9 @@ elif processing_mode == "⚡ 最佳化模擬" and ML_AVAILABLE:
                                     st.success(f"✅ 所有 {len(required_cols)} 個必要欄位都存在")
                                 
                                 # Check target column
-                                if config.target_col in df_for_training.columns:
-                                    target_valid = df_for_training[config.target_col].drop_nulls().len()
-                                    st.write(f"- 目標欄位 ({config.target_col}): {target_valid}/{len(df_for_training)} 有效")
+                                if target_col in df_for_training.columns:
+                                    target_valid = df_for_training[target_col].drop_nulls().len()
+                                    st.write(f"- 目標欄位 ({target_col}): {target_valid}/{len(df_for_training)} 有效")
                                 
                                 # Use feature mapping from UI if available
                                 if 'current_feature_mapping' in st.session_state and st.session_state.current_feature_mapping:
@@ -2537,10 +2792,16 @@ elif processing_mode == "⚡ 最佳化模擬" and ML_AVAILABLE:
                             st.write("📋 **訓練前診斷:**")
                             st.write(f"- 資料形狀: {df_for_training.shape}")
                             
-                            # Check required columns
-                            from models.energy_model import ModelConfig
-                            config = ModelConfig()
-                            required_cols = [config.target_col] + config.load_cols + config.chw_pump_hz_cols + config.cw_pump_hz_cols + config.ct_fan_hz_cols + config.temp_cols
+                            # Check required columns using feature mapping if available
+                            if 'batch_feature_mapping' in st.session_state and st.session_state.batch_feature_mapping:
+                                mapping = st.session_state.batch_feature_mapping
+                                required_cols = [mapping.target_col] + mapping.get_all_feature_cols()
+                                target_col = mapping.target_col
+                            else:
+                                from models.energy_model import ModelConfig
+                                config = ModelConfig()
+                                required_cols = [config.target_col] + config.load_cols + config.chw_pump_hz_cols + config.cw_pump_hz_cols + config.ct_fan_hz_cols + config.temp_cols
+                                target_col = config.target_col
                             
                             missing = [c for c in required_cols if c not in df_for_training.columns]
                             if missing:
@@ -2549,9 +2810,9 @@ elif processing_mode == "⚡ 最佳化模擬" and ML_AVAILABLE:
                                 st.success(f"✅ 所有 {len(required_cols)} 個必要欄位都存在")
                             
                             # Check target column
-                            if config.target_col in df_for_training.columns:
-                                target_valid = df_for_training[config.target_col].drop_nulls().len()
-                                st.write(f"- 目標欄位 ({config.target_col}): {target_valid}/{len(df_for_training)} 有效")
+                            if target_col in df_for_training.columns:
+                                target_valid = df_for_training[target_col].drop_nulls().len()
+                                st.write(f"- 目標欄位 ({target_col}): {target_valid}/{len(df_for_training)} 有效")
                             
                             # Use feature mapping from UI if available
                             if 'current_feature_mapping' in st.session_state and st.session_state.current_feature_mapping:

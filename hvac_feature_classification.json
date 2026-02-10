@@ -1,0 +1,968 @@
+{
+  "version": "1.0",
+  "system": "HVAC Chilled Water System",
+  "description": "HVAC 冰水空調系統特徵分類架構 - 基於物理結構組織",
+  "last_updated": "2026-02-10",
+  
+  "categories": [
+    {
+      "category_id": "chilled_water_load",
+      "name_zh": "冰水負載",
+      "name_en": "Chilled Water Load",
+      "emoji": "❄️",
+      "description": "冰水側系統冷卻負載相關特徵",
+      "parent_system": "chilled_water_side",
+      "features": [
+        {
+          "feature_id": "cooling_load_kw",
+          "name_zh": "冷卻負載 (kW)",
+          "name_en": "Cooling Load (kW)",
+          "unit": "kW",
+          "description": "冰水側即時冷卻負載",
+          "data_type": "float",
+          "typical_range": "0 ~ 5000",
+          "wildcard_patterns": [
+            "*cooling*load*kw*",
+            "*cooling*load*",
+            "*負載*kW*",
+            "*負載*kw*",
+            "*load*kw*",
+            "*Q_evap*"
+          ]
+        },
+        {
+          "feature_id": "cooling_load_ton",
+          "name_zh": "冷卻負載 (RT)",
+          "name_en": "Cooling Load (RT)",
+          "unit": "RT",
+          "description": "冰水側冷卻負載（冷凍噸）",
+          "data_type": "float",
+          "typical_range": "0 ~ 1500",
+          "wildcard_patterns": [
+            "*cooling*load*rt*",
+            "*cooling*load*ton*",
+            "*負載*RT*",
+            "*負載*rt*",
+            "*load*rt*",
+            "*load*ton*"
+          ]
+        }
+      ]
+    },
+    {
+      "category_id": "chilled_water_pump",
+      "name_zh": "冰水泵",
+      "name_en": "Chilled Water Pump",
+      "emoji": "💧",
+      "description": "冰水側循環泵相關特徵",
+      "parent_system": "chilled_water_side",
+      "features": [
+        {
+          "feature_id": "chp_frequency",
+          "name_zh": "冰水泵頻率",
+          "name_en": "CHP Frequency",
+          "unit": "Hz",
+          "description": "冰水泵運轉頻率",
+          "data_type": "float",
+          "typical_range": "30 ~ 60",
+          "wildcard_patterns": [
+            "*chp*freq*",
+            "*chilled*pump*freq*",
+            "*冰水*泵*頻率*",
+            "*冰水泵*頻率*",
+            "*chp*hz*",
+            "*chp*frequency*"
+          ]
+        },
+        {
+          "feature_id": "chp_power",
+          "name_zh": "冰水泵功率",
+          "name_en": "CHP Power",
+          "unit": "kW",
+          "description": "冰水泵即時用電功率",
+          "data_type": "float",
+          "typical_range": "0 ~ 200",
+          "wildcard_patterns": [
+            "*chp*power*",
+            "*chp*kw*",
+            "*chilled*pump*power*",
+            "*冰水*泵*功率*",
+            "*冰水泵*功率*",
+            "*chp*p*"
+          ]
+        },
+        {
+          "feature_id": "chp_energy",
+          "name_zh": "冰水泵累積用電",
+          "name_en": "CHP Energy",
+          "unit": "kWh",
+          "description": "冰水泵累積用電量",
+          "data_type": "float",
+          "typical_range": "0 ~ 999999",
+          "wildcard_patterns": [
+            "*chp*energy*",
+            "*chp*kwh*",
+            "*chilled*pump*energy*",
+            "*冰水*泵*用電*",
+            "*冰水泵*累積*",
+            "*chp*e*"
+          ]
+        },
+        {
+          "feature_id": "chp_status",
+          "name_zh": "冰水泵狀態",
+          "name_en": "CHP Status",
+          "unit": "-",
+          "description": "冰水泵運轉狀態（0=停止, 1=運轉）",
+          "data_type": "int",
+          "typical_range": "0, 1",
+          "wildcard_patterns": [
+            "*chp*status*",
+            "*chp*run*",
+            "*chilled*pump*status*",
+            "*冰水*泵*狀態*",
+            "*冰水泵*狀態*",
+            "*chp*on*off*"
+          ]
+        }
+      ]
+    },
+    {
+      "category_id": "secondary_chilled_pump",
+      "name_zh": "區域泵 (SCP)",
+      "name_en": "Secondary Chilled Water Pump",
+      "emoji": "🔄",
+      "description": "二次側區域循環泵（Secondary Chilled Pump）相關特徵",
+      "parent_system": "chilled_water_side",
+      "features": [
+        {
+          "feature_id": "scp_frequency",
+          "name_zh": "區域泵頻率",
+          "name_en": "SCP Frequency",
+          "unit": "Hz",
+          "description": "區域泵運轉頻率",
+          "data_type": "float",
+          "typical_range": "30 ~ 60",
+          "wildcard_patterns": [
+            "*scp*freq*",
+            "*secondary*pump*freq*",
+            "*區域*泵*頻率*",
+            "*區域泵*頻率*",
+            "*scp*hz*",
+            "*scp*frequency*"
+          ]
+        },
+        {
+          "feature_id": "scp_power",
+          "name_zh": "區域泵功率",
+          "name_en": "SCP Power",
+          "unit": "kW",
+          "description": "區域泵即時用電功率",
+          "data_type": "float",
+          "typical_range": "0 ~ 100",
+          "wildcard_patterns": [
+            "*scp*power*",
+            "*scp*kw*",
+            "*secondary*pump*power*",
+            "*區域*泵*功率*",
+            "*區域泵*功率*",
+            "*scp*p*"
+          ]
+        },
+        {
+          "feature_id": "scp_energy",
+          "name_zh": "區域泵累積用電",
+          "name_en": "SCP Energy",
+          "unit": "kWh",
+          "description": "區域泵累積用電量",
+          "data_type": "float",
+          "typical_range": "0 ~ 999999",
+          "wildcard_patterns": [
+            "*scp*energy*",
+            "*scp*kwh*",
+            "*secondary*pump*energy*",
+            "*區域*泵*用電*",
+            "*區域泵*累積*",
+            "*scp*e*"
+          ]
+        },
+        {
+          "feature_id": "scp_status",
+          "name_zh": "區域泵狀態",
+          "name_en": "SCP Status",
+          "unit": "-",
+          "description": "區域泵運轉狀態（0=停止, 1=運轉）",
+          "data_type": "int",
+          "typical_range": "0, 1",
+          "wildcard_patterns": [
+            "*scp*status*",
+            "*scp*run*",
+            "*secondary*pump*status*",
+            "*區域*泵*狀態*",
+            "*區域泵*狀態*",
+            "*scp*on*off*"
+          ]
+        }
+      ]
+    },
+    {
+      "category_id": "chilled_water_temp",
+      "name_zh": "冰水溫度",
+      "name_en": "Chilled Water Temperature",
+      "emoji": "🌡️",
+      "description": "冰水側供水與回水溫度",
+      "parent_system": "chilled_water_side",
+      "features": [
+        {
+          "feature_id": "chw_supply_temp",
+          "name_zh": "冰水供水溫度",
+          "name_en": "CHW Supply Temperature",
+          "unit": "°C",
+          "description": "冰水供水溫度（離開冰水機）",
+          "data_type": "float",
+          "typical_range": "5 ~ 12",
+          "wildcard_patterns": [
+            "*chw*supply*temp*",
+            "*chilled*water*supply*temp*",
+            "*冰水*供水*溫度*",
+            "*chw*s*t*",
+            "*chw*in*temp*",
+            "*chw*leaving*temp*"
+          ]
+        },
+        {
+          "feature_id": "chw_return_temp",
+          "name_zh": "冰水回水溫度",
+          "name_en": "CHW Return Temperature",
+          "unit": "°C",
+          "description": "冰水回水溫度（進入冰水機）",
+          "data_type": "float",
+          "typical_range": "10 ~ 18",
+          "wildcard_patterns": [
+            "*chw*return*temp*",
+            "*chilled*water*return*temp*",
+            "*冰水*回水*溫度*",
+            "*chw*r*t*",
+            "*chw*out*temp*",
+            "*chw*entering*temp*"
+          ]
+        },
+        {
+          "feature_id": "chw_delta_t",
+          "name_zh": "冰水温差",
+          "name_en": "CHW Delta T",
+          "unit": "°C",
+          "description": "冰水供回水溫差（ΔT）",
+          "data_type": "float",
+          "typical_range": "3 ~ 8",
+          "wildcard_patterns": [
+            "*chw*delta*t*",
+            "*chw*deltat*",
+            "*chilled*water*delta*",
+            "*冰水*溫差*",
+            "*chw*Δt*",
+            "*chw*dt*"
+          ]
+        }
+      ]
+    },
+    {
+      "category_id": "chilled_water_pressure",
+      "name_zh": "冰水壓力",
+      "name_en": "Chilled Water Pressure",
+      "emoji": "📊",
+      "description": "冰水側系統壓力",
+      "parent_system": "chilled_water_side",
+      "features": [
+        {
+          "feature_id": "chw_supply_pressure",
+          "name_zh": "冰水供水壓力",
+          "name_en": "CHW Supply Pressure",
+          "unit": "kPa",
+          "description": "冰水供水側壓力",
+          "data_type": "float",
+          "typical_range": "200 ~ 600",
+          "wildcard_patterns": [
+            "*chw*supply*pressure*",
+            "*chilled*water*supply*p*",
+            "*冰水*供水*壓力*",
+            "*chw*s*p*",
+            "*chw*discharge*p*"
+          ]
+        },
+        {
+          "feature_id": "chw_return_pressure",
+          "name_zh": "冰水回水壓力",
+          "name_en": "CHW Return Pressure",
+          "unit": "kPa",
+          "description": "冰水回水側壓力",
+          "data_type": "float",
+          "typical_range": "100 ~ 400",
+          "wildcard_patterns": [
+            "*chw*return*pressure*",
+            "*chilled*water*return*p*",
+            "*冰水*回水*壓力*",
+            "*chw*r*p*",
+            "*chw*suction*p*"
+          ]
+        },
+        {
+          "feature_id": "chw_delta_p",
+          "name_zh": "冰水壓差",
+          "name_en": "CHW Delta P",
+          "unit": "kPa",
+          "description": "冰水供回水壓力差",
+          "data_type": "float",
+          "typical_range": "50 ~ 300",
+          "wildcard_patterns": [
+            "*chw*delta*p*",
+            "*chw*deltap*",
+            "*chilled*water*dp*",
+            "*冰水*壓差*",
+            "*chw*Δp*",
+            "*chw*differential*p*"
+          ]
+        }
+      ]
+    },
+    {
+      "category_id": "chilled_water_flow",
+      "name_zh": "冰水流量",
+      "name_en": "Chilled Water Flow",
+      "emoji": "🌊",
+      "description": "冰水側流量測量",
+      "parent_system": "chilled_water_side",
+      "features": [
+        {
+          "feature_id": "chw_flow_rate",
+          "name_zh": "冰水流量",
+          "name_en": "CHW Flow Rate",
+          "unit": "LPM",
+          "description": "冰水流量（公升/分鐘）",
+          "data_type": "float",
+          "typical_range": "0 ~ 10000",
+          "wildcard_patterns": [
+            "*chw*flow*lpm*",
+            "*chilled*water*flow*",
+            "*冰水*流量*LPM*",
+            "*冰水*流量*lpm*",
+            "*chw*flow*rate*"
+          ]
+        },
+        {
+          "feature_id": "chw_flow_rate_ls",
+          "name_zh": "冰水流量",
+          "name_en": "CHW Flow Rate",
+          "unit": "L/s",
+          "description": "冰水流量（公升/秒）",
+          "data_type": "float",
+          "typical_range": "0 ~ 200",
+          "wildcard_patterns": [
+            "*chw*flow*ls*",
+            "*chw*flow*l*s*",
+            "*冰水*流量*LS*",
+            "*冰水*流量*公升*秒*"
+          ]
+        },
+        {
+          "feature_id": "chw_flow_rate_m3h",
+          "name_zh": "冰水流量",
+          "name_en": "CHW Flow Rate",
+          "unit": "m³/h",
+          "description": "冰水流量（立方公尺/小時）",
+          "data_type": "float",
+          "typical_range": "0 ~ 500",
+          "wildcard_patterns": [
+            "*chw*flow*m3h*",
+            "*chw*flow*m3*h*",
+            "*冰水*流量*立方*",
+            "*冰水*流量*m3*"
+          ]
+        }
+      ]
+    },
+    {
+      "category_id": "condenser_water_pump",
+      "name_zh": "冷卻水泵",
+      "name_en": "Condenser Water Pump",
+      "emoji": "🔥",
+      "description": "冷卻水側循環泵相關特徵",
+      "parent_system": "condenser_water_side",
+      "features": [
+        {
+          "feature_id": "cwp_frequency",
+          "name_zh": "冷卻泵頻率",
+          "name_en": "CWP Frequency",
+          "unit": "Hz",
+          "description": "冷卻水泵運轉頻率",
+          "data_type": "float",
+          "typical_range": "30 ~ 60",
+          "wildcard_patterns": [
+            "*cwp*freq*",
+            "*condenser*pump*freq*",
+            "*冷卻*泵*頻率*",
+            "*冷卻泵*頻率*",
+            "*cwp*hz*",
+            "*cwp*frequency*"
+          ]
+        },
+        {
+          "feature_id": "cwp_power",
+          "name_zh": "冷卻泵功率",
+          "name_en": "CWP Power",
+          "unit": "kW",
+          "description": "冷卻水泵即時用電功率",
+          "data_type": "float",
+          "typical_range": "0 ~ 150",
+          "wildcard_patterns": [
+            "*cwp*power*",
+            "*cwp*kw*",
+            "*condenser*pump*power*",
+            "*冷卻*泵*功率*",
+            "*冷卻泵*功率*",
+            "*cwp*p*"
+          ]
+        },
+        {
+          "feature_id": "cwp_energy",
+          "name_zh": "冷卻泵累積用電",
+          "name_en": "CWP Energy",
+          "unit": "kWh",
+          "description": "冷卻水泵累積用電量",
+          "data_type": "float",
+          "typical_range": "0 ~ 999999",
+          "wildcard_patterns": [
+            "*cwp*energy*",
+            "*cwp*kwh*",
+            "*condenser*pump*energy*",
+            "*冷卻*泵*用電*",
+            "*冷卻泵*累積*",
+            "*cwp*e*"
+          ]
+        },
+        {
+          "feature_id": "cwp_status",
+          "name_zh": "冷卻泵狀態",
+          "name_en": "CWP Status",
+          "unit": "-",
+          "description": "冷卻水泵運轉狀態（0=停止, 1=運轉）",
+          "data_type": "int",
+          "typical_range": "0, 1",
+          "wildcard_patterns": [
+            "*cwp*status*",
+            "*cwp*run*",
+            "*condenser*pump*status*",
+            "*冷卻*泵*狀態*",
+            "*冷卻泵*狀態*",
+            "*cwp*on*off*"
+          ]
+        }
+      ]
+    },
+    {
+      "category_id": "condenser_water_temp",
+      "name_zh": "冷卻水溫度",
+      "name_en": "Condenser Water Temperature",
+      "emoji": "🌡️",
+      "description": "冷卻水側供水與回水溫度",
+      "parent_system": "condenser_water_side",
+      "features": [
+        {
+          "feature_id": "cw_supply_temp",
+          "name_zh": "冷卻水供水溫度",
+          "name_en": "CW Supply Temperature",
+          "unit": "°C",
+          "description": "冷卻水供水溫度（離開冷卻水塔）",
+          "data_type": "float",
+          "typical_range": "25 ~ 35",
+          "wildcard_patterns": [
+            "*cw*supply*temp*",
+            "*condenser*water*supply*temp*",
+            "*冷卻水*供水*溫度*",
+            "*cw*s*t*",
+            "*cw*entering*temp*",
+            "*cw*in*temp*"
+          ]
+        },
+        {
+          "feature_id": "cw_return_temp",
+          "name_zh": "冷卻水回水溫度",
+          "name_en": "CW Return Temperature",
+          "unit": "°C",
+          "description": "冷卻水回水溫度（進入冷卻水塔）",
+          "data_type": "float",
+          "typical_range": "30 ~ 40",
+          "wildcard_patterns": [
+            "*cw*return*temp*",
+            "*condenser*water*return*temp*",
+            "*冷卻水*回水*溫度*",
+            "*cw*r*t*",
+            "*cw*leaving*temp*",
+            "*cw*out*temp*"
+          ]
+        },
+        {
+          "feature_id": "cw_delta_t",
+          "name_zh": "冷卻水溫差",
+          "name_en": "CW Delta T",
+          "unit": "°C",
+          "description": "冷卻水供回水溫差（ΔT）",
+          "data_type": "float",
+          "typical_range": "3 ~ 8",
+          "wildcard_patterns": [
+            "*cw*delta*t*",
+            "*cw*deltat*",
+            "*condenser*water*delta*",
+            "*冷卻水*溫差*",
+            "*cw*Δt*",
+            "*cw*dt*"
+          ]
+        }
+      ]
+    },
+    {
+      "category_id": "condenser_water_pressure",
+      "name_zh": "冷卻水壓力",
+      "name_en": "Condenser Water Pressure",
+      "emoji": "📊",
+      "description": "冷卻水側系統壓力",
+      "parent_system": "condenser_water_side",
+      "features": [
+        {
+          "feature_id": "cw_supply_pressure",
+          "name_zh": "冷卻水供水壓力",
+          "name_en": "CW Supply Pressure",
+          "unit": "kPa",
+          "description": "冷卻水供水側壓力",
+          "data_type": "float",
+          "typical_range": "200 ~ 500",
+          "wildcard_patterns": [
+            "*cw*supply*pressure*",
+            "*condenser*water*supply*p*",
+            "*冷卻水*供水*壓力*",
+            "*cw*s*p*",
+            "*cw*suction*p*"
+          ]
+        },
+        {
+          "feature_id": "cw_return_pressure",
+          "name_zh": "冷卻水回水壓力",
+          "name_en": "CW Return Pressure",
+          "unit": "kPa",
+          "description": "冷卻水回水側壓力",
+          "data_type": "float",
+          "typical_range": "150 ~ 450",
+          "wildcard_patterns": [
+            "*cw*return*pressure*",
+            "*condenser*water*return*p*",
+            "*冷卻水*回水*壓力*",
+            "*cw*r*p*",
+            "*cw*discharge*p*"
+          ]
+        },
+        {
+          "feature_id": "cw_delta_p",
+          "name_zh": "冷卻水壓差",
+          "name_en": "CW Delta P",
+          "unit": "kPa",
+          "description": "冷卻水供回水壓力差",
+          "data_type": "float",
+          "typical_range": "30 ~ 150",
+          "wildcard_patterns": [
+            "*cw*delta*p*",
+            "*cw*deltap*",
+            "*condenser*water*dp*",
+            "*冷卻水*壓差*",
+            "*cw*Δp*",
+            "*cw*differential*p*"
+          ]
+        }
+      ]
+    },
+    {
+      "category_id": "condenser_water_flow",
+      "name_zh": "冷卻水流量",
+      "name_en": "Condenser Water Flow",
+      "emoji": "🌊",
+      "description": "冷卻水側流量測量",
+      "parent_system": "condenser_water_side",
+      "features": [
+        {
+          "feature_id": "cw_flow_rate",
+          "name_zh": "冷卻水流量",
+          "name_en": "CW Flow Rate",
+          "unit": "LPM",
+          "description": "冷卻水流量（公升/分鐘）",
+          "data_type": "float",
+          "typical_range": "0 ~ 15000",
+          "wildcard_patterns": [
+            "*cw*flow*lpm*",
+            "*condenser*water*flow*",
+            "*冷卻水*流量*LPM*",
+            "*冷卻水*流量*lpm*",
+            "*cw*flow*rate*"
+          ]
+        },
+        {
+          "feature_id": "cw_flow_rate_ls",
+          "name_zh": "冷卻水流量",
+          "name_en": "CW Flow Rate",
+          "unit": "L/s",
+          "description": "冷卻水流量（公升/秒）",
+          "data_type": "float",
+          "typical_range": "0 ~ 300",
+          "wildcard_patterns": [
+            "*cw*flow*ls*",
+            "*cw*flow*l*s*",
+            "*冷卻水*流量*LS*",
+            "*冷卻水*流量*公升*秒*"
+          ]
+        },
+        {
+          "feature_id": "cw_flow_rate_m3h",
+          "name_zh": "冷卻水流量",
+          "name_en": "CW Flow Rate",
+          "unit": "m³/h",
+          "description": "冷卻水流量（立方公尺/小時）",
+          "data_type": "float",
+          "typical_range": "0 ~ 800",
+          "wildcard_patterns": [
+            "*cw*flow*m3h*",
+            "*cw*flow*m3*h*",
+            "*冷卻水*流量*立方*",
+            "*冷卻水*流量*m3*"
+          ]
+        }
+      ]
+    },
+    {
+      "category_id": "cooling_tower",
+      "name_zh": "冷卻水塔",
+      "name_en": "Cooling Tower",
+      "emoji": "🏭",
+      "description": "冷卻水塔系統相關特徵",
+      "parent_system": "cooling_tower_system",
+      "features": [
+        {
+          "feature_id": "ct_frequency",
+          "name_zh": "水塔風扇頻率",
+          "name_en": "CT Fan Frequency",
+          "unit": "Hz",
+          "description": "冷卻水塔風扇運轉頻率",
+          "data_type": "float",
+          "typical_range": "0 ~ 60",
+          "wildcard_patterns": [
+            "*ct*freq*",
+            "*cooling*tower*freq*",
+            "*水塔*風扇*頻率*",
+            "*冷卻塔*頻率*",
+            "*ct*hz*",
+            "*ct*frequency*",
+            "*tower*fan*freq*"
+          ]
+        },
+        {
+          "feature_id": "ct_power",
+          "name_zh": "水塔風扇功率",
+          "name_en": "CT Fan Power",
+          "unit": "kW",
+          "description": "冷卻水塔風扇即時用電功率",
+          "data_type": "float",
+          "typical_range": "0 ~ 50",
+          "wildcard_patterns": [
+            "*ct*power*",
+            "*ct*kw*",
+            "*cooling*tower*power*",
+            "*水塔*風扇*功率*",
+            "*冷卻塔*功率*",
+            "*ct*p*",
+            "*tower*fan*power*"
+          ]
+        },
+        {
+          "feature_id": "ct_energy",
+          "name_zh": "水塔風扇累積用電",
+          "name_en": "CT Fan Energy",
+          "unit": "kWh",
+          "description": "冷卻水塔風扇累積用電量",
+          "data_type": "float",
+          "typical_range": "0 ~ 999999",
+          "wildcard_patterns": [
+            "*ct*energy*",
+            "*ct*kwh*",
+            "*cooling*tower*energy*",
+            "*水塔*風扇*用電*",
+            "*冷卻塔*累積*",
+            "*ct*e*",
+            "*tower*fan*energy*"
+          ]
+        },
+        {
+          "feature_id": "ct_status",
+          "name_zh": "水塔風扇狀態",
+          "name_en": "CT Fan Status",
+          "unit": "-",
+          "description": "冷卻水塔風扇運轉狀態（0=停止, 1=運轉）",
+          "data_type": "int",
+          "typical_range": "0, 1",
+          "wildcard_patterns": [
+            "*ct*status*",
+            "*ct*run*",
+            "*cooling*tower*status*",
+            "*水塔*風扇*狀態*",
+            "*冷卻塔*狀態*",
+            "*ct*on*off*",
+            "*tower*fan*status*"
+          ]
+        },
+        {
+          "feature_id": "ct_approach",
+          "name_zh": "水塔趨近溫度",
+          "name_en": "CT Approach Temperature",
+          "unit": "°C",
+          "description": "冷卻水塔趨近溫度（出水溫度與濕球溫度差）",
+          "data_type": "float",
+          "typical_range": "2 ~ 6",
+          "wildcard_patterns": [
+            "*ct*approach*",
+            "*cooling*tower*approach*",
+            "*水塔*趨近*溫度*",
+            "*冷卻塔*approach*",
+            "*tower*approach*temp*"
+          ]
+        },
+        {
+          "feature_id": "ct_range",
+          "name_zh": "水塔溫降範圍",
+          "name_en": "CT Range",
+          "unit": "°C",
+          "description": "冷卻水塔溫降範圍（入水溫度與出水溫度差）",
+          "data_type": "float",
+          "typical_range": "3 ~ 8",
+          "wildcard_patterns": [
+            "*ct*range*",
+            "*cooling*tower*range*",
+            "*水塔*溫降*",
+            "*冷卻塔*range*",
+            "*tower*range*temp*"
+          ]
+        }
+      ]
+    },
+    {
+      "category_id": "ambient_environment",
+      "name_zh": "環境參數",
+      "name_en": "Ambient Environment",
+      "emoji": "🌍",
+      "description": "室外環境氣象參數",
+      "parent_system": "environment",
+      "features": [
+        {
+          "feature_id": "oat",
+          "name_zh": "外氣乾球溫度",
+          "name_en": "Outside Air Temperature",
+          "unit": "°C",
+          "description": "室外空氣乾球溫度",
+          "data_type": "float",
+          "typical_range": "-5 ~ 45",
+          "wildcard_patterns": [
+            "*oat*",
+            "*outside*air*temp*",
+            "*outdoor*temp*",
+            "*外氣*溫度*",
+            "*室外*溫度*",
+            "*ambient*temp*",
+            "*oa*dbt*"
+          ]
+        },
+        {
+          "feature_id": "oa_rh",
+          "name_zh": "外氣相對濕度",
+          "name_en": "Outside Air Relative Humidity",
+          "unit": "%",
+          "description": "室外空氣相對濕度",
+          "data_type": "float",
+          "typical_range": "20 ~ 95",
+          "wildcard_patterns": [
+            "*oa*rh*",
+            "*outside*humidity*",
+            "*outdoor*rh*",
+            "*外氣*濕度*",
+            "*室外*濕度*",
+            "*ambient*rh*",
+            "*relative*humidity*"
+          ]
+        },
+        {
+          "feature_id": "wet_bulb_temp",
+          "name_zh": "濕球溫度",
+          "name_en": "Wet Bulb Temperature",
+          "unit": "°C",
+          "description": "室外濕球溫度（用於冷卻水塔性能計算）",
+          "data_type": "float",
+          "typical_range": "5 ~ 30",
+          "wildcard_patterns": [
+            "*wet*bulb*",
+            "*wbt*",
+            "*wb*temp*",
+            "*濕球*溫度*",
+            "*wb*t*",
+            "*outdoor*wet*bulb*"
+          ]
+        },
+        {
+          "feature_id": "enthalpy",
+          "name_zh": "外氣焓值",
+          "name_en": "Outside Air Enthalpy",
+          "unit": "kJ/kg",
+          "description": "室外空氣比焓",
+          "data_type": "float",
+          "typical_range": "20 ~ 120",
+          "wildcard_patterns": [
+            "*oa*enthalpy*",
+            "*outside*enthalpy*",
+            "*outdoor*enthalpy*",
+            "*外氣*焓值*",
+            "*ambient*enthalpy*",
+            "*h_air*"
+          ]
+        }
+      ]
+    },
+    {
+      "category_id": "system_level",
+      "name_zh": "系統層級",
+      "name_en": "System Level",
+      "emoji": "⚡",
+      "description": "整體系統層級特徵與目標變數",
+      "parent_system": "system",
+      "features": [
+        {
+          "feature_id": "total_power",
+          "name_zh": "系統總功率",
+          "name_en": "Total System Power",
+          "unit": "kW",
+          "description": "HVAC系統總即時用電功率（含冰水機、泵、塔）",
+          "data_type": "float",
+          "typical_range": "0 ~ 3000",
+          "is_target": false,
+          "wildcard_patterns": [
+            "*total*power*",
+            "*system*power*",
+            "*總功率*",
+            "*系統*功率*kw*",
+            "*total*kw*",
+            "*overall*power*"
+          ]
+        },
+        {
+          "feature_id": "total_energy",
+          "name_zh": "系統累積用電",
+          "name_en": "Total System Energy",
+          "unit": "kWh",
+          "description": "HVAC系統總累積用電量",
+          "data_type": "float",
+          "typical_range": "0 ~ 9999999",
+          "is_target": false,
+          "wildcard_patterns": [
+            "*total*energy*",
+            "*system*energy*",
+            "*總用電*",
+            "*系統*累積*",
+            "*total*kwh*"
+          ]
+        },
+        {
+          "feature_id": "cop",
+          "name_zh": "系統COP",
+          "name_en": "System COP",
+          "unit": "-",
+          "description": "系統性能係數（冷卻負載/總用電功率）",
+          "data_type": "float",
+          "typical_range": "2 ~ 8",
+          "is_target": true,
+          "wildcard_patterns": [
+            "*cop*",
+            "*system*cop*",
+            "*性能係數*",
+            "*cop*系統*",
+            "*efficiency*cop*"
+          ]
+        },
+        {
+          "feature_id": "kw_per_rt",
+          "name_zh": "單位冷凍噸用電",
+          "name_en": "kW per RT",
+          "unit": "kW/RT",
+          "description": "每冷凍噸用電量（系統效率指標）",
+          "data_type": "float",
+          "typical_range": "0.5 ~ 1.5",
+          "is_target": true,
+          "wildcard_patterns": [
+            "*kw*rt*",
+            "*kw/rt*",
+            "*per*rt*",
+            "*單位*RT*用電*",
+            "*耗能*RT*",
+            "*specific*power*"
+          ]
+        },
+        {
+          "feature_id": "plant_efficiency",
+          "name_zh": "機房系統效率",
+          "name_en": "Plant System Efficiency",
+          "unit": "kW/RT",
+          "description": "機房整體系統效率（越低越好）",
+          "data_type": "float",
+          "typical_range": "0.5 ~ 1.2",
+          "is_target": true,
+          "wildcard_patterns": [
+            "*plant*eff*",
+            "*system*eff*",
+            "*機房*效率*",
+            "*機房*系統*效率*",
+            "*central*plant*eff*"
+          ]
+        }
+      ]
+    }
+  ],
+  
+  "parent_systems": [
+    {
+      "system_id": "chilled_water_side",
+      "name_zh": "冰水側系統",
+      "name_en": "Chilled Water Side",
+      "emoji": "❄️",
+      "description": "冰水側系統，包含負載、泵、溫度、壓力、流量"
+    },
+    {
+      "system_id": "condenser_water_side",
+      "name_zh": "冷卻水側系統",
+      "name_en": "Condenser Water Side",
+      "emoji": "🔥",
+      "description": "冷卻水側系統，包含泵、溫度、壓力、流量"
+    },
+    {
+      "system_id": "cooling_tower_system",
+      "name_zh": "冷卻水塔系統",
+      "name_en": "Cooling Tower System",
+      "emoji": "🏭",
+      "description": "冷卻水塔系統，包含風扇控制"
+    },
+    {
+      "system_id": "environment",
+      "name_zh": "環境參數",
+      "name_en": "Environment",
+      "emoji": "🌍",
+      "description": "室外環境氣象參數"
+    },
+    {
+      "system_id": "system",
+      "name_zh": "系統層級",
+      "name_en": "System Level",
+      "emoji": "⚡",
+      "description": "整體系統層級特徵與目標變數"
+    }
+  ]
+}
