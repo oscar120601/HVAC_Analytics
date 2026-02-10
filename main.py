@@ -33,7 +33,7 @@ from etl.parser import ReportParser
 from etl.cleaner import DataCleaner
 from etl.batch_processor import BatchProcessor
 from models.energy_model import ChillerEnergyModel
-from config.feature_mapping import FeatureMapping, get_feature_mapping
+from config.feature_mapping_v2 import FeatureMapping, get_feature_mapping
 from optimization.optimizer import ChillerOptimizer, OptimizationContext
 
 logging.basicConfig(
@@ -134,6 +134,7 @@ class HVACAnalyticsCLI:
             files: Number of files to use (default: all)
             mapping: Feature mapping to use (name or JSON path).
                     Examples: "default", "cgmh_ty", "config/my_mapping.json"
+        """
         data_path = Path(data_dir)
         if not data_path.exists():
             print(f"❌ Directory not found: {data_dir}")
@@ -288,31 +289,31 @@ class HVACAnalyticsCLI:
         # Validate against dataframe
         validation = mapping.validate_against_dataframe(df.columns)
         
-        print(f"\n✅ Generated mapping:")
-        print(f"   Load (RT): {len(mapping.load_cols)} columns")
-        print(f"   CHW Pumps: {len(mapping.chw_pump_hz_cols)} columns")
-        print(f"   CW Pumps: {len(mapping.cw_pump_hz_cols)} columns")
-        print(f"   CT Fans: {len(mapping.ct_fan_hz_cols)} columns")
-        print(f"   Temperatures: {len(mapping.temp_cols)} columns")
-        print(f"   Target: {mapping.target_col}")
+        print(f"\n✅ Generated mapping (V3 - {len(mapping.get_all_categories())} categories):")
+        for cat_id, cols in mapping.get_all_categories().items():
+            if cols:
+                info = mapping.get_category_info(cat_id)
+                icon = info.get('icon', '📦')
+                name = info.get('name', cat_id)
+                print(f"   {icon} {name}: {len(cols)} columns")
+        print(f"   🎯 Target: {mapping.target_col}")
         
         print(f"\n📈 Validation results:")
         print(f"   Matched: {len(validation['matched'])} columns")
-        if validation['missing_optional']:
+        if validation.get('missing_optional'):
             print(f"   Missing (optional): {validation['missing_optional']}")
-        if validation['missing_required']:
+        if validation.get('missing_required'):
             print(f"   ⚠️ Missing (required): {validation['missing_required']}")
-        if validation['available_in_df']:
+        if validation.get('available_in_df'):
             print(f"   Unmapped columns: {len(validation['available_in_df'])}")
             print(f"      {validation['available_in_df'][:5]}{'...' if len(validation['available_in_df']) > 5 else ''}")
         
-        # Print the actual mapping
-        print(f"\n📋 Detailed mapping:")
-        print(f"   Load cols: {mapping.load_cols}")
-        print(f"   CHW Pump cols: {mapping.chw_pump_hz_cols}")
-        print(f"   CW Pump cols: {mapping.cw_pump_hz_cols}")
-        print(f"   CT Fan cols: {mapping.ct_fan_hz_cols}")
-        print(f"   Temp cols: {mapping.temp_cols}")
+        # Print detailed mapping
+        print(f"\n📋 Detailed V3 mapping:")
+        for cat_id, cols in mapping.get_all_categories().items():
+            if cols:
+                info = mapping.get_category_info(cat_id)
+                print(f"   {info.get('icon', '📦')} {info.get('name', cat_id)}: {cols}")
         
         if output:
             mapping.save(output)

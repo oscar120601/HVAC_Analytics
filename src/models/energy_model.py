@@ -21,14 +21,14 @@ except ImportError:
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error, r2_score
 
-# Import feature mapping system
+# Import feature mapping system (V3 - 13 categories)
 try:
-    from config.feature_mapping import FeatureMapping, get_feature_mapping
+    from config.feature_mapping_v2 import FeatureMapping, get_feature_mapping
 except ImportError:
     # Handle when running from different contexts
     import sys
     sys.path.insert(0, str(Path(__file__).parent.parent))
-    from config.feature_mapping import FeatureMapping, get_feature_mapping
+    from config.feature_mapping_v2 import FeatureMapping, get_feature_mapping
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -39,21 +39,45 @@ class ModelConfig:
     """
     Configuration for the energy model.
     
+    Supports V3 Feature Mapping with 13 HVAC physical system categories.
     Can be initialized with either:
     1. Individual column lists (legacy mode)
-    2. A FeatureMapping object (recommended)
+    2. A FeatureMapping object (recommended - V3)
     """
-    # Feature column patterns
-    load_cols: List[str] = None  # RT columns
-    chw_pump_hz_cols: List[str] = None  # Chilled water pump VFD output
-    cw_pump_hz_cols: List[str] = None  # Cooling water pump VFD output
-    ct_fan_hz_cols: List[str] = None  # Cooling tower fan VFD output
-    temp_cols: List[str] = None  # Temperature columns
-    env_cols: List[str] = None  # Environment columns (OAT, OAH, WBT)
+    # === 冰水側系統 (Chilled Water Side) ===
+    chiller_cols: List[str] = None       # 冰水機：負載(RT)、功率(kW)
+    chw_pump_cols: List[str] = None      # 冰水泵：頻率(Hz)、功率(kW)
+    scp_pump_cols: List[str] = None      # 區域泵/二次泵：頻率(Hz)、功率(kW)
+    chw_temp_cols: List[str] = None      # 冰水溫度：供水/回水(°C)
+    chw_pressure_cols: List[str] = None  # 冰水壓力：供水/回水(kPa)
+    chw_flow_cols: List[str] = None      # 冰水流量(LPM)
+    
+    # === 冷卻水側系統 (Condenser Water Side) ===
+    cw_pump_cols: List[str] = None       # 冷卻水泵：頻率(Hz)、功率(kW)
+    cw_temp_cols: List[str] = None       # 冷卻水溫度：供水/回水(°C)
+    cw_pressure_cols: List[str] = None   # 冷卻水壓力：供水/回水(kPa)
+    cw_flow_cols: List[str] = None       # 冷卻水流量(LPM)
+    
+    # === 冷卻水塔 (Cooling Tower) ===
+    cooling_tower_cols: List[str] = None  # 冷卻水塔風扇：頻率(Hz)、功率(kW)
+    
+    # === 環境參數 (Environment) ===
+    environment_cols: List[str] = None    # 外氣溫度、濕度、濕球溫度
+    
+    # === 系統層級 (System Level) ===
+    system_level_cols: List[str] = None   # 總用電、COP、kW/RT
+    
+    # Legacy aliases (向後相容)
+    load_cols: List[str] = None
+    chw_pump_hz_cols: List[str] = None
+    cw_pump_hz_cols: List[str] = None
+    ct_fan_hz_cols: List[str] = None
+    temp_cols: List[str] = None
+    env_cols: List[str] = None
     
     # Time feature settings
-    use_time_features: bool = True  # Enable time-based features
-    timestamp_col: str = "timestamp"  # Timestamp column name
+    use_time_features: bool = True
+    timestamp_col: str = "timestamp"
     
     # Target column
     target_col: str = "CH_SYS_TOTAL_KW"
@@ -64,50 +88,92 @@ class ModelConfig:
     learning_rate: float = 0.1
     random_state: int = 42
     
-    # NEW: Feature mapping (preferred way to configure)
+    # Feature mapping object (preferred way to configure)
     feature_mapping: Optional[FeatureMapping] = None
     
     def __post_init__(self):
-        # If feature_mapping is provided, use it to populate column lists
+        # If feature_mapping is provided (V3), use it to populate all column lists
         if self.feature_mapping is not None:
-            self.load_cols = self.feature_mapping.load_cols
-            self.chw_pump_hz_cols = self.feature_mapping.chw_pump_hz_cols
-            self.cw_pump_hz_cols = self.feature_mapping.cw_pump_hz_cols
-            self.ct_fan_hz_cols = self.feature_mapping.ct_fan_hz_cols
-            self.temp_cols = self.feature_mapping.temp_cols
-            self.env_cols = getattr(self.feature_mapping, 'env_cols', [])
-            self.target_col = self.feature_mapping.target_col
+            fm = self.feature_mapping
+            # V3 categories
+            self.chiller_cols = getattr(fm, 'chiller_cols', [])
+            self.chw_pump_cols = getattr(fm, 'chw_pump_cols', [])
+            self.scp_pump_cols = getattr(fm, 'scp_pump_cols', [])
+            self.chw_temp_cols = getattr(fm, 'chw_temp_cols', [])
+            self.chw_pressure_cols = getattr(fm, 'chw_pressure_cols', [])
+            self.chw_flow_cols = getattr(fm, 'chw_flow_cols', [])
+            self.cw_pump_cols = getattr(fm, 'cw_pump_cols', [])
+            self.cw_temp_cols = getattr(fm, 'cw_temp_cols', [])
+            self.cw_pressure_cols = getattr(fm, 'cw_pressure_cols', [])
+            self.cw_flow_cols = getattr(fm, 'cw_flow_cols', [])
+            self.cooling_tower_cols = getattr(fm, 'cooling_tower_cols', [])
+            self.environment_cols = getattr(fm, 'environment_cols', [])
+            self.system_level_cols = getattr(fm, 'system_level_cols', [])
+            self.target_col = fm.target_col
+            
+            # Legacy aliases (向後相容)
+            self.load_cols = self.chiller_cols
+            self.chw_pump_hz_cols = self.chw_pump_cols
+            self.cw_pump_hz_cols = self.cw_pump_cols
+            self.ct_fan_hz_cols = self.cooling_tower_cols
+            self.temp_cols = self.chw_temp_cols
+            self.env_cols = self.environment_cols
             return
         
-        # Legacy: use default values if not provided
-        if self.load_cols is None:
-            self.load_cols = ["CH_0_RT", "CH_1_RT", "CH_2_RT", "CH_3_RT"]
-        if self.chw_pump_hz_cols is None:
-            self.chw_pump_hz_cols = [
+        # Legacy defaults: if no feature_mapping, use hardcoded defaults
+        if self.chiller_cols is None:
+            self.chiller_cols = ["CH_0_RT", "CH_1_RT", "CH_2_RT", "CH_3_RT"]
+        if self.chw_pump_cols is None:
+            self.chw_pump_cols = [
                 "CHP_01_VFD_OUT", "CHP_02_VFD_OUT", "CHP_03_VFD_OUT",
                 "CHP_04_VFD_OUT", "CHP_05_VFD_OUT"
             ]
-        if self.cw_pump_hz_cols is None:
-            self.cw_pump_hz_cols = [
+        if self.scp_pump_cols is None:
+            self.scp_pump_cols = []
+        if self.chw_temp_cols is None:
+            self.chw_temp_cols = ["CH_0_SWT", "CH_0_RWT"]
+        if self.chw_pressure_cols is None:
+            self.chw_pressure_cols = []
+        if self.chw_flow_cols is None:
+            self.chw_flow_cols = []
+        if self.cw_pump_cols is None:
+            self.cw_pump_cols = [
                 "CWP_01_VFD_OUT", "CWP_02_VFD_OUT", "CWP_03_VFD_OUT",
                 "CWP_04_VFD_OUT", "CWP_05_VFD_OUT"
             ]
-        if self.ct_fan_hz_cols is None:
-            self.ct_fan_hz_cols = [
+        if self.cw_temp_cols is None:
+            self.cw_temp_cols = ["CW_SYS_SWT", "CW_SYS_RWT"]
+        if self.cw_pressure_cols is None:
+            self.cw_pressure_cols = []
+        if self.cw_flow_cols is None:
+            self.cw_flow_cols = []
+        if self.cooling_tower_cols is None:
+            self.cooling_tower_cols = [
                 "CT_01_VFD_OUT", "CT_02_VFD_OUT", "CT_03_VFD_OUT",
                 "CT_04_VFD_OUT", "CT_05_VFD_OUT"
             ]
-        if self.temp_cols is None:
-            self.temp_cols = [
-                "CH_0_SWT", "CH_0_RWT",
-                "CW_SYS_SWT", "CW_SYS_RWT"
-            ]
-        if self.env_cols is None:
-            self.env_cols = [
+        if self.environment_cols is None:
+            self.environment_cols = [
                 "CT_SYS_OAT",   # 外氣溫度
                 "CT_SYS_OAH",   # 外氣濕度
                 "CT_SYS_WBT"    # 外氣濕球溫度
             ]
+        if self.system_level_cols is None:
+            self.system_level_cols = []
+        
+        # Legacy aliases (向後相容)
+        if self.load_cols is None:
+            self.load_cols = self.chiller_cols
+        if self.chw_pump_hz_cols is None:
+            self.chw_pump_hz_cols = self.chw_pump_cols
+        if self.cw_pump_hz_cols is None:
+            self.cw_pump_hz_cols = self.cw_pump_cols
+        if self.ct_fan_hz_cols is None:
+            self.ct_fan_hz_cols = self.cooling_tower_cols
+        if self.temp_cols is None:
+            self.temp_cols = self.chw_temp_cols
+        if self.env_cols is None:
+            self.env_cols = self.environment_cols
     
     @classmethod
     def from_mapping(cls, mapping: Union[str, FeatureMapping], **kwargs) -> "ModelConfig":
@@ -202,6 +268,7 @@ class ChillerEnergyModel:
     def _get_available_features(self, df: pl.DataFrame) -> List[str]:
         """
         Get list of available feature columns from the dataframe.
+        Uses all 13 V3 HVAC categories.
         
         Args:
             df: Input dataframe
@@ -209,20 +276,44 @@ class ChillerEnergyModel:
         Returns:
             List of available feature column names
         """
+        # V3: Collect features from all 13 categories
         all_feature_cols = (
-            self.config.load_cols +
-            self.config.chw_pump_hz_cols +
-            self.config.cw_pump_hz_cols +
-            self.config.ct_fan_hz_cols +
-            self.config.temp_cols +
-            self.config.env_cols
+            # 冰水側系統
+            (self.config.chiller_cols or []) +
+            (self.config.chw_pump_cols or []) +
+            (self.config.scp_pump_cols or []) +
+            (self.config.chw_temp_cols or []) +
+            (self.config.chw_pressure_cols or []) +
+            (self.config.chw_flow_cols or []) +
+            # 冷卻水側系統
+            (self.config.cw_pump_cols or []) +
+            (self.config.cw_temp_cols or []) +
+            (self.config.cw_pressure_cols or []) +
+            (self.config.cw_flow_cols or []) +
+            # 冷卻水塔
+            (self.config.cooling_tower_cols or []) +
+            # 環境參數
+            (self.config.environment_cols or []) +
+            # 系統層級
+            (self.config.system_level_cols or [])
         )
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_cols = []
+        for col in all_feature_cols:
+            if col not in seen:
+                seen.add(col)
+                unique_cols.append(col)
+        all_feature_cols = unique_cols
         
         available = [col for col in all_feature_cols if col in df.columns]
         missing = [col for col in all_feature_cols if col not in df.columns]
         
         if missing:
             logger.warning(f"Missing feature columns: {missing[:5]}... ({len(missing)} total)")
+        
+        logger.info(f"V3 features: {len(available)} available out of {len(all_feature_cols)} configured")
         
         return available
     
