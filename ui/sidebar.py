@@ -40,7 +40,7 @@ COLORS = {
 }
 
 
-def render_styled_sidebar(ML_AVAILABLE: bool) -> tuple:
+def render_sidebar(ML_AVAILABLE: bool) -> tuple:
     """
     渲染美化版側邊欄
     
