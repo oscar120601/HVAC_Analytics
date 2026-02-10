@@ -1,6 +1,5 @@
 """
-最佳化模擬模式頁面
-包含特徵映射、即時最佳化、特徵重要性、歷史追蹤、模型訓練
+最佳化模擬模式頁面 - 支援子分頁導航
 """
 
 import streamlit as st
@@ -35,12 +34,13 @@ except ImportError:
     STANDARD_CATEGORIES = {}
 
 
-def render_optimization_page(selected_model: Optional[str]):
+def render_optimization_page(selected_model: Optional[str], current_page: str):
     """
     渲染最佳化模擬頁面
     
     Args:
         selected_model: 選擇的模型檔案名稱
+        current_page: 當前子分頁
     """
     st.header("⚡ 能耗最佳化模擬")
     st.markdown("**使用訓練好的模型，找出最省電的變頻器設定**")
@@ -72,28 +72,16 @@ def render_optimization_page(selected_model: Optional[str]):
         
         st.success(f"✅ 已載入模型: {selected_model}")
         
-        # Create tabs
-        opt_tab0, opt_tab1, opt_tab2, opt_tab3, opt_tab4 = st.tabs([
-            "🗺️ 特徵映射",
-            "🎯 即時最佳化",
-            "📊 特徵重要性",
-            "📈 歷史追蹤",
-            "🔧 模型訓練"
-        ])
-        
-        with opt_tab0:
+        # Route to specific subpage
+        if current_page == "opt_mapping":
             _render_feature_mapping_tab(model)
-        
-        with opt_tab1:
+        elif current_page == "opt_realtime":
             _render_realtime_optimization_tab(model)
-        
-        with opt_tab2:
+        elif current_page == "opt_importance":
             _render_feature_importance_tab(model)
-        
-        with opt_tab3:
+        elif current_page == "opt_history":
             _render_history_tracking_tab()
-        
-        with opt_tab4:
+        elif current_page == "opt_training":
             _render_model_training_tab()
             
     except Exception as e:
@@ -108,7 +96,7 @@ def _load_cached_model(model_path: Path):
 
 
 def _render_feature_mapping_tab(model: ChillerEnergyModel):
-    """渲染特徵映射標籤頁"""
+    """渲染特徵映射子頁面"""
     st.subheader("🗺️ 特徵映射配置")
     st.caption("將資料欄位對應到模型特徵類別，支援自動識別、手動對應與萬用字元模式")
     
@@ -130,7 +118,6 @@ def _render_feature_mapping_tab(model: ChillerEnergyModel):
     if df_for_mapping is None:
         st.info("📊 請先在批次處理模式解析資料，或上傳 CSV 檔案")
         
-        # File upload option
         uploaded = st.file_uploader("上傳 CSV 進行特徵映射", type=['csv'])
         if uploaded:
             try:
@@ -142,11 +129,9 @@ def _render_feature_mapping_tab(model: ChillerEnergyModel):
                 st.error(f"讀取檔案失敗: {e}")
         return
     
-    # Use the dataframe
     if df_for_mapping is not None:
         available_cols = [c for c in df_for_mapping.columns if c != 'timestamp']
         
-        # Initialize session state
         if 'batch_feature_mapping' not in st.session_state:
             st.session_state.batch_feature_mapping = None
         if 'feature_mapping_mode' not in st.session_state:
@@ -154,7 +139,7 @@ def _render_feature_mapping_tab(model: ChillerEnergyModel):
         
         st.info(f"📊 可用資料: {len(df_for_mapping):,} 筆，{len(available_cols)} 個欄位")
         
-        # --- Mapping Mode Selection ---
+        # Mapping Mode Selection
         st.markdown("#### 🎛️ 選擇配置方式")
         
         mode_col1, mode_col2, mode_col3 = st.columns(3)
@@ -192,7 +177,6 @@ def _render_feature_mapping_tab(model: ChillerEnergyModel):
                 st.session_state.feature_mapping_mode = 'wildcard'
                 st.rerun()
         
-        # Show mapping editor if mapping exists
         if st.session_state.batch_feature_mapping is not None:
             _render_mapping_editor(st.session_state.batch_feature_mapping, available_cols, df_for_mapping)
 
@@ -210,7 +194,6 @@ def _render_mapping_editor(mapping: Any, available_cols: List[str], df: pl.DataF
     current_mode = st.session_state.get('feature_mapping_mode', 'auto')
     st.markdown(f"**當前模式:** {mode_display.get(current_mode, '自動識別模式')}")
     
-    # Summary metrics
     total_features = len(mapping.get_all_feature_cols())
     all_categories = mapping.get_all_categories()
     
@@ -223,7 +206,6 @@ def _render_mapping_editor(mapping: Any, available_cols: List[str], df: pl.DataF
         target_display = mapping.target_col.split('_')[-1] if '_' in mapping.target_col else mapping.target_col
         st.metric("目標變數", target_display)
     
-    # Target Variable Selection
     st.markdown("#### 🎯 目標變數 (Target)")
     target_options = [c for c in available_cols if any(kw in c.upper() for kw in ['KW', 'POWER', 'TOTAL', 'COP', 'RT'])]
     if not target_options:
@@ -238,7 +220,6 @@ def _render_mapping_editor(mapping: Any, available_cols: List[str], df: pl.DataF
     if new_target:
         mapping.target_col = new_target
     
-    # Manual Editing Section (only in manual mode)
     if current_mode == 'manual':
         st.markdown("---")
         st.markdown("#### 📝 欄位對應編輯")
@@ -246,7 +227,6 @@ def _render_mapping_editor(mapping: Any, available_cols: List[str], df: pl.DataF
         
         all_cats = list(STANDARD_CATEGORIES.keys())
         
-        # Group by parent system
         system_groups = {
             "chilled_water_side": {"name": "❄️ 冰水側系統", "categories": []},
             "condenser_water_side": {"name": "🔥 冷卻水側系統", "categories": []},
@@ -260,7 +240,6 @@ def _render_mapping_editor(mapping: Any, available_cols: List[str], df: pl.DataF
             if parent in system_groups:
                 system_groups[parent]["categories"].append(cat_id)
         
-        # Create expanders for each system
         for system_id, system_info in system_groups.items():
             cats = system_info["categories"]
             if not cats:
@@ -283,7 +262,6 @@ def _render_mapping_editor(mapping: Any, available_cols: List[str], df: pl.DataF
                     
                     mapping.set_category_columns(cat_id, selected_cols)
     
-    # Validation
     st.markdown("---")
     st.markdown("#### ✅ 驗證結果")
     
@@ -295,7 +273,6 @@ def _render_mapping_editor(mapping: Any, available_cols: List[str], df: pl.DataF
     else:
         st.success("✅ 所有映射欄位都存在於資料中")
     
-    # Save/Export buttons
     st.markdown("---")
     col1, col2 = st.columns(2)
     with col1:
@@ -313,27 +290,24 @@ def _render_mapping_editor(mapping: Any, available_cols: List[str], df: pl.DataF
 
 
 def _render_realtime_optimization_tab(model: ChillerEnergyModel):
-    """渲染即時最佳化標籤頁"""
+    """渲染即時最佳化子頁面"""
     st.subheader("🎯 即時最佳化")
     
     if 'batch_feature_mapping' not in st.session_state or st.session_state.batch_feature_mapping is None:
-        st.info("請先在「🗺️ 特徵映射」標籤完成特徵映射配置")
+        st.info("請先在「🗺️ 特徵映射」頁面完成特徵映射配置")
         return
     
     st.info("根據當前工況，計算最佳的變頻器設定組合")
-    
-    # TODO: Implement real-time optimization UI
     st.caption("此功能需要完整的工況輸入和優化器配置")
 
 
 def _render_feature_importance_tab(model: ChillerEnergyModel):
-    """渲染特徵重要性標籤頁"""
+    """渲染特徵重要性子頁面"""
     st.subheader("📊 特徵重要性分析")
     
     if model.feature_importance is not None:
         import pandas as pd
         
-        # Sort by importance
         importance_df = model.feature_importance.sort_values('importance', ascending=False)
         
         st.bar_chart(
@@ -351,7 +325,7 @@ def _render_feature_importance_tab(model: ChillerEnergyModel):
 
 
 def _render_history_tracking_tab():
-    """渲染歷史追蹤標籤頁"""
+    """渲染歷史追蹤子頁面"""
     st.subheader("📈 最佳化歷史追蹤")
     
     history_file = Path("optimization_history.jsonl")
@@ -360,7 +334,6 @@ def _render_history_tracking_tab():
         try:
             tracker = OptimizationHistoryTracker(str(history_file))
             
-            # Show summary stats
             stats = tracker.get_summary_stats()
             
             col1, col2, col3 = st.columns(3)
@@ -371,7 +344,6 @@ def _render_history_tracking_tab():
             with col3:
                 st.metric("平均節能", f"{stats.get('avg_energy_saved_percent', 0):.1f}%")
             
-            # TODO: Add history visualization
             st.caption("歷史記錄分析功能開發中...")
             
         except Exception as e:
@@ -381,7 +353,7 @@ def _render_history_tracking_tab():
 
 
 def _render_model_training_tab():
-    """渲染模型訓練標籤頁"""
+    """渲染模型訓練子頁面"""
     st.subheader("🔧 模型訓練")
     
     st.info("在批次處理模式中訓練新模型")

@@ -1,6 +1,5 @@
 """
-批次處理模式頁面
-包含特徵映射配置和批次處理邏輯
+批次處理模式頁面 - 支援子分頁導航
 """
 
 import streamlit as st
@@ -42,57 +41,44 @@ except ImportError:
     DataCleaner = None
 
 
-def render_batch_page(selected_files: List[str]):
+def render_batch_page(selected_files: List[str], current_page: str):
     """
     渲染批次處理頁面
     
     Args:
         selected_files: 選擇的檔案列表
+        current_page: 當前子分頁
     """
     st.header("📦 批次處理模式")
+    
+    if not selected_files:
+        st.warning("⚠️ 請先在側邊欄選擇資料檔案")
+        return
+    
     st.info(f"準備處理 {len(selected_files)} 個檔案")
-    
-    # Show file list
     show_file_list(selected_files)
-    
     st.markdown("---")
     
-    # Create tabs for batch processing
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-        "📋 解析資料", 
-        "🧹 清洗資料", 
-        "📊 統計資訊", 
-        "📈 時間序列",
-        "🔗 關聯矩陣",
-        "🎯 資料品質",
-        "💾 匯出"
-    ])
-    
-    with tab1:
+    # Route to specific subpage
+    if current_page == "batch_parse":
         _render_parse_tab(selected_files)
-    
-    with tab2:
+    elif current_page == "batch_clean":
         _render_clean_tab()
-    
-    with tab3:
+    elif current_page == "batch_stats":
         _render_stats_tab()
-    
-    with tab4:
+    elif current_page == "batch_timeseries":
         _render_timeseries_tab()
-    
-    with tab5:
+    elif current_page == "batch_correlation":
         _render_correlation_tab()
-    
-    with tab6:
+    elif current_page == "batch_quality":
         _render_quality_tab()
-    
-    with tab7:
+    elif current_page == "batch_export":
         _render_export_tab()
 
 
 def _render_parse_tab(selected_files: List[str]):
-    """渲染解析資料標籤頁"""
-    st.header("原始資料解析")
+    """渲染解析資料頁面"""
+    st.subheader("📋 原始資料解析")
     
     if not ETL_AVAILABLE:
         st.error("ETL 模組無法載入")
@@ -133,7 +119,6 @@ def _render_parse_tab(selected_files: List[str]):
     if 'batch_merged_df' in st.session_state:
         merged_df = st.session_state['batch_merged_df']
         
-        # Show basic metrics
         st.subheader("合併後資料概覽")
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -143,7 +128,6 @@ def _render_parse_tab(selected_files: List[str]):
         with col3:
             st.metric("來源檔案數", st.session_state.get('batch_file_count', 0))
         
-        # Data preview
         st.subheader("資料預覽（前 50 筆）")
         st.dataframe(
             merged_df.head(50).to_pandas(),
@@ -151,7 +135,6 @@ def _render_parse_tab(selected_files: List[str]):
             height=400
         )
         
-        # Column list
         st.subheader("欄位清單")
         col_list = st.columns(4)
         for i, col in enumerate(merged_df.columns):
@@ -160,11 +143,11 @@ def _render_parse_tab(selected_files: List[str]):
 
 
 def _render_clean_tab():
-    """渲染清洗資料標籤頁"""
-    st.header("資料清洗")
+    """渲染清洗資料頁面"""
+    st.subheader("🧹 資料清洗")
     
     if 'batch_merged_df' not in st.session_state:
-        st.info("請先在「解析資料」分頁解析檔案")
+        st.info("請先在「📋 解析資料」頁面解析檔案")
         return
     
     if not ETL_AVAILABLE:
@@ -173,7 +156,6 @@ def _render_clean_tab():
     
     merged_df = st.session_state['batch_merged_df']
     
-    # Cleaning options
     st.subheader("清洗選項")
     
     col1, col2 = st.columns(2)
@@ -186,7 +168,6 @@ def _render_clean_tab():
     with col2:
         detect_frozen = st.checkbox("檢測凍結資料", value=True)
     
-    # Physics-based validation options
     st.subheader("物理驗證選項")
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -199,7 +180,6 @@ def _render_clean_tab():
         apply_affinity = st.checkbox("親和力定律檢查", value=False,
             help="驗證泵浦 Power ∝ Frequency³ 關係")
     
-    # Filter options
     filter_invalid = st.checkbox("移除無效資料", value=False,
         help="移除未通過上述驗證的資料列")
     
@@ -217,7 +197,6 @@ def _render_clean_tab():
             
             st.success(f"✅ 清洗完成！")
             
-            # Show metrics
             col1, col2, col3 = st.columns(3)
             with col1:
                 st.metric("原始列數", f"{len(merged_df):,}")
@@ -227,7 +206,6 @@ def _render_clean_tab():
                 retention = len(df_clean) / len(merged_df) * 100 if len(merged_df) > 0 else 0
                 st.metric("保留率", f"{retention:.1f}%")
             
-            # Validation results
             validation_results = []
             if apply_steady_state and "is_steady_state" in df_clean.columns:
                 steady_count = df_clean["is_steady_state"].sum()
@@ -242,7 +220,6 @@ def _render_clean_tab():
             if validation_results:
                 st.info(" | ".join(validation_results))
             
-            # Preview
             st.subheader("清洗後資料預覽")
             st.dataframe(
                 df_clean.head(100).to_pandas(),
@@ -250,7 +227,6 @@ def _render_clean_tab():
                 height=400
             )
             
-            # Frozen data detection
             frozen_cols = [col for col in df_clean.columns if '_frozen' in col]
             if frozen_cols:
                 st.subheader("⚠️ 凍結資料檢測")
@@ -267,15 +243,14 @@ def _render_clean_tab():
 
 
 def _render_stats_tab():
-    """渲染統計資訊標籤頁"""
-    st.header("統計資訊")
+    """渲染統計資訊頁面"""
+    st.subheader("📊 統計資訊")
     
     df = _get_current_df()
     if df is None:
-        st.info("請先在「解析資料」分頁解析檔案")
+        st.info("請先在「📋 解析資料」頁面解析檔案")
         return
     
-    # Data status indicator
     if 'batch_df_clean' in st.session_state:
         st.info("📊 **目前分析：清洗後資料** (已重採樣並過濾異常值)")
     else:
@@ -293,15 +268,14 @@ def _render_stats_tab():
 
 
 def _render_timeseries_tab():
-    """渲染時間序列標籤頁"""
-    st.header("時間序列分析")
+    """渲染時間序列頁面"""
+    st.subheader("📈 時間序列分析")
     
     df = _get_current_df()
     if df is None:
-        st.info("請先在「解析資料」分頁解析檔案")
+        st.info("請先在「📋 解析資料」頁面解析檔案")
         return
     
-    # Data status indicator
     if 'batch_df_clean' in st.session_state:
         st.info("📊 **目前分析：清洗後資料**")
     else:
@@ -339,15 +313,14 @@ def _render_timeseries_tab():
 
 
 def _render_correlation_tab():
-    """渲染關聯矩陣標籤頁"""
-    st.header("🔗 關聯矩陣熱圖")
+    """渲染關聯矩陣頁面"""
+    st.subheader("🔗 關聯矩陣熱圖")
     
     df = _get_current_df()
     if df is None:
-        st.info("請先在「解析資料」分頁解析檔案")
+        st.info("請先在「📋 解析資料」頁面解析檔案")
         return
     
-    # Data status indicator
     if 'batch_df_clean' in st.session_state:
         st.info("📊 **目前分析：清洗後資料**")
     else:
@@ -358,50 +331,50 @@ def _render_correlation_tab():
 
 
 def _render_quality_tab():
-    """渲染資料品質標籤頁"""
-    st.header("🎯 資料品質儀表板")
+    """渲染資料品質頁面"""
+    st.subheader("🎯 資料品質儀表板")
     
     df = _get_current_df()
     if df is None:
-        st.info("請先在「解析資料」分頁解析檔案")
+        st.info("請先在「📋 解析資料」頁面解析檔案")
         return
     
-    # Data status indicator
     if 'batch_df_clean' in st.session_state:
         st.info("📊 **目前分析：清洗後資料**")
     else:
         st.info("📊 **目前分析：解析後資料**")
     
-    from .components import show_quality_dashboard, show_physics_validation_status, show_frozen_data_detection
-    from .components import calculate_quality_score, show_quality_score
+    from .components import (
+        show_quality_dashboard, 
+        show_physics_validation_status, 
+        show_frozen_data_detection,
+        calculate_quality_score, 
+        show_quality_score
+    )
     
-    # Overall quality metrics
     show_quality_dashboard(df)
     
-    # Physics validation
     st.markdown("---")
     show_physics_validation_status(df)
     
-    # Frozen data detection
     if 'batch_df_clean' in st.session_state:
         st.markdown("---")
         show_frozen_data_detection(df)
     
-    # Quality score
     st.markdown("---")
     quality_score = calculate_quality_score(df)
     show_quality_score(quality_score)
 
 
 def _render_export_tab():
-    """渲染匯出標籤頁"""
-    st.header("匯出資料")
+    """渲染匯出頁面"""
+    st.subheader("💾 匯出資料")
     
     has_parsed = 'batch_merged_df' in st.session_state
     has_clean = 'batch_df_clean' in st.session_state
     
     if not has_parsed and not has_clean:
-        st.info("請先在「解析資料」分頁解析檔案")
+        st.info("請先在「📋 解析資料」頁面解析檔案")
         return
     
     export_type = st.radio(
@@ -437,7 +410,6 @@ def _show_column_stats(df: pl.DataFrame, selected_col: str):
     col_data = df[selected_col]
     col_data_clean = col_data.drop_nulls()
     
-    # Metrics
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         st.metric("平均值", f"{col_data_clean.mean():.2f}")
@@ -450,7 +422,6 @@ def _show_column_stats(df: pl.DataFrame, selected_col: str):
     with col5:
         st.metric("標準差", f"{col_data_clean.std():.2f}")
     
-    # Distribution
     st.subheader("數值分布")
     
     pandas_data = col_data_clean.to_pandas()
