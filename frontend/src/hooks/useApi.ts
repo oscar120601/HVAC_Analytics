@@ -102,3 +102,21 @@ export function useListModels() {
     listModels 
   };
 }
+
+export function useColumnStats() {
+  const { data, loading, error, execute } = useApi<{
+    column: string;
+    mean: number;
+    median: number;
+    min: number;
+    max: number;
+    std: number;
+    count: number;
+  }>();
+  
+  const getStats = useCallback(async (column: string) => {
+    return execute(() => api.getColumnStats(column));
+  }, [execute]);
+
+  return { data, loading, error, getStats };
+}

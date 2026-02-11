@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { 
   Factory, 
   Zap, 
@@ -10,8 +10,6 @@ import {
   Target, 
   Download,
   Map,
-  Clock,
-  TrendingUp,
   History,
   Settings,
   ChevronRight,
@@ -69,7 +67,6 @@ function Sidebar() {
   }
 
   const menuItems = mode === 'batch' ? batchMenuItems : optimizationMenuItems
-  const themeColor = mode === 'batch' ? '#3498db' : '#e74c3c'
 
   return (
     <aside className="w-72 h-full bg-white/80 backdrop-blur-xl border-r border-slate-200/60 flex flex-col shadow-xl shadow-slate-200/50">

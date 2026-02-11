@@ -203,32 +203,47 @@ def parse_files(request: ParseRequest):
         if len(dfs) == 0:
             raise HTTPException(status_code=400, detail="No valid data found in selected files")
         
-        # Normalize schemas - ensure all DataFrames have the same columns
+        # Merge with schema normalization
         import polars as pl
-        all_columns = sorted(list(columns_set))
-        
-        normalized_dfs = []
-        for df in dfs:
-            missing_cols = set(all_columns) - set(df.columns)
-            if missing_cols:
-                # Add missing columns with null values
-                for col in missing_cols:
-                    df = df.with_columns(pl.lit(None).alias(col))
-            # Reorder columns to match
-            df = df.select(all_columns)
-            normalized_dfs.append(df)
-        
-        # Merge
-        if len(normalized_dfs) == 1:
-            merged_df = normalized_dfs[0]
+        if len(dfs) == 1:
+            merged_df = dfs[0]
         else:
-            merged_df = pl.concat(normalized_dfs, how='vertical')
+            # Get all unique columns across all dataframes
+            all_columns = sorted(list(columns_set))
+            
+            # Normalize each dataframe: add missing columns, cast all to String for compatibility
+            normalized_dfs = []
+            for df in dfs:
+                # Cast all columns to String to avoid type conflicts
+                df = df.with_columns([pl.col(c).cast(pl.Utf8) for c in df.columns])
+                
+                # Add missing columns with null values
+                missing_cols = [col for col in all_columns if col not in df.columns]
+                if missing_cols:
+                    df = df.with_columns([pl.lit(None).cast(pl.Utf8).alias(col) for col in missing_cols])
+                
+                # Reorder columns to match
+                df = df.select(all_columns)
+                normalized_dfs.append(df)
+            
+            # Merge vertically
+            merged_df = pl.concat(normalized_dfs, how='vertical_relaxed')
         
         # Store in state
         app_state["current_df"] = merged_df
         
-        # Convert preview to dict
-        preview = merged_df.head(10).to_pandas().to_dict('records')
+        # Convert preview to dict (handle serialization)
+        preview = []
+        for row in merged_df.head(10).to_dicts():
+            clean_row = {}
+            for k, v in row.items():
+                if v is None:
+                    clean_row[k] = None
+                elif hasattr(v, 'item'):  # numpy scalar
+                    clean_row[k] = v.item()
+                else:
+                    clean_row[k] = str(v) if not isinstance(v, (int, float, bool)) else v
+            preview.append(clean_row)
         
         return ParseResponse(
             success=True,
@@ -283,23 +298,48 @@ def clean_data(request: CleanRequest):
 @app.get("/api/data/preview")
 def get_data_preview(rows: int = 50):
     """Get data preview"""
+    from datetime import datetime, date
     df = app_state.get("cleaned_df") or app_state.get("current_df")
     if df is None:
         raise HTTPException(status_code=400, detail="No data available")
     
     try:
-        preview = df.head(rows).to_pandas().to_dict('records')
+        # Get preview data
+        preview_df = df.head(rows)
+        columns = list(preview_df.columns)
+        
+        # Convert to dicts and handle serialization
+        preview = []
+        for row in preview_df.to_dicts():
+            clean_row = {}
+            for k, v in row.items():
+                if v is None:
+                    clean_row[k] = None
+                elif isinstance(v, (datetime, date)):
+                    clean_row[k] = v.isoformat()
+                elif hasattr(v, 'item'):  # numpy scalar
+                    clean_row[k] = v.item()
+                elif isinstance(v, (int, float, bool)):
+                    clean_row[k] = v
+                else:
+                    clean_row[k] = str(v)
+            preview.append(clean_row)
+        
         return {
             "preview": preview,
             "total_rows": len(df),
-            "columns": list(df.columns)
+            "columns": columns
         }
     except Exception as e:
+        import traceback
+        print(f"Preview error: {e}")
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/data/stats")
 def get_data_stats(column: str):
     """Get statistics for a column"""
+    import polars as pl
     df = app_state.get("cleaned_df") or app_state.get("current_df")
     if df is None:
         raise HTTPException(status_code=400, detail="No data available")
@@ -308,14 +348,43 @@ def get_data_stats(column: str):
         raise HTTPException(status_code=404, detail=f"Column {column} not found")
     
     try:
-        col_data = df[column].drop_nulls()
+        col_data = df[column]
+        
+        # Filter out nulls and string 'None' values
+        if col_data.dtype == pl.Utf8:
+            # For string columns, filter out 'None' and empty strings
+            col_data = col_data.filter((col_data != "None") & (col_data != "") & (col_data.is_not_null()))
+            # Try to cast to numeric
+            try:
+                col_data = col_data.cast(pl.Float64)
+            except:
+                pass
+        else:
+            col_data = col_data.drop_nulls()
+        
+        # Try to calculate statistics
+        try:
+            if col_data.dtype in [pl.Float64, pl.Float32, pl.Int64, pl.Int32]:
+                return {
+                    "column": column,
+                    "mean": round(float(col_data.mean()), 4) if col_data.mean() is not None else None,
+                    "median": round(float(col_data.median()), 4) if col_data.median() is not None else None,
+                    "min": round(float(col_data.min()), 4) if col_data.min() is not None else None,
+                    "max": round(float(col_data.max()), 4) if col_data.max() is not None else None,
+                    "std": round(float(col_data.std()), 4) if col_data.std() is not None else None,
+                    "count": len(col_data)
+                }
+        except:
+            pass
+        
+        # For non-numeric columns, return count only
         return {
             "column": column,
-            "mean": round(col_data.mean(), 4),
-            "median": round(col_data.median(), 4),
-            "min": round(col_data.min(), 4),
-            "max": round(col_data.max(), 4),
-            "std": round(col_data.std(), 4),
+            "mean": None,
+            "median": None,
+            "min": None,
+            "max": None,
+            "std": None,
             "count": len(col_data)
         }
     except Exception as e:

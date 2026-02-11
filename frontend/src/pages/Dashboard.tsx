@@ -7,7 +7,6 @@ import {
   GitMerge, 
   Target, 
   Download,
-  Map,
   Zap,
   History,
   Settings,
@@ -18,16 +17,15 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
-import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
-import { useListFiles, useParseFiles, useCleanData, useListModels } from '@/hooks/useApi'
+import { useListFiles, useParseFiles, useCleanData, useListModels, useColumnStats, useApi } from '@/hooks/useApi'
+import { api } from '@/lib/api'
 import { useApp } from '@/context/AppContext'
 
 // Batch Pages
 function ParsePage() {
-  const { files, folders, folderCounts, totalFiles, count, currentFolder, loading: filesLoading, listFiles } = useListFiles()
+  const { files, folders, folderCounts, totalFiles, count, loading: filesLoading, listFiles } = useListFiles()
   const { data, loading: parsing, error, parseFiles } = useParseFiles()
   const [selectedFiles, setSelectedFiles] = useState<string[]>([])
   const [selectedFolder, setSelectedFolder] = useState<string>('')
@@ -353,10 +351,19 @@ function ParsePage() {
 
 function CleanPage() {
   const { data, loading, error, cleanData } = useCleanData()
+  const [resampleInterval, setResampleInterval] = useState('5m')
+
+  const intervalOptions = [
+    { value: '5m', label: '5 分鐘' },
+    { value: '10m', label: '10 分鐘' },
+    { value: '15m', label: '15 分鐘' },
+    { value: '30m', label: '30 分鐘' },
+    { value: '1h', label: '1 小時' },
+  ]
 
   const handleClean = async () => {
     await cleanData({
-      resample_interval: '5m',
+      resample_interval: resampleInterval,
       detect_frozen: true,
       apply_steady_state: false,
       apply_heat_balance: false,
@@ -414,7 +421,17 @@ function CleanPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                 <span className="text-slate-700">重採樣間隔</span>
-                <Badge variant="secondary">5 分鐘</Badge>
+                <select
+                  value={resampleInterval}
+                  onChange={(e) => setResampleInterval(e.target.value)}
+                  className="px-3 py-1.5 bg-white border border-slate-200 rounded-md text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent cursor-pointer"
+                >
+                  {intervalOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                 <span className="text-slate-700">檢測凍結資料</span>
@@ -470,8 +487,57 @@ function CleanPage() {
   )
 }
 
-// Other batch pages remain similar but simplified
 function StatsPage() {
+  const { data: previewData, loading: previewLoading, execute: getPreview } = useApi<{ preview: any[]; total_rows: number; columns: string[] }>()
+  const { data: statsData, loading: statsLoading, error, getStats } = useColumnStats()
+  const [selectedColumn, setSelectedColumn] = useState<string>('')
+
+  useEffect(() => {
+    getPreview(() => api.getDataPreview(10))
+  }, [getPreview])
+
+  useEffect(() => {
+    if (previewData?.columns && previewData.columns.length > 0 && !selectedColumn) {
+      setSelectedColumn(previewData.columns[0])
+    }
+  }, [previewData, selectedColumn])
+
+  useEffect(() => {
+    if (selectedColumn) {
+      getStats(selectedColumn)
+    }
+  }, [selectedColumn, getStats])
+
+  const hasData = previewData?.columns && previewData.columns.length > 0
+
+  if (!hasData) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">📊 統計資訊</h2>
+          <p className="text-slate-500 mt-1">資料欄位統計分析</p>
+        </div>
+        <Card className="h-[300px] flex items-center justify-center">
+          <div className="text-center">
+            <BarChart3 className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+            <p className="text-slate-500">請先解析並清洗資料以查看統計資訊</p>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  const statCards = statsData ? [
+    { label: '平均值', value: statsData.mean?.toFixed(2) || '-', unit: '' },
+    { label: '中位數', value: statsData.median?.toFixed(2) || '-', unit: '' },
+    { label: '標準差', value: statsData.std?.toFixed(2) || '-', unit: '' },
+    { label: '最小值', value: statsData.min?.toFixed(2) || '-', unit: '' },
+    { label: '最大值', value: statsData.max?.toFixed(2) || '-', unit: '' },
+    { label: '資料筆數', value: statsData.count?.toLocaleString() || '-', unit: '' },
+  ] : []
+
+  const columns = previewData?.columns || []
+
   return (
     <div className="space-y-6">
       <div>
@@ -479,25 +545,130 @@ function StatsPage() {
         <p className="text-slate-500 mt-1">資料欄位統計分析</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-          { label: '平均值', value: '123.45', unit: '' },
-          { label: '中位數', value: '120.00', unit: '' },
-          { label: '標準差', value: '15.67', unit: '' },
-        ].map((stat) => (
-          <Card key={stat.label} className="bg-gradient-to-br from-white to-slate-50/50">
-            <CardContent className="p-6">
-              <p className="text-sm text-slate-500 mb-1">{stat.label}</p>
-              <p className="text-3xl font-bold text-slate-900">{stat.value}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      <Card>
+        <CardHeader className="bg-gradient-to-r from-purple-50/50 to-pink-50/50">
+          <CardTitle className="flex items-center gap-2 text-purple-900">
+            <BarChart3 className="w-5 h-5" />
+            選擇欄位
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          {previewLoading ? (
+            <div className="flex items-center gap-2 text-slate-500">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              載入欄位...
+            </div>
+          ) : (
+            <select
+              value={selectedColumn}
+              onChange={(e) => setSelectedColumn(e.target.value)}
+              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent cursor-pointer"
+            >
+              {columns.map((col) => (
+                <option key={col} value={col}>
+                  {col}
+                </option>
+              ))}
+            </select>
+          )}
+        </CardContent>
+      </Card>
+
+      {statsLoading ? (
+        <div className="flex items-center justify-center h-32">
+          <RefreshCw className="w-8 h-8 text-purple-500 animate-spin" />
+          <span className="ml-2 text-slate-600">載入統計資料...</span>
+        </div>
+      ) : statsData ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {statCards.map((stat) => (
+            <Card key={stat.label} className="bg-gradient-to-br from-white to-purple-50/30">
+              <CardContent className="p-6">
+                <p className="text-sm text-slate-500 mb-1">{stat.label}</p>
+                <p className="text-3xl font-bold text-slate-900">{stat.value}</p>
+                {stat.unit && <p className="text-xs text-slate-400 mt-1">{stat.unit}</p>}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card className="h-[200px] flex items-center justify-center">
+          <p className="text-slate-500">請選擇欄位以查看統計資訊</p>
+        </Card>
+      )}
     </div>
   )
 }
 
 function TimeSeriesPage() {
+  const { data: previewData, loading, execute: getPreview } = useApi<{ preview: any[]; total_rows: number; columns: string[] }>()
+  const [selectedColumn, setSelectedColumn] = useState<string>('')
+
+  useEffect(() => {
+    getPreview(() => api.getDataPreview(100))
+  }, [getPreview])
+
+  const hasData = previewData?.columns && previewData.columns.length > 0
+  const numericColumns = previewData?.columns?.filter(col => 
+    previewData.preview?.[0]?.[col] !== null && 
+    previewData.preview?.[0]?.[col] !== undefined &&
+    !isNaN(parseFloat(previewData.preview[0][col]))
+  ) || []
+
+  useEffect(() => {
+    if (numericColumns.length > 0 && !selectedColumn) {
+      setSelectedColumn(numericColumns[0])
+    }
+  }, [numericColumns, selectedColumn])
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">📈 時間序列分析</h2>
+          <p className="text-slate-500 mt-1">視覺化資料隨時間的變化趨勢</p>
+        </div>
+        <Card className="h-[400px] flex items-center justify-center">
+          <div className="flex items-center gap-2 text-slate-500">
+            <RefreshCw className="w-6 h-6 animate-spin" />
+            <span>載入資料...</span>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  if (!hasData) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">📈 時間序列分析</h2>
+          <p className="text-slate-500 mt-1">視覺化資料隨時間的變化趨勢</p>
+        </div>
+        <Card className="h-[400px] flex items-center justify-center">
+          <div className="text-center">
+            <LineChart className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+            <p className="text-slate-500">請先解析並清洗資料以查看時間序列</p>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  // Prepare chart data
+  const chartData = previewData?.preview?.map((row, idx) => ({
+    x: idx,
+    y: parseFloat(row[selectedColumn]) || 0,
+    label: row.timestamp || row.Date || `點 ${idx}`
+  })) || []
+
   return (
     <div className="space-y-6">
       <div>
@@ -505,11 +676,66 @@ function TimeSeriesPage() {
         <p className="text-slate-500 mt-1">視覺化資料隨時間的變化趨勢</p>
       </div>
 
-      <Card className="h-[400px] flex items-center justify-center">
-        <div className="text-center">
-          <LineChart className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-          <p className="text-slate-500">請先解析資料以查看時間序列</p>
-        </div>
+      <Card>
+        <CardHeader className="bg-gradient-to-r from-green-50/50 to-emerald-50/50">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-green-900">
+              <LineChart className="w-5 h-5" />
+              選擇變數
+            </CardTitle>
+            <span className="text-sm text-slate-500">
+              共 {previewData?.total_rows?.toLocaleString()} 筆資料
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6">
+          <select
+            value={selectedColumn}
+            onChange={(e) => setSelectedColumn(e.target.value)}
+            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent cursor-pointer"
+          >
+            {numericColumns.map((col) => (
+              <option key={col} value={col}>
+                {col}
+              </option>
+            ))}
+          </select>
+        </CardContent>
+      </Card>
+
+      <Card className="h-[400px]">
+        <CardContent className="p-6 h-full">
+          {selectedColumn && chartData.length > 0 ? (
+            <div className="h-full flex flex-col">
+              <p className="text-sm font-medium text-slate-700 mb-4">{selectedColumn}</p>
+              <div className="flex-1 flex items-end gap-1">
+                {chartData.map((point, idx) => {
+                  const maxVal = Math.max(...chartData.map(d => d.y))
+                  const minVal = Math.min(...chartData.map(d => d.y))
+                  const range = maxVal - minVal || 1
+                  const height = ((point.y - minVal) / range) * 100
+                  
+                  return (
+                    <div
+                      key={idx}
+                      className="flex-1 bg-green-500 hover:bg-green-600 transition-colors rounded-t"
+                      style={{ height: `${Math.max(height, 5)}%` }}
+                      title={`${point.label}: ${point.y.toFixed(2)}`}
+                    />
+                  )
+                })}
+              </div>
+              <div className="flex justify-between text-xs text-slate-400 mt-2">
+                <span>{chartData[0]?.label}</span>
+                <span>{chartData[chartData.length - 1]?.label}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="h-full flex items-center justify-center">
+              <p className="text-slate-500">請選擇數值欄位以查看時間序列</p>
+            </div>
+          )}
+        </CardContent>
       </Card>
     </div>
   )
@@ -534,6 +760,71 @@ function CorrelationPage() {
 }
 
 function QualityPage() {
+  const { data: previewData, loading, execute: getPreview } = useApi<{ preview: any[]; total_rows: number; columns: string[] }>()
+
+  useEffect(() => {
+    getPreview(() => api.getDataPreview(10))
+  }, [getPreview])
+
+  const hasData = previewData?.columns && previewData.columns.length > 0
+  const totalRows = previewData?.total_rows || 0
+  const totalColumns = previewData?.columns?.length || 0
+
+  // Count numeric columns by checking first row values
+  const numericColumns = previewData?.columns?.filter(col => {
+    const firstVal = previewData?.preview?.[0]?.[col]
+    return firstVal !== null && firstVal !== undefined && !isNaN(parseFloat(firstVal))
+  }) || []
+
+  const qualityScore = hasData ? Math.round((numericColumns.length / Math.max(totalColumns, 1)) * 100) : 0
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">🎯 資料品質儀表板</h2>
+          <p className="text-slate-500 mt-1">全面評估資料品質指標</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1,2,3,4].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-4">
+                <div className="animate-pulse">
+                  <div className="h-3 w-20 bg-slate-200 rounded mb-2"></div>
+                  <div className="h-8 w-16 bg-slate-200 rounded"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (!hasData) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">🎯 資料品質儀表板</h2>
+          <p className="text-slate-500 mt-1">全面評估資料品質指標</p>
+        </div>
+        <Card className="h-[300px] flex items-center justify-center">
+          <div className="text-center">
+            <Target className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+            <p className="text-slate-500">請先解析並清洗資料以查看品質指標</p>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  const stats = [
+    { label: '總列數', value: totalRows.toLocaleString(), color: 'blue', bg: 'bg-blue-50', text: 'text-blue-900' },
+    { label: '總欄位數', value: totalColumns.toString(), color: 'purple', bg: 'bg-purple-50', text: 'text-purple-900' },
+    { label: '數值欄位', value: numericColumns.length.toString(), color: 'green', bg: 'bg-green-50', text: 'text-green-900' },
+    { label: '品質評分', value: `${qualityScore}%`, color: 'orange', bg: 'bg-orange-50', text: 'text-orange-900' },
+  ]
+
   return (
     <div className="space-y-6">
       <div>
@@ -542,30 +833,130 @@ function QualityPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[
-          { label: '總列數', value: '0', color: 'blue' },
-          { label: '總欄位數', value: '0', color: 'purple' },
-          { label: '數值欄位', value: '0', color: 'green' },
-          { label: '品質評分', value: '-', color: 'orange' },
-        ].map((stat) => (
-          <Card key={stat.label}>
+        {stats.map((stat) => (
+          <Card key={stat.label} className={stat.bg}>
             <CardContent className="p-4">
               <p className="text-xs text-slate-500 uppercase tracking-wider">{stat.label}</p>
-              <p className="text-2xl font-bold text-slate-900 mt-1">{stat.value}</p>
+              <p className={`text-2xl font-bold mt-1 ${stat.text}`}>{stat.value}</p>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      <Card>
+        <CardHeader className="bg-gradient-to-r from-teal-50/50 to-cyan-50/50">
+          <CardTitle className="text-teal-900">欄位概覽</CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {previewData?.columns?.slice(0, 20).map((col) => (
+              <div key={col} className="px-3 py-2 bg-slate-50 rounded text-sm truncate" title={col}>
+                {col}
+              </div>
+            ))}
+            {totalColumns > 20 && (
+              <div className="px-3 py-2 bg-slate-100 rounded text-sm text-slate-500">
+                +{totalColumns - 20} 更多
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
 
 function ExportPage() {
+  const { data: previewData, loading, execute: getPreview } = useApi<{ preview: any[]; total_rows: number; columns: string[] }>()
+  const [downloading, setDownloading] = useState(false)
+
+  useEffect(() => {
+    getPreview(() => api.getDataPreview(10))
+  }, [getPreview])
+
+  const hasData = previewData?.columns && previewData.columns.length > 0
+  const totalRows = previewData?.total_rows || 0
+
+  const handleExportCSV = async () => {
+    setDownloading(true)
+    try {
+      // Get full preview
+      const response = await api.getDataPreview(10000) // Get up to 10k rows
+      
+      if (!response.preview || response.preview.length === 0) {
+        alert('沒有可匯出的資料')
+        return
+      }
+
+      // Convert to CSV
+      const headers = response.columns.join(',')
+      const rows = response.preview.map((row: any) => 
+        response.columns.map((col: string) => {
+          const val = row[col]
+          // Escape values with commas or quotes
+          if (val === null || val === undefined) return ''
+          const str = String(val)
+          if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            return `"${str.replace(/"/g, '""')}"`
+          }
+          return str
+        }).join(',')
+      )
+      
+      const csv = [headers, ...rows].join('\n')
+      
+      // Download
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = `hvac_data_${new Date().toISOString().slice(0, 10)}.csv`
+      link.click()
+    } catch (error) {
+      alert('匯出失敗: ' + (error as Error).message)
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">💾 匯出資料</h2>
+          <p className="text-slate-500 mt-1">下載處理後的資料</p>
+        </div>
+        <Card className="h-[300px] flex items-center justify-center">
+          <div className="flex items-center gap-2 text-slate-500">
+            <RefreshCw className="w-6 h-6 animate-spin" />
+            <span>載入資料資訊...</span>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  if (!hasData) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">💾 匯出資料</h2>
+          <p className="text-slate-500 mt-1">下載處理後的資料</p>
+        </div>
+        <Card className="h-[300px] flex items-center justify-center">
+          <div className="text-center">
+            <Download className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+            <p className="text-slate-500">請先解析並清洗資料以匯出</p>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-slate-900">💾 匯出資料</h2>
-        <p className="text-slate-500 mt-1">下載處理後的資料</p>
+        <p className="text-slate-500 mt-1">下載處理後的資料 ({totalRows.toLocaleString()} 筆)</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -575,20 +966,34 @@ function ExportPage() {
             <CardDescription>通用格式，相容性最佳</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button className="w-full" variant="outline">
-              <Download className="w-4 h-4 mr-2" />
-              下載 CSV
+            <Button 
+              className="w-full" 
+              variant="outline" 
+              onClick={handleExportCSV}
+              disabled={downloading}
+            >
+              {downloading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  匯出中...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 mr-2" />
+                  下載 CSV
+                </>
+              )}
             </Button>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="opacity-50">
           <CardHeader>
             <CardTitle>Parquet 格式</CardTitle>
-            <CardDescription>高效能格式，適合大型資料集</CardDescription>
+            <CardDescription>高效能格式，適合大型資料集 (開發中)</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button className="w-full" variant="outline">
+            <Button className="w-full" variant="outline" disabled>
               <Download className="w-4 h-4 mr-2" />
               下載 Parquet
             </Button>
