@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
 import { useListFiles, useParseFiles, useCleanData, useListModels } from '@/hooks/useApi'
+import { useApp } from '@/context/AppContext'
 
 // Batch Pages
 function ParsePage() {
@@ -621,7 +622,7 @@ function TrainingPage() {
 
 // Main Dashboard
 function Dashboard() {
-  const [currentPage] = useState('batch_parse')
+  const { currentPage } = useApp()
 
   const renderPage = () => {
     switch (currentPage) {

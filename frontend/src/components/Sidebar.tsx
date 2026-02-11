@@ -18,7 +18,7 @@ import {
   Database
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ProcessingMode, BatchSubPage, OptimizationSubPage } from '@/types'
+import { useApp } from '@/context/AppContext'
 import { useListFiles } from '@/hooks/useApi'
 import { useListModels } from '@/hooks/useApi'
 
@@ -48,8 +48,7 @@ const optimizationMenuItems: MenuItem[] = [
 ]
 
 function Sidebar() {
-  const [mode, setMode] = useState<ProcessingMode>('batch')
-  const [currentPage, setCurrentPage] = useState<string>('batch_parse')
+  const { mode, setMode, currentPage, setCurrentPage } = useApp()
   
   // Fetch data for stats
   const { totalFiles, listFiles } = useListFiles()
@@ -61,9 +60,8 @@ function Sidebar() {
     listModels()
   }, [listFiles, listModels])
 
-  const handleModeChange = (newMode: ProcessingMode) => {
+  const handleModeChange = (newMode: 'batch' | 'optimization') => {
     setMode(newMode)
-    setCurrentPage(newMode === 'batch' ? 'batch_parse' : 'opt_mapping')
   }
 
   const handlePageChange = (pageId: string) => {
