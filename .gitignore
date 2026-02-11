@@ -40,3 +40,13 @@ fix_*.py
 # Models (if large)
 models/*.pkl
 models/*.joblib
+
+# Node.js
+node_modules/
+frontend/node_modules/
+dist/
+build/
+
+# Environment
+.env.local
+.env.*.local
