@@ -489,11 +489,19 @@ function ExportPage() {
 
 // Optimization Pages with real API
 function MappingPage() {
-  const { models, loading, listModels } = useListModels()
+  const { models, folders, folderCounts, totalModels, loading, listModels } = useListModels()
+  const [selectedFolder, setSelectedFolder] = useState<string>('')
 
+  // Load folders on mount
   useEffect(() => {
     listModels()
   }, [listModels])
+
+  // Load models when folder is selected
+  const handleFolderSelect = async (folder: string) => {
+    setSelectedFolder(folder)
+    await listModels(folder)
+  }
 
   return (
     <div className="space-y-6">
@@ -505,33 +513,92 @@ function MappingPage() {
       <Card>
         <CardHeader className="bg-gradient-to-r from-red-50/50 to-pink-50/50">
           <CardTitle className="text-red-900">已訓練模型</CardTitle>
-          <CardDescription>選擇要使用的模型</CardDescription>
+          <CardDescription>選擇要使用的模型資料夾</CardDescription>
         </CardHeader>
         <CardContent className="p-6">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <RefreshCw className="w-6 h-6 animate-spin text-slate-400" />
             </div>
-          ) : models.length > 0 ? (
-            <div className="space-y-2">
-              {models.map((model: any) => (
-                <div key={model.name} className="p-3 bg-slate-50 rounded-lg flex justify-between items-center">
-                  <div>
-                    <p className="font-medium text-slate-900">{model.name}</p>
-                    <p className="text-xs text-slate-500">
-                      MAPE: {model.mape?.toFixed(2) ?? '-'}% | 
-                      R²: {model.r2?.toFixed(4) ?? '-'} | 
-                      特徵: {model.feature_count}
-                    </p>
-                  </div>
-                  <Button size="sm">選擇</Button>
+          ) : !selectedFolder ? (
+            // Show folder selection
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-slate-700">選擇模型資料夾：</p>
+              {folders.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {folders.map((folder) => (
+                    <button
+                      key={folder}
+                      onClick={() => handleFolderSelect(folder)}
+                      className="p-4 bg-slate-50 hover:bg-red-50 border border-slate-200 hover:border-red-300 rounded-lg text-left transition-all"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Settings className="w-4 h-4 text-red-500" />
+                        <span className="font-medium text-slate-900">{folder}</span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        {folderCounts[folder] || 0} 個模型
+                      </p>
+                    </button>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <div className="text-center py-8">
+                  <Settings className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-500">尚未訓練模型</p>
+                </div>
+              )}
+              {folders.length > 0 && (
+                <p className="text-sm text-slate-500 mt-2">
+                  共 {folders.length} 個資料夾，{totalModels} 個模型
+                </p>
+              )}
             </div>
           ) : (
-            <div className="text-center py-8">
-              <Settings className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-500">尚未訓練模型</p>
+            // Show models in selected folder
+            <div className="space-y-4">
+              <div className="flex items-center gap-4 p-4 bg-red-50/50 rounded-lg border border-red-100">
+                <div className="p-3 bg-red-500 rounded-xl">
+                  <Settings className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-slate-900">{selectedFolder}</p>
+                  <p className="text-sm text-slate-500">{models.length} 個模型</p>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    setSelectedFolder('')
+                    listModels()
+                  }}
+                >
+                  選擇其他資料夾
+                </Button>
+              </div>
+
+              {models.length > 0 ? (
+                <div className="space-y-2">
+                  {models.map((model: any) => (
+                    <div key={model.name} className="p-3 bg-slate-50 rounded-lg flex justify-between items-center">
+                      <div>
+                        <p className="font-medium text-slate-900">{model.name}</p>
+                        <p className="text-xs text-slate-500">
+                          MAPE: {model.mape?.toFixed(2) ?? '-'}% | 
+                          R²: {model.r2?.toFixed(4) ?? '-'} | 
+                          特徵: {model.feature_count}
+                        </p>
+                      </div>
+                      <Button size="sm">選擇</Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Settings className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-500">此資料夾尚未有訓練模型</p>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

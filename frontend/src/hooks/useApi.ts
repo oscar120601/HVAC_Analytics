@@ -79,11 +79,26 @@ export function useCleanData() {
 }
 
 export function useListModels() {
-  const { data, loading, error, execute } = useApi<any[]>();
+  const { data, loading, error, execute } = useApi<{
+    folders: string[];
+    models: any[];
+    folder_counts: Record<string, number>;
+    total_models: number;
+    current_folder?: string;
+  }>();
   
-  const listModels = useCallback(async () => {
-    return execute(() => api.listModels());
+  const listModels = useCallback(async (subfolder?: string) => {
+    return execute(() => api.listModels(subfolder));
   }, [execute]);
 
-  return { models: data || [], loading, error, listModels };
+  return { 
+    models: data?.models || [],
+    folders: data?.folders || [],
+    folderCounts: data?.folder_counts || {},
+    totalModels: data?.total_models || 0,
+    currentFolder: data?.current_folder,
+    loading, 
+    error, 
+    listModels 
+  };
 }

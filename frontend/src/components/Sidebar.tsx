@@ -52,7 +52,7 @@ function Sidebar() {
   
   // Fetch data for stats
   const { totalFiles, listFiles } = useListFiles()
-  const { models, listModels } = useListModels()
+  const { totalModels, listModels } = useListModels()
   
   // Load stats on mount
   useEffect(() => {
@@ -216,7 +216,7 @@ function Sidebar() {
               <span className="text-xs font-semibold uppercase tracking-wider">已訓練模型</span>
             </div>
             <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold text-red-900">{models.length}</span>
+              <span className="text-2xl font-bold text-red-900">{totalModels}</span>
               <span className="text-sm text-red-600">個模型</span>
             </div>
           </div>

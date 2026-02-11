@@ -85,8 +85,13 @@ class ApiClient {
   }
 
   // Model Management
-  async listModels() {
-    return this.fetch('/api/models');
+  async listModels(subfolder?: string) {
+    const params = new URLSearchParams();
+    if (subfolder) {
+      params.append('subfolder', subfolder);
+    }
+    const query = params.toString();
+    return this.fetch(`/api/models${query ? '?' + query : ''}`);
   }
 
   async trainModel(modelName: string, featureMapping: Record<string, any>) {

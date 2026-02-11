@@ -298,20 +298,54 @@ def get_data_stats(column: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Model Management Endpoints
-@app.get("/api/models", response_model=List[ModelInfo])
-def list_models():
-    """List available trained models"""
+@app.get("/api/models")
+def list_models(subfolder: str = None):
+    """List available trained models and subfolders"""
     try:
-        model_dir = Path("models")
-        if not model_dir.exists():
-            return []
+        base_dir = BASE_DIR / "models"
         
-        models = []
-        for model_file in model_dir.glob("*.joblib"):
-            # Try to load model info
+        if not base_dir.exists():
+            return {"folders": [], "models": [], "total_models": 0}
+        
+        # If subfolder is specified, list models in that subfolder
+        if subfolder:
+            target_dir = base_dir / subfolder
+            if not target_dir.exists():
+                return {"folders": [], "models": [], "total_models": 0, "error": f"Subfolder {subfolder} not found"}
+            
+            models = []
+            for model_file in target_dir.glob("*.joblib"):
+                try:
+                    model = ChillerEnergyModel.load_model(str(model_file))
+                    models.append(ModelInfo(
+                        name=model_file.name,
+                        mape=model.training_metrics.get('mape') if model.training_metrics else None,
+                        r2=model.training_metrics.get('r2') if model.training_metrics else None,
+                        feature_count=len(model.feature_names) if model.feature_names else 0,
+                        created_at=datetime.fromtimestamp(model_file.stat().st_mtime).isoformat()
+                    ))
+                except:
+                    models.append(ModelInfo(
+                        name=model_file.name,
+                        feature_count=0
+                    ))
+            
+            return {
+                "folders": [],
+                "models": models,
+                "total_models": len(models),
+                "current_folder": subfolder
+            }
+        
+        # Otherwise, list subfolders and count models in each
+        subfolders = sorted([d.name for d in base_dir.iterdir() if d.is_dir()])
+        
+        # Also include .joblib files directly in models/ root
+        root_models = []
+        for model_file in base_dir.glob("*.joblib"):
             try:
                 model = ChillerEnergyModel.load_model(str(model_file))
-                models.append(ModelInfo(
+                root_models.append(ModelInfo(
                     name=model_file.name,
                     mape=model.training_metrics.get('mape') if model.training_metrics else None,
                     r2=model.training_metrics.get('r2') if model.training_metrics else None,
@@ -319,12 +353,27 @@ def list_models():
                     created_at=datetime.fromtimestamp(model_file.stat().st_mtime).isoformat()
                 ))
             except:
-                models.append(ModelInfo(
+                root_models.append(ModelInfo(
                     name=model_file.name,
                     feature_count=0
                 ))
         
-        return models
+        # Count models in each subfolder
+        folder_counts = {}
+        total_models = len(root_models)
+        for folder in subfolders:
+            folder_path = base_dir / folder
+            count = len(list(folder_path.glob("*.joblib")))
+            folder_counts[folder] = count
+            total_models += count
+        
+        return {
+            "folders": subfolders,
+            "models": root_models,
+            "folder_counts": folder_counts,
+            "total_models": total_models,
+            "directory": str(base_dir.absolute())
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
