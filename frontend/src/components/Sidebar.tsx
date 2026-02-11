@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   Factory, 
   Zap, 
@@ -19,6 +19,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ProcessingMode, BatchSubPage, OptimizationSubPage } from '@/types'
+import { useListFiles } from '@/hooks/useApi'
+import { useListModels } from '@/hooks/useApi'
 
 interface MenuItem {
   id: string
@@ -48,8 +50,16 @@ const optimizationMenuItems: MenuItem[] = [
 function Sidebar() {
   const [mode, setMode] = useState<ProcessingMode>('batch')
   const [currentPage, setCurrentPage] = useState<string>('batch_parse')
-  const [fileCount] = useState(214)
-  const [modelCount] = useState(5)
+  
+  // Fetch data for stats
+  const { totalFiles, listFiles } = useListFiles()
+  const { models, listModels } = useListModels()
+  
+  // Load stats on mount
+  useEffect(() => {
+    listFiles('data')
+    listModels()
+  }, [listFiles, listModels])
 
   const handleModeChange = (newMode: ProcessingMode) => {
     setMode(newMode)
@@ -197,7 +207,7 @@ function Sidebar() {
               <span className="text-xs font-semibold uppercase tracking-wider">可用檔案</span>
             </div>
             <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold text-blue-900">{fileCount}</span>
+              <span className="text-2xl font-bold text-blue-900">{totalFiles}</span>
               <span className="text-sm text-blue-600">個 CSV</span>
             </div>
           </div>
@@ -208,7 +218,7 @@ function Sidebar() {
               <span className="text-xs font-semibold uppercase tracking-wider">已訓練模型</span>
             </div>
             <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold text-red-900">{modelCount}</span>
+              <span className="text-2xl font-bold text-red-900">{models.length}</span>
               <span className="text-sm text-red-600">個模型</span>
             </div>
           </div>

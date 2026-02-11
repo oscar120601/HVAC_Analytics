@@ -32,20 +32,37 @@ export function useApi<T>() {
 
 // Specific hooks for common operations
 export function useListFiles() {
-  const { data, loading, error, execute } = useApi<{ files: string[]; count: number }>();
+  const { data, loading, error, execute } = useApi<{ 
+    files: string[]; 
+    folders: string[];
+    folder_counts: Record<string, number>;
+    total_files: number;
+    count: number;
+    current_folder?: string;
+  }>();
   
-  const listFiles = useCallback(async (dataDir?: string) => {
-    return execute(() => api.listFiles(dataDir));
+  const listFiles = useCallback(async (dataDir?: string, subfolder?: string) => {
+    return execute(() => api.listFiles(dataDir, subfolder));
   }, [execute]);
 
-  return { files: data?.files || [], count: data?.count || 0, loading, error, listFiles };
+  return { 
+    files: data?.files || [], 
+    folders: data?.folders || [],
+    folderCounts: data?.folder_counts || {},
+    totalFiles: data?.total_files || 0,
+    count: data?.count || 0,
+    currentFolder: data?.current_folder,
+    loading, 
+    error, 
+    listFiles 
+  };
 }
 
 export function useParseFiles() {
   const { data, loading, error, execute } = useApi<any>();
   
-  const parseFiles = useCallback(async (files: string[], dataDir?: string) => {
-    return execute(() => api.parseFiles(files, dataDir));
+  const parseFiles = useCallback(async (files: string[], dataDir?: string, subfolder?: string) => {
+    return execute(() => api.parseFiles(files, dataDir, subfolder));
   }, [execute]);
 
   return { data, loading, error, parseFiles };

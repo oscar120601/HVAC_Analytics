@@ -19,6 +19,9 @@ import uvicorn
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+# Define base project directory
+BASE_DIR = Path(__file__).parent.parent
+
 # Try to import ETL modules
 try:
     from etl.parser import ReportParser
@@ -54,7 +57,8 @@ app.add_middleware(
 # Pydantic models
 class ParseRequest(BaseModel):
     files: List[str]
-    data_dir: str = "data/CGMH-TY"
+    data_dir: str = "data"
+    subfolder: str = ""
 
 class ParseResponse(BaseModel):
     success: bool
@@ -117,18 +121,51 @@ def health_check():
 
 # File Management Endpoints
 @app.get("/api/files")
-def list_files(data_dir: str = "data/CGMH-TY"):
-    """List available CSV files"""
+def list_files(data_dir: str = "data", subfolder: str = None):
+    """List available CSV files and subfolders"""
     try:
-        path = Path(data_dir)
-        if not path.exists():
-            return {"files": [], "count": 0, "error": "Directory not found"}
+        # Use absolute path relative to project root
+        base_path = BASE_DIR / data_dir
         
-        csv_files = sorted([f.name for f in path.glob("*.csv")])
+        if not base_path.exists():
+            return {"files": [], "folders": [], "count": 0, "error": "Directory not found"}
+        
+        # If subfolder is specified, list files in that subfolder
+        if subfolder:
+            target_path = base_path / subfolder
+            if not target_path.exists():
+                return {"files": [], "folders": [], "count": 0, "error": f"Subfolder {subfolder} not found"}
+            
+            csv_files = sorted([f.name for f in target_path.glob("*.csv")])
+            return {
+                "files": csv_files,
+                "folders": [],
+                "count": len(csv_files),
+                "directory": str(target_path.absolute()),
+                "base_dir": str(base_path.absolute()),
+                "current_folder": subfolder
+            }
+        
+        # Otherwise, list subfolders in data_dir
+        subfolders = sorted([d.name for d in base_path.iterdir() if d.is_dir()])
+        
+        # Also count total CSV files across all subfolders
+        total_files = 0
+        folder_counts = {}
+        for folder in subfolders:
+            folder_path = base_path / folder
+            count = len(list(folder_path.glob("*.csv")))
+            folder_counts[folder] = count
+            total_files += count
+        
         return {
-            "files": csv_files,
-            "count": len(csv_files),
-            "directory": str(path.absolute())
+            "files": [],
+            "folders": subfolders,
+            "folder_counts": folder_counts,
+            "total_files": total_files,
+            "count": 0,
+            "directory": str(base_path.absolute()),
+            "base_dir": str(base_path.absolute())
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -141,7 +178,14 @@ def parse_files(request: ParseRequest):
         raise HTTPException(status_code=503, detail="ETL module not available")
     
     try:
-        data_dir = Path(request.data_dir)
+        # Use absolute path relative to project root
+        base_dir = BASE_DIR / request.data_dir
+        # If subfolder is provided, use it as the target directory
+        if request.subfolder:
+            data_dir = base_dir / request.subfolder
+        else:
+            data_dir = base_dir
+        
         file_paths = [str(data_dir / f) for f in request.files]
         
         parser = ReportParser()

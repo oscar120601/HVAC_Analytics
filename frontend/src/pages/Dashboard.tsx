@@ -26,20 +26,29 @@ import { useListFiles, useParseFiles, useCleanData, useListModels } from '@/hook
 
 // Batch Pages
 function ParsePage() {
-  const { files, count, loading: filesLoading, listFiles } = useListFiles()
+  const { files, folders, folderCounts, totalFiles, count, currentFolder, loading: filesLoading, listFiles } = useListFiles()
   const { data, loading: parsing, error, parseFiles } = useParseFiles()
   const [selectedFiles, setSelectedFiles] = useState<string[]>([])
+  const [selectedFolder, setSelectedFolder] = useState<string>('')
 
+  // Load folders on mount
   useEffect(() => {
-    listFiles()
+    listFiles('data')
   }, [listFiles])
+
+  // Load files when folder is selected
+  const handleFolderSelect = async (folder: string) => {
+    setSelectedFolder(folder)
+    setSelectedFiles([])
+    await listFiles('data', folder)
+  }
 
   const handleParse = async () => {
     if (selectedFiles.length === 0) {
       // Select all files by default
-      await parseFiles(files)
+      await parseFiles(files, 'data', selectedFolder)
     } else {
-      await parseFiles(selectedFiles)
+      await parseFiles(selectedFiles, 'data', selectedFolder)
     }
   }
 
@@ -50,7 +59,7 @@ function ParsePage() {
           <h2 className="text-2xl font-bold text-slate-900">📋 原始資料解析</h2>
           <p className="text-slate-500 mt-1">解析並合併 CSV 檔案</p>
         </div>
-        <Button variant="outline" onClick={() => listFiles()} disabled={filesLoading}>
+        <Button variant="outline" onClick={() => selectedFolder ? listFiles('data', selectedFolder) : listFiles('data')} disabled={filesLoading}>
           <RefreshCw className={cn("w-4 h-4 mr-2", filesLoading && "animate-spin")} />
           重新整理
         </Button>
@@ -72,47 +81,117 @@ function ParsePage() {
           <CardDescription>選擇要解析的檔案範圍</CardDescription>
         </CardHeader>
         <CardContent className="p-6 space-y-4">
-          <div className="flex items-center gap-4 p-4 bg-blue-50/50 rounded-lg border border-blue-100">
-            <div className="p-3 bg-blue-500 rounded-xl">
-              <FileText className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <p className="font-semibold text-slate-900">找到 {count} 個檔案</p>
-              <p className="text-sm text-slate-500">data/CGMH-TY/*.csv</p>
-            </div>
-          </div>
-
-          {data && (
-            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="flex items-center gap-2 text-green-800">
-                <CheckCircle2 className="w-5 h-5" />
-                <span className="font-medium">解析成功！</span>
+          {/* Folder Selection */}
+          {!selectedFolder ? (
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-slate-700">選擇資料夾：</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {folders.map((folder) => (
+                  <button
+                    key={folder}
+                    onClick={() => handleFolderSelect(folder)}
+                    className="p-4 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg text-left transition-all"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <FileText className="w-4 h-4 text-blue-500" />
+                      <span className="font-medium text-slate-900">{folder}</span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {folderCounts[folder] || 0} 個 CSV 檔案
+                    </p>
+                  </button>
+                ))}
               </div>
-              <p className="text-sm text-green-700 mt-1">
-                總列數: {data.row_count.toLocaleString()} | 
-                欄位數: {data.column_count} | 
-                欄位: {data.columns?.slice(0, 5).join(', ')}{data.columns?.length > 5 ? '...' : ''}
+              <p className="text-sm text-slate-500 mt-2">
+                共 {folders.length} 個資料夾，{totalFiles} 個 CSV 檔案
               </p>
             </div>
-          )}
+          ) : (
+            <div className="space-y-4">
+              {/* Selected Folder Info */}
+              <div className="flex items-center gap-4 p-4 bg-blue-50/50 rounded-lg border border-blue-100">
+                <div className="p-3 bg-blue-500 rounded-xl">
+                  <FileText className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-slate-900">{selectedFolder}</p>
+                  <p className="text-sm text-slate-500">找到 {count} 個檔案</p>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    setSelectedFolder('')
+                    setSelectedFiles([])
+                    listFiles('data')
+                  }}
+                >
+                  選擇其他資料夾
+                </Button>
+              </div>
 
-          <Button 
-            onClick={handleParse}
-            disabled={parsing || filesLoading || count === 0}
-            className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg shadow-blue-200"
-          >
-            {parsing ? (
-              <>
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                解析中...
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 mr-2" />
-                解析並合併資料
-              </>
-            )}
-          </Button>
+              {/* File List */}
+              {files.length > 0 && (
+                <div className="border rounded-lg p-4 max-h-60 overflow-y-auto">
+                  <p className="text-sm font-medium text-slate-700 mb-2">檔案列表：</p>
+                  <div className="space-y-1">
+                    {files.map((file) => (
+                      <label key={file} className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedFiles.length === 0 || selectedFiles.includes(file)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedFiles([...selectedFiles, file])
+                            } else {
+                              setSelectedFiles(selectedFiles.filter(f => f !== file))
+                            }
+                          }}
+                          className="rounded border-slate-300"
+                        />
+                        <span className="text-sm text-slate-700">{file}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-2">
+                    {selectedFiles.length === 0 ? '已選擇全部檔案' : `已選擇 ${selectedFiles.length} 個檔案`}
+                  </p>
+                </div>
+              )}
+
+              {data && (
+                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex items-center gap-2 text-green-800">
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span className="font-medium">解析成功！</span>
+                  </div>
+                  <p className="text-sm text-green-700 mt-1">
+                    總列數: {data.row_count.toLocaleString()} | 
+                    欄位數: {data.column_count} | 
+                    欄位: {data.columns?.slice(0, 5).join(', ')}{data.columns?.length > 5 ? '...' : ''}
+                  </p>
+                </div>
+              )}
+
+              <Button 
+                onClick={handleParse}
+                disabled={parsing || filesLoading || count === 0}
+                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg shadow-blue-200"
+              >
+                {parsing ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    解析中...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 mr-2" />
+                    解析並合併資料
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 

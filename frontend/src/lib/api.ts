@@ -34,15 +34,23 @@ class ApiClient {
   }
 
   // File Management
-  async listFiles(dataDir: string = 'data/CGMH-TY') {
-    return this.fetch(`/api/files?data_dir=${encodeURIComponent(dataDir)}`);
+  async listFiles(dataDir: string = 'data', subfolder?: string) {
+    const params = new URLSearchParams({ data_dir: dataDir });
+    if (subfolder) {
+      params.append('subfolder', subfolder);
+    }
+    return this.fetch(`/api/files?${params.toString()}`);
   }
 
   // Data Processing
-  async parseFiles(files: string[], dataDir: string = 'data/CGMH-TY') {
+  async parseFiles(files: string[], dataDir: string = 'data', subfolder?: string) {
     return this.fetch('/api/parse', {
       method: 'POST',
-      body: JSON.stringify({ files, data_dir: dataDir }),
+      body: JSON.stringify({ 
+        files, 
+        data_dir: dataDir,
+        subfolder: subfolder || ''
+      }),
     });
   }
 
