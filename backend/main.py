@@ -192,16 +192,37 @@ def parse_files(request: ParseRequest):
         
         # Parse each file
         dfs = []
+        columns_set = set()
+        
         for fp in file_paths:
             df = parser.parse_file(fp)
-            dfs.append(df)
+            if df is not None and len(df) > 0:
+                dfs.append(df)
+                columns_set.update(df.columns)
+        
+        if len(dfs) == 0:
+            raise HTTPException(status_code=400, detail="No valid data found in selected files")
+        
+        # Normalize schemas - ensure all DataFrames have the same columns
+        import polars as pl
+        all_columns = sorted(list(columns_set))
+        
+        normalized_dfs = []
+        for df in dfs:
+            missing_cols = set(all_columns) - set(df.columns)
+            if missing_cols:
+                # Add missing columns with null values
+                for col in missing_cols:
+                    df = df.with_columns(pl.lit(None).alias(col))
+            # Reorder columns to match
+            df = df.select(all_columns)
+            normalized_dfs.append(df)
         
         # Merge
-        import polars as pl
-        if len(dfs) == 1:
-            merged_df = dfs[0]
+        if len(normalized_dfs) == 1:
+            merged_df = normalized_dfs[0]
         else:
-            merged_df = pl.concat(dfs, how='vertical_relaxed')
+            merged_df = pl.concat(normalized_dfs, how='vertical')
         
         # Store in state
         app_state["current_df"] = merged_df
@@ -218,6 +239,9 @@ def parse_files(request: ParseRequest):
             message=f"Successfully parsed {len(request.files)} files"
         )
     except Exception as e:
+        import traceback
+        error_detail = f"{str(e)}\n{traceback.format_exc()}"
+        print(error_detail)  # Log to console
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/clean", response_model=CleanResponse)
@@ -302,7 +326,12 @@ def get_data_stats(column: str):
 def list_models(subfolder: str = None):
     """List available trained models and subfolders"""
     try:
+        import os
+        print(f"DEBUG: BASE_DIR = {BASE_DIR}")
+        print(f"DEBUG: Current dir = {os.getcwd()}")
         base_dir = BASE_DIR / "models"
+        print(f"DEBUG: model_dir = {base_dir}")
+        print(f"DEBUG: exists = {base_dir.exists()}")
         
         if not base_dir.exists():
             return {"folders": [], "models": [], "total_models": 0}
