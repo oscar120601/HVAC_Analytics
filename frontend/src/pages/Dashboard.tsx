@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { 
   FileText, 
   Brush, 
@@ -31,6 +31,7 @@ function ParsePage() {
   const { data, loading: parsing, error, parseFiles } = useParseFiles()
   const [selectedFiles, setSelectedFiles] = useState<string[]>([])
   const [selectedFolder, setSelectedFolder] = useState<string>('')
+  const [filterPattern, setFilterPattern] = useState<string>('')
 
   // Load folders on mount
   useEffect(() => {
@@ -41,7 +42,51 @@ function ParsePage() {
   const handleFolderSelect = async (folder: string) => {
     setSelectedFolder(folder)
     setSelectedFiles([])
+    setFilterPattern('')
     await listFiles('data', folder)
+  }
+
+  // Filter files based on wildcard pattern
+  const filteredFiles = useMemo(() => {
+    if (!filterPattern) return files
+    
+    // Convert wildcard pattern to regex
+    // * matches any characters
+    // ? matches single character
+    const regexPattern = filterPattern
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&') // Escape special regex chars except * and ?
+      .replace(/\*/g, '.*')  // * -> .*
+      .replace(/\?/g, '.')   // ? -> .
+    
+    try {
+      const regex = new RegExp(regexPattern, 'i')
+      return files.filter(file => regex.test(file))
+    } catch {
+      return files
+    }
+  }, [files, filterPattern])
+
+  // Select all filtered files
+  const selectAll = () => {
+    setSelectedFiles(filteredFiles)
+  }
+
+  // Deselect all
+  const deselectAll = () => {
+    setSelectedFiles([])
+  }
+
+  // Select files matching pattern (for filtered results)
+  const selectFiltered = () => {
+    setSelectedFiles(prev => {
+      const newSelection = [...prev]
+      filteredFiles.forEach(file => {
+        if (!newSelection.includes(file)) {
+          newSelection.push(file)
+        }
+      })
+      return newSelection
+    })
   }
 
   const handleParse = async () => {
@@ -131,16 +176,77 @@ function ParsePage() {
                 </Button>
               </div>
 
-              {/* File List */}
+              {/* File List with Filter and Selection Controls */}
               {files.length > 0 && (
-                <div className="border rounded-lg p-4 max-h-60 overflow-y-auto">
-                  <p className="text-sm font-medium text-slate-700 mb-2">檔案列表：</p>
-                  <div className="space-y-1">
-                    {files.map((file) => (
+                <div className="border rounded-lg p-4">
+                  {/* Filter and Controls */}
+                  <div className="flex flex-col gap-3 mb-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-slate-700">檔案列表：</p>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={selectAll}
+                          disabled={filteredFiles.length === 0}
+                        >
+                          全選
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={deselectAll}
+                        >
+                          取消全選
+                        </Button>
+                        {filterPattern && (
+                          <Button 
+                            variant="secondary" 
+                            size="sm" 
+                            onClick={selectFiltered}
+                            disabled={filteredFiles.length === 0}
+                          >
+                            選取符合條件
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Wildcard Filter Input */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-500">篩選：</span>
+                      <input
+                        type="text"
+                        placeholder="支援萬用字元 * 和 ?，例如：*01-01* 或 *.csv"
+                        value={filterPattern}
+                        onChange={(e) => setFilterPattern(e.target.value)}
+                        className="flex-1 px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      {filterPattern && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => setFilterPattern('')}
+                        >
+                          清除
+                        </Button>
+                      )}
+                    </div>
+                    
+                    {filterPattern && (
+                      <p className="text-xs text-slate-500">
+                        符合條件：{filteredFiles.length} / {files.length} 個檔案
+                      </p>
+                    )}
+                  </div>
+                  
+                  {/* File List */}
+                  <div className="max-h-60 overflow-y-auto space-y-1 border-t pt-2">
+                    {filteredFiles.map((file) => (
                       <label key={file} className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={selectedFiles.length === 0 || selectedFiles.includes(file)}
+                          checked={selectedFiles.includes(file)}
                           onChange={(e) => {
                             if (e.target.checked) {
                               setSelectedFiles([...selectedFiles, file])
@@ -153,9 +259,15 @@ function ParsePage() {
                         <span className="text-sm text-slate-700">{file}</span>
                       </label>
                     ))}
+                    {filteredFiles.length === 0 && filterPattern && (
+                      <p className="text-sm text-slate-500 text-center py-4">
+                        沒有符合條件的檔案
+                      </p>
+                    )}
                   </div>
+                  
                   <p className="text-xs text-slate-500 mt-2">
-                    {selectedFiles.length === 0 ? '已選擇全部檔案' : `已選擇 ${selectedFiles.length} 個檔案`}
+                    {selectedFiles.length === 0 ? '已選擇全部檔案' : `已選擇 ${selectedFiles.length} / ${files.length} 個檔案`}
                   </p>
                 </div>
               )}
