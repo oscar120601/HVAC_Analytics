@@ -1,0 +1,487 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HVAC Analytics PRD</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #dfe2e5;
+            padding: 12px;
+            text-align: left;
+        }
+        th { background-color: #f6f8fa; }
+        tr:nth-child(even) { background-color: #fdfdfd; }
+        code {
+            background-color: #f3f3f3;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 85%;
+        }
+        pre {
+            background-color: #f6f8fa;
+            padding: 16px;
+            overflow: auto;
+            border-radius: 6px;
+        }
+        blockquote {
+            margin: 0;
+            padding: 0 1em;
+            color: #6a737d;
+            border-left: 0.25em solid #dfe2e5;
+        }
+        .important {
+            background-color: #fff9db;
+            padding: 10px;
+            border-left: 5px solid #fcc419;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="prd-reportparser-robustness-refactoring">PRD：報表解析器強健性重構 (ReportParser Robustness Refactoring)</h1>
+<p><strong>文件版本:</strong> v2.0 (整合同儕審查建議)
+<strong>日期:</strong> 2026-02-12
+<strong>負責人:</strong> Oscar Chang
+<strong>目標模組:</strong> <a href="file:///d:/12.任務/HVAC-1/src/etl/parser.py">parser.py</a>
+<strong>預估工時:</strong> 2.5 ~ 3 個工程天</p>
+<hr />
+<h2 id="1">1. 背景與問題陳述</h2>
+<p>根據 2026-02-12 完成的《報表解析器評鑑報告》（含深度壓力測試）與同儕審查建議，目前的 <code>ReportParser</code> 模組存在以下關鍵問題：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">編號</th>
+<th style="text-align: left;">問題</th>
+<th style="text-align: center;">嚴重程度</th>
+<th style="text-align: left;">影響範圍</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">P1</td>
+<td style="text-align: left;">編碼硬編碼為 UTF-8，遇 Big5/CP950 報表直接崩潰</td>
+<td style="text-align: center;"><strong>Critical</strong></td>
+<td style="text-align: left;">所有非 UTF-8 案場</td>
+</tr>
+<tr>
+<td style="text-align: center;">P1.1</td>
+<td style="text-align: left;">未處理 UTF-8 BOM (<code>\xef\xbb\xbf</code>)，Windows Excel 存檔常附帶</td>
+<td style="text-align: center;"><strong>High</strong></td>
+<td style="text-align: left;">Excel 轉存的報表</td>
+</tr>
+<tr>
+<td style="text-align: center;">P2</td>
+<td style="text-align: left;">標頭偵測依賴精確英文字串比對，不支援中文標頭</td>
+<td style="text-align: center;"><strong>High</strong></td>
+<td style="text-align: left;">台灣本土 BAS 報表</td>
+</tr>
+<tr>
+<td style="text-align: center;">P2.1</td>
+<td style="text-align: left;">找不到標頭時 Fallback 到硬編碼第 211 行，且無誤觸防護</td>
+<td style="text-align: center;"><strong>High</strong></td>
+<td style="text-align: left;">不同報表模板</td>
+</tr>
+<tr>
+<td style="text-align: center;">P3</td>
+<td style="text-align: left;">缺乏解析後的 Schema 驗證，壞資料會「成功」進入 ML Pipeline</td>
+<td style="text-align: center;"><strong>High</strong></td>
+<td style="text-align: left;">模型訓練階段</td>
+</tr>
+<tr>
+<td style="text-align: center;">P4</td>
+<td style="text-align: left;">數值欄位依賴 Polars 自動推斷，前 1000 行若為空值會導致類型錯誤</td>
+<td style="text-align: center;"><strong>Medium</strong></td>
+<td style="text-align: left;">資料密度低的報表</td>
+</tr>
+<tr>
+<td style="text-align: center;">P4.1</td>
+<td style="text-align: left;">BAS 常見髒資料 (<code>---</code>, <code>Error</code>, <code>N/A</code>, <code>OFF</code>, 帶單位數值如 <code>25.3 C</code>) 未處理</td>
+<td style="text-align: center;"><strong>Medium</strong></td>
+<td style="text-align: left;">所有案場</td>
+</tr>
+<tr>
+<td style="text-align: center;">P5</td>
+<td style="text-align: left;">案場特殊需求寫死在程式碼中，無法透過設定檔擴展</td>
+<td style="text-align: center;"><strong>Medium</strong></td>
+<td style="text-align: left;">多案場部署</td>
+</tr>
+<tr>
+<td style="text-align: center;">P6</td>
+<td style="text-align: left;">時間戳缺少時區資訊，可能導致與其他系統對接時產生 8 小時落差</td>
+<td style="text-align: center;"><strong>Medium</strong></td>
+<td style="text-align: left;">EMS 系統整合</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>[!CAUTION]
+問題 P1 的業務影響最大：台灣大多數 BAS 系統匯出報表為 Big5 編碼，現況下每新增一個案場都可能需要工程師手動介入。</p>
+</blockquote>
+<hr />
+<h2 id="2">2. 目標與成功指標</h2>
+<h3 id="_1">目標</h3>
+<p>將 <code>ReportParser</code> 從「僅適用單一案場」提升為「多案場自適應、可配置」的生產級模組。</p>
+<h3 id="acceptance-criteria">成功指標 (Acceptance Criteria)</h3>
+<ul>
+<li>[ ] 能正確解析 UTF-8 (含 BOM)、Big5 (CP950)、UTF-16 編碼的 CSV 報表</li>
+<li>[ ] 支援中英文標頭關鍵字 (<code>Date/日期</code>, <code>Time/時間</code>)</li>
+<li>[ ] 標頭偵測含「分隔符一致性驗證」，防止誤觸中繼資料行</li>
+<li>[ ] 在找不到標頭時，拋出<strong>明確的例外</strong>而非猜測行數</li>
+<li>[ ] BAS 常見髒值 (<code>---</code>, <code>Error</code>, <code>N/A</code>, <code>OFF</code>) 自動轉為 null</li>
+<li>[ ] 數值欄位中的非數字字元 (單位文字) 自動清除</li>
+<li>[ ] 解析完成後自動驗證<strong>關鍵欄位</strong>存在且非全空</li>
+<li>[ ] 所有數值欄位強制轉型為 Float64</li>
+<li>[ ] <code>timestamp</code> 欄位帶有 <code>Asia/Taipei</code> (UTC+8) 時區資訊</li>
+<li>[ ] 支援透過 YAML 設定檔擴展新案場的解析規則</li>
+<li>[ ] 通過全部壓力測試案例 (<code>tests/stress_test_parser.py</code>)</li>
+<li>[ ] 現有既有測試 (<code>tests/test_etl.py</code>) 全部通過（向後相容）</li>
+</ul>
+<hr />
+<h2 id="3">3. 涉及檔案</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">檔案</th>
+<th style="text-align: center;">操作</th>
+<th style="text-align: left;">說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>src/etl/parser.py</code></td>
+<td style="text-align: center;"><strong>MODIFY</strong></td>
+<td style="text-align: left;">主要重構目標</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>src/etl/exceptions.py</code></td>
+<td style="text-align: center;"><strong>NEW</strong></td>
+<td style="text-align: left;">自訂例外類別</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>config/site_templates.yaml</code></td>
+<td style="text-align: center;"><strong>NEW</strong></td>
+<td style="text-align: left;">案場解析規則設定檔</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>tests/test_etl.py</code></td>
+<td style="text-align: center;"><strong>MODIFY</strong></td>
+<td style="text-align: left;">新增對應的單元測試</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>tests/stress_test_parser.py</code></td>
+<td style="text-align: center;"><strong>MODIFY</strong></td>
+<td style="text-align: left;">更新壓力測試案例</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="4">4. 分階段實作計畫</h2>
+<h3 id="phase-1-priority-critical">Phase 1：自適應檔案讀取 (Priority: Critical)</h3>
+<h4 id="task-11">Task 1.1 — 建立自訂例外類別</h4>
+<ul>
+<li><strong>檔案:</strong> <code>src/etl/exceptions.py</code> [NEW]</li>
+<li><strong>內容:</strong></li>
+<li><code>InvalidReportFormatError</code> — 報表格式無法辨識</li>
+<li><code>DataValidationError</code> — 解析後資料不符預期 Schema</li>
+<li><code>EncodingDetectionError</code> — 編碼偵測失敗</li>
+<li><strong>驗收:</strong> 可被 <code>parser.py</code> 正確 import 並使用</li>
+</ul>
+<h4 id="task-12-bom">Task 1.2 — 實作編碼自動偵測 (含 BOM 處理)</h4>
+<ul>
+<li><strong>檔案:</strong> <code>src/etl/parser.py</code> → <code>_detect_encoding()</code> 方法</li>
+<li><strong>邏輯:</strong></li>
+<li>讀取檔案前 4096 bytes</li>
+<li><strong>優先偵測 UTF-8 BOM</strong> (<code>\xef\xbb\xbf</code>) → 若存在則回傳 <code>'utf-8-sig'</code></li>
+<li>嘗試以 <code>utf-8</code> 解碼 → 成功則回傳 <code>'utf-8'</code></li>
+<li>失敗則嘗試 <code>cp950</code> (Big5) → 成功則回傳 <code>'cp950'</code></li>
+<li>再失敗則嘗試 <code>utf-16</code></li>
+<li>全部失敗 → 拋出 <code>EncodingDetectionError</code></li>
+<li><strong>修改範圍:</strong> <code>_find_header_line()</code> 和 <code>parse_metadata()</code> 中的 <code>open()</code> 呼叫改用偵測到的編碼</li>
+<li><strong>驗收:</strong> Big5 壓力測試通過；UTF-8 BOM 檔案不會出現 <code>\xef\xbb\xbf</code> 殘留字元</li>
+</ul>
+<h4 id="task-13">Task 1.3 — 統一換行符號處理</h4>
+<ul>
+<li><strong>檔案:</strong> <code>src/etl/parser.py</code></li>
+<li><strong>邏輯:</strong> 確保 <code>open()</code> 使用 <code>newline=None</code>（Python 預設已處理，但需明確確認 Polars <code>read_csv</code> 的行為）</li>
+<li><strong>驗收:</strong> Windows (<code>\r\n</code>) 與 Unix (<code>\n</code>) 換行的檔案皆可正確解析</li>
+</ul>
+<hr />
+<h3 id="phase-2-priority-high">Phase 2：智慧標頭搜尋 (Priority: High)</h3>
+<h4 id="task-21-_find_header_line">Task 2.1 — 重構 <code>_find_header_line()</code> 方法 (含多語系與一致性驗證)</h4>
+<ul>
+<li><strong>檔案:</strong> <code>src/etl/parser.py</code></li>
+<li><strong>改動:</strong></li>
+<li><strong>移除</strong> 硬編碼 Fallback <code>return 211</code></li>
+<li><strong>多語系關鍵字匹配</strong>：掃描前 500 行，尋找同時包含以下任一組合的行：<ul>
+<li>英文：<code>Date</code> + <code>Time</code></li>
+<li>中文：<code>日期</code> + <code>時間</code></li>
+<li>通用：<code>DateTime</code> 或 <code>Timestamp</code></li>
+</ul>
+</li>
+<li><strong>分隔符一致性驗證</strong>：找到候選標頭行後，檢查<strong>下一行的分隔符數量是否與標頭行一致</strong>。若不一致，跳過此行繼續搜尋（防止中繼資料誤觸）</li>
+<li>若找不到，拋出 <code>InvalidReportFormatError</code> 並附上已掃描的前 5 行內容供除錯</li>
+<li><strong>驗收:</strong> Missing Header 壓力測試拋出明確例外；中文標頭報表可正確定位</li>
+</ul>
+<h4 id="task-22">Task 2.2 — 增加標頭格式正規化</h4>
+<ul>
+<li><strong>檔案:</strong> <code>src/etl/parser.py</code></li>
+<li><strong>邏輯:</strong> 偵測到標頭後，清理引號與前後空白：</li>
+<li><code>"&lt;&gt;Date"</code> → <code>Date</code></li>
+<li><code>" Time "</code> → <code>Time</code></li>
+<li><code>"日期"</code> → <code>日期</code></li>
+<li><code>"Point_1"</code> → <code>Point_1</code></li>
+<li><strong>驗收:</strong> 不論標頭是否有引號、前綴 <code>&lt;&gt;</code>、或多餘空白，皆能正確解析</li>
+</ul>
+<hr />
+<h3 id="phase-3-priority-medium">Phase 3：資料品質守門員 (Priority: Medium)</h3>
+<h4 id="task-31-_validate_schema">Task 3.1 — 實作 <code>_validate_schema()</code> 方法</h4>
+<ul>
+<li><strong>檔案:</strong> <code>src/etl/parser.py</code></li>
+<li><strong>邏輯:</strong></li>
+<li>檢查 <code>timestamp</code> 欄位是否存在且非全 null</li>
+<li>檢查至少有 3 個以上的數值型欄位</li>
+<li>若不通過，拋出 <code>DataValidationError</code> 並列出缺少的欄位</li>
+<li><strong>呼叫時機:</strong> 在 <code>parse_file()</code> 的 <code>return df</code> 之前</li>
+<li><strong>驗收:</strong> 餵入只有標頭沒有數據的檔案時，收到明確的驗證錯誤</li>
+</ul>
+<h4 id="task-32">Task 3.2 — 髒資料處理與強制數值轉型</h4>
+<ul>
+<li><strong>檔案:</strong> <code>src/etl/parser.py</code></li>
+<li><strong>邏輯:</strong></li>
+<li><strong>擴充 Null 值定義</strong>：在 <code>pl.read_csv()</code> 的 <code>null_values</code> 參數中加入 BAS 常見的非數值字串：
+     <code>python
+     null_values=["", "NA", "null", "---", "Error", "N/A", "OFF", "OFFLINE", "#VALUE!"]</code></li>
+<li><strong>單位清理</strong>：在 cast 之前，對所有非 Date/Time/timestamp 的字串欄位執行正則清洗：
+     <code>python
+     # 移除數值後的非數字字元 (例如 "25.3 C" → "25.3", "100%" → "100")
+     pl.col(c).str.replace_all(r"[^\d.\-+eE]", "")</code></li>
+<li><strong>強制轉型</strong>：
+     <code>python
+     df = df.with_columns([
+         pl.col(c).cast(pl.Float64, strict=False)
+         for c in df.columns
+         if c not in ('Date', 'Time', 'timestamp', '日期', '時間')
+     ])</code></li>
+<li><strong>驗收:</strong> 包含 <code>---</code>、<code>25.3 C</code> 等髒值的報表可被正確解析為 <code>null</code> 或有效數值</li>
+</ul>
+<h4 id="task-33">Task 3.3 — 增加解析摘要日誌</h4>
+<ul>
+<li><strong>檔案:</strong> <code>src/etl/parser.py</code></li>
+<li><strong>邏輯:</strong> 在 <code>parse_file()</code> 結尾增加結構化日誌：
+  <code>INFO: Parse Summary | file=xxx.csv | encoding=utf-8 | rows=1440 | cols=207 | nulls_pct=2.3% | header_line=212</code></li>
+<li><strong>驗收:</strong> 每次解析都輸出一行結構化摘要</li>
+</ul>
+<h4 id="task-34">Task 3.4 — 時區標準化</h4>
+<ul>
+<li><strong>檔案:</strong> <code>src/etl/parser.py</code></li>
+<li><strong>邏輯:</strong> 在 timestamp 建立後，賦予 <code>Asia/Taipei</code> (UTC+8) 時區資訊：
+  <code>python
+  df = df.with_columns(
+      pl.col("timestamp").dt.replace_time_zone("Asia/Taipei")
+  )</code></li>
+<li><strong>驗收:</strong> <code>df.schema["timestamp"]</code> 顯示 <code>Datetime(time_zone='Asia/Taipei')</code></li>
+</ul>
+<hr />
+<h3 id="phase-4-priority-medium">Phase 4：案場設定檔化 (Priority: Medium)</h3>
+<h4 id="task-41">Task 4.1 — 建立案場設定檔</h4>
+<ul>
+<li><strong>檔案:</strong> <code>config/site_templates.yaml</code> [NEW]</li>
+<li><strong>內容範例:</strong>
+  ```yaml
+  default:
+    encoding: auto          # auto | utf-8 | cp950 | utf-16
+    delimiter: ","
+    header_keywords: ["Date", "Time", "日期", "時間"]
+    null_values: ["", "NA", "null", "---", "Error", "N/A", "OFF"]
+    timezone: "Asia/Taipei"</li>
+</ul>
+<p>cgmh_ty:
+    inherit: default
+    header_prefix: "&lt;&gt;"     # 特殊前綴 "&lt;&gt;Date"</p>
+<p>farglory_o3:
+    inherit: default
+    # 待分析後填入特殊規則</p>
+<p>kmuh:
+    inherit: default
+    # 待分析後填入特殊規則
+  <code>``
+- **驗收:** YAML 檔案可被</code>parser.py` 正確讀取</p>
+<h4 id="task-42-reportparser">Task 4.2 — 整合設定檔至 ReportParser</h4>
+<ul>
+<li><strong>檔案:</strong> <code>src/etl/parser.py</code></li>
+<li><strong>邏輯:</strong></li>
+<li><code>ReportParser.__init__()</code> 增加 <code>site_id</code> 參數 (預設 <code>'default'</code>)</li>
+<li>讀取 <code>config/site_templates.yaml</code>，載入對應的解析規則</li>
+<li>各方法（編碼偵測、標頭搜尋、null 值定義）改為從設定檔取值</li>
+<li><code>inherit</code> 關鍵字支援繼承預設值</li>
+<li><strong>向後相容:</strong> 不傳 <code>site_id</code> 時行為與原本一致</li>
+<li><strong>驗收:</strong> <code>ReportParser(site_id='cgmh_ty')</code> 可正確套用案場專屬規則</li>
+</ul>
+<hr />
+<h3 id="phase-5">Phase 5：測試與驗證</h3>
+<h4 id="task-51">Task 5.1 — 更新壓力測試</h4>
+<ul>
+<li><strong>檔案:</strong> <code>tests/stress_test_parser.py</code></li>
+<li><strong>改動:</strong></li>
+<li>增加 UTF-8 BOM 編碼測試案例</li>
+<li>增加 UTF-16 編碼測試案例</li>
+<li>增加「混合行結尾」測試案例</li>
+<li>增加「全空值欄位」測試案例</li>
+<li>增加「中文標頭」測試案例</li>
+<li>增加「髒資料 (---/N/A/帶單位)」測試案例</li>
+<li>增加「分隔符不一致 (Tab vs Comma)」測試案例</li>
+<li>修改預期結果（Missing Header 應拋出例外而非靜默）</li>
+<li><strong>驗收:</strong> 全部 12+ 個壓力測試案例通過</li>
+</ul>
+<h4 id="task-52">Task 5.2 — 回歸測試</h4>
+<ul>
+<li><strong>命令:</strong> <code>python -m pytest tests/test_etl.py -v</code></li>
+<li><strong>驗收:</strong> 全部既有測試通過，確保向後相容</li>
+</ul>
+<hr />
+<h2 id="5">5. 執行順序與依賴關係</h2>
+<pre><code class="language-mermaid">graph LR
+    T1_1[&quot;Task 1.1&lt;br/&gt;自訂例外&quot;] --&gt; T1_2[&quot;Task 1.2&lt;br/&gt;編碼偵測+BOM&quot;]
+    T1_2 --&gt; T1_3[&quot;Task 1.3&lt;br/&gt;換行處理&quot;]
+    T1_3 --&gt; T2_1[&quot;Task 2.1&lt;br/&gt;多語系標頭+一致性驗證&quot;]
+    T2_1 --&gt; T2_2[&quot;Task 2.2&lt;br/&gt;標頭正規化&quot;]
+    T2_2 --&gt; T3_1[&quot;Task 3.1&lt;br/&gt;Schema 驗證&quot;]
+    T3_1 --&gt; T3_2[&quot;Task 3.2&lt;br/&gt;髒資料+轉型&quot;]
+    T3_2 --&gt; T3_3[&quot;Task 3.3&lt;br/&gt;摘要日誌&quot;]
+    T3_3 --&gt; T3_4[&quot;Task 3.4&lt;br/&gt;時區標準化&quot;]
+    T3_4 --&gt; T4_1[&quot;Task 4.1&lt;br/&gt;案場設定檔&quot;]
+    T4_1 --&gt; T4_2[&quot;Task 4.2&lt;br/&gt;整合設定檔&quot;]
+    T4_2 --&gt; T5_1[&quot;Task 5.1&lt;br/&gt;更新壓力測試&quot;]
+    T5_1 --&gt; T5_2[&quot;Task 5.2&lt;br/&gt;回歸測試&quot;]
+</code></pre>
+<blockquote>
+<p>[!IMPORTANT]
+每完成一個 Task 後，應立即執行 <code>python -m pytest tests/test_etl.py -v</code> 確保不破壞現有功能。</p>
+</blockquote>
+<hr />
+<h2 id="6">6. 風險與注意事項</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">風險</th>
+<th style="text-align: center;">機率</th>
+<th style="text-align: left;">緩解措施</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">編碼偵測誤判 (UTF-8 相容的 Big5 子集)</td>
+<td style="text-align: center;">中</td>
+<td style="text-align: left;">優先偵測 BOM；提供 <code>encoding</code> 參數手動覆蓋</td>
+</tr>
+<tr>
+<td style="text-align: left;">標頭模糊比對誤觸 (中繼資料行也包含 Date/Time)</td>
+<td style="text-align: center;">低</td>
+<td style="text-align: left;"><strong>分隔符一致性驗證</strong>：候選行與下行的逗號數必須一致</td>
+</tr>
+<tr>
+<td style="text-align: left;">正則清洗過度 (移除了有意義的非數字字元)</td>
+<td style="text-align: center;">低</td>
+<td style="text-align: left;">僅對已知為感測器數值的欄位執行；保留 +-eE 科學記號</td>
+</tr>
+<tr>
+<td style="text-align: left;">強制轉型 Float64 可能損失時間欄位</td>
+<td style="text-align: center;">低</td>
+<td style="text-align: left;">排除 <code>Date</code>、<code>Time</code>、<code>timestamp</code>、<code>日期</code>、<code>時間</code> 欄位</td>
+</tr>
+<tr>
+<td style="text-align: left;">新案場報表格式未知</td>
+<td style="text-align: center;">中</td>
+<td style="text-align: left;">透過 <code>site_templates.yaml</code> 低成本擴展</td>
+</tr>
+<tr>
+<td style="text-align: left;">時區處理可能影響跨時區案場</td>
+<td style="text-align: center;">低</td>
+<td style="text-align: left;">設定檔可覆蓋 <code>timezone</code> 屬性</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-sign-off-checklist">7. 驗收清單 (Sign-off Checklist)</h2>
+<ul>
+<li>[ ] Phase 1 完成：編碼自適應 (含 BOM)</li>
+<li>[ ] Phase 2 完成：智慧標頭 (含多語系 + 一致性驗證)</li>
+<li>[ ] Phase 3 完成：Schema 驗證 + 髒資料處理 + 時區</li>
+<li>[ ] Phase 4 完成：案場設定檔</li>
+<li>[ ] Phase 5 完成：全部測試通過</li>
+<li>[ ] <code>data/CGMH-TY</code> 資料可正確解析（回歸驗證）</li>
+<li>[ ] <code>data/Farglory_O3</code> 資料可正確解析（新案場驗證）</li>
+<li>[ ] <code>data/kmuh</code> 資料可正確解析（新案場驗證）</li>
+</ul>
+<hr />
+<h2 id="_2">附錄：同儕審查建議來源</h2>
+<p>本 PRD v2.0 整合了以下同儕審查建議：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">建議來源</th>
+<th style="text-align: left;">對應 Task</th>
+<th style="text-align: left;">說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">建議 1：UTF-8 BOM 偵測</td>
+<td style="text-align: left;">Task 1.2</td>
+<td style="text-align: left;">解決 Windows Excel 存檔造成的解析錯誤</td>
+</tr>
+<tr>
+<td style="text-align: left;">建議 2：多語系標頭 + Regex</td>
+<td style="text-align: left;">Task 2.1</td>
+<td style="text-align: left;">提高對台灣本土 BAS 報表的相容性</td>
+</tr>
+<tr>
+<td style="text-align: left;">建議 3：分隔符一致性檢查</td>
+<td style="text-align: left;">Task 2.1</td>
+<td style="text-align: left;">防止將中繼資料誤判為標頭行</td>
+</tr>
+<tr>
+<td style="text-align: left;">建議 4：髒資料與單位清理</td>
+<td style="text-align: left;">Task 3.2</td>
+<td style="text-align: left;">防止 ML Pipeline 因髒資料崩潰</td>
+</tr>
+<tr>
+<td style="text-align: left;">建議 5：案場 Template 機制</td>
+<td style="text-align: left;">Task 4.1, 4.2</td>
+<td style="text-align: left;">降低未來維護多案場的技術債</td>
+</tr>
+<tr>
+<td style="text-align: left;">建議 6：時區標準化</td>
+<td style="text-align: left;">Task 3.4</td>
+<td style="text-align: left;">確保 EMS 系統時間一致性</td>
+</tr>
+</tbody>
+</table>
+    </div>
+</body>
+</html>
