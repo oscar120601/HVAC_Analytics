@@ -169,22 +169,8 @@ print(f"節能: {result.savings_kw:.2f} kW ({result.savings_pct:.2f}%)")
 print(f"限制條件滿足: {result.constraints_satisfied}")
 ```
 
-## Streamlit UI 使用
-
-```bash
-# 啟動 Web 介面
-python -m streamlit run etl_ui.py
-
-# 瀏覽器開啟 http://localhost:8501
-```
-
-### UI 功能
-1. **資料上傳**: 支援拖放或選擇本地檔案
-2. **批次處理**: 同時處理多個檔案
-3. **即時視覺化**: Plotly 互動式圖表
-4. **資料匯出**: CSV 或 Parquet 格式
-
 ## 測試
+
 
 ```bash
 # 執行所有測試

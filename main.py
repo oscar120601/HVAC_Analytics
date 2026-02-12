@@ -33,7 +33,7 @@ from etl.parser import ReportParser
 from etl.cleaner import DataCleaner
 from etl.batch_processor import BatchProcessor
 from models.energy_model import ChillerEnergyModel
-from config.feature_mapping_v2 import FeatureMapping, get_feature_mapping
+from config.feature_mapping import FeatureMapping, get_feature_mapping
 from optimization.optimizer import ChillerOptimizer, OptimizationContext
 
 logging.basicConfig(

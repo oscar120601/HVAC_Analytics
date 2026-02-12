@@ -23,12 +23,12 @@ from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error, 
 
 # Import feature mapping system (V3 - 13 categories)
 try:
-    from config.feature_mapping_v2 import FeatureMapping, get_feature_mapping
+    from config.feature_mapping import FeatureMapping, get_feature_mapping
 except ImportError:
     # Handle when running from different contexts
     import sys
     sys.path.insert(0, str(Path(__file__).parent.parent))
-    from config.feature_mapping_v2 import FeatureMapping, get_feature_mapping
+    from config.feature_mapping import FeatureMapping, get_feature_mapping
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
