@@ -1,181 +1,197 @@
-
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PRD_Interface_Contract_v1.0</title>
-    
+<!DOCTYPE html><html><head><meta charset='utf-8'><title>Interface Contract PRD</title>
 <style>
-    body { 
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
-        line-height: 1.6; 
-        max-width: 900px; 
-        margin: 0 auto; 
-        padding: 40px 20px; 
-        color: #24292e; 
-        background-color: #ffffff;
-    }
-    h1, h2, h3, h4, h5, h6 { 
-        margin-top: 24px; 
-        margin-bottom: 16px; 
-        font-weight: 600; 
-        color: #24292e;
-    }
-    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-    h3 { font-size: 1.25em; }
-    p { margin-top: 0; margin-bottom: 16px; }
-    a { color: #0366d6; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    table { 
-        display: block; 
-        width: 100%; 
-        overflow: auto; 
-        border-spacing: 0; 
-        border-collapse: collapse; 
-        margin-bottom: 16px; 
-    }
-    table th, table td { 
-        padding: 6px 13px; 
-        border: 1px solid #dfe2e5; 
-    }
-    table th { 
-        font-weight: 600; 
-        background-color: #f6f8fa; 
-    }
-    table tr:nth-child(2n) { 
-        background-color: #f6f8fa; 
-    }
-    code { 
-        font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; 
-        background-color: #f6f8fa; 
-        padding: 0.2em 0.4em; 
-        border-radius: 3px; 
-        font-size: 85%; 
-    }
-    pre { 
-        background-color: #f6f8fa; 
-        padding: 16px; 
-        overflow: auto; 
-        border-radius: 3px; 
-        line-height: 1.45; 
-    }
-    pre code { 
-        background-color: transparent; 
-        padding: 0; 
-        border-radius: 0; 
-    }
-    blockquote { 
-        border-left: 0.25em solid #dfe2e5; 
-        color: #6a737d; 
-        padding: 0 1em; 
-        margin: 0 0 16px 0; 
-    }
-    hr {
-        height: 0.25em;
-        padding: 0;
-        margin: 24px 0;
-        background-color: #e1e4e8;
-        border: 0;
-    }
-    .mermaid {
-        display: flex;
-        justify-content: center;
-        margin: 20px 0;
-    }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; line-height: 1.6; color: #333; }
+h1, h2, h3, h4, h5, h6 { color: #2c3e50; margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { border-bottom: 2px solid #eee; padding-bottom: 0.3em; }
+h2 { border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 5px; border-radius: 3px; font-family: Consolas, Monaco, "Andale Mono", monospace; font-size: 0.9em; }
+pre { background: #f8f9fa; padding: 15px; border-radius: 5px; overflow-x: auto; border: 1px solid #e9ecef; }
+pre code { background: none; padding: 0; border: none; }
+table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+th, td { border: 1px solid #dfe2e5; padding: 10px; text-align: left; }
+th { background-color: #f8f9fa; font-weight: 600; }
+tr:nth-child(even) { background-color: #fcfcfc; }
+blockquote { border-left: 4px solid #dfe2e5; padding-left: 15px; color: #6a737d; margin: 0; }
+hr { border: 0; border-top: 1px solid #eee; margin: 20px 0; }
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
 </style>
-
-</head>
-<body>
-    <p>我將為您提供修正後的完整版 PRD_Interface_Contract_v1.0.md。此版本解決了錯誤代碼分層衝突、建立時間基準傳遞機制，並詳細定義 Training-Optimization 之間的特徵對齊契約。</p>
-<div class="codehilite"><pre><span></span><code><span class="gh"># PRD v1.0: 模組介面契約總綱 (Interface Contract Specification)</span>
-
-<span class="gs">**文件版本:**</span> v1.0-Revised (Zero-Gap Contract Definition)  
-<span class="gs">**日期:**</span> 2026-02-13  
-<span class="gs">**負責人:**</span> Oscar Chang  
-<span class="gs">**範圍:**</span> 全 ETL Pipeline + Model Training + Optimization 模組間介面規範  
-<span class="gs">**相依文件:**</span> 
-<span class="k">-</span><span class="w"> </span>Parser v2.1+, Cleaner v2.2+, BatchProcessor v1.3+, FeatureEngineer v1.3+
-<span class="k">-</span><span class="w"> </span>Feature Annotation v1.2+, Model Training v1.2+, Optimization v1.1+
-
----
-
-<span class="gu">## 1. 設計哲學與核心原則</span>
-
-<span class="gu">### 1.1 契約優先 (Contract-First)</span>
-所有模組間的資料交換必須通過**靜態型別檢查**與**執行期驗證**雙重確認。契約一經定義，上游模組有義務確保輸出符合，下游模組有權利假設輸入符合，任何違反視為系統錯誤。
-
-<span class="gu">### 1.2 防禦性驗證 (Defensive Validation)</span>
-<span class="k">-</span><span class="w"> </span><span class="gs">**上游驗證**</span>: 模組輸出前必須自我驗證（Self-Check），確保不傳遞「已知錯誤」
-<span class="k">-</span><span class="w"> </span><span class="gs">**下游驗證**</span>: 模組輸入時必須嚴格驗證（Strict Validation），拒絕任何不符合契約的輸入
-<span class="k">-</span><span class="w"> </span><span class="gs">**容錯策略**</span>: 寧可**終止流程**（Fail Fast），也不傳遞可疑資料
-
-<span class="gu">### 1.3 單一真相源 (SSOT) 引用</span>
-所有驗證邏輯必須引用 <span class="sb">`src/etl/config_models.py`</span> 中定義的常數：
-<span class="k">-</span><span class="w"> </span><span class="sb">`VALID_QUALITY_FLAGS`</span>: 品質標記唯一清單
-<span class="k">-</span><span class="w"> </span><span class="sb">`TIMESTAMP_CONFIG`</span>: 時間戳規格（UTC, nanoseconds, INT64）
-<span class="k">-</span><span class="w"> </span><span class="sb">`FEATURE_ANNOTATION_CONSTANTS`</span>: Feature Annotation 版本與 schema 定義
-<span class="k">-</span><span class="w"> </span><span class="sb">`PIPELINE_TEMPORAL_BASELINE`</span>: 時間基準傳遞規格（見第8章）
-
-<span class="gu">### 1.4 全域時間基準 (Global Temporal Baseline)</span>
-所有「未來資料檢查」與「時間相關驗證」必須使用 Pipeline 啟動時產生的**統一時間戳**（`pipeline_origin_timestamp`），而非模組執行時的動態 <span class="sb">`datetime.now()`</span>，以防止長時間執行流程中的時間漂移（見第8章）。
-
----
-
-<span class="gu">## 2. 檢查點規格 (Checkpoint Specifications)</span>
-
-<span class="gu">### 2.1 檢查點 #1: Parser → Cleaner (Raw Data Contract)</span>
-
-<span class="gs">**位置**</span>: <span class="sb">`src/etl/parser.py`</span> 輸出驗證 (<span class="sb">`_validate_output_contract`</span>)
-
-| 驗證項目 | 規格 | 失敗代碼 | 嚴重度 |
-|:---|:---|:---:|:---:|
-| <span class="gs">**必要欄位**</span> | 必須包含 <span class="sb">`timestamp`</span> | E003 | Critical |
-| <span class="gs">**時間戳型別**</span> | <span class="sb">`pl.Datetime(time_unit=&#39;ns&#39;, time_zone=&#39;UTC&#39;)`</span> | E002 | Critical |
-| <span class="gs">**時間戳物理型別**</span> | Parquet 層級必須為 <span class="sb">`INT64`</span> (非 INT96) | E002 | Critical |
-| <span class="gs">**時間戳時區**</span> | <span class="sb">`time_zone`</span> 屬性必須等於 <span class="sb">`&quot;UTC&quot;`</span> | E002 | Critical |
-| <span class="gs">**編碼正確性**</span> | 無 UTF-8 BOM (<span class="sb">`\ufeff`</span>) 殘留 | E001 | Critical |
-| <span class="gs">**Null Byte 檢查**</span> | 字串欄位不可包含 <span class="sb">`\x00`</span> | E001 | Critical |
-| <span class="gs">**Quality Flags**</span> | 若存在，值必須 ⊆ <span class="sb">`VALID_QUALITY_FLAGS`</span> | E003 | High |
-| <span class="gs">**數值欄位型別**</span> | 感測器數據必須為 <span class="sb">`pl.Float64`</span> | E003 | High |
-| <span class="gs">**換行符號**</span> | 統一為 <span class="sb">`\n`</span> (LF)，不可有 <span class="sb">`\r`</span> (CR) | E001 | Medium |
-| <span class="gs">**時間基準繼承**</span> | 必須接收並傳遞 <span class="sb">`pipeline_origin_timestamp`</span> | E000 | Critical |
-
-<span class="gs">**容錯處理**</span>:
-<span class="k">-</span><span class="w"> </span>時區非 UTC: 嘗試自動轉換並發出 <span class="gs">**E101 Warning**</span>（僅限 Parser v2.1 相容模式，v2.2+ 視為錯誤）
-<span class="k">-</span><span class="w"> </span>編碼非 UTF-8: 嘗試轉換，失敗則拋出 <span class="gs">**E001 Error**</span>
-
----
-
-<span class="gu">### 2.2 檢查點 #2: Cleaner → BatchProcessor (Clean Data Contract)</span>
-
-<span class="gs">**位置**</span>: <span class="sb">`src/etl/cleaner.py`</span> 輸出驗證 (<span class="sb">`_validate_output_contract`</span>) 與 BatchProcessor 輸入驗證 (<span class="sb">`_validate_input_contract`</span>)
-
-| 驗證項目 | 規格 | 失敗代碼 | 嚴重度 |
-|:---|:---|:---:|:---:|
-| <span class="gs">**時間戳連續性**</span> | <span class="sb">`timestamp`</span> 必須為連續時間軸（無缺口）或明確標記 <span class="sb">`INSUFFICIENT_DATA`</span> | - | Info |
-| <span class="gs">**Quality Flags 型別**</span> | <span class="sb">`pl.List(pl.Utf8)`</span> | E201 | Critical |
-| <span class="gs">**Quality Flags 值域**</span> | 所有值必須 ∈ <span class="sb">`VALID_QUALITY_FLAGS`</span> | E202 | Critical |
-| <span class="gs">**Metadata 傳遞**</span> | 必須提供 <span class="sb">`column_metadata: Dict[str, FeatureMetadata]`</span> | E203 | Warning |
-| <span class="gs">**禁止欄位檢查**</span> | <span class="gs">**不可包含**</span> <span class="sb">`device_role`</span>, <span class="sb">`ignore_warnings`</span>, <span class="sb">`is_target`</span> | <span class="gs">**E500**</span> | <span class="gs">**Critical**</span> |
-| <span class="gs">**未來資料檢查**</span> | 時間戳不可超過 <span class="sb">`pipeline_origin_timestamp + 5 minutes`</span> | E102 | High |
-| <span class="gs">**時區一致性**</span> | 必須為 UTC (ns)，與檢查點 <span class="ni">#1</span> 相同 | E201 | Critical |
-| <span class="gs">**時間基準一致性**</span> | 輸出 metadata 必須包含與輸入相同的 <span class="sb">`pipeline_origin_timestamp`</span> | E000 | Critical |
-
-<span class="gs">**關鍵約束**</span>:
-<span class="k">-</span><span class="w"> </span><span class="gs">**E500 (Device Role Leakage)**</span>: Cleaner v2.2 絕對禁止將 <span class="sb">`device_role`</span> 寫入 DataFrame 或 metadata。此檢查為**零容錯**（Zero Tolerance），一旦發現立即終止流程。
-<span class="k">-</span><span class="w"> </span><span class="gs">**Metadata 純淨性**</span>: <span class="sb">`column_metadata`</span> 僅可包含 <span class="sb">`physical_type`</span>, <span class="sb">`unit`</span>, <span class="sb">`description`</span>，禁止包含 <span class="sb">`device_role`</span>（即使從 AnnotationManager 讀取也不得寫入）。
-
----
-
-<span class="gu">### 2.3 檢查點 #3: BatchProcessor → FeatureEngineer (Storage Contract)</span>
-
-<span class="gs">**位置**</span>: <span class="sb">`src/etl/batch_processor.py`</span> 輸出驗證 (<span class="sb">`_verify_parquet_schema`</span>) 與 FeatureEngineer 輸入驗證 (<span class="sb">`load_from_manifest`</span>)
-
-<span class="gs">**Manifest 契約**</span>:
-```python
-class Manifest(BaseModel):
+</head><body><h1 id="prd-v10-interface-contract-specification">PRD v1.0: 模組介面契約總綱 (Interface Contract Specification)</h1>
+<p><strong>文件版本:</strong> v1.0-Revised (Zero-Gap Contract Definition)<br />
+<strong>日期:</strong> 2026-02-13<br />
+<strong>負責人:</strong> Oscar Chang<br />
+<strong>範圍:</strong> 全 ETL Pipeline + Model Training + Optimization 模組間介面規範<br />
+<strong>相依文件:</strong> 
+- Parser v2.1+, Cleaner v2.2+, BatchProcessor v1.3+, FeatureEngineer v1.3+
+- Feature Annotation v1.2+, Model Training v1.2+, Optimization v1.1+</p>
+<hr />
+<h2 id="1">1. 設計哲學與核心原則</h2>
+<h3 id="11-contract-first">1.1 契約優先 (Contract-First)</h3>
+<p>所有模組間的資料交換必須通過<strong>靜態型別檢查</strong>與<strong>執行期驗證</strong>雙重確認。契約一經定義，上游模組有義務確保輸出符合，下游模組有權利假設輸入符合，任何違反視為系統錯誤。</p>
+<h3 id="12-defensive-validation">1.2 防禦性驗證 (Defensive Validation)</h3>
+<ul>
+<li><strong>上游驗證</strong>: 模組輸出前必須自我驗證（Self-Check），確保不傳遞「已知錯誤」</li>
+<li><strong>下游驗證</strong>: 模組輸入時必須嚴格驗證（Strict Validation），拒絕任何不符合契約的輸入</li>
+<li><strong>容錯策略</strong>: 寧可<strong>終止流程</strong>（Fail Fast），也不傳遞可疑資料</li>
+</ul>
+<h3 id="13-ssot">1.3 單一真相源 (SSOT) 引用</h3>
+<p>所有驗證邏輯必須引用 <code>src/etl/config_models.py</code> 中定義的常數：
+- <code>VALID_QUALITY_FLAGS</code>: 品質標記唯一清單
+- <code>TIMESTAMP_CONFIG</code>: 時間戳規格（UTC, nanoseconds, INT64）
+- <code>FEATURE_ANNOTATION_CONSTANTS</code>: Feature Annotation 版本與 schema 定義
+- <code>PIPELINE_TEMPORAL_BASELINE</code>: 時間基準傳遞規格（見第8章）</p>
+<h3 id="14-global-temporal-baseline">1.4 全域時間基準 (Global Temporal Baseline)</h3>
+<p>所有「未來資料檢查」與「時間相關驗證」必須使用 Pipeline 啟動時產生的<strong>統一時間戳</strong>（<code>pipeline_origin_timestamp</code>），而非模組執行時的動態 <code>datetime.now()</code>，以防止長時間執行流程中的時間漂移（見第8章）。</p>
+<hr />
+<h2 id="2-checkpoint-specifications">2. 檢查點規格 (Checkpoint Specifications)</h2>
+<h3 id="21-1-parser-cleaner-raw-data-contract">2.1 檢查點 #1: Parser → Cleaner (Raw Data Contract)</h3>
+<p><strong>位置</strong>: <code>src/etl/parser.py</code> 輸出驗證 (<code>_validate_output_contract</code>)</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">驗證項目</th>
+<th style="text-align: left;">規格</th>
+<th style="text-align: center;">失敗代碼</th>
+<th style="text-align: center;">嚴重度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>必要欄位</strong></td>
+<td style="text-align: left;">必須包含 <code>timestamp</code></td>
+<td style="text-align: center;">E003</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>時間戳型別</strong></td>
+<td style="text-align: left;"><code>pl.Datetime(time_unit='ns', time_zone='UTC')</code></td>
+<td style="text-align: center;">E002</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>時間戳物理型別</strong></td>
+<td style="text-align: left;">Parquet 層級必須為 <code>INT64</code> (非 INT96)</td>
+<td style="text-align: center;">E002</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>時間戳時區</strong></td>
+<td style="text-align: left;"><code>time_zone</code> 屬性必須等於 <code>"UTC"</code></td>
+<td style="text-align: center;">E002</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>編碼正確性</strong></td>
+<td style="text-align: left;">無 UTF-8 BOM (<code>\ufeff</code>) 殘留</td>
+<td style="text-align: center;">E001</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Null Byte 檢查</strong></td>
+<td style="text-align: left;">字串欄位不可包含 <code>\x00</code></td>
+<td style="text-align: center;">E001</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Quality Flags</strong></td>
+<td style="text-align: left;">若存在，值必須 ⊆ <code>VALID_QUALITY_FLAGS</code></td>
+<td style="text-align: center;">E003</td>
+<td style="text-align: center;">High</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>數值欄位型別</strong></td>
+<td style="text-align: left;">感測器數據必須為 <code>pl.Float64</code></td>
+<td style="text-align: center;">E003</td>
+<td style="text-align: center;">High</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>換行符號</strong></td>
+<td style="text-align: left;">統一為 <code>\n</code> (LF)，不可有 <code>\r</code> (CR)</td>
+<td style="text-align: center;">E001</td>
+<td style="text-align: center;">Medium</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>時間基準繼承</strong></td>
+<td style="text-align: left;">必須接收並傳遞 <code>pipeline_origin_timestamp</code></td>
+<td style="text-align: center;">E000</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+</tbody>
+</table>
+<p><strong>容錯處理</strong>:
+- 時區非 UTC: 嘗試自動轉換並發出 <strong>E101 Warning</strong>（僅限 Parser v2.1 相容模式，v2.2+ 視為錯誤）
+- 編碼非 UTF-8: 嘗試轉換，失敗則拋出 <strong>E001 Error</strong></p>
+<hr />
+<h3 id="22-2-cleaner-batchprocessor-clean-data-contract">2.2 檢查點 #2: Cleaner → BatchProcessor (Clean Data Contract)</h3>
+<p><strong>位置</strong>: <code>src/etl/cleaner.py</code> 輸出驗證 (<code>_validate_output_contract</code>) 與 BatchProcessor 輸入驗證 (<code>_validate_input_contract</code>)</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">驗證項目</th>
+<th style="text-align: left;">規格</th>
+<th style="text-align: center;">失敗代碼</th>
+<th style="text-align: center;">嚴重度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>時間戳連續性</strong></td>
+<td style="text-align: left;"><code>timestamp</code> 必須為連續時間軸（無缺口）或明確標記 <code>INSUFFICIENT_DATA</code></td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">Info</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Quality Flags 型別</strong></td>
+<td style="text-align: left;"><code>pl.List(pl.Utf8)</code></td>
+<td style="text-align: center;">E201</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Quality Flags 值域</strong></td>
+<td style="text-align: left;">所有值必須 ∈ <code>VALID_QUALITY_FLAGS</code></td>
+<td style="text-align: center;">E202</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Metadata 傳遞</strong></td>
+<td style="text-align: left;">必須提供 <code>column_metadata: Dict[str, FeatureMetadata]</code></td>
+<td style="text-align: center;">E203</td>
+<td style="text-align: center;">Warning</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>禁止欄位檢查</strong></td>
+<td style="text-align: left;"><strong>不可包含</strong> <code>device_role</code>, <code>ignore_warnings</code>, <code>is_target</code></td>
+<td style="text-align: center;"><strong>E500</strong></td>
+<td style="text-align: center;"><strong>Critical</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>未來資料檢查</strong></td>
+<td style="text-align: left;">時間戳不可超過 <code>pipeline_origin_timestamp + 5 minutes</code></td>
+<td style="text-align: center;">E102</td>
+<td style="text-align: center;">High</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>時區一致性</strong></td>
+<td style="text-align: left;">必須為 UTC (ns)，與檢查點 #1 相同</td>
+<td style="text-align: center;">E201</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>時間基準一致性</strong></td>
+<td style="text-align: left;">輸出 metadata 必須包含與輸入相同的 <code>pipeline_origin_timestamp</code></td>
+<td style="text-align: center;">E000</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+</tbody>
+</table>
+<p><strong>關鍵約束</strong>:
+- <strong>E500 (Device Role Leakage)</strong>: Cleaner v2.2 絕對禁止將 <code>device_role</code> 寫入 DataFrame 或 metadata。此檢查為<strong>零容錯</strong>（Zero Tolerance），一旦發現立即終止流程。
+- <strong>Metadata 純淨性</strong>: <code>column_metadata</code> 僅可包含 <code>physical_type</code>, <code>unit</code>, <code>description</code>，禁止包含 <code>device_role</code>（即使從 AnnotationManager 讀取也不得寫入）。</p>
+<hr />
+<h3 id="23-3-batchprocessor-featureengineer-storage-contract">2.3 檢查點 #3: BatchProcessor → FeatureEngineer (Storage Contract)</h3>
+<p><strong>位置</strong>: <code>src/etl/batch_processor.py</code> 輸出驗證 (<code>_verify_parquet_schema</code>) 與 FeatureEngineer 輸入驗證 (<code>load_from_manifest</code>)</p>
+<p><strong>Manifest 契約</strong>:</p>
+<pre><code class="language-python">class Manifest(BaseModel):
     manifest_version: str = &quot;1.3-FA&quot;
     batch_id: str                      # UUID v4
     site_id: str
@@ -199,8 +215,7 @@ class Manifest(BaseModel):
     # 完整性驗證
     checksum: str                      # Manifest SHA256
     file_checksums: Dict[str, str]     # filename → SHA256
-</code></pre></div>
-
+</code></pre>
 <table>
 <thead>
 <tr>
@@ -325,25 +340,24 @@ class Manifest(BaseModel):
 </tbody>
 </table>
 <p><strong>特徵順序保證機制</strong>:</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># FeatureEngineer 輸出範例</span>
-<span class="n">feature_output</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;X_train&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>  <span class="c1"># 形狀 (n_samples, n_features)</span>
-    <span class="s2">&quot;y_train&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-    <span class="s2">&quot;feature_order_manifest&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;version&quot;</span><span class="p">:</span> <span class="s2">&quot;1.0&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;features&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;chiller_1_load&quot;</span><span class="p">,</span> <span class="s2">&quot;chiller_2_load&quot;</span><span class="p">,</span> <span class="s2">&quot;wb_temp&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>  <span class="c1"># 明確順序列表</span>
-        <span class="s2">&quot;hash&quot;</span><span class="p">:</span> <span class="s2">&quot;sha256:abc123...&quot;</span><span class="p">,</span>  <span class="c1"># 特徵列表的雜湊</span>
-        <span class="s2">&quot;pipeline_origin_timestamp&quot;</span><span class="p">:</span> <span class="s2">&quot;2026-02-13T10:00:00Z&quot;</span>
-    <span class="p">},</span>
-    <span class="s2">&quot;scaler_params&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;StandardScaler&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;mean_&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">12.5</span><span class="p">,</span> <span class="mf">13.2</span><span class="p">,</span> <span class="mf">25.1</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
-        <span class="s2">&quot;scale_&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">2.1</span><span class="p">,</span> <span class="mf">2.3</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
-        <span class="s2">&quot;feature_names&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;chiller_1_load&quot;</span><span class="p">,</span> <span class="s2">&quot;chiller_2_load&quot;</span><span class="p">,</span> <span class="s2">&quot;wb_temp&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>  <span class="c1"># 對應 mean_/scale_</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
-
+<pre><code class="language-python"># FeatureEngineer 輸出範例
+feature_output = {
+    &quot;X_train&quot;: np.ndarray,  # 形狀 (n_samples, n_features)
+    &quot;y_train&quot;: np.ndarray,
+    &quot;feature_order_manifest&quot;: {
+        &quot;version&quot;: &quot;1.0&quot;,
+        &quot;features&quot;: [&quot;chiller_1_load&quot;, &quot;chiller_2_load&quot;, &quot;wb_temp&quot;, ...],  # 明確順序列表
+        &quot;hash&quot;: &quot;sha256:abc123...&quot;,  # 特徵列表的雜湊
+        &quot;pipeline_origin_timestamp&quot;: &quot;2026-02-13T10:00:00Z&quot;
+    },
+    &quot;scaler_params&quot;: {
+        &quot;type&quot;: &quot;StandardScaler&quot;,
+        &quot;mean_&quot;: [12.5, 13.2, 25.1, ...],
+        &quot;scale_&quot;: [2.1, 2.3, 1.5, ...],
+        &quot;feature_names&quot;: [&quot;chiller_1_load&quot;, &quot;chiller_2_load&quot;, &quot;wb_temp&quot;, ...]  # 對應 mean_/scale_
+    }
+}
+</code></pre>
 <hr />
 <h3 id="25-5-excel-yaml-annotation-sync-contract">2.5 檢查點 #5: Excel ↔ YAML 同步檢查 (Annotation Sync Contract)</h3>
 <p><strong>位置</strong>: <code>src/utils/config_loader.py</code> (<code>validate_annotation_sync</code>)</p>
@@ -484,35 +498,34 @@ class Manifest(BaseModel):
 </tbody>
 </table>
 <p><strong>特徵對齊驗證詳細流程</strong>:</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># 在 Optimization 初始化時執行</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">validate_feature_alignment</span><span class="p">(</span><span class="n">model_artifact</span><span class="p">,</span> <span class="n">input_features</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    嚴格比對訓練與推論的特徵一致性</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># 1. 載入訓練時的特徵清單</span>
-    <span class="n">training_features</span> <span class="o">=</span> <span class="n">model_artifact</span><span class="p">[</span><span class="s1">&#39;feature_order_manifest&#39;</span><span class="p">][</span><span class="s1">&#39;features&#39;</span><span class="p">]</span>
+<pre><code class="language-python"># 在 Optimization 初始化時執行
+def validate_feature_alignment(model_artifact, input_features):
+    &quot;&quot;&quot;
+    嚴格比對訓練與推論的特徵一致性
+    &quot;&quot;&quot;
+    # 1. 載入訓練時的特徵清單
+    training_features = model_artifact['feature_order_manifest']['features']
 
-    <span class="c1"># 2. 比對長度</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">input_features</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">training_features</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="n">FeatureAlignmentError</span><span class="p">(</span><span class="n">E902</span><span class="p">,</span> 
-            <span class="sa">f</span><span class="s2">&quot;特徵維度不匹配: 訓練時 </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">training_features</span><span class="p">)</span><span class="si">}</span><span class="s2"> 維，輸入 </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">input_features</span><span class="p">)</span><span class="si">}</span><span class="s2"> 維&quot;</span><span class="p">)</span>
+    # 2. 比對長度
+    if len(input_features) != len(training_features):
+        raise FeatureAlignmentError(E902, 
+            f&quot;特徵維度不匹配: 訓練時 {len(training_features)} 維，輸入 {len(input_features)} 維&quot;)
 
-    <span class="c1"># 3. 比對順序與名稱（逐個比對）</span>
-    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">train_feat</span><span class="p">,</span> <span class="n">input_feat</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">training_features</span><span class="p">,</span> <span class="n">input_features</span><span class="p">)):</span>
-        <span class="k">if</span> <span class="n">train_feat</span> <span class="o">!=</span> <span class="n">input_feat</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">FeatureAlignmentError</span><span class="p">(</span><span class="n">E901</span><span class="p">,</span>
-                <span class="sa">f</span><span class="s2">&quot;特徵錯位於索引 </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: 訓練時為 &#39;</span><span class="si">{</span><span class="n">train_feat</span><span class="si">}</span><span class="s2">&#39;，輸入為 &#39;</span><span class="si">{</span><span class="n">input_feat</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+    # 3. 比對順序與名稱（逐個比對）
+    for i, (train_feat, input_feat) in enumerate(zip(training_features, input_features)):
+        if train_feat != input_feat:
+            raise FeatureAlignmentError(E901,
+                f&quot;特徵錯位於索引 {i}: 訓練時為 '{train_feat}'，輸入為 '{input_feat}'&quot;)
 
-    <span class="c1"># 4. 驗證縮放參數（若存在）</span>
-    <span class="k">if</span> <span class="s1">&#39;scaler_params&#39;</span> <span class="ow">in</span> <span class="n">model_artifact</span><span class="p">:</span>
-        <span class="n">scaler_features</span> <span class="o">=</span> <span class="n">model_artifact</span><span class="p">[</span><span class="s1">&#39;scaler_params&#39;</span><span class="p">][</span><span class="s1">&#39;feature_names&#39;</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">scaler_features</span> <span class="o">!=</span> <span class="n">training_features</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">FeatureAlignmentError</span><span class="p">(</span><span class="n">E903</span><span class="p">,</span>
-                <span class="s2">&quot;縮放參數特徵順序與訓練特徵順序不一致，可能導致縮放錯位&quot;</span><span class="p">)</span>
+    # 4. 驗證縮放參數（若存在）
+    if 'scaler_params' in model_artifact:
+        scaler_features = model_artifact['scaler_params']['feature_names']
+        if scaler_features != training_features:
+            raise FeatureAlignmentError(E903,
+                &quot;縮放參數特徵順序與訓練特徵順序不一致，可能導致縮放錯位&quot;)
 
-    <span class="k">return</span> <span class="kc">True</span>
-</code></pre></div>
-
+    return True
+</code></pre>
 <hr />
 <h2 id="3-error-code-hierarchy-specification">3. 錯誤代碼分層規範 (Error Code Hierarchy Specification)</h2>
 <h3 id="30">3.0 分層架構總覽</h3>
@@ -1381,16 +1394,15 @@ class Manifest(BaseModel):
 - <code>__index_level_0__</code>: Pandas 殘留索引，必須移除</p>
 <h3 id="42-metadata-column_metadata">4.2 Metadata 字典規範 (column_metadata)</h3>
 <p><strong>允許的鍵值</strong>:</p>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-    <span class="s2">&quot;column_name&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>           <span class="c1"># 欄位名稱（與 DataFrame 欄位一致）</span>
-    <span class="s2">&quot;physical_type&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>         <span class="c1"># 必須是 PHYSICAL_TYPES 的 key</span>
-    <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>        <span class="c1"># 單位符號</span>
-    <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>  <span class="c1"># 人類可讀描述</span>
-    <span class="s2">&quot;precision&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>             <span class="c1"># 有效數字位數（預設 6）</span>
-    <span class="s2">&quot;temporal_baseline&quot;</span><span class="p">:</span> <span class="nb">str</span>      <span class="c1"># ISO 8601 格式時間戳（傳遞用）</span>
-<span class="p">}</span>
-</code></pre></div>
-
+<pre><code class="language-python">{
+    &quot;column_name&quot;: str,           # 欄位名稱（與 DataFrame 欄位一致）
+    &quot;physical_type&quot;: str,         # 必須是 PHYSICAL_TYPES 的 key
+    &quot;unit&quot;: Optional[str],        # 單位符號
+    &quot;description&quot;: Optional[str],  # 人類可讀描述
+    &quot;precision&quot;: int,             # 有效數字位數（預設 6）
+    &quot;temporal_baseline&quot;: str      # ISO 8601 格式時間戳（傳遞用）
+}
+</code></pre>
 <p><strong>禁止的鍵值</strong>:
 - <code>device_role</code>
 - <code>ignore_warnings</code>
@@ -1502,7 +1514,7 @@ class Manifest(BaseModel):
 2. Feature Engineer v1.2 + Optimization v1.1（缺少特徵對齊機制，E901 無法通過）
 3. Model Training v1.1 + Optimization v1.1（缺少標準化 scaler_params，E903 風險）</p>
 <p><strong>建議升級順序</strong>：</p>
-<div class="codehilite"><pre><span></span><code>Feature Annotation v1.2 (基礎設施)
+<pre><code>Feature Annotation v1.2 (基礎設施)
     ↓
 Parser v2.1 (上游輸出標準化)
     ↓
@@ -1515,8 +1527,7 @@ FeatureEngineer v1.3 (特徵順序保證 E601)
 Model Training v1.2 (縮放參數輸出 E602)
     ↓
 Optimization v1.1 (特徵對齊驗證 E901-E903)
-</code></pre></div>
-
+</code></pre>
 <hr />
 <h2 id="6-implementation-checklist">6. 實作檢查清單 (Implementation Checklist)</h2>
 <h3 id="61">6.1 開發前必須確認</h3>
@@ -1594,34 +1605,33 @@ Optimization v1.1 (特徵對齊驗證 E901-E903)
 - <strong>時機</strong>: <code>Container.__init__</code> 初始化時（第一個動作，早於任何模組初始化）
 - <strong>格式</strong>: ISO 8601 UTC (e.g., <code>2026-02-13T10:00:00.000000000Z</code>)
 - <strong>儲存</strong>: <code>TemporalContext</code> 物件（Thread-safe Singleton）</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">TemporalContext</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    全域時間基準容器（單例模式）</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">_instance</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+<pre><code class="language-python">class TemporalContext:
+    &quot;&quot;&quot;
+    全域時間基準容器（單例模式）
+    &quot;&quot;&quot;
+    _instance = None
+    _lock = threading.Lock()
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
-        <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_instance</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">with</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-                <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_instance</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="bp">cls</span><span class="o">.</span><span class="n">_instance</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
-                    <span class="bp">cls</span><span class="o">.</span><span class="n">_instance</span><span class="o">.</span><span class="n">origin_timestamp</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">UTC</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_instance</span>
+    def __new__(cls):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+                    cls._instance.origin_timestamp = datetime.now(UTC)
+        return cls._instance
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_baseline</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">datetime</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;取得 Pipeline 啟動時間戳&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">origin_timestamp</span>
+    def get_baseline(self) -&gt; datetime:
+        &quot;&quot;&quot;取得 Pipeline 啟動時間戳&quot;&quot;&quot;
+        return self.origin_timestamp
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">is_future</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">tolerance_minutes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        判斷時間戳是否為「未來資料」</span>
-<span class="sd">        標準：timestamp &gt; origin_timestamp + tolerance_minutes</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">origin_timestamp</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="n">tolerance_minutes</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">timestamp</span> <span class="o">&gt;</span> <span class="n">threshold</span>
-</code></pre></div>
-
+    def is_future(self, timestamp: datetime, tolerance_minutes: int = 5) -&gt; bool:
+        &quot;&quot;&quot;
+        判斷時間戳是否為「未來資料」
+        標準：timestamp &gt; origin_timestamp + tolerance_minutes
+        &quot;&quot;&quot;
+        threshold = self.origin_timestamp + timedelta(minutes=tolerance_minutes)
+        return timestamp &gt; threshold
+</code></pre>
 <p><strong>傳遞機制</strong>：
 1. <strong>Container → 各模組</strong>: 通過建構子注入 <code>temporal_context: TemporalContext</code>
 2. <strong>模組間傳遞</strong>: 通過 DataFrame metadata 或 Manifest 欄位 <code>temporal_baseline</code>
@@ -1684,76 +1694,71 @@ Optimization v1.1 (特徵對齊驗證 E901-E903)
 - 結果：模型將 <code>wb_temp</code> 誤認為 <code>chiller_2_load</code>，導致預測完全錯誤但無警告</p>
 <h3 id="92-feature-manifest">9.2 Feature Manifest 規格</h3>
 <p><strong>輸出位置</strong>: <code>ModelTrainer</code> 輸出目錄中的 <code>feature_manifest.json</code></p>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;manifest_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2.0-ALIGN&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;created_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-13T10:30:00Z&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;pipeline_origin_timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-13T10:00:00Z&quot;</span><span class="p">,</span>
+<pre><code class="language-json">{
+  &quot;manifest_version&quot;: &quot;2.0-ALIGN&quot;,
+  &quot;created_at&quot;: &quot;2026-02-13T10:30:00Z&quot;,
+  &quot;pipeline_origin_timestamp&quot;: &quot;2026-02-13T10:00:00Z&quot;,
 
-<span class="w">  </span><span class="nt">&quot;feature_specification&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;feature_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;chiller_1_load&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;chiller_2_load&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;wb_temp&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;chwst_temp&quot;</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;feature_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;feature_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sha256:a1b2c3d4...&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;hash_algorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SHA256&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;hash_computation&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sha256(&#39;,&#39;.join(feature_names).encode())&quot;</span>
-<span class="w">  </span><span class="p">},</span>
+  &quot;feature_specification&quot;: {
+    &quot;feature_names&quot;: [&quot;chiller_1_load&quot;, &quot;chiller_2_load&quot;, &quot;wb_temp&quot;, &quot;chwst_temp&quot;],
+    &quot;feature_count&quot;: 4,
+    &quot;feature_hash&quot;: &quot;sha256:a1b2c3d4...&quot;,
+    &quot;hash_algorithm&quot;: &quot;SHA256&quot;,
+    &quot;hash_computation&quot;: &quot;sha256(','.join(feature_names).encode())&quot;
+  },
 
-<span class="w">  </span><span class="nt">&quot;scaling_specification&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;scaler_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;StandardScaler&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;scaler_params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;mean_&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">450.5</span><span class="p">,</span><span class="w"> </span><span class="mf">420.3</span><span class="p">,</span><span class="w"> </span><span class="mf">28.5</span><span class="p">,</span><span class="w"> </span><span class="mf">7.2</span><span class="p">],</span>
-<span class="w">      </span><span class="nt">&quot;scale_&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">120.2</span><span class="p">,</span><span class="w"> </span><span class="mf">115.8</span><span class="p">,</span><span class="w"> </span><span class="mf">2.1</span><span class="p">,</span><span class="w"> </span><span class="mf">0.5</span><span class="p">],</span>
-<span class="w">      </span><span class="nt">&quot;var_&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">14448.04</span><span class="p">,</span><span class="w"> </span><span class="mf">13401.64</span><span class="p">,</span><span class="w"> </span><span class="mf">4.41</span><span class="p">,</span><span class="w"> </span><span class="mf">0.25</span><span class="p">]</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;scaler_feature_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;chiller_1_load&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;chiller_2_load&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;wb_temp&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;chwst_temp&quot;</span><span class="p">],</span>
-<span class="w">    </span><span class="nt">&quot;scaler_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sha256:e5f6g7h8...&quot;</span>
-<span class="w">  </span><span class="p">},</span>
+  &quot;scaling_specification&quot;: {
+    &quot;scaler_type&quot;: &quot;StandardScaler&quot;,
+    &quot;scaler_params&quot;: {
+      &quot;mean_&quot;: [450.5, 420.3, 28.5, 7.2],
+      &quot;scale_&quot;: [120.2, 115.8, 2.1, 0.5],
+      &quot;var_&quot;: [14448.04, 13401.64, 4.41, 0.25]
+    },
+    &quot;scaler_feature_names&quot;: [&quot;chiller_1_load&quot;, &quot;chiller_2_load&quot;, &quot;wb_temp&quot;, &quot;chwst_temp&quot;],
+    &quot;scaler_hash&quot;: &quot;sha256:e5f6g7h8...&quot;
+  },
 
-<span class="w">  </span><span class="nt">&quot;validation_rules&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;allow_subset&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;allow_superset&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;strict_order&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;case_sensitive&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
-<span class="w">  </span><span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
-
+  &quot;validation_rules&quot;: {
+    &quot;allow_subset&quot;: false,
+    &quot;allow_superset&quot;: false,
+    &quot;strict_order&quot;: true,
+    &quot;case_sensitive&quot;: true
+  }
+}
+</code></pre>
 <h3 id="93-optimization">9.3 對齊驗證流程 (Optimization 階段)</h3>
 <p><strong>Step 1: 完整性檢查</strong> (E901)</p>
-<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="s1">&#39;feature_manifest.json&#39;</span><span class="p">):</span>
-    <span class="k">raise</span> <span class="n">E901</span><span class="p">(</span><span class="s2">&quot;缺少 feature_manifest，無法驗證特徵對齊&quot;</span><span class="p">)</span>
-</code></pre></div>
-
+<pre><code class="language-python">if not os.exists('feature_manifest.json'):
+    raise E901(&quot;缺少 feature_manifest，無法驗證特徵對齊&quot;)
+</code></pre>
 <p><strong>Step 2: 特徵清單比對</strong> (E901)</p>
-<div class="codehilite"><pre><span></span><code><span class="n">expected_features</span> <span class="o">=</span> <span class="n">manifest</span><span class="p">[</span><span class="s1">&#39;feature_specification&#39;</span><span class="p">][</span><span class="s1">&#39;feature_names&#39;</span><span class="p">]</span>
-<span class="n">input_features</span> <span class="o">=</span> <span class="n">get_input_feature_names</span><span class="p">()</span>  <span class="c1"># 從 Optimization 輸入取得</span>
+<pre><code class="language-python">expected_features = manifest['feature_specification']['feature_names']
+input_features = get_input_feature_names()  # 從 Optimization 輸入取得
 
-<span class="k">if</span> <span class="n">expected_features</span> <span class="o">!=</span> <span class="n">input_features</span><span class="p">:</span>
-    <span class="c1"># 詳細差異分析</span>
-    <span class="n">diff</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">dictdiffer</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">expected_features</span><span class="p">,</span> <span class="n">input_features</span><span class="p">))</span>
-    <span class="k">raise</span> <span class="n">E901</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;特徵順序不匹配: </span><span class="si">{</span><span class="n">diff</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</code></pre></div>
-
+if expected_features != input_features:
+    # 詳細差異分析
+    diff = list(dictdiffer.diff(expected_features, input_features))
+    raise E901(f&quot;特徵順序不匹配: {diff}&quot;)
+</code></pre>
 <p><strong>Step 3: 雜湊驗證</strong> (E901-optional)</p>
-<div class="codehilite"><pre><span></span><code><span class="n">computed_hash</span> <span class="o">=</span> <span class="n">sha256</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">input_features</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
-<span class="k">if</span> <span class="n">computed_hash</span> <span class="o">!=</span> <span class="n">manifest</span><span class="p">[</span><span class="s1">&#39;feature_specification&#39;</span><span class="p">][</span><span class="s1">&#39;feature_hash&#39;</span><span class="p">]:</span>
-    <span class="k">raise</span> <span class="n">E901</span><span class="p">(</span><span class="s2">&quot;特徵雜湊驗證失敗：特徵名稱或順序被修改&quot;</span><span class="p">)</span>
-</code></pre></div>
-
+<pre><code class="language-python">computed_hash = sha256(','.join(input_features).encode()).hexdigest()
+if computed_hash != manifest['feature_specification']['feature_hash']:
+    raise E901(&quot;特徵雜湊驗證失敗：特徵名稱或順序被修改&quot;)
+</code></pre>
 <p><strong>Step 4: 縮放參數應用</strong> (E903)</p>
-<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="n">manifest</span><span class="p">[</span><span class="s1">&#39;scaling_specification&#39;</span><span class="p">][</span><span class="s1">&#39;scaler_type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;StandardScaler&#39;</span><span class="p">:</span>
-    <span class="n">scaler</span> <span class="o">=</span> <span class="n">StandardScaler</span><span class="p">()</span>
-    <span class="n">scaler</span><span class="o">.</span><span class="n">mean_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">manifest</span><span class="p">[</span><span class="s1">&#39;scaling_specification&#39;</span><span class="p">][</span><span class="s1">&#39;scaler_params&#39;</span><span class="p">][</span><span class="s1">&#39;mean_&#39;</span><span class="p">])</span>
-    <span class="n">scaler</span><span class="o">.</span><span class="n">scale_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">manifest</span><span class="p">[</span><span class="s1">&#39;scaling_specification&#39;</span><span class="p">][</span><span class="s1">&#39;scaler_params&#39;</span><span class="p">][</span><span class="s1">&#39;scale_&#39;</span><span class="p">])</span>
+<pre><code class="language-python">if manifest['scaling_specification']['scaler_type'] == 'StandardScaler':
+    scaler = StandardScaler()
+    scaler.mean_ = np.array(manifest['scaling_specification']['scaler_params']['mean_'])
+    scaler.scale_ = np.array(manifest['scaling_specification']['scaler_params']['scale_'])
 
-    <span class="c1"># 驗證縮放參數長度</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">scaler</span><span class="o">.</span><span class="n">mean_</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">input_features</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="n">E902</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;縮放參數長度 </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">scaler</span><span class="o">.</span><span class="n">mean_</span><span class="p">)</span><span class="si">}</span><span class="s2"> 與特徵數 </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">input_features</span><span class="p">)</span><span class="si">}</span><span class="s2"> 不匹配&quot;</span><span class="p">)</span>
+    # 驗證縮放參數長度
+    if len(scaler.mean_) != len(input_features):
+        raise E902(f&quot;縮放參數長度 {len(scaler.mean_)} 與特徵數 {len(input_features)} 不匹配&quot;)
 
-    <span class="c1"># 驗證縮放參數順序（通過 feature_names 比對）</span>
-    <span class="k">if</span> <span class="n">manifest</span><span class="p">[</span><span class="s1">&#39;scaling_specification&#39;</span><span class="p">][</span><span class="s1">&#39;scaler_feature_names&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">input_features</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">E903</span><span class="p">(</span><span class="s2">&quot;縮放參數特徵順序與輸入特徵順序不一致&quot;</span><span class="p">)</span>
-</code></pre></div>
-
+    # 驗證縮放參數順序（通過 feature_names 比對）
+    if manifest['scaling_specification']['scaler_feature_names'] != input_features:
+        raise E903(&quot;縮放參數特徵順序與輸入特徵順序不一致&quot;)
+</code></pre>
 <h3 id="94">9.4 容錯與恢復策略</h3>
 <table>
 <thead>
@@ -1804,12 +1809,4 @@ Optimization v1.1 (特徵對齊驗證 E901-E903)
 <li>
 <p><strong>特徵對齊驗證</strong>：新增第9章與檢查點 #7，定義 Feature Manifest 規格、雜湊驗證、縮放參數傳遞機制，並新增 E901-E903 錯誤代碼專門處理 Training-Optimization 特徵錯位風險。</p>
 </li>
-</ol>
-    
-<script type="module">
-    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-    mermaid.initialize({ startOnLoad: true });
-</script>
-
-</body>
-</html>
+</ol></body></html>
