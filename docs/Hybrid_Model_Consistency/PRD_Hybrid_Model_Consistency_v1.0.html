@@ -1,0 +1,1181 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PRD_Hybrid_Model_Consistency_v1.0</title>
+    
+<style>
+    body { 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
+        line-height: 1.6; 
+        max-width: 900px; 
+        margin: 0 auto; 
+        padding: 40px 20px; 
+        color: #24292e; 
+        background-color: #ffffff;
+    }
+    h1, h2, h3, h4, h5, h6 { 
+        margin-top: 24px; 
+        margin-bottom: 16px; 
+        font-weight: 600; 
+        color: #24292e;
+    }
+    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    h3 { font-size: 1.25em; }
+    p { margin-top: 0; margin-bottom: 16px; }
+    a { color: #0366d6; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    table { 
+        display: block; 
+        width: 100%; 
+        overflow: auto; 
+        border-spacing: 0; 
+        border-collapse: collapse; 
+        margin-bottom: 16px; 
+    }
+    table th, table td { 
+        padding: 6px 13px; 
+        border: 1px solid #dfe2e5; 
+    }
+    table th { 
+        font-weight: 600; 
+        background-color: #f6f8fa; 
+    }
+    table tr:nth-child(2n) { 
+        background-color: #f6f8fa; 
+    }
+    code { 
+        font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; 
+        background-color: #f6f8fa; 
+        padding: 0.2em 0.4em; 
+        border-radius: 3px; 
+        font-size: 85%; 
+    }
+    pre { 
+        background-color: #f6f8fa; 
+        padding: 16px; 
+        overflow: auto; 
+        border-radius: 3px; 
+        line-height: 1.45; 
+    }
+    pre code { 
+        background-color: transparent; 
+        padding: 0; 
+        border-radius: 0; 
+    }
+    blockquote { 
+        border-left: 0.25em solid #dfe2e5; 
+        color: #6a737d; 
+        padding: 0 1em; 
+        margin: 0 0 16px 0; 
+    }
+    hr {
+        height: 0.25em;
+        padding: 0;
+        margin: 24px 0;
+        background-color: #e1e4e8;
+        border: 0;
+    }
+    .mermaid {
+        display: flex;
+        justify-content: center;
+        margin: 20px 0;
+    }
+</style>
+
+</head>
+<body>
+    <h1 id="prd-v10-hybrid-model-consistency-validation-specification">PRD v1.0: Hybrid Model Consistency Validation Specification</h1>
+<h1 id="_1">混合模型一致性驗證規範</h1>
+<p><strong>文件版本:</strong> v1.0 (Golden Standard &amp; Copula Effect Handling)<br />
+<strong>日期:</strong> 2026-02-13<br />
+<strong>負責人:</strong> Oscar Chang<br />
+<strong>目標模組:</strong> <code>src/modeling/validation/hybrid_consistency.py</code>, <code>src/modeling/validation/consistency_checker.py</code><br />
+<strong>上游契約:</strong> <code>src/modeling/training_pipeline.py</code> (v1.2+, BatchTrainingCoordinator)<br />
+<strong>下游契約:</strong> <code>src/optimization/engine.py</code> (v1.1+, ModelRegistry)<br />
+<strong>關鍵相依:</strong> <code>src/modeling/artifacts.py</code> (MultiModelArtifact), <code>src/features/annotation_manager.py</code><br />
+<strong>預估工時:</strong> 3 ~ 4 個工程天</p>
+<hr />
+<h2 id="1">1. 執行總綱與設計哲學</h2>
+<h3 id="11">1.1 核心目標</h3>
+<p>建立<strong>標準化、可重現、領域感知</strong>的Hybrid Model一致性驗證框架，解決以下關鍵模糊地帶：</p>
+<ol>
+<li><strong>黃金標準定義 (Golden Standard Definition)</strong>：明確定義比較的基準資料集（驗證集 vs 測試集）、比較維度（逐筆 vs 整體）、以及統計方法論</li>
+<li><strong>容差計算標準化 (Tolerance Calculation Standardization)</strong>：建立考慮HVAC設備耦合效應（Copula Effect）的動態容差模型，而非硬性固定5%門檻</li>
+<li><strong>部分缺失處理 (Partial Missing Handling)</strong>：定義當Component Models僅部分存在時（如只有chiller_1_kw，無chiller_2_kw）的加總邏輯與置信度評估</li>
+<li><strong>耦合效應補償 (Copula Effect Compensation)</strong>：識別並量化設備間交互作用導致的系統性偏差（如共用管路壓力損失、熱交互作用），避免誤判正常物理現象為模型錯誤</li>
+</ol>
+<h3 id="12">1.2 設計原則</h3>
+<ol>
+<li><strong>分層驗證策略 (Hierarchical Validation)</strong>：</li>
+<li><strong>L1：樣本級驗證 (Sample-Level)</strong>：單筆資料點的絕對誤差檢查（用於異常檢測）</li>
+<li><strong>L2：聚合級驗證 (Aggregate-Level)</strong>：分群統計（依負載區間、外氣條件、運行模式分群）</li>
+<li>
+<p><strong>L3：趨勢級驗證 (Trend-Level)</strong>：時間序列相關性與殘差分析（確保兩模型趨勢一致）</p>
+</li>
+<li>
+<p><strong>動態容差閾值 (Dynamic Tolerance Threshold)</strong>：</p>
+</li>
+<li>基於<strong>系統負載率 (System Load Percentage)</strong> 動態調整容差（低負載時允許較高相對誤差）</li>
+<li>基於<strong>設備組合複雜度 (Equipment Combination Complexity)</strong> 調整（多設備並聯時耦合效應增強）</li>
+<li>
+<p>區分<strong>統計誤差 (Statistical Error)</strong> 與<strong>結構性偏差 (Structural Bias)</strong></p>
+</li>
+<li>
+<p><strong>物理可解釋性 (Physical Interpretability)</strong>：</p>
+</li>
+<li>所有一致性違規必須標記<strong>物理原因標籤</strong>（如"管路壓損"、"熱短路"、"測量誤差"）</li>
+<li>
+<p>提供<strong>耦合效應熱區圖 (Copula Heatmap)</strong> 視覺化設備間交互作用強度</p>
+</li>
+<li>
+<p><strong>向後相容性 (Backward Compatibility)</strong>：</p>
+</li>
+<li>與Training v1.2的<code>BatchTrainingCoordinator._validate_hybrid_consistency()</code>無縫整合</li>
+<li>與Optimization v1.1的<code>ModelRegistry.validate_hybrid_consistency()</code>介面一致</li>
+<li>支援既有的5%硬性門檻作為保守 fallback 選項</li>
+</ol>
+<h3 id="13">1.3 關鍵術語定義</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">術語</th>
+<th style="text-align: left;">定義</th>
+<th style="text-align: left;">數學表達</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>System Model ($S$)</strong></td>
+<td style="text-align: left;">預測系統總耗電的模型（黑盒）</td>
+<td style="text-align: left;">$\hat{y}_S = f_S(X)$</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Component Models ($C_i$)</strong></td>
+<td style="text-align: left;">預測個別設備耗電的模型集合</td>
+<td style="text-align: left;">$\hat{y}<em C_i="C_i">{C_i} = f</em>(X_i)$</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>加總預測 ($C_{sum}$)</strong></td>
+<td style="text-align: left;">Component Models 的算術和</td>
+<td style="text-align: left;">$\hat{y}<em sum="sum">{C</em>$}} = \sum_{i=1}^n \hat{y}_{C_i</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>耦合損失 ($\delta_{copula}$)</strong></td>
+<td style="text-align: left;">設備間交互作用導致的系統性偏差</td>
+<td style="text-align: left;">$\delta_{copula} = \mathbb{E}[C_{sum} - S]$</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>黃金資料集 ($D_{golden}$)</strong></td>
+<td style="text-align: left;">用於比較的權威資料集（定義見2.1節）</td>
+<td style="text-align: left;">$D_{test}$ 或 $D_{val}$</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>動態容差 ($\tau$)</strong></td>
+<td style="text-align: left;">依運行條件變化的誤差上限</td>
+<td style="text-align: left;">$\tau = \tau_{base} \cdot \alpha_{load} \cdot \beta_{complexity}$</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2-golden-standard-definition">2. 黃金標準定義 (Golden Standard Definition)</h2>
+<h3 id="21">2.1 比較資料集選擇規範</h3>
+<p><strong>原則：測試集優先 (Test Set Priority)</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">情境</th>
+<th style="text-align: left;">黃金資料集選擇</th>
+<th style="text-align: left;">理由</th>
+<th style="text-align: center;">錯誤代碼</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>標準情境</strong></td>
+<td style="text-align: left;"><strong>測試集 ($D_{test}$)</strong></td>
+<td style="text-align: left;">未參與任何模型訓練，最能反映真實泛化誤差</td>
+<td style="text-align: center;">-</td>
+</tr>
+<tr>
+<td style="text-align: left;">測試集不可用</td>
+<td style="text-align: left;">驗證集 ($D_{val}$)</td>
+<td style="text-align: left;">雖用於早停，但未用於參數優化，可接受</td>
+<td style="text-align: center;">E759 (Info)</td>
+</tr>
+<tr>
+<td style="text-align: left;">樣本數不足 (&lt;100)</td>
+<td style="text-align: left;">合併驗證集+測試集</td>
+<td style="text-align: left;">統計顯著性考量，需標記</td>
+<td style="text-align: center;">E759 (Warn)</td>
+</tr>
+<tr>
+<td style="text-align: left;">時間序列驗證</td>
+<td style="text-align: left;">依時間切分的獨立區段</td>
+<td style="text-align: left;">避免資料洩漏，確保時間相依性</td>
+<td style="text-align: center;">-</td>
+</tr>
+</tbody>
+</table>
+<p><strong>實作規範</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">GoldenDatasetSelector</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    黃金資料集選擇器</span>
+<span class="sd">    根據資料可用性與品質自動選擇最適合的比較基準</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">select</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">artifacts</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MultiModelArtifact</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            dataset: 用於比較的特徵矩陣與真實值</span>
+<span class="sd">            source_tag: 資料來源標記 (&quot;test&quot;, &quot;val&quot;, &quot;combined&quot;, &quot;insufficient&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># 優先檢查 Test Set</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_has_sufficient_samples</span><span class="p">(</span><span class="n">artifacts</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">,</span> <span class="n">min_samples</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_test_set</span><span class="p">(</span><span class="n">artifacts</span><span class="p">),</span> <span class="s2">&quot;test&quot;</span>
+
+        <span class="c1"># 次選 Validation Set</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_has_sufficient_samples</span><span class="p">(</span><span class="n">artifacts</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">,</span> <span class="n">min_samples</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;E759: 使用驗證集進行一致性檢查，結果可能過度樂觀&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_val_set</span><span class="p">(</span><span class="n">artifacts</span><span class="p">),</span> <span class="s2">&quot;val&quot;</span>
+
+        <span class="c1"># 樣本不足時合併（需確保無重疊）</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_can_combine_safely</span><span class="p">(</span><span class="n">artifacts</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;E759: 合併驗證集與測試集以確保統計顯著性&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_combined</span><span class="p">(</span><span class="n">artifacts</span><span class="p">),</span> <span class="s2">&quot;combined&quot;</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ConsistencyError</span><span class="p">(</span><span class="s2">&quot;E750&quot;</span><span class="p">,</span> <span class="s2">&quot;樣本數不足，無法進行可靠的一致性驗證&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="22">2.2 比較維度與統計方法論</h3>
+<p><strong>三維度比較框架</strong>：</p>
+<h4 id="a-point-wise-absolute-error">維度 A：逐筆絕對誤差 (Point-wise Absolute Error)</h4>
+<ul>
+<li><strong>用途</strong>：檢測極端異常值（Outliers）</li>
+<li><strong>指標</strong>：$e_i = |\hat{y}<em C__sum="C_{sum">{S,i} - \hat{y}</em>|$},i</li>
+<li><strong>閾值</strong>：$e_i &lt; \tau_{absolute}$（預設 10 kW，可配置）</li>
+<li><strong>輸出</strong>：異常樣本標記（用於後續根因分析）</li>
+</ul>
+<h4 id="b-binned-relative-error-">維度 B：分群相對誤差 (Binned Relative Error) - <strong>主要決策依據</strong></h4>
+<ul>
+<li><strong>用途</strong>：避免極端值主導整體判斷，考量HVAC非線性特性</li>
+<li><strong>分群策略</strong>：</li>
+<li><strong>依系統負載分群 (By System Load)</strong>：<ul>
+<li>輕載 (0-30% RT)</li>
+<li>中載 (30-70% RT) </li>
+<li>重載 (70-100% RT)</li>
+</ul>
+</li>
+<li><strong>依外氣濕球溫度分群 (By Wet-bulb Temp)</strong>：<ul>
+<li>低溫 (&lt;20°C)</li>
+<li>中溫 (20-26°C)</li>
+<li>高溫 (&gt;26°C)</li>
+</ul>
+</li>
+<li>
+<p><strong>依設備組合分群 (By Equipment Combo)</strong>：</p>
+<ul>
+<li>單機運行</li>
+<li>雙機並聯</li>
+<li>多機 (&gt;2) 並聯</li>
+</ul>
+</li>
+<li>
+<p><strong>指標</strong>：各群組的 MAPE (Mean Absolute Percentage Error)
+  $$MAPE_{bin} = \frac{1}{n_{bin}} \sum_{i \in bin} \frac{|\hat{y}<em C__sum="C_{sum">{S,i} - \hat{y}</em> \times 100\%$$},i}|}{\hat{y}_{S,i}</p>
+</li>
+<li>
+<p><strong>通過標準</strong>：<strong>所有群組</strong>的 $MAPE_{bin} &lt; \tau_{dynamic}$（動態閾值，見第3節）</p>
+</li>
+</ul>
+<h4 id="c-overall-statistical-consistency">維度 C：整體統計一致性 (Overall Statistical Consistency)</h4>
+<ul>
+<li><strong>用途</strong>：確保長期趨勢與統計分佈一致</li>
+<li><strong>指標</strong>：</li>
+<li><strong>整體 MAPE</strong>：$MAPE_{overall} &lt; 5\%$（傳統硬性標準，作為後備檢查）</li>
+<li><strong>相關係數</strong>：$Corr(\hat{y}<em C__sum="C_{sum">S, \hat{y}</em>) &gt; 0.95$}</li>
+<li><strong>平均偏差 (Mean Bias)</strong>：$Bias = \frac{1}{n}\sum(\hat{y}<em sum="sum">{C</em>_S)$}} - \hat{y<ul>
+<li>用於檢測系統性高估/低估（耦合效應指標）</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2 id="3">3. 動態容差計算與耦合效應補償</h2>
+<h3 id="31-dynamic-tolerance-model">3.1 動態容差模型 (Dynamic Tolerance Model)</h3>
+<p><strong>告別固定5%</strong>：採用多因子調整模型</p>
+<p>$$\tau_{dynamic} = \tau_{base} \cdot \alpha_{load} \cdot \beta_{complexity} \cdot \gamma_{copula} + \delta_{measurement}$$</p>
+<p><strong>參數定義</strong>：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">參數</th>
+<th style="text-align: center;">預設值</th>
+<th style="text-align: left;">調整邏輯</th>
+<th style="text-align: left;">說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>基礎容差 $\tau_{base}$</strong></td>
+<td style="text-align: center;">5%</td>
+<td style="text-align: left;">依案場歷史資料校準</td>
+<td style="text-align: left;">傳統硬性門檻作為基準</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>負載調整因子 $\alpha_{load}$</strong></td>
+<td style="text-align: center;">1.0</td>
+<td style="text-align: left;">輕載(&lt;30%)時 1.5，中載 1.0，重載 0.8</td>
+<td style="text-align: left;">低負載時相對誤差放大</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>複雜度調整因子 $\beta_{complexity}$</strong></td>
+<td style="text-align: center;">1.0</td>
+<td style="text-align: left;">單機 0.9，雙機 1.0，三機以上 1.2</td>
+<td style="text-align: left;">設備越多，耦合效應越強</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>耦合補償項 $\gamma_{copula}$</strong></td>
+<td style="text-align: center;">1.0</td>
+<td style="text-align: left;">依管路拓撲與歷史偏差校準</td>
+<td style="text-align: left;">見3.2節</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>量測誤差項 $\delta_{measurement}$</strong></td>
+<td style="text-align: center;">0.5%</td>
+<td style="text-align: left;">固定補償（CT、PT精度限制）</td>
+<td style="text-align: left;">硬體限制緩衝</td>
+</tr>
+</tbody>
+</table>
+<p><strong>實作範例</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">DynamicToleranceCalculator</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    動態容差計算器</span>
+<span class="sd">    根據運行條件計算當下可接受的誤差範圍</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">calculate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">system_load_percent</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">active_equipment_count</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">ambient_wb_temp</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">site_topology</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;standard&quot;</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        計算動態容差閾值 (%)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># 基礎容差</span>
+        <span class="n">tau_base</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">base_tolerance</span>  <span class="c1"># 5.0</span>
+
+        <span class="c1"># 負載調整（輕載放寬，重載收緊）</span>
+        <span class="k">if</span> <span class="n">system_load_percent</span> <span class="o">&lt;</span> <span class="mf">0.3</span><span class="p">:</span>
+            <span class="n">alpha</span> <span class="o">=</span> <span class="mf">1.5</span>  <span class="c1"># 輕載：5% * 1.5 = 7.5%</span>
+        <span class="k">elif</span> <span class="n">system_load_percent</span> <span class="o">&gt;</span> <span class="mf">0.7</span><span class="p">:</span>
+            <span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.8</span>  <span class="c1"># 重載：5% * 0.8 = 4.0%</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">alpha</span> <span class="o">=</span> <span class="mf">1.0</span>
+
+        <span class="c1"># 複雜度調整（並聯機組數量）</span>
+        <span class="k">if</span> <span class="n">active_equipment_count</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">beta</span> <span class="o">=</span> <span class="mf">0.9</span>
+        <span class="k">elif</span> <span class="n">active_equipment_count</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">beta</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">beta</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="p">(</span><span class="n">active_equipment_count</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.1</span>  <span class="c1"># 每多一台+10%</span>
+
+        <span class="c1"># 耦合效應補償（依案場拓撲）</span>
+        <span class="n">gamma</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">copula_factors</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">site_topology</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+
+        <span class="c1"># 量測誤差緩衝</span>
+        <span class="n">delta</span> <span class="o">=</span> <span class="mf">0.5</span>
+
+        <span class="n">tau_dynamic</span> <span class="o">=</span> <span class="n">tau_base</span> <span class="o">*</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">beta</span> <span class="o">*</span> <span class="n">gamma</span> <span class="o">+</span> <span class="n">delta</span>
+
+        <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">tau_dynamic</span><span class="p">,</span> <span class="mf">15.0</span><span class="p">)</span>  <span class="c1"># 上限15%，防止過度放寬</span>
+</code></pre></div>
+
+<h3 id="32-hvac-copula-effect">3.2 HVAC耦合效應 (Copula Effect) 處理</h3>
+<p><strong>物理機制識別</strong>：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">耦合類型</th>
+<th style="text-align: left;">物理描述</th>
+<th style="text-align: center;">預期偏差方向</th>
+<th style="text-align: center;">補償係數 $\gamma$</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>管路壓損 (Piping Loss)</strong></td>
+<td style="text-align: left;">多機並聯時共用管路摩擦損失增加</td>
+<td style="text-align: center;">$C_{sum} &gt; S$ (加總高估)</td>
+<td style="text-align: center;">1.02 ~ 1.05</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>熱短路 (Thermal Short-circuit)</strong></td>
+<td style="text-align: left;">冷卻水塔回水溫度交互影響</td>
+<td style="text-align: center;">$C_{sum} &gt; S$</td>
+<td style="text-align: center;">1.01 ~ 1.03</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>電力諧波 (Harmonics)</strong></td>
+<td style="text-align: left;">多變頻器並聯產生諧波損失</td>
+<td style="text-align: center;">$C_{sum} &lt; S$ (加總低估)</td>
+<td style="text-align: center;">0.98 ~ 0.99</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>控制延遲 (Control Lag)</strong></td>
+<td style="text-align: left;">設備間控制不同步導致效率損失</td>
+<td style="text-align: center;">$C_{sum} &gt; S$</td>
+<td style="text-align: center;">1.01 ~ 1.02</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>測量疊加誤差 (Measurement Stack)</strong></td>
+<td style="text-align: left;">個別設備電表誤差累加</td>
+<td style="text-align: center;">不確定</td>
+<td style="text-align: center;">1.01 ~ 1.03</td>
+</tr>
+</tbody>
+</table>
+<p><strong>耦合係數自動校準</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calibrate_copula_factor</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span> 
+    <span class="n">historical_data</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="n">system_predictions</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">component_predictions</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    基於歷史運行資料自動校準耦合係數</span>
+<span class="sd">    執行時機：模型部署初期（第一個月運行後）</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        copula_factors: 依設備組合與負載區間的補償係數表</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># 計算歷史平均偏差</span>
+    <span class="n">component_sum</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">component_predictions</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+    <span class="n">historical_bias</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">component_sum</span> <span class="o">-</span> <span class="n">system_predictions</span><span class="p">)</span>
+
+    <span class="c1"># 依負載區間分群計算</span>
+    <span class="k">for</span> <span class="n">load_bin</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;light&#39;</span><span class="p">,</span> <span class="s1">&#39;medium&#39;</span><span class="p">,</span> <span class="s1">&#39;heavy&#39;</span><span class="p">]:</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_load_mask</span><span class="p">(</span><span class="n">historical_data</span><span class="p">,</span> <span class="n">load_bin</span><span class="p">)</span>
+        <span class="n">bias_bin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">component_sum</span> <span class="o">-</span> <span class="n">system_predictions</span><span class="p">)[</span><span class="n">mask</span><span class="p">])</span>
+
+        <span class="c1"># 轉換為補償係數（偏差&gt;0表示加總高估，需放寬容差）</span>
+        <span class="k">if</span> <span class="n">bias_bin</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">gamma</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="p">(</span><span class="n">bias_bin</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">system_predictions</span><span class="p">[</span><span class="n">mask</span><span class="p">]))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">gamma</span> <span class="o">=</span> <span class="mf">1.0</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">copula_factors</span><span class="p">[</span><span class="n">load_bin</span><span class="p">]</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">gamma</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">copula_factors</span>
+</code></pre></div>
+
+<hr />
+<h2 id="4-component-models">4. 部分缺失Component Models處理邏輯</h2>
+<h3 id="41">4.1 可用性分級與降級策略</h3>
+<p>當並非所有Component Models都存在時（例如僅訓練了chiller_1_kw，缺少pump與tower模型）：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">等級</th>
+<th style="text-align: left;">可用Components</th>
+<th style="text-align: left;">處理策略</th>
+<th style="text-align: center;">置信度標記</th>
+<th style="text-align: left;">使用限制</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>L3 (完整)</strong></td>
+<td style="text-align: left;">主機+水泵+水塔+其他</td>
+<td style="text-align: left;">標準加總比較</td>
+<td style="text-align: center;">🔵 高</td>
+<td style="text-align: left;">無限制</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>L2 (部分)</strong></td>
+<td style="text-align: left;">僅主機 (Chillers only)</td>
+<td style="text-align: left;">主機加總 vs System - 輔助設備基線</td>
+<td style="text-align: center;">🟡 中</td>
+<td style="text-align: left;">僅供趨勢參考，不作為絕對標準</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>L1 (極限)</strong></td>
+<td style="text-align: left;">僅單一主機</td>
+<td style="text-align: left;">無法進行一致性檢查</td>
+<td style="text-align: center;">🔴 低</td>
+<td style="text-align: left;">禁止進行Hybrid驗證，改用單一模型驗證</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>L0 (缺失)</strong></td>
+<td style="text-align: left;">無Components</td>
+<td style="text-align: left;">跳過Hybrid檢查</td>
+<td style="text-align: center;">⚪ N/A</td>
+<td style="text-align: left;">僅使用System Model</td>
+</tr>
+</tbody>
+</table>
+<p><strong>部分缺失時的數學處理</strong>：</p>
+<p>當僅有主機模型存在時（L2情境）：
+$$C_{partial} = \sum_{i \in chillers} \hat{y}<em aux_baseline="aux,baseline">{C_i} + \hat{y}</em>$$</p>
+<p>其中 $\hat{y}_{aux,baseline}$ 為輔助設備（水泵、水塔）的<strong>物理估計值</strong>或<strong>歷史平均值</strong>，而非模型預測。</p>
+<p><strong>置信度加權</strong>：
+$$Confidence = \frac{N_{available}}{N_{total}} \times \frac{Energy_{available}}{Energy_{total}}$$</p>
+<ul>
+<li>$N_{available}$：可用的Component Models數量</li>
+<li>$Energy_{available}$：這些設備在總能耗中的歷史佔比</li>
+</ul>
+<h3 id="42-missing-component-imputation">4.2 缺失補償機制 (Missing Component Imputation)</h3>
+<p><strong>策略選擇</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">MissingComponentHandler</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    處理部分Component Models缺失的情況</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">IMPUTATION_STRATEGIES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;physical_model&#39;</span><span class="p">:</span> <span class="s1">&#39;使用物理模型估算（如泵 affinity laws）&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;historical_mean&#39;</span><span class="p">:</span> <span class="s1">&#39;使用歷史同條件下的平均值&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;ml_imputation&#39;</span><span class="p">:</span> <span class="s1">&#39;使用獨立的輕量級ML模型插補&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;proportional_split&#39;</span><span class="p">:</span> <span class="s1">&#39;依已知Components的比例分配殘差&#39;</span>
+    <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">handle</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">available_components</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+        <span class="n">missing_components</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">system_prediction</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">context</span><span class="p">:</span> <span class="n">Dict</span>  <span class="c1"># 運行工況</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            imputed_sum: 補償後的加總預測</span>
+<span class="sd">            confidence: 置信度分數 (0.0 ~ 1.0)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">available_sum</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">available_components</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">missing_components</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">available_sum</span><span class="p">,</span> <span class="mf">1.0</span>
+
+        <span class="c1"># 計算已知部分的能耗佔比</span>
+        <span class="n">energy_ratio</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_energy_ratio</span><span class="p">(</span><span class="n">available_components</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+        <span class="k">if</span> <span class="n">energy_ratio</span> <span class="o">&gt;</span> <span class="mf">0.8</span><span class="p">:</span>  <span class="c1"># 已知部分佔比&gt;80%，可進行殘差分配</span>
+            <span class="c1"># 策略：Proportional Split</span>
+            <span class="n">residual</span> <span class="o">=</span> <span class="n">system_prediction</span> <span class="o">-</span> <span class="n">available_sum</span>
+            <span class="c1"># 依歷史比例將殘差分配給缺失設備（確保加總等於System）</span>
+            <span class="n">imputed_sum</span> <span class="o">=</span> <span class="n">available_sum</span> <span class="o">+</span> <span class="p">(</span><span class="n">residual</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">)</span>  <span class="c1"># 保守估計</span>
+            <span class="n">confidence</span> <span class="o">=</span> <span class="n">energy_ratio</span>
+
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">missing_components</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="c1"># 策略：Physical Model / Historical Mean</span>
+            <span class="n">imputed_missing</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_estimate_by_physics</span><span class="p">(</span><span class="n">missing_components</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
+            <span class="n">imputed_sum</span> <span class="o">=</span> <span class="n">available_sum</span> <span class="o">+</span> <span class="n">imputed_missing</span>
+            <span class="n">confidence</span> <span class="o">=</span> <span class="n">energy_ratio</span> <span class="o">*</span> <span class="mf">0.8</span>  <span class="c1"># 降級</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># 缺失過多，無法可靠估計</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="mf">0.0</span>
+</code></pre></div>
+
+<hr />
+<h2 id="5">5. 核心演算法與實作規範</h2>
+<h3 id="51-hybridconsistencychecker">5.1 HybridConsistencyChecker 類別設計</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">HybridConsistencyChecker</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Hybrid Model一致性檢查器（PRD v1.0 核心實作）</span>
+<span class="sd">    整合所有驗證邏輯與容差計算</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">ConsistencyConfig</span><span class="p">,</span>
+        <span class="n">annotation_manager</span><span class="p">:</span> <span class="n">FeatureAnnotationManager</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tolerance_calc</span> <span class="o">=</span> <span class="n">DynamicToleranceCalculator</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">missing_handler</span> <span class="o">=</span> <span class="n">MissingComponentHandler</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">copula_calibrator</span> <span class="o">=</span> <span class="n">CopulaEffectCalibrator</span><span class="p">()</span>
+
+        <span class="c1"># 驗證結果快取（避免重複計算）</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">system_artifact</span><span class="p">:</span> <span class="n">MultiModelArtifact</span><span class="p">,</span>
+        <span class="n">component_artifacts</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">MultiModelArtifact</span><span class="p">],</span>
+        <span class="n">dataset_source</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>  <span class="c1"># &quot;test&quot;, &quot;val&quot;, &quot;auto&quot;</span>
+        <span class="n">context</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ConsistencyReport</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        執行完整的三維度一致性驗證</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            system_artifact: System-Level模型產出物</span>
+<span class="sd">            component_artifacts: Component-Level模型產出物字典</span>
+<span class="sd">            dataset_source: 指定黃金資料集來源</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            ConsistencyReport: 詳細驗證報告（見5.2節）</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Step 1: 選擇黃金資料集</span>
+        <span class="n">golden_data</span><span class="p">,</span> <span class="n">source_tag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_golden_dataset</span><span class="p">(</span>
+            <span class="n">system_artifact</span><span class="p">,</span> <span class="n">dataset_source</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Step 2: 檢查Component完整性</span>
+        <span class="n">availability_level</span><span class="p">,</span> <span class="n">missing</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assess_component_availability</span><span class="p">(</span>
+            <span class="n">component_artifacts</span><span class="p">,</span> <span class="n">context</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Step 3: 執行預測</span>
+        <span class="n">y_system</span> <span class="o">=</span> <span class="n">system_artifact</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">golden_data</span><span class="p">)</span>
+        <span class="n">y_components</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">name</span><span class="p">:</span> <span class="n">art</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">golden_data</span><span class="p">)</span> 
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">art</span> <span class="ow">in</span> <span class="n">component_artifacts</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+
+        <span class="c1"># Step 4: 處理缺失（若需要）</span>
+        <span class="k">if</span> <span class="n">availability_level</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;L2&#39;</span><span class="p">,</span> <span class="s1">&#39;L1&#39;</span><span class="p">]:</span>
+            <span class="n">y_component_sum</span><span class="p">,</span> <span class="n">confidence</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">missing_handler</span><span class="o">.</span><span class="n">handle</span><span class="p">(</span>
+                <span class="n">y_components</span><span class="p">,</span> <span class="n">missing</span><span class="p">,</span> <span class="n">y_system</span><span class="p">,</span> <span class="n">context</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">y_component_sum</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">y_components</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+            <span class="n">confidence</span> <span class="o">=</span> <span class="mf">1.0</span>
+
+        <span class="c1"># Step 5: 計算三維度指標</span>
+        <span class="n">sample_errors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">y_system</span> <span class="o">-</span> <span class="n">y_component_sum</span><span class="p">)</span>
+        <span class="n">binned_metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calculate_binned_metrics</span><span class="p">(</span>
+            <span class="n">y_system</span><span class="p">,</span> <span class="n">y_component_sum</span><span class="p">,</span> <span class="n">golden_data</span>
+        <span class="p">)</span>
+        <span class="n">overall_stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calculate_overall_stats</span><span class="p">(</span>
+            <span class="n">y_system</span><span class="p">,</span> <span class="n">y_component_sum</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Step 6: 動態容差評估</span>
+        <span class="n">tolerances</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calculate_dynamic_tolerances</span><span class="p">(</span><span class="n">golden_data</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
+
+        <span class="c1"># Step 7: 生成判決</span>
+        <span class="n">verdict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_verdict</span><span class="p">(</span>
+            <span class="n">sample_errors</span><span class="p">,</span> <span class="n">binned_metrics</span><span class="p">,</span> <span class="n">overall_stats</span><span class="p">,</span> 
+            <span class="n">tolerances</span><span class="p">,</span> <span class="n">availability_level</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ConsistencyReport</span><span class="p">(</span>
+            <span class="n">verdict</span><span class="o">=</span><span class="n">verdict</span><span class="p">,</span>
+            <span class="n">metrics</span><span class="o">=</span><span class="p">{</span>
+                <span class="s1">&#39;sample_level&#39;</span><span class="p">:</span> <span class="n">sample_errors</span><span class="p">,</span>
+                <span class="s1">&#39;binned&#39;</span><span class="p">:</span> <span class="n">binned_metrics</span><span class="p">,</span>
+                <span class="s1">&#39;overall&#39;</span><span class="p">:</span> <span class="n">overall_stats</span>
+            <span class="p">},</span>
+            <span class="n">tolerances</span><span class="o">=</span><span class="n">tolerances</span><span class="p">,</span>
+            <span class="n">copula_analysis</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_analyze_copula_effects</span><span class="p">(</span>
+                <span class="n">y_system</span><span class="p">,</span> <span class="n">y_components</span><span class="p">,</span> <span class="n">golden_data</span>
+            <span class="p">),</span>
+            <span class="n">availability_level</span><span class="o">=</span><span class="n">availability_level</span><span class="p">,</span>
+            <span class="n">confidence</span><span class="o">=</span><span class="n">confidence</span><span class="p">,</span>
+            <span class="n">golden_dataset_source</span><span class="o">=</span><span class="n">source_tag</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_calculate_binned_metrics</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">y_system</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+        <span class="n">y_component_sum</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        計算分群統計指標（依負載、外氣溫度、設備組合）</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">bins</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># 依系統負載分群</span>
+        <span class="k">for</span> <span class="n">bin_name</span><span class="p">,</span> <span class="n">mask</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_load_bins</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">:</span>  <span class="c1"># 樣本數不足跳過</span>
+                <span class="k">continue</span>
+
+            <span class="n">bins</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;load_</span><span class="si">{</span><span class="n">bin_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;mape&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">y_system</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">-</span> <span class="n">y_component_sum</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span> <span class="o">/</span> <span class="n">y_system</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span>
+                <span class="s1">&#39;mae&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">y_system</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">-</span> <span class="n">y_component_sum</span><span class="p">[</span><span class="n">mask</span><span class="p">])),</span>
+                <span class="s1">&#39;bias&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y_component_sum</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">-</span> <span class="n">y_system</span><span class="p">[</span><span class="n">mask</span><span class="p">]),</span>
+                <span class="s1">&#39;n_samples&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
+            <span class="p">}</span>
+
+        <span class="c1"># 依外氣濕球溫度分群</span>
+        <span class="k">for</span> <span class="n">bin_name</span><span class="p">,</span> <span class="n">mask</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_ambient_bins</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="n">bins</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;ambient_</span><span class="si">{</span><span class="n">bin_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;mape&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">y_system</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">-</span> <span class="n">y_component_sum</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span> <span class="o">/</span> <span class="n">y_system</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span>
+                <span class="s1">&#39;n_samples&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
+            <span class="p">}</span>
+
+        <span class="k">return</span> <span class="n">bins</span>
+</code></pre></div>
+
+<h3 id="52-consistencyreport">5.2 驗證報告格式 (ConsistencyReport)</h3>
+<div class="codehilite"><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ConsistencyReport</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Hybrid一致性驗證報告結構</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">verdict</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># &quot;PASS&quot;, &quot;WARNING&quot;, &quot;FAIL&quot;, &quot;INSUFFICIENT_DATA&quot;</span>
+    <span class="n">verdict_code</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># &quot;E750&quot;, &quot;E751&quot;, etc.</span>
+
+    <span class="c1"># 三維度指標</span>
+    <span class="n">metrics</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+
+    <span class="c1"># 容差資訊</span>
+    <span class="n">tolerances</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>  <span class="c1"># 各群組的動態容差閾值</span>
+
+    <span class="c1"># 耦合效應分析</span>
+    <span class="n">copula_analysis</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+
+    <span class="c1"># 資料品質</span>
+    <span class="n">availability_level</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># &quot;L3&quot;, &quot;L2&quot;, &quot;L1&quot;, &quot;L0&quot;</span>
+    <span class="n">confidence</span><span class="p">:</span> <span class="nb">float</span>  <span class="c1"># 0.0 ~ 1.0</span>
+    <span class="n">golden_dataset_source</span><span class="p">:</span> <span class="nb">str</span>
+
+    <span class="c1"># 診斷資訊</span>
+    <span class="n">violations</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span>  <span class="c1"># 違規詳細資訊</span>
+    <span class="n">recommendations</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>  <span class="c1"># 改善建議</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;序列化為字典（供JSON輸出）&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;verdict&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">verdict</span><span class="p">,</span>
+            <span class="s1">&#39;verdict_code&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">verdict_code</span><span class="p">,</span>
+            <span class="s1">&#39;summary&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_summary</span><span class="p">(),</span>
+            <span class="s1">&#39;metrics&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span>
+            <span class="s1">&#39;tolerance_analysis&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">&#39;applied_tolerances&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">tolerances</span><span class="p">,</span>
+                <span class="s1">&#39;base_tolerance&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">base_tolerance</span>
+            <span class="p">},</span>
+            <span class="s1">&#39;copula_effects&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">copula_analysis</span><span class="p">,</span>
+            <span class="s1">&#39;data_quality&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">&#39;availability_level&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">availability_level</span><span class="p">,</span>
+                <span class="s1">&#39;confidence&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">confidence</span><span class="p">,</span>
+                <span class="s1">&#39;golden_dataset&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">golden_dataset_source</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;生成人類可讀的摘要&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">verdict</span> <span class="o">==</span> <span class="s2">&quot;PASS&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;✅ Hybrid一致性檢查通過（信心水準：</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">confidence</span><span class="si">:</span><span class="s2">.0%</span><span class="si">}</span><span class="s2">）&quot;</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">verdict</span> <span class="o">==</span> <span class="s2">&quot;WARNING&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;⚠️ 存在輕微偏差，建議檢視耦合效應（信心水準：</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">confidence</span><span class="si">:</span><span class="s2">.0%</span><span class="si">}</span><span class="s2">）&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;❌ 一致性檢查失敗，建議重新訓練Component Models或檢查資料品質&quot;</span>
+</code></pre></div>
+
+<hr />
+<h2 id="6">6. 錯誤代碼與警告代碼對照表</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">代碼</th>
+<th style="text-align: center;">類別</th>
+<th style="text-align: left;">名稱</th>
+<th style="text-align: left;">說明</th>
+<th style="text-align: left;">處理建議</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>C001</strong></td>
+<td style="text-align: center;">✅ Pass</td>
+<td style="text-align: left;"><code>FULL_CONSISTENCY</code></td>
+<td style="text-align: left;">所有維度均通過動態容差檢查</td>
+<td style="text-align: left;">無需處理</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E758</strong></td>
+<td style="text-align: center;">⚠️ Warning</td>
+<td style="text-align: left;"><code>COPULA_EFFECT_DETECTED</code></td>
+<td style="text-align: left;">偵測到顯著耦合效應（偏差&gt;3%），但在容差內</td>
+<td style="text-align: left;">記錄並監控，必要時校準耦合係數</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E757</strong></td>
+<td style="text-align: center;">⚠️ Warning</td>
+<td style="text-align: left;"><code>LIGHT_LOAD_HIGH_VARIANCE</code></td>
+<td style="text-align: left;">輕載區間誤差較高（正常現象）</td>
+<td style="text-align: left;">確認為統計變異，非模型錯誤</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E756</strong></td>
+<td style="text-align: center;">⚠️ Warning</td>
+<td style="text-align: left;"><code>PARTIAL_COMPONENTS_L2</code></td>
+<td style="text-align: left;">僅使用L2等級（部分Components）驗證</td>
+<td style="text-align: left;">補充訓練缺失的Component Models</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E751</strong></td>
+<td style="text-align: center;">❌ Fail</td>
+<td style="text-align: left;"><code>EXCEEDS_DYNAMIC_TOLERANCE</code></td>
+<td style="text-align: left;">超過動態容差閾值（至少一個群組）</td>
+<td style="text-align: left;">檢查特徵工程一致性或重新訓練</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E752</strong></td>
+<td style="text-align: center;">❌ Fail</td>
+<td style="text-align: left;"><code>SYSTEMATIC_BIAS_DETECTED</code></td>
+<td style="text-align: left;">偵測到系統性偏差 (Bias &gt; 5%)</td>
+<td style="text-align: left;">檢查設備依賴關係或資料標註錯誤</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E753</strong></td>
+<td style="text-align: center;">❌ Fail</td>
+<td style="text-align: left;"><code>TREND_MISMATCH</code></td>
+<td style="text-align: left;">相關係數 &lt; 0.95，趨勢不一致</td>
+<td style="text-align: left;">嚴重模型錯誤，需檢查訓練資料時間對齊</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E754</strong></td>
+<td style="text-align: center;">❌ Fail</td>
+<td style="text-align: left;"><code>OUTLIER_VIOLATION</code></td>
+<td style="text-align: left;">存在極端異常值（單筆誤差 &gt; 50 kW）</td>
+<td style="text-align: left;">檢查該時間點的資料品質或設備異常</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E755</strong></td>
+<td style="text-align: center;">❌ Error</td>
+<td style="text-align: left;"><code>INSUFFICIENT_COMPONENTS</code></td>
+<td style="text-align: left;">L1等級（僅單一Component），無法驗證</td>
+<td style="text-align: left;">至少需訓練所有主機模型</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E750</strong></td>
+<td style="text-align: center;">❌ Error</td>
+<td style="text-align: left;"><code>GOLDEN_DATASET_UNAVAILABLE</code></td>
+<td style="text-align: left;">無可用的測試集或驗證集</td>
+<td style="text-align: left;">重新執行訓練管線產生資料分割</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E759</strong></td>
+<td style="text-align: center;">⚠️ Warning</td>
+<td style="text-align: left;"><code>DATASET_QUALITY_WARNING</code></td>
+<td style="text-align: left;">使用驗證集或合併資料集（原 W801/W802）</td>
+<td style="text-align: left;">建議重新訓練以確保嚴謹性</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7">7. 與上下游模組的整合介面</h2>
+<h3 id="71-training-pipeline-batchtrainingcoordinator">7.1 與Training Pipeline整合 (BatchTrainingCoordinator)</h3>
+<p>取代Training v1.2中簡化的<code>_validate_hybrid_consistency()</code>方法：</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># In BatchTrainingCoordinator (Training v1.2)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_validate_hybrid_consistency</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    強化版Hybrid一致性檢查（呼叫HybridConsistencyChecker）</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">src.modeling.validation.hybrid_consistency</span><span class="w"> </span><span class="kn">import</span> <span class="n">HybridConsistencyChecker</span>
+
+    <span class="n">checker</span> <span class="o">=</span> <span class="n">HybridConsistencyChecker</span><span class="p">(</span>
+        <span class="n">config</span><span class="o">=</span><span class="n">ConsistencyConfig</span><span class="p">(</span><span class="n">base_tolerance</span><span class="o">=</span><span class="n">tolerance</span><span class="p">),</span>
+        <span class="n">annotation_manager</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">annotation_manager</span>
+    <span class="p">)</span>
+
+    <span class="n">report</span> <span class="o">=</span> <span class="n">checker</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span>
+        <span class="n">system_artifact</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">artifacts</span><span class="p">[</span><span class="s1">&#39;system_total_kw&#39;</span><span class="p">],</span>
+        <span class="n">component_artifacts</span><span class="o">=</span><span class="p">{</span>
+            <span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">artifacts</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> 
+            <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s1">&#39;system_total_kw&#39;</span>
+        <span class="p">},</span>
+        <span class="n">dataset_source</span><span class="o">=</span><span class="s2">&quot;test&quot;</span><span class="p">,</span>  <span class="c1"># 強制使用測試集</span>
+        <span class="n">context</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;site_id&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">site_id</span><span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="c1"># 根據報告決策</span>
+    <span class="k">if</span> <span class="n">report</span><span class="o">.</span><span class="n">verdict</span> <span class="o">==</span> <span class="s2">&quot;FAIL&quot;</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;❌ Hybrid一致性檢查失敗：</span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">verdict_code</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="c1"># 觸發E903（Training v1.2定義）或 E75x (Hybrid Consistency)</span>
+        <span class="k">raise</span> <span class="n">HybridConsistencyViolation</span><span class="p">(</span><span class="n">report</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">report</span><span class="o">.</span><span class="n">verdict</span> <span class="o">==</span> <span class="s2">&quot;WARNING&quot;</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;⚠️ Hybrid一致性警告：</span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()[</span><span class="s1">&#39;summary&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">report</span>
+</code></pre></div>
+
+<h3 id="72-optimization-engine-modelregistry">7.2 與Optimization Engine整合 (ModelRegistry)</h3>
+<p>取代Optimization v1.1中簡化的<code>validate_hybrid_consistency()</code>：</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># In ModelRegistry (Optimization v1.1)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">validate_hybrid_consistency</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span> 
+    <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> 
+    <span class="n">ambient</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+    <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    回傳：(是否通過, 詳細報告)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">checker</span> <span class="o">=</span> <span class="n">HybridConsistencyChecker</span><span class="p">(</span>
+        <span class="n">config</span><span class="o">=</span><span class="n">ConsistencyConfig</span><span class="p">(</span><span class="n">base_tolerance</span><span class="o">=</span><span class="n">tolerance</span><span class="p">),</span>
+        <span class="n">annotation_manager</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">annotation_manager</span>
+    <span class="p">)</span>
+
+    <span class="c1"># 載入模型</span>
+    <span class="n">system_art</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_from_registry</span><span class="p">(</span><span class="n">site_id</span><span class="p">,</span> <span class="s2">&quot;system_total_kw&quot;</span><span class="p">)</span>
+    <span class="n">component_arts</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">):</span>  <span class="c1"># 假設最多4台主機</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">component_arts</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;chiller_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">_kw&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_from_registry</span><span class="p">(</span>
+                <span class="n">site_id</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;chiller_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">_kw&quot;</span>
+            <span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+    <span class="c1"># 建立評估資料（單點或批次）</span>
+    <span class="n">eval_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_evaluation_data</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">ambient</span><span class="p">)</span>
+
+    <span class="n">report</span> <span class="o">=</span> <span class="n">checker</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span>
+        <span class="n">system_artifact</span><span class="o">=</span><span class="n">system_art</span><span class="p">,</span>
+        <span class="n">component_artifacts</span><span class="o">=</span><span class="n">component_arts</span><span class="p">,</span>
+        <span class="n">dataset_source</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+        <span class="n">context</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;evaluation_mode&#39;</span><span class="p">:</span> <span class="s1">&#39;single_point&#39;</span><span class="p">,</span> <span class="s1">&#39;config&#39;</span><span class="p">:</span> <span class="n">config</span><span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="n">is_consistent</span> <span class="o">=</span> <span class="n">report</span><span class="o">.</span><span class="n">verdict</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;PASS&quot;</span><span class="p">,</span> <span class="s2">&quot;WARNING&quot;</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">is_consistent</span><span class="p">,</span> <span class="n">report</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+</code></pre></div>
+
+<hr />
+<h2 id="8">8. 測試與驗證計畫</h2>
+<h3 id="81">8.1 單元測試</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">測試ID</th>
+<th style="text-align: left;">描述</th>
+<th style="text-align: left;">輸入</th>
+<th style="text-align: left;">預期結果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">HCV-001</td>
+<td style="text-align: left;">黃金資料集選擇</td>
+<td style="text-align: left;">測試集樣本數=150</td>
+<td style="text-align: left;">選擇測試集，無警告</td>
+</tr>
+<tr>
+<td style="text-align: left;">HCV-002</td>
+<td style="text-align: left;">黃金資料集降級</td>
+<td style="text-align: left;">測試集樣本數=50，驗證集=80</td>
+<td style="text-align: left;">選擇驗證集，觸發W801</td>
+</tr>
+<tr>
+<td style="text-align: left;">HCV-003</td>
+<td style="text-align: left;">動態容差計算</td>
+<td style="text-align: left;">輕載(20%)、雙機</td>
+<td style="text-align: left;">容差=5%<em>1.5</em>1.0+0.5%=8.0%</td>
+</tr>
+<tr>
+<td style="text-align: left;">HCV-004</td>
+<td style="text-align: left;">動態容差計算</td>
+<td style="text-align: left;">重載(80%)、三機</td>
+<td style="text-align: left;">容差=5%<em>0.8</em>1.2+0.5%=5.3%</td>
+</tr>
+<tr>
+<td style="text-align: left;">HCV-005</td>
+<td style="text-align: left;">分群MAPE計算</td>
+<td style="text-align: left;">負載分佈：輕載30筆、中載50筆、重載20筆</td>
+<td style="text-align: left;">回傳3個群組的MAPE，輕載群組容差較高</td>
+</tr>
+<tr>
+<td style="text-align: left;">HCV-006</td>
+<td style="text-align: left;">部分缺失處理</td>
+<td style="text-align: left;">僅chiller_1_kw可用</td>
+<td style="text-align: left;">回傳L2等級，信心水準依能耗佔比調整</td>
+</tr>
+<tr>
+<td style="text-align: left;">HCV-007</td>
+<td style="text-align: left;">耦合係數校準</td>
+<td style="text-align: left;">歷史偏差+3%（加總高估）</td>
+<td style="text-align: left;">校準後γ=1.03</td>
+</tr>
+<tr>
+<td style="text-align: left;">HCV-008</td>
+<td style="text-align: left;">系統性偏差檢測</td>
+<td style="text-align: left;">Bias=+6%</td>
+<td style="text-align: left;">回傳E752錯誤</td>
+</tr>
+<tr>
+<td style="text-align: left;">HCV-009</td>
+<td style="text-align: left;">極端異常值檢測</td>
+<td style="text-align: left;">單筆誤差=60kW</td>
+<td style="text-align: left;">回傳E754錯誤</td>
+</tr>
+<tr>
+<td style="text-align: left;">HCV-010</td>
+<td style="text-align: left;">完整通過情境</td>
+<td style="text-align: left;">所有群組MAPE&lt;動態容差</td>
+<td style="text-align: left;">回傳C001，無警告</td>
+</tr>
+</tbody>
+</table>
+<h3 id="82">8.2 整合測試</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">測試ID</th>
+<th style="text-align: left;">描述</th>
+<th style="text-align: left;">驗證目標</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">INT-HCV-001</td>
+<td style="text-align: left;">E2E Training整合</td>
+<td style="text-align: left;">BatchTrainingCoordinator正確呼叫並處理報告</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-HCV-002</td>
+<td style="text-align: left;">E2E Optimization整合</td>
+<td style="text-align: left;">ModelRegistry正確使用Checker並回傳相容格式</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-HCV-003</td>
+<td style="text-align: left;">多案場拓撲適配</td>
+<td style="text-align: left;">不同管路拓撲（串聯/並聯）正確應用不同耦合係數</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-HCV-004</td>
+<td style="text-align: left;">季節性耦合變化</td>
+<td style="text-align: left;">夏季/冬季耦合效應不同，動態調整容差</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-HCV-005</td>
+<td style="text-align: left;">極端工況壓力測試</td>
+<td style="text-align: left;">100%負載+高外氣溫，驗證容差不收緊至不可行</td>
+</tr>
+</tbody>
+</table>
+<h3 id="83">8.3 驗收標準</h3>
+<ul>
+<li>[ ] <strong>黃金標準</strong>：預設使用測試集，樣本不足時自動降級並觸發警告</li>
+<li>[ ] <strong>三維度驗證</strong>：同時輸出樣本級、分群級、整體級指標</li>
+<li>[ ] <strong>動態容差</strong>：依負載區間自動調整容差（輕載7.5%、重載4%）</li>
+<li>[ ] <strong>耦合補償</strong>：自動校準並應用耦合係數（γ=0.98~1.05）</li>
+<li>[ ] <strong>部分缺失</strong>：L2等級時正確計算信心水準並降級使用</li>
+<li>[ ] <strong>錯誤分類</strong>：正確區分C001(通過)、E758(警告)、E751(失敗)</li>
+<li>[ ] <strong>物理標籤</strong>：所有違規報告附帶物理原因標籤（壓損、熱短路等）</li>
+<li>[ ] <strong>效能</strong>：處理10,000筆資料的驗證&lt;2秒</li>
+<li>[ ] <strong>相容性</strong>：與Training v1.2與Optimization v1.1無縫整合</li>
+</ul>
+<hr />
+<h2 id="9">9. 附錄</h2>
+<h3 id="appendix-a">Appendix A: 耦合效應熱區圖範例</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 視覺化設備間交互作用強度</span>
+<span class="n">copula_heatmap</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;chiller_1&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;chiller_2&#39;</span><span class="p">:</span> <span class="mf">0.03</span><span class="p">,</span> <span class="s1">&#39;pump_1&#39;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span> <span class="s1">&#39;tower_1&#39;</span><span class="p">:</span> <span class="mf">0.02</span><span class="p">},</span>
+    <span class="s1">&#39;chiller_2&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;chiller_1&#39;</span><span class="p">:</span> <span class="mf">0.03</span><span class="p">,</span> <span class="s1">&#39;pump_2&#39;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span> <span class="s1">&#39;tower_2&#39;</span><span class="p">:</span> <span class="mf">0.02</span><span class="p">},</span>
+    <span class="s1">&#39;pump_1&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;chiller_1&#39;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span> <span class="s1">&#39;pump_2&#39;</span><span class="p">:</span> <span class="mf">0.005</span><span class="p">},</span>  <span class="c1"># 水力耦合</span>
+    <span class="s1">&#39;tower_1&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;tower_2&#39;</span><span class="p">:</span> <span class="mf">0.04</span><span class="p">}</span>  <span class="c1"># 熱短路效應</span>
+<span class="p">}</span>
+<span class="c1"># 數值代表預期偏差百分比（+表示加總高估）</span>
+</code></pre></div>
+
+<h3 id="appendix-b-consistency_configyaml">Appendix B: 配置範例 (consistency_config.yaml)</h3>
+<div class="codehilite"><pre><span></span><code><span class="nt">schema_version</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;1.0&quot;</span>
+
+<span class="c1"># 基礎容差設定</span>
+<span class="nt">base_tolerance</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5.0</span><span class="w">  </span><span class="c1"># %</span>
+<span class="nt">measurement_error_buffer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span><span class="w">  </span><span class="c1"># %</span>
+
+<span class="c1"># 動態調整參數</span>
+<span class="nt">dynamic_adjustment</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">load_factors</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">light</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.5</span><span class="w">    </span><span class="c1"># &lt;30%</span>
+<span class="w">    </span><span class="nt">medium</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span><span class="w">   </span><span class="c1"># 30-70%</span>
+<span class="w">    </span><span class="nt">heavy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.8</span><span class="w">    </span><span class="c1"># &gt;70%</span>
+
+<span class="w">  </span><span class="nt">complexity_factors</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">single</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.9</span>
+<span class="w">    </span><span class="nt">dual</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<span class="w">    </span><span class="nt">multiple</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.2</span><span class="w">  </span><span class="c1"># &gt;2 units, +0.1 per additional unit</span>
+
+<span class="c1"># 耦合效應預設值（依案場類型）</span>
+<span class="nt">copula_defaults</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">standard_parallel</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.02</span>
+<span class="w">  </span><span class="nt">series_connected</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.05</span><span class="w">  </span><span class="c1"># 串聯管路壓損較大</span>
+<span class="w">  </span><span class="nt">primary_secondary</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.03</span><span class="w">  </span><span class="c1"># 一次側二次側系統</span>
+
+<span class="c1"># 驗證通過標準</span>
+<span class="nt">pass_criteria</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">max_mape_per_bin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dynamic</span><span class="w">  </span><span class="c1"># 使用動態容差</span>
+<span class="w">  </span><span class="nt">max_overall_mape</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5.0</span><span class="w">      </span><span class="c1"># 硬性上限（後備）</span>
+<span class="w">  </span><span class="nt">min_correlation</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.95</span>
+<span class="w">  </span><span class="nt">max_systematic_bias</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3.0</span><span class="w">   </span><span class="c1"># %</span>
+<span class="w">  </span><span class="nt">max_single_error</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50.0</span><span class="w">     </span><span class="c1"># kW，絕對值</span>
+
+<span class="c1"># 資料集選擇偏好</span>
+<span class="nt">dataset_preference</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">priority</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;test&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;val&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">min_samples_per_bin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<span class="w">  </span><span class="nt">allow_combination</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</code></pre></div>
+
+<h3 id="appendix-c-json">Appendix C: 報告輸出範例 (JSON)</h3>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;verdict&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;WARNING&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;verdict_code&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;E758&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;summary&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;⚠️ 存在輕微偏差，建議檢視耦合效應（信心水準：95%）&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;metrics&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;overall&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;mape&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">3.2</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;mae&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">12.5</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;bias&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">2.8</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;correlation&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.98</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;binned&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;load_light&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;mape&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">6.5</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;tolerance&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">7.5</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;pass&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">},</span>
+<span class="w">      </span><span class="nt">&quot;load_medium&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;mape&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">2.8</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;tolerance&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">5.5</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;pass&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">},</span>
+<span class="w">      </span><span class="nt">&quot;load_heavy&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;mape&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">2.1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;tolerance&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">4.5</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;pass&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">},</span>
+<span class="w">      </span><span class="nt">&quot;ambient_high&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;mape&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">4.2</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;tolerance&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">5.5</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;pass&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;copula_analysis&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;detected_effects&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;piping_loss&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;thermal_short&quot;</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;estimated_bias&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">2.8</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;calibrated_gamma&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.03</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;confidence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;medium&quot;</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;data_quality&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;availability_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;L3&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;confidence&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.95</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;golden_dataset&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;test&quot;</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;recommendations&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="s2">&quot;輕載區間誤差較高為正常現象，建議監控但不需修正模型&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="s2">&quot;偵測到管路壓損耦合效應，建議在Optimization階段加入壓損補償係數&quot;</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<hr />
+<p><strong>關鍵設計確認</strong>:
+1. <strong>黃金標準明確化</strong>：強制使用測試集，定義三維度（樣本/分群/整體）比較方法論
+2. <strong>動態容差</strong>：取代固定5%，採用負載與複雜度調整模型，更符合HVAC物理特性
+3. <strong>耦合效應補償</strong>：識別並量化設備間交互作用，避免誤判正常物理現象
+4. <strong>優雅降級</strong>：定義L0-L3等級，處理Component Models部分缺失情境
+5. <strong>物理可解釋性</strong>：所有偏差標記物理原因（壓損、熱短路等），支援工程決策
+6. <strong>無縫整合</strong>：向後相容Training v1.2與Optimization v1.1的既有介面
+```</p>
+    
+<script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true });
+</script>
+
+</body>
+</html>

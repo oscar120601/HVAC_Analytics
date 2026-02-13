@@ -1,0 +1,475 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Processor Implementation Guide v1.2</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+        h2 { margin-top: 2em; }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #dfe2e5;
+            padding: 12px;
+            text-align: left;
+        }
+        th { background-color: #f6f8fa; font-weight: bold; }
+        tr:nth-child(even) { background-color: #fdfdfd; }
+        code {
+            background-color: #f3f3f3;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 85%;
+        }
+        pre {
+            background-color: #f6f8fa;
+            padding: 16px;
+            overflow: auto;
+            border-radius: 6px;
+        }
+        blockquote {
+            margin: 0;
+            padding: 0 1em;
+            color: #6a737d;
+            border-left: 0.25em solid #dfe2e5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="prd-v12-batchprocessor-implementation-guide">PRD v1.2: 批次处理器强健性重构指南 (BatchProcessor Implementation Guide)</h1>
+<p><strong>文件版本:</strong> v1.2 (含 Single Source of Truth 与 CI/CD 治理)<br />
+<strong>日期:</strong> 2026-02-12<br />
+<strong>负责人:</strong> Oscar Chang<br />
+<strong>目标模组:</strong> <code>src/etl/batch_processor_v2.py</code><br />
+<strong>相依模组:</strong> <code>src/etl/cleaner_v2.py</code> (v2.1+), <code>src/etl/config_models.py</code> (SSOT)<br />
+<strong>预估工时:</strong> 4 ~ 5 个工程天（含整合测试与 CI/CD 设置）</p>
+<hr />
+<h2 id="1">1. 执行总纲与设计哲学</h2>
+<p>目前的 <code>batch_processor.py</code> 存在<strong>内存堆积</strong>、<strong>契约破坏</strong>与<strong>配置不一致</strong>的致命伤。本 PRD 定义 <strong>V2.0 Pipeline 架构</strong>，并透过 <strong>Single Source of Truth (SSOT)</strong> 确保与 Cleaner、Feature Engineer 的品质标记完全对齐。</p>
+<p><strong>核心设计原则:</strong>
+1.  <strong>Single Source of Truth (SSOT)</strong>：<code>quality_flags</code> 与 <code>Parquet 格式规范</code> 统一定义于 <code>config_models.py</code>，三模组共用，禁止硬编码。
+2.  <strong>INT64 时间戳强制规范</strong>：明确禁止 INT96，强制使用 nanoseconds + UTC，确保 Polars 原生兼容性。
+3.  <strong>CI/CD 治理保护</strong>：建立自动检查脚本，防止「只改定义不改测试」的覆盖缺口。
+4.  <strong>串流优先 (Streaming First)</strong>：严禁将多档案 DataFrame 同时载入内存。
+5.  <strong>事务性输出 (Transactional)</strong>：Staging + Atomic Move，支持幂等重跑。</p>
+<hr />
+<h2 id="2-single-source-of-truth-ssot">2. 统一配置与 Single Source of Truth (SSOT)</h2>
+<h3 id="21-config_modelspy">2.1 全域常数定义（config_models.py）</h3>
+<p><strong>所有品质标记与 Parquet 格式的唯一真相来源：</strong></p>
+<pre><code class="language-python"># src/etl/config_models.py
+from typing import Final, List, Literal
+from pydantic import BaseModel, validator
+
+# 【SSOT】Quality Flags 统一定义 - 三模组共用
+VALID_QUALITY_FLAGS: Final[List[str]] = [
+    &quot;FROZEN&quot;, 
+    &quot;HEAT_IMBALANCE&quot;, 
+    &quot;AFFINITY_VIOLATION&quot;, 
+    &quot;OUTLIER&quot;, 
+    &quot;INSUFFICIENT_DATA&quot;,
+    &quot;SENSOR_OFFLINE&quot;  # 未来新增只需在此处扩充
+]
+
+class QualityFlagConfig(BaseModel):
+    &quot;&quot;&quot;品质标记配置（供 Cleaner、BatchProcessor、Feature Engineer 共用）&quot;&quot;&quot;
+    enabled: bool = True
+    valid_flags: List[str] = VALID_QUALITY_FLAGS  # 引用 SSOT
+
+    @validator('valid_flags')
+    def validate_flags(cls, v):
+        &quot;&quot;&quot;确保配置中的 flags 皆为合法定义&quot;&quot;&quot;
+        invalid = set(v) - set(VALID_QUALITY_FLAGS)
+        if invalid:
+            raise ValueError(f&quot;Invalid flags: {invalid}. Must be subset of {VALID_QUALITY_FLAGS}&quot;)
+        return v
+
+class ParquetOutputConfig(BaseModel):
+    &quot;&quot;&quot;
+    【强制规范】Parquet 输出格式 - 禁止 INT96
+    &quot;&quot;&quot;
+    timestamp_format: Literal[&quot;INT64&quot;] = &quot;INT64&quot;
+    timestamp_unit: Literal[&quot;nanoseconds&quot;] = &quot;nanoseconds&quot;
+    timestamp_timezone: Literal[&quot;UTC&quot;] = &quot;UTC&quot;
+    compression: Literal[&quot;snappy&quot;, &quot;zstd&quot;] = &quot;snappy&quot;
+    writer_engine: Literal[&quot;polars_native&quot;] = &quot;polars_native&quot;  # 避免 PyArrow 自动转换
+
+    @validator('timestamp_format')
+    def no_deprecated_int96(cls, v):
+        if v == &quot;INT96&quot;:
+            raise ValueError(&quot;INT96 is deprecated and incompatible with Polars. Use INT64.&quot;)
+        return v
+
+class BatchConfig(BaseModel):
+    input_pattern: str = &quot;*.csv&quot;
+    output_base_dir: str = &quot;data/processed/&quot;
+    staging_dir: str = &quot;data/.staging/&quot;
+    max_rows_per_file: int = 100_000
+    max_time_span_per_file: str = &quot;1d&quot;
+
+    # 【SSOT】引用统一配置
+    quality_flags: QualityFlagConfig = QualityFlagConfig()
+    parquet: ParquetOutputConfig = ParquetOutputConfig()
+
+    memory_limit_mb: int = 4096
+    stop_on_error: bool = False
+
+class ETLConfig(BaseModel):
+    &quot;&quot;&quot;统一配置根物件&quot;&quot;&quot;
+    cleaner: CleaningConfig      # 同样引用 QualityFlagConfig
+    batch: BatchConfig
+</code></pre>
+<hr />
+<h2 id="3">3. 系统架构与资料流</h2>
+<h3 id="31-pipeline-ssot">3.1 Pipeline 流程（含 SSOT 验证）</h3>
+<pre><code class="language-mermaid">graph TD
+    A[Source CSVs] --&gt;|Iterate| B(Parser)
+    B --&gt;|Raw DF| C[Cleaner v2.1]
+    C --&gt;|Clean DF| D{Contract Validator&lt;br/&gt;检查 Flags &amp; INT64/UTC}
+    D --&gt;|Pass| E[Buffer Accumulator]
+    D --&gt;|Fail| F[Error Log]
+    E --&gt;|达阈值| G[Staging Writer&lt;br/&gt;强制 INT64/UTC]
+    G --&gt;|批次完成| H{Atomic Move}
+    H --&gt;|成功| I[Final Parquet&lt;br/&gt;year=2026/month=02/]
+    H --&gt;|成功| J[manifest.json]
+    H --&gt;|失败| K[Rollback]
+    I --&gt;|读取| L[Feature Engineer&lt;br/&gt;通过 manifest + SSOT 验证]
+
+    style G fill:#f9f,stroke:#333,stroke-width:2px
+    style D fill:#ff9,stroke:#333,stroke-width:2px
+</code></pre>
+<hr />
+<h2 id="4">4. 分阶段实作计划</h2>
+<h3 id="phase-1-ssot-1">Phase 1: SSOT 配置与基础架构 (预估 1 天)</h3>
+<h4 id="step-11-ssot">Step 1.1: 建立统一配置模型（已含 SSOT）</h4>
+<p><strong>档案</strong>: <code>src/etl/config_models.py</code></p>
+<ul>
+<li>定义 <code>VALID_QUALITY_FLAGS</code>（List，全局唯一）</li>
+<li>定义 <code>QualityFlagConfig</code>（Pydantic，引用 VALID_QUALITY_FLAGS）</li>
+<li>定义 <code>ParquetOutputConfig</code>（强制 INT64/UTC，禁止 INT96）</li>
+</ul>
+<h4 id="step-12-orchestrator">Step 1.2: Orchestrator 骨架（动态读取配置）</h4>
+<p><strong>档案</strong>: <code>src/etl/batch_processor_v2.py</code></p>
+<pre><code class="language-python">class BatchOrchestrator:
+    def __init__(self, config: ETLConfig):
+        self.config = config
+        self.parser = ReportParser()
+        self.cleaner = DataCleaner(config.cleaner)
+
+        # 【SSOT】从配置读取允许的 flags，非硬编码
+        self.allowed_flags = set(config.batch.quality_flags.valid_flags)
+        self.parquet_config = config.batch.parquet
+
+    def _validate_quality_flags(self, df: pl.DataFrame) -&gt; None:
+        &quot;&quot;&quot;
+        【SSOT 验证】检查 DataFrame 中的 flags 是否皆在合法清单内
+        &quot;&quot;&quot;
+        if &quot;quality_flags&quot; not in df.columns:
+            return
+
+        actual_flags = set()
+        for flags in df[&quot;quality_flags&quot;]:
+            if flags:
+                actual_flags.update(flags)
+
+        unknown = actual_flags - self.allowed_flags
+        if unknown:
+            raise ContractViolationError(
+                f&quot;Unknown quality flags detected: {unknown}. &quot;
+                f&quot;These flags are not defined in config_models.VALID_QUALITY_FLAGS. &quot;
+                f&quot;Please update the SSOT or check Cleaner configuration.&quot;
+            )
+</code></pre>
+<h3 id="phase-2-schema-2">Phase 2: 核心管线与 Schema 验证 (预估 2 天)</h3>
+<h4 id="step-21-ssot-int64">Step 2.1: 契约验证器（SSOT 与 INT64 检查）</h4>
+<p><strong>档案</strong>: <code>src/etl/contract_validator.py</code></p>
+<pre><code class="language-python">class OutputContractValidator:
+    def __init__(self, config: ETLConfig):
+        self.config = config
+
+    def validate(self, df: pl.DataFrame) -&gt; None:
+        &quot;&quot;&quot;完整验证输出契约&quot;&quot;&quot;
+        self._validate_quality_flags_values(df)  # SSOT 检查
+        self._validate_timestamp_format(df)      # INT64/UTC 检查
+
+    def _validate_quality_flags_values(self, df: pl.DataFrame) -&gt; None:
+        &quot;&quot;&quot;【SSOT】验证 flags 值是否合法&quot;&quot;&quot;
+        if &quot;quality_flags&quot; not in df.columns:
+            return
+
+        allowed = set(self.config.batch.quality_flags.valid_flags)
+
+        for i, flags in enumerate(df[&quot;quality_flags&quot;]):
+            if not flags:
+                continue
+            invalid = set(flags) - allowed
+            if invalid:
+                raise ContractViolationError(
+                    f&quot;Row {i}: Invalid flags {invalid}. Allowed: {allowed}&quot;
+                )
+
+    def _validate_timestamp_format(self, df: pl.DataFrame) -&gt; None:
+        &quot;&quot;&quot;验证时间戳型别与时区&quot;&quot;&quot;
+        ts_col = df[&quot;timestamp&quot;]
+
+        if not isinstance(ts_col.dtype, pl.Datetime):
+            raise TypeError(f&quot;timestamp must be Datetime, got {ts_col.dtype}&quot;)
+
+        if ts_col.dtype.time_zone != &quot;UTC&quot;:
+            raise ValueError(f&quot;timestamp must be UTC, got {ts_col.dtype.time_zone}&quot;)
+</code></pre>
+<h4 id="step-22-parquet-int64utc">Step 2.2: Parquet 写入（强制 INT64/UTC）</h4>
+<pre><code class="language-python">def _flush_buffer_to_staging(self):
+    &quot;&quot;&quot;写入 Parquet，强制遵守 INT64/UTC 规范&quot;&quot;&quot;
+    combined = pl.concat(self.buffer)
+
+    # 【强制】确保时间戳为 UTC
+    if str(combined[&quot;timestamp&quot;].dtype.time_zone) != &quot;UTC&quot;:
+        combined = combined.with_columns(
+            pl.col(&quot;timestamp&quot;).dt.replace_time_zone(&quot;UTC&quot;)
+        )
+
+    # 使用 Polars 原生写入，确保 INT64 nanoseconds
+    file_path = self._get_staging_path()
+    combined.write_parquet(
+        file_path,
+        compression=self.parquet_config.compression,
+        use_pyarrow=False  # 关键：使用 Arrow2 原生，避免 PyArrow 转为 INT96
+    )
+
+    # 【验证】写入后检查 Schema
+    self._verify_parquet_schema(file_path)
+
+def _verify_parquet_schema(self, file_path: Path):
+    &quot;&quot;&quot;验证输出 Parquet 符合 INT64/UTC 规范&quot;&quot;&quot;
+    import pyarrow.parquet as pq
+
+    pf = pq.ParquetFile(file_path)
+    schema = pf.schema
+    ts_field = schema.field_by_name(&quot;timestamp&quot;)
+
+    # 【关键验证】禁止 INT96
+    if ts_field.physical_type == &quot;INT96&quot;:
+        file_path.unlink()
+        raise TypeError(
+            f&quot;CRITICAL: Parquet file {file_path} was written with INT96 timestamp. &quot;
+            f&quot;Expected INT64 (nanoseconds). Check writer configuration.&quot;
+        )
+
+    self.logger.info(f&quot;Schema verification passed: INT64/UTC confirmed&quot;)
+</code></pre>
+<h3 id="phase-3-manifest-15">Phase 3: Manifest 与下游衔接 (预估 1.5 天)</h3>
+<h4 id="step-31-manifest-ssot">Step 3.1: Manifest 模型（含 SSOT 信息）</h4>
+<pre><code class="language-python">class Manifest(BaseModel):
+    manifest_version: str = &quot;1.2&quot;
+    batch_id: str
+    site_id: str
+    created_at: datetime
+
+    # 【SSOT】记录使用的 flags 定义版本
+    quality_flags_schema: List[str]
+    parquet_schema: Dict
+
+    output_files: List[str]
+    statistics: Dict
+</code></pre>
+<hr />
+<h2 id="5-ssot-int64">5. 验证与测试计划（SSOT 与 INT64 专项）</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">测试案例</th>
+<th style="text-align: left;">验证内容</th>
+<th style="text-align: center;">通过标准</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Case S1 (SSOT Sync)</strong></td>
+<td style="text-align: left;">Cleaner 新增 <code>"SENSOR_OFFLINE"</code>，BatchProcessor 自动接受</td>
+<td style="text-align: center;">不抛出 <code>ContractViolationError</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Case S2 (SSOT Mismatch)</strong></td>
+<td style="text-align: left;">Cleaner 输出未定义 flag <code>"UNKNOWN"</code></td>
+<td style="text-align: center;">抛出明确错误：提示更新 <code>config_models.py</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Case T1 (INT64 Enforcement)</strong></td>
+<td style="text-align: left;">输出 Parquet 时间戳格式</td>
+<td style="text-align: center;"><code>physical_type == "INT64"</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Case T2 (UTC Timezone)</strong></td>
+<td style="text-align: left;">输入非 UTC 资料</td>
+<td style="text-align: center;">自动转换为 UTC</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Case T3 (No INT96)</strong></td>
+<td style="text-align: left;">模拟旧版 PyArrow 行为</td>
+<td style="text-align: center;">验证逻辑拦截并抛出 <code>TypeError</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6">6. 风险评估（更新）</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">风险</th>
+<th style="text-align: center;">严重度</th>
+<th style="text-align: left;">缓解措施（v1.2 SSOT 设计）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Flags 定义不一致</strong></td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;"><strong>SSOT</strong>: <code>config_models.VALID_QUALITY_FLAGS</code>，三模组共用</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>INT96 时间戳</strong></td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: left;"><strong>强制 INT64</strong>: <code>use_pyarrow=False</code> + 写入后 Schema 验证</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>测试覆盖缺口</strong></td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: left;"><strong>CI/CD 自动检查</strong>: <code>scripts/ci_verify_ssot.py</code> 阻挡未同步测试的 PR</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>时区错误</strong></td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: left;"><strong>强制 UTC</strong>: <code>dt.replace_time_zone("UTC")</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>小文件爆炸</strong></td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: left;"><strong>时间分区合并</strong>: <code>max_rows_per_file</code> 阈值控制</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-ssot">7. 与上下游协作检查清单（SSOT 专项）</h2>
+<h3 id="cleaner-v21-ssot">与 Cleaner v2.1 团队（SSOT 对齐）：</h3>
+<ul>
+<li>[ ] <code>config_models.py</code> 中的 <code>VALID_QUALITY_FLAGS</code> 是否包含所有 Cleaner 会产出的标记？</li>
+<li>[ ] Cleaner 的 <code>CleaningConfig</code> 是否同样引用 <code>QualityFlagConfig</code>？</li>
+<li>[ ] 若需新增标记，是否三方同意改动 <code>config_models.py</code> 后同步更新？</li>
+</ul>
+<h3 id="feature-engineer-int64ssot">与 Feature Engineer 团队（INT64/SSOT）：</h3>
+<ul>
+<li>[ ] 是否确认读取 Parquet 时使用 <code>scan_parquet</code>（原生支持 INT64）？</li>
+<li>[ ] 是否接受通过 <code>manifest.json</code> 读取，并验证 <code>quality_flags_schema</code> 字段？</li>
+</ul>
+<hr />
+<h2 id="8">8. 交付产物清单</h2>
+<ol>
+<li><code>src/etl/config_models.py</code>: <strong>SSOT 定义</strong>（<code>VALID_QUALITY_FLAGS</code>, <code>ParquetOutputConfig</code>）</li>
+<li><code>src/etl/batch_processor_v2.py</code>: 实作（动态读取 flags、INT64 强制写入）</li>
+<li><code>src/etl/contract_validator.py</code>: 更新（SSOT 验证、INT64/UTC 检查）</li>
+<li><code>tests/test_ssot_integration.py</code>: <strong>SSOT 专项测试</strong></li>
+<li><code>tests/test_int64_timestamp.py</code>: <strong>INT64 专项测试</strong></li>
+<li><code>docs/ssot_guide.md</code>: 说明文件（如何新增 Quality Flag、三模组同步流程）</li>
+</ol>
+<hr />
+<h2 id="9-cicd-ssot">9. CI/CD 与工程治理（SSOT 保护机制）</h2>
+<h3 id="91">9.1 自动化检查脚本</h3>
+<p>为防止「只改代码不改测试」的风险，建立以下检查：</p>
+<p><strong>档案</strong>: <code>scripts/ci_verify_ssot.py</code></p>
+<pre><code class="language-python">#!/usr/bin/env python3
+&quot;&quot;&quot;
+SSOT 完整性检查脚本
+确保 config_models.py 变更时，相关测试已同步更新
+&quot;&quot;&quot;
+import ast
+import sys
+from pathlib import Path
+
+def extract_valid_flags() -&gt; set:
+    &quot;&quot;&quot;从 config_models.py 解析 VALID_QUALITY_FLAGS&quot;&quot;&quot;
+    tree = ast.parse(Path(&quot;src/etl/config_models.py&quot;).read_text())
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == &quot;VALID_QUALITY_FLAGS&quot;:
+                    return set(ast.literal_eval(node.value))
+    return set()
+
+def main():
+    defined_flags = extract_valid_flags()
+    print(f&quot;📋 Defined flags: {defined_flags}&quot;)
+
+    # 检查测试覆盖率...
+    # 详细实作见附录
+
+    return 0
+
+if __name__ == &quot;__main__&quot;:
+    sys.exit(main())
+</code></pre>
+<h3 id="92-github-actions">9.2 GitHub Actions 工作流程</h3>
+<p><strong>档案</strong>: <code>.github/workflows/ssot-check.yml</code></p>
+<pre><code class="language-yaml">name: SSOT Integrity Check
+
+on:
+  push:
+    paths:
+      - 'src/etl/config_models.py'
+      - 'tests/**'
+
+jobs:
+  verify-ssot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Run SSOT Verification
+        run: python scripts/ci_verify_ssot.py
+
+      - name: Run Flag-related Tests
+        run: pytest tests/ -k &quot;quality_flag or ssot&quot; -v
+
+      - name: Check Hardcoded Flags
+        run: |
+          if grep -r &quot;FROZEN\|HEAT_IMBALANCE&quot; --include=&quot;*.py&quot; src/ | grep -v &quot;config_models.py&quot; | grep -v &quot;from.*import&quot;; then
+            echo &quot;❌ Found hardcoded flags outside config_models.py&quot;
+            exit 1
+          fi
+</code></pre>
+<h3 id="93-pr-checklist">9.3 PR Checklist（模板）</h3>
+<p>建立 Pull Request 模板，强制勾选：
+- [ ] 若修改 <code>VALID_QUALITY_FLAGS</code>，已同步更新 <code>tests/test_cleaner.py</code>
+- [ ] 若修改 <code>VALID_QUALITY_FLAGS</code>，已同步更新 <code>tests/test_batch_processor.py</code><br />
+- [ ] 若修改 <code>VALID_QUALITY_FLAGS</code>，已同步更新 <code>tests/test_feature_engineer.py</code>
+- [ ] 已执行 <code>python scripts/ci_verify_ssot.py</code> 且通过</p>
+<hr />
+<p><strong>关键修正总结</strong>：
+1. <strong>SSOT</strong>: <code>VALID_QUALITY_FLAGS</code> 统一于 <code>config_models.py</code>，三模组共用。
+2. <strong>INT64 强制</strong>: 明确禁止 INT96，使用 Polars 原生写入器，写入后验证 Schema。
+3. <strong>CI/CD 保护</strong>: 建立自动检查脚本，防止 SSOT 变更时测试覆盖缺口。
+```</p>
+    </div>
+</body>
+</html>

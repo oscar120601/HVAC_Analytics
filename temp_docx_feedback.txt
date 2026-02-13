@@ -1,0 +1,90 @@
+User:
+CLEANER_EVALUATION.md
+image.png
+我現在想要對於我的資料清洗與重採樣程式碼，進行一個很嚴謹的檢討，上面是我同事給我的建議，並附上我的系統架構，想請你幫我看看這樣的作法是否正確，還是可以有優化改進的地方，如果有缺少什麼資訊也讓我知道。
+
+Kimi:
+我仔細審閱了你同事的評估文件與專案架構圖，這是一份專業且具前瞻性的重構提案。整體方向正確，但若要達到生產環境的嚴謹標準，仍有幾個關鍵維度需要補強。
+以下是我的分層建議：
+
+一、評估建議的正確性驗證
+你同事指出的 C1-C6 問題確實擊中了 HVAC 資料清洗的關鍵痛點：
+特別肯定：文件提出的「單元感知 (Unit-Aware)」與「無副作用標記」是從「腳本工具」升級為「工業級引擎」的關鍵思維轉變。
+
+二、架構圖與重構計畫的整合度分析
+你的專案架構已具備支撐此重構的基礎設施，但文件未明確說明以下整合點：
+1. 與現有 Config 系統的銜接
+
+config/
+├── settings.yaml          # ⬅️ 建議：擴充為 CleanerConfig 的資料來源
+└── hvac_feature_classification.json  # ⬅️ 關鍵：可解決 C2 的硬編碼問題
+建議：不要創建新的配置檔，而是將 CleanerConfig (Pydantic) 綁定到現有的 settings.yaml，並利用 feature_mapping.py 定義聚合規則（解決 C2）。
+2. 與 Batch Processor 的協作
+batch_processor.py 與 cleaner.py 的關係未在文件中釐清：
+清洗邏輯是串流式（邊讀邊洗）還是批次式（全讀入記憶體）？
+若資料量大（>10GB），Polars（文件提到 pl.DataFrame）是對的選擇，但需要確認 batch_processor 的記憶體管理策略。
+3. 與 ML Pipeline 的介接
+models/energy_model.py（XGBoost）如何消費清洗後的資料？
+若採用 Strategy.FLAG_ONLY（保留異常但標記），模型訓練時需要能讀取 quality_flags 來做樣本加權或排除。
+這會影響 Task 3.1 的設計：quality_flags 必須是結構化欄位（如 JSON 欄位），而非僅 bitmask。
+
+三、建議補強的關鍵設計
+1. 配置繼承機制（多案場管理）
+文件提到「多案場擴展」，但建議的 CleanerConfig 是單一設定。實務上你需要：
+
+# 建議架構
+
+class BaseCleanerConfig(BaseModel):
+    # 公司級預設（物理常數、通用閾值）
+    cp_water: float = 4.186  # kJ/kg·K
+    
+class SiteConfig(BaseCleanerConfig):
+    # 案場級覆寫（單位系統、設備規格）
+    unit_system: UnitSystem = UnitSystem.METRIC
+    design_chiller_kw: float = 500.0  # 用於解決 C4 的額定工況基準
+2. 資料品質指標（Data Quality Score）
+文件提到「品質報告」，建議定義量化指標：
+
+class QualityReport:
+    completeness_score: float   # 缺失率
+    consistency_score: float    # 物理一致性（熱平衡通過率）
+    stability_score: float      # 穩定態佔比
+    overall_score: float        # 加權總分，低於閾值觸發告警
+這可與 history_tracker.py 整合，追蹤資料品質隨時間的退化趨勢。
+3. 漸進式重構策略（Zero-Downtime）
+考慮到你可能無法一次性重構全部程式碼：
+
+# 建議採用 Adapter Pattern
+
+class LegacyCleanerAdapter:
+    """包裝舊版 cleaner，讓新舊邏輯可並存驗證"""
+    def clean(self, df):
+        result_new = self.physics_cleaner.clean(df)
+        result_old = self.legacy_cleaner.clean(df)
+        self.comparator.log_diff(result_new, result_old)  # 比對差異
+        return result_old  # 過渡期仍回傳舊結果，但記錄差異
+
+四、你目前缺少的關鍵資訊
+為了給出具體的程式碼實作建議，我需要你補充：
+立即需要（影響設計決策）
+現有 cleaner.py 的核心程式碼片段（特別是 validate_heat_balance 與 resample_to_intervals 的實際實作）
+資料規模：單次處理是 MB 級還是 GB 級？這決定是否要用 Polars（檔案暗示但架構未明確）
+欄位命名慣例：你們的 SCADA 欄位命名是 Chiller_1_KWH 還是 power_consumption_chiller_1？這直接影響 C2 的解決方案
+深度需要（影響物理邏輯）
+熱平衡驗證的業務容忍度：±5%？±10%？這影響 Task 2.1 的閾值設計
+親和律驗證的「額定工況點」來源：是從 settings.yaml 讀取，還是從設備銘牌資料庫查詢？
+重採樣頻率需求：1分鐘？15分鐘？這影響穩定態判定窗口的設計（Task 1.1）
+整合需要（影響介面設計）
+錯誤處理策略：當 validate_heat_balance 發現異常時，是拋出自訂例外（使用 exceptions.py）還是回傳標記？
+特徵映射的現狀：feature_mapping.py 目前如何定義欄位類型？是否可以擴充「聚合規則」欄位？
+
+五、下一步行動建議
+基於你提供的資訊，我建議的優先順序：
+Phase 2.1（單位感知）：這是最致命的業務風險，應立即處理
+Phase 1.2（配置化重採樣）：利用現有 feature_mapping.py 解決 C2，比重建配置系統更快
+Phase 3.1（無副作用標記）：這會影響下游 energy_model.py 的介面，需與 ML 團隊協調
+如果你能提供現有 cleaner.py 的關鍵程式碼片段，我可以幫你：
+驗證 C1-C6 的問題是否如同事描述般嚴重
+提供具體的重構前後對照碼（保留介面但改變實作）
+設計與 batch_processor.py 整合的記憶體高效方案
+你方便分享現有清洗器的核心邏輯嗎？特別是熱平衡與重採樣的部分。

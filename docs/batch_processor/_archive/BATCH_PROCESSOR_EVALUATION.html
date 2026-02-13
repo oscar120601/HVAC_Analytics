@@ -1,0 +1,160 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Processor Technical Evaluation</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+        h2 { margin-top: 2em; }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #dfe2e5;
+            padding: 12px;
+            text-align: left;
+        }
+        th { background-color: #f6f8fa; font-weight: bold; }
+        tr:nth-child(even) { background-color: #fdfdfd; }
+        code {
+            background-color: #f3f3f3;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 85%;
+        }
+        pre {
+            background-color: #f6f8fa;
+            padding: 16px;
+            overflow: auto;
+            border-radius: 6px;
+        }
+        blockquote {
+            margin: 0;
+            padding: 0 1em;
+            color: #6a737d;
+            border-left: 0.25em solid #dfe2e5;
+        }
+        .risk-critical {
+            color: #d73a49;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="batchprocessor">BatchProcessor 技術評估與風險報告</h1>
+<p><strong>評估對象:</strong> <code>src/etl/batch_processor.py</code>
+<strong>評估日期:</strong> 2026-02-12
+<strong>評估人員:</strong> Antigravity (AI Architect)
+<strong>嚴重性等級:</strong> 🔴 Critical (需立即修正)</p>
+<hr />
+<h2 id="1-executive-summary">1. 執行摘要 (Executive Summary)</h2>
+<p>目前的 <code>batch_processor.py</code> 是一個<strong>「原型等級 (Prototype-level)」</strong>的實作，完全無法支撐「重大能源分析專案」的生產環境需求。</p>
+<p>最致命的風險在於<strong>記憶體管理 (OOM Risk)</strong> 與 <strong>介面契約衝突 (Contract Violation)</strong>。如果不進行重構，直接套用新的 <code>DataCleaner v2.1</code>，程式將會崩潰或刪除關鍵的品質標記數據。</p>
+<hr />
+<h2 id="2-critical-risks">2. 關鍵風險分析 (Critical Risks)</h2>
+<h3 id="1-the-memory-bomb">🔴 風險 1: 記憶體炸彈 (The Memory Bomb)</h3>
+<ul>
+<li><strong>程式碼位置:</strong> L62 <code>parsed_dfs = []</code>, L74 <code>parsed_dfs.append(df)</code>, L153 <code>pl.concat(parsed_dfs)</code></li>
+<li><strong>問題描述:</strong> 程式將所有 CSV 檔案處理後的 DataFrame 全部暫存在 RAM 中的 <code>parsed_dfs</code> 列表，直到最後才一次性合併。</li>
+<li><strong>後果:</strong> </li>
+<li>若有 1000 個 50MB 的 CSV，記憶體需求將超過 50GB。</li>
+<li>對於能源長期分析專案（通常數年數據），此邏輯 100% 會導致 <strong>Out of Memory (OOM)</strong> 崩潰。</li>
+<li><strong>改進建議:</strong> 必須改用 <strong>Incremental Processing (增量處理)</strong> 模式。</li>
+<li>處理完一個檔案，立即寫入磁碟 (如 Parquet) 或資料庫。</li>
+<li>或者使用 <code>pl.LazyFrame</code> 搭配 <code>sink_parquet</code> 進行串流寫入。</li>
+</ul>
+<h3 id="2-contract-violation-cleaner-v21">🔴 風險 2: 摧毀介面契約 (Contract Violation - Cleaner v2.1)</h3>
+<ul>
+<li><strong>程式碼位置:</strong> L170-181 (強制轉型邏輯)</li>
+</ul>
+<pre><code class="language-python">logger.info(&quot;Enforcing numeric types on all non-timestamp columns...&quot;)
+# ...
+merged_df = merged_df.with_columns(pl.col(col).cast(pl.Float64, strict=False))
+</code></pre>
+<ul>
+<li><strong>問題描述:</strong> 程式假設「所有非時間欄位都是數字」。但在 <code>PRD_CLEANER_v2.1</code> 中，我們引入了 <code>quality_flags</code>，其型別為 <code>List[str]</code>。</li>
+<li><strong>後果:</strong> </li>
+<li>這段程式碼會強制將 <code>quality_flags</code> 轉為 <code>Float64</code>。</li>
+<li>結果是 <code>quality_flags</code> 全部變成 <code>null</code>，<strong>清洗器辛苦標記的錯誤資訊將被全數抹除</strong>。</li>
+<li><strong>改進建議:</strong> 必須移除全域強制轉型，改用 Config 定義的 Schema 驗證，或根據 <code>DataCleaner</code> 的 Output Contract 動態調整。</li>
+</ul>
+<h3 id="3-schema-inefficient-schema-normalization">🟠 風險 3: 低效的 Schema 正規化 (Inefficient Schema Normalization)</h3>
+<ul>
+<li><strong>程式碼位置:</strong> L86-142</li>
+<li><strong>問題描述:</strong> 為了處理不同 CSV 可能缺漏欄位的情況，程式遍歷了所有 DataFrame 兩次來補齊欄位。</li>
+<li><strong>後果:</strong> 當資料量大時，這裡會成為 CPU 與 RAM 的雙重瓶頸。</li>
+<li><strong>改進建議:</strong> 使用 <code>pl.concat(..., how="diagonal")</code> 其實已經能處理欄位不齊的問題（Polars 原生功能），L86-142 的手動正規化大部分是多餘且低效的。</li>
+</ul>
+<h3 id="4-configuration-hardcoding">🟠 風險 4: 配置硬編碼 (Configuration Hardcoding)</h3>
+<ul>
+<li><strong>程式碼位置:</strong> L44 <code>__init__(self, resample_interval: str = "5m")</code></li>
+<li><strong>問題描述:</strong> 參數被寫死或僅透過 <code>__init__</code> 傳遞，未整合專案整體的 <code>settings.yaml</code>。</li>
+<li><strong>後果:</strong> 未來若要調整採樣頻率或物理參數，需修改程式碼，違反 Open-Closed Principle。</li>
+</ul>
+<hr />
+<h2 id="3-current-vs-ideal">3. 模組協作流程說明 (Current vs. Ideal)</h2>
+<p>您詢問這支程序如何與 clean/parser 工作，目前的流程如下：</p>
+<h3 id="current-code-flow">當前流程 (Current Code Flow):</h3>
+<pre><code class="language-mermaid">graph LR
+    A[BatchProcessor] --&gt;|1. 呼叫| B(ReportParser)
+    B --&gt;|2. 回傳 Raw DF| A
+    A --&gt;|3. 呼叫| C(DataCleaner)
+    C --&gt;|4. 回傳 Clean DF| A
+    A --&gt;|5. 暫存記憶體| D{List[DF]}
+    D --&gt;|6. 迴圈結束後合併| E[Final DataFrame]
+</code></pre>
+<h3 id="to-be-architecture">理想的生產級流程 (To-Be Architecture):</h3>
+<p>為了符合 PRD 要求，架構應改為 <strong>Pipeline 模式</strong>：</p>
+<pre><code class="language-mermaid">graph TD
+    Config[Configuration Loader] --&gt; BP[BatchProcessor]
+    BP --&gt;|Stream| P(Parser)
+    P --&gt;|Raw Record| C(Cleaner v2.1)
+    C --&gt;|Output Contract| V[Validator]
+    V --&gt;|Valid Frame| W[Parquet Writer]
+    W --&gt;|Accumulate| DB[(Data Storage)]
+
+    subgraph &quot;Per File Execution&quot;
+    P
+    C
+    V
+    W
+    end
+</code></pre>
+<p><strong>協作細節:</strong>
+1.  <strong>Parser</strong>: 負責將原始 CSV 的雜亂格式（Metadata/Header 分離）轉為標準 Polars DataFrame。
+2.  <strong>Cleaner</strong>: 接收 Raw DataFrame，執行物理檢查、重採樣，並附加上 <code>quality_flags</code>。
+3.  <strong>BatchProcessor</strong>: 
+    - <strong>不應該做資料處理</strong>（不管是 Schema 正規化還是型別強制）。
+    - 它的職責應該只是 <strong>Orchestrator (指揮官)</strong>：由它讀取檔案列表，依序呼叫 Parser -&gt; Cleaner，然後將結果<strong>落地</strong>。</p>
+<h2 id="4">4. 具體建議行動</h2>
+<ol>
+<li><strong>重寫 BatchProcessor</strong>：廢棄目前的實作，建立符合 Pipeline 模式的新版本。</li>
+<li><strong>整合 Config System</strong>：讀取 <code>settings.yaml</code> 來初始化 Parser 與 Cleaner。</li>
+<li><strong>對接 Feature Engineer</strong>：BatchProcessor 的輸出（如 Parquet 檔案）將成為 Feature Engineer 的輸入來源。</li>
+</ol>
+<hr />
+<p><strong>結論</strong>: 這支程式目前是專案中的「短板 (Singleton Point of Failure)」。若不重寫，您的 Cleaner v2.1 功能將完全無法發揮。</p>
+    </div>
+</body>
+</html>

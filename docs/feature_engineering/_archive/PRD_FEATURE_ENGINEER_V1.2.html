@@ -1,0 +1,520 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feature Engineering PRD v1.2</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+        h2 { margin-top: 2em; }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #dfe2e5;
+            padding: 12px;
+            text-align: left;
+        }
+        th { background-color: #f6f8fa; font-weight: bold; }
+        tr:nth-child(even) { background-color: #fdfdfd; }
+        code {
+            background-color: #f3f3f3;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 85%;
+        }
+        pre {
+            background-color: #f6f8fa;
+            padding: 16px;
+            overflow: auto;
+            border-radius: 6px;
+        }
+        blockquote {
+            margin: 0;
+            padding: 0 1em;
+            color: #6a737d;
+            border-left: 0.25em solid #dfe2e5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="prd-v12-feature-engineering-implementation-guide">PRD v1.2: 特徵工程強健性實作指南 (Feature Engineering Implementation Guide)</h1>
+<p><strong>文件版本:</strong> v1.2<br />
+<strong>日期:</strong> 2026-02-12<br />
+<strong>負責人:</strong> Oscar Chang<br />
+<strong>目標模組:</strong> <code>src/etl/feature_engineer.py</code><br />
+<strong>相依模組:</strong> <code>src/etl/cleaner.py</code> (v2.0+), <code>src/utils/physics.py</code><br />
+<strong>預估工時:</strong> 3 ~ 4 個工程天（含整合測試）</p>
+<hr />
+<h2 id="1">1. 執行總綱與設計原則</h2>
+<h3 id="11">1.1 核心職責</h3>
+<p>本模組專注於 <strong>「加法與創造」</strong>，嚴格禁止執行資料清洗或過濾。所有輸入資料必須先經過 <code>DataCleaner</code> 處理。</p>
+<p><strong>設計原則：</strong>
+1. <strong>防禦式設計</strong>：即使 Cleaner 輸出異常（含 Null、空缺），仍不拋出致命錯誤
+2. <strong>冪等性 (Idempotency)</strong>：相同輸入執行多次，輸出必須完全一致
+3. <strong>記憶體安全</strong>：V1.0 明確鎖定 <strong>In-Memory 批次處理</strong>（但介面預留 LazyFrame 彈性）
+4. <strong>防 Data Leakage</strong>：所有 Rolling/Lag 特徵嚴格排除「當前時間點」</p>
+<h3 id="12-inputoutput-contract">1.2 輸入輸出契約（Input/Output Contract）</h3>
+<pre><code class="language-python">class FeatureEngineerInputContract:
+    required_columns: List[str] = [&quot;timestamp&quot;]
+    expected_frequency: str = &quot;15min&quot;
+    timestamp_tz: str = &quot;UTC&quot;
+    quality_flags_handling: Literal[&quot;drop&quot;, &quot;onehot&quot;, &quot;ignore&quot;] = &quot;onehot&quot;
+
+    # 【新增】資料洩漏防護檢查
+    strict_temporal_integrity: bool = True  # 若 True，發現未來資料時拋出例外
+
+class FeatureEngineerOutputContract:
+    feature_naming_convention: str = &quot;{original_col}_{transformation}_{parameters}&quot;
+    null_strategy: str = &quot;propagate_with_flag&quot;
+
+    # 【新增】時序正確性保證
+    temporal_consistency: str = &quot;所有 Lag/Rolling 特徵僅使用過去資料（不包含當前點）&quot;
+</code></pre>
+<h3 id="13">1.3 功能範圍</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">範圍</th>
+<th style="text-align: left;">包含項目 (In-Scope)</th>
+<th style="text-align: left;">排除項目 (Out-of-Scope)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>處理模式</strong></td>
+<td style="text-align: left;"><strong>V1.0 僅支援 In-Memory</strong>（pl.DataFrame）<br>介面預留 pl.LazyFrame 相容性</td>
+<td style="text-align: left;">V1.0 不支援 Streaming Mode<br>（記憶體不足時應改用分批讀取，非 LazyFrame）</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>P1 物理特徵</strong></td>
+<td style="text-align: left;">濕球溫度、焓值</td>
+<td style="text-align: left;">單位轉換（由 Cleaner 處理）</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>P2 統計特徵</strong></td>
+<td style="text-align: left;">Lag（延遲）、Rolling（滾動統計）<br>【強制】排除當前點（closed='left'）</td>
+<td style="text-align: left;">複雜統計（EWM）</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>P3 互動特徵</strong></td>
+<td style="text-align: left;">Out-of-Scope</td>
+<td style="text-align: left;">非線性交互項</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2">2. 系統架構與配置</h2>
+<h3 id="21-multi-asset">2.1 【修正】統一配置檔結構（支援 Multi-Asset）</h3>
+<pre><code class="language-yaml"># config/settings.yaml
+etl_pipeline:
+  feature_engineer:
+    schema_version: &quot;1.2&quot;
+
+    # 【新增】處理模式聲明
+    execution_mode: &quot;in_memory&quot;  # v1.2 僅支援 in_memory，保留欄位供 v2.0 擴充
+
+    input_contract:
+      quality_flags_handling: &quot;onehot&quot;
+      strict_temporal_integrity: true
+
+    # 【優化】Multi-Asset 群組策略（取代逐一列舉）
+    stats_features:
+      enabled: true
+
+      # 方案：以 physical_type 自動匹配，無需列舉欄位名稱
+      group_policies:
+        - apply_to_types: [&quot;chiller_load&quot;, &quot;cooling_tower_load&quot;]
+          rules:
+            lag_intervals: [1, 4]      # 15min, 1hr
+            rolling_windows: [4, 96]    # 1hr, 24hr（以區間數計，非絕對時間）
+            aggregations: [&quot;mean&quot;, &quot;std&quot;]
+            max_window_points: 1000     # 安全限制
+
+        - apply_to_types: [&quot;power_usage&quot;]
+          rules:
+            lag_intervals: [1]
+            rolling_windows: [4]
+            aggregations: [&quot;mean&quot;, &quot;max&quot;]
+
+      # 例外處理：特定欄位覆寫（可選）
+      column_overrides:
+        chiller_1_load:  # 若某台冰機需要特殊處理
+          lag_intervals: [1, 2, 4]
+
+    physics_features:
+      enabled: true
+      library: &quot;psychrolib&quot;
+      apply_to_types: [&quot;dry_bulb_temp&quot;, &quot;relative_humidity&quot;]  # 自動配對計算濕球溫度
+
+    time_features:
+      enabled: true
+      cyclical_encoding: true
+      components: [&quot;hour&quot;, &quot;day_of_week&quot;, &quot;month&quot;, &quot;is_weekend&quot;]
+</code></pre>
+<h3 id="22-group-policy">2.2 【新增】Group Policy 解析邏輯</h3>
+<pre><code class="language-python"># src/etl/feature_engineer.py
+def _resolve_group_policies(self, df: pl.DataFrame) -&gt; Dict[str, StatsRule]:
+    &quot;&quot;&quot;
+    將 group_policies 解析為具體欄位配置
+    避免逐一列舉導致的 config 膨脹
+    &quot;&quot;&quot;
+    resolved = {}
+    for policy in self.config.stats_features.group_policies:
+        target_cols = [
+            col for col in df.columns 
+            if get_feature_meta(col).physical_type in policy.apply_to_types
+            and not get_feature_meta(col).is_target  # 排除目標變數
+        ]
+        for col in target_cols:
+            resolved[col] = policy.rules
+    return resolved
+</code></pre>
+<hr />
+<h2 id="3">3. 分階段實作計畫</h2>
+<h3 id="phase-1-lazyframe">Phase 1: 基礎架構（含 LazyFrame 介面預留）</h3>
+<h4 id="step-11-group-policy">Step 1.1: 配置模型（含 Group Policy）</h4>
+<pre><code class="language-python">from pydantic import BaseModel, validator
+from typing import Union
+
+class StatsRule(BaseModel):
+    lag_intervals: List[int]
+    rolling_windows: List[int]
+    aggregations: List[str]
+    max_window_points: int = 1000
+
+    @validator('rolling_windows')
+    def check_window_size(cls, v, values):
+        max_points = values.get('max_window_points', 1000)
+        if any(x &gt; max_points for x in v):
+            raise ValueError(f&quot;Rolling window exceeds limit of {max_points}&quot;)
+        return v
+
+class GroupPolicy(BaseModel):
+    apply_to_types: List[str]  # 匹配 physical_type
+    rules: StatsRule
+
+class FeatureEngineeringConfig(BaseModel):
+    schema_version: Literal[&quot;1.2&quot;] = &quot;1.2&quot;
+    execution_mode: Literal[&quot;in_memory&quot;] = &quot;in_memory&quot;  # V1.2 鎖定
+    input_contract: FeatureEngineerInputContract
+    stats_features: dict  # 包含 group_policies 與 column_overrides
+    physics_features: PhysicsConfig
+    time_features: TimeConfig
+</code></pre>
+<h4 id="step-12-union">Step 1.2: 模組骨架（【修正】介面支援 Union 類型）</h4>
+<pre><code class="language-python">import polars as pl
+from typing import Union, Optional
+
+class FeatureEngineer:
+    def __init__(self, config: FeatureEngineeringConfig):
+        self.config = config
+
+    def transform(
+        self, 
+        df: Union[pl.DataFrame, pl.LazyFrame],  # 【修正】預留 LazyFrame 彈性
+        cutoff_timestamp: Optional[datetime] = None
+    ) -&gt; Union[pl.DataFrame, pl.LazyFrame]:
+        &quot;&quot;&quot;
+        主入口方法
+
+        V1.2 實作限制：
+        - 若輸入為 LazyFrame，僅支援「讀取」操作，實際運算仍為 Eager（collect）
+        - V2.0 可擴充為完整 Streaming 支援
+        &quot;&quot;&quot;
+        # 若為 LazyFrame，先 collect（V1.2 限制）
+        # V2.0 時可移除此限制，直接回傳 LazyFrame
+        if isinstance(df, pl.LazyFrame):
+            df = df.collect()
+
+        # 1. 輸入驗證（含時間連續性檢查）
+        df = self._validate_input(df)
+
+        # 2. 防 Data Leakage 檢查
+        if cutoff_timestamp and df[&quot;timestamp&quot;].max() &gt; cutoff_timestamp:
+            raise DataLeakageError(f&quot;Input contains future data after {cutoff_timestamp}&quot;)
+
+        # 3. 依序產生特徵
+        df = self._generate_physics_features(df)
+        df = self._generate_time_features(df)
+        df = self._generate_stats_features(df)  # 【關鍵】使用 shift(1) 防 Data Leak
+
+        return df
+</code></pre>
+<h3 id="phase-2">Phase 2: 物理特徵引擎</h3>
+<h4 id="step-21">Step 2.1: 物理公式庫（強化邊界檢查）</h4>
+<pre><code class="language-python"># src/utils/physics.py
+def calculate_wet_bulb_temp(
+    t_db: pl.Series,
+    rh: pl.Series,
+    pressure: pl.Series,
+    temp_range: Tuple[float, float] = (-40, 60),
+    rh_range: Tuple[float, float] = (0, 100)
+) -&gt; pl.Series:
+    &quot;&quot;&quot;計算濕球溫度，無效值回傳 Null 而非拋出&quot;&quot;&quot;
+    valid_mask = (
+        t_db.is_between(temp_range[0], temp_range[1]) &amp; 
+        rh.is_between(rh_range[0], rh_range[1])
+    )
+    result = _ashrae_wet_bulb_formula(t_db, rh, pressure)
+    return pl.when(valid_mask).then(result).otherwise(None)
+</code></pre>
+<h4 id="step-22-multi-asset">Step 2.2: 自動配對 Multi-Asset 欄位</h4>
+<pre><code class="language-python">def _generate_physics_features(self, df: pl.DataFrame) -&gt; pl.DataFrame:
+    &quot;&quot;&quot;自動識別溫度/濕度欄位配對，支援多台設備&quot;&quot;&quot;
+    # 透過 feature_mapping 識別所有 physical_type=temperature/humidity 的欄位
+    temp_cols = [c for c in df.columns if get_meta(c).physical_type == &quot;temperature&quot;]
+    rh_cols = [c for c in df.columns if get_meta(c).physical_type == &quot;humidity&quot;]
+
+    # 自動配對（假設命名慣例：{location}_temp / {location}_rh）
+    for temp_col in temp_cols:
+        location = temp_col.replace(&quot;_temp&quot;, &quot;&quot;)
+        rh_col = f&quot;{location}_rh&quot;
+        if rh_col in df.columns:
+            df = df.with_columns([
+                calculate_wet_bulb_temp(
+                    pl.col(temp_col), 
+                    pl.col(rh_col),
+                    pl.lit(1013.25)  # 預設氣壓
+                ).alias(f&quot;{location}_wet_bulb_physics&quot;)
+            ])
+    return df
+</code></pre>
+<h3 id="phase-3-data-leakage">Phase 3: 時間與統計特徵（【關鍵修正】防 Data Leakage）</h3>
+<h4 id="step-31">Step 3.1: 時間特徵（維持不變）</h4>
+<pre><code class="language-python">def _generate_time_features(self, df: pl.DataFrame) -&gt; pl.DataFrame:
+    df = df.with_columns([
+        pl.col(&quot;timestamp&quot;).dt.hour().alias(&quot;hour_time&quot;),
+        pl.col(&quot;timestamp&quot;).dt.weekday().alias(&quot;day_of_week_time&quot;),
+        (pl.col(&quot;timestamp&quot;).dt.weekday() &gt;= 5).alias(&quot;is_weekend_time&quot;),
+        (2 * np.pi * pl.col(&quot;timestamp&quot;).dt.hour() / 24).sin().alias(&quot;hour_sin_time&quot;),
+        (2 * np.pi * pl.col(&quot;timestamp&quot;).dt.hour() / 24).cos().alias(&quot;hour_cos_time&quot;),
+    ])
+    return df
+</code></pre>
+<h4 id="step-32-lag-rolling">Step 3.2: 【修正】Lag 與 Rolling（強制排除當前點）</h4>
+<pre><code class="language-python">def _generate_stats_features(self, df: pl.DataFrame) -&gt; pl.DataFrame:
+    &quot;&quot;&quot;
+    【關鍵修正】所有 Rolling 特徵必須排除「當前時間點」
+    實作方式：先 shift(1) 再 rolling，確保僅使用「過去」資料
+    &quot;&quot;&quot;
+    # 透過 Group Policy 解析目標欄位（支援 Multi-Asset）
+    column_rules = self._resolve_group_policies(df)
+
+    expressions = []
+
+    for col, rules in column_rules.items():
+        # Lag 特徵（延遲）- 本身即為過去資料，無需額外防護
+        for lag in rules.lag_intervals:
+            expressions.append(
+                pl.col(col).shift(lag).alias(f&quot;{col}_lag_{lag}&quot;)
+            )
+
+        # 【修正】Rolling 特徵：shift(1) 確保窗口從「上一個時間點」開始
+        for window in rules.rolling_windows:
+            # 安全檢查：視窗不得超過資料長度 50%
+            if window &gt; len(df) * 0.5:
+                logger.warning(f&quot;Skip rolling {window} for {col}: exceeds 50% data length&quot;)
+                continue
+
+            for agg in rules.aggregations:
+                # 【關鍵】先 shift(1) 排除當前點，再做 rolling
+                # 這確保「過去 24 小時」真的不包含「現在」
+                expr = (
+                    pl.col(col)
+                    .shift(1)  # 【強制】先偏移，排除當前點
+                    .rolling_mean(window) if agg == &quot;mean&quot; else
+                    pl.col(col).shift(1).rolling_std(window) if agg == &quot;std&quot; else
+                    pl.col(col).shift(1).rolling_min(window) if agg == &quot;min&quot; else
+                    pl.col(col).shift(1).rolling_max(window)  # max
+                )
+                expressions.append(
+                    expr.alias(f&quot;{col}_roll{agg}_{window}&quot;)
+                )
+
+    return df.with_columns(expressions)
+</code></pre>
+<h3 id="phase-4-quality-flags">Phase 4: Quality Flags 處理（維持不變）</h3>
+<pre><code class="language-python">def _handle_quality_flags(self, df: pl.DataFrame) -&gt; pl.DataFrame:
+    strategy = self.config.input_contract.quality_flags_handling
+
+    if strategy == &quot;drop&quot;:
+        has_flags = pl.col(&quot;quality_flags&quot;).list.len() &gt; 0
+        return df.filter(~has_flags)
+    elif strategy == &quot;onehot&quot;:
+        all_flags = [&quot;FROZEN&quot;, &quot;HEAT_IMBALANCE&quot;, &quot;AFFINITY_VIOLATION&quot;, &quot;OUTLIER&quot;]
+        for flag in all_flags:
+            df = df.with_columns(
+                pl.col(&quot;quality_flags&quot;).list.contains(flag).alias(f&quot;is_{flag.lower()}_flag&quot;)
+            )
+        return df
+    else:  # ignore
+        return df
+</code></pre>
+<hr />
+<h2 id="4-data-leakage">4. 驗證與測試計畫（【新增】Data Leakage 測試）</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">測試案例</th>
+<th style="text-align: left;">驗證內容</th>
+<th style="text-align: center;">通過標準</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Case A (Physics)</strong></td>
+<td style="text-align: left;">濕球溫度計算準確性</td>
+<td style="text-align: center;">誤差 &lt; 0.1°C</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Case B (Cyclical)</strong></td>
+<td style="text-align: left;">時間週期編碼正確性</td>
+<td style="text-align: center;">23:00 與 01:00 向量距離 &lt; 0.5</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Case C (Temporal Leakage)</strong></td>
+<td style="text-align: left;">Lag 不包含未來</td>
+<td style="text-align: center;"><code>cutoff_timestamp</code> 後資料被排除</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Case D (Memory)</strong></td>
+<td style="text-align: left;">大資料量處理</td>
+<td style="text-align: center;">記憶體 &lt; 原始資料 150%</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Case E (Idempotency)</strong></td>
+<td style="text-align: left;">重複執行一致性</td>
+<td style="text-align: center;">Bit-wise 一致</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Case F (Data Leakage - Rolling)</strong>【新增】</td>
+<td style="text-align: left;">Rolling 不包含當前點</td>
+<td style="text-align: center;">對於時間 T，特徵值僅使用 T-1, T-2... 資料</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Case G (Multi-Asset)</strong>【新增】</td>
+<td style="text-align: left;">Group Policy 解析</td>
+<td style="text-align: center;">3 台冰機自動套用相同規則，config 無需重複</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Case H (LazyFrame)</strong>【新增】</td>
+<td style="text-align: left;">介面相容性</td>
+<td style="text-align: center;">輸入 LazyFrame 不拋出 TypeError（雖然會 collect）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="data-leakage">【新增】Data Leakage 測試範例</h3>
+<pre><code class="language-python">def test_rolling_no_data_leakage():
+    &quot;&quot;&quot;驗證 Rolling 特徵不包含當前時間點&quot;&quot;&quot;
+    # 建立測試資料：時間序列 1, 2, 3, 4, 5...
+    df = pl.DataFrame({
+        &quot;timestamp&quot;: pl.date_range(datetime(2024,1,1), datetime(2024,1,2), interval=&quot;1h&quot;),
+        &quot;value&quot;: range(25)  # 0, 1, 2, ..., 24
+    })
+
+    config = FeatureEngineeringConfig(
+        stats_features={
+            &quot;group_policies&quot;: [{
+                &quot;apply_to_types&quot;: [&quot;gauge&quot;],
+                &quot;rules&quot;: {&quot;lag_intervals&quot;: [], &quot;rolling_windows&quot;: [3], &quot;aggregations&quot;: [&quot;mean&quot;]}
+            }]
+        }
+    )
+
+    engineer = FeatureEngineer(config)
+    result = engineer.transform(df)
+
+    # 驗證：第 3 個時間點（index=2, value=2）的 rolling_mean_3
+    # 若正確（不含當前點）：應為 (0 + 1) / 2 = 0.5（因為 shift(1) 後窗口為 [Null, 0, 1]）
+    # 若錯誤（含當前點）：會是 (0 + 1 + 2) / 3 = 1.0
+    row_3 = result.filter(pl.col(&quot;timestamp&quot;) == datetime(2024,1,1,2,0)).to_dict()
+    assert row_3[&quot;value_rollmean_3&quot;][0] == 0.5, &quot;Data Leakage detected! Rolling includes current point.&quot;
+</code></pre>
+<hr />
+<h2 id="5">5. 風險評估與緩解（更新）</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">風險</th>
+<th style="text-align: center;">嚴重度</th>
+<th style="text-align: left;">緩解措施（V1.2 設計）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>維度爆炸</strong></td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;"><code>max_window_points: 1000</code> + Group Policy 集中管理</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Temporal Leakage</strong></td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: left;"><strong>強制 <code>shift(1)</code> 邏輯</strong>，測試 Case F 驗證</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Streaming Mode 未定義</strong></td>
+<td style="text-align: center;">🟠 Medium</td>
+<td style="text-align: left;"><strong>明確聲明 V1.2 僅支援 In-Memory</strong>，介面預留 LazyFrame</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Multi-Asset Config 膨脹</strong></td>
+<td style="text-align: center;">🟠 Medium</td>
+<td style="text-align: left;"><strong>Group Policy</strong> 以 <code>apply_to_types</code> 取代逐一列舉</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Input Contract 違反</strong></td>
+<td style="text-align: center;">🟠 Medium</td>
+<td style="text-align: left;"><code>_validate_input()</code> 嚴格檢查</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>物理計算邊界錯誤</strong></td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: left;">無效值回傳 Null</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-cleaner-prd">6. 與 Cleaner PRD 的協作檢查清單（更新）</h2>
+<p>在開始開發前，請與 Cleaner 負責人確認：</p>
+<ul>
+<li>[ ] Cleaner v2.0 輸出是否包含 <code>physical_type</code> 中繼資料（供 Group Policy 匹配）？</li>
+<li>[ ] <code>quality_flags</code> 格式是否為 <code>List[str]</code>？</li>
+<li>[ ] 兩者的 <code>timestamp</code> 是否皆為 UTC 且對齊方式一致（<code>alignment: "left"</code>）？</li>
+<li>[ ] <strong>【新增】</strong> Cleaner 是否保證輸出「無未來資料」？（Feature Engineer 會做二次檢查）</li>
+<li>[ ] <strong>【新增】</strong> 若案場有 3 台冰機，欄位命名是否遵循 <code>{location}_{type}</code> 慣例（如 <code>chiller_1_load</code>）？</li>
+</ul>
+<hr />
+<h2 id="7">7. 交付產物清單</h2>
+<ol>
+<li><code>src/etl/feature_engineer.py</code>: 核心程式碼（含 <code>shift(1)</code> 防護與 Group Policy）</li>
+<li><code>src/etl/config_models.py</code>: 更新配置模型（<code>GroupPolicy</code>, <code>StatsRule</code>）</li>
+<li><code>src/utils/physics.py</code>: 物理公式庫（含邊界檢查）</li>
+<li><code>tests/test_feature_engineer.py</code>: 含 Case F (Data Leakage) 與 Case G (Multi-Asset)</li>
+<li><code>tests/test_data_leakage.py</code>: 【新增】專門驗證時序正確性的測試檔案</li>
+<li><code>config/settings.yaml</code>: 更新範本（示範 Group Policy 寫法）</li>
+<li><code>docs/feature_engineering_guide.md</code>: 更新說明（強調「過去資料-only」原則）</li>
+</ol>
+    </div>
+</body>
+</html>

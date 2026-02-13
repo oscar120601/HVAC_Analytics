@@ -1,0 +1,237 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataCleaner Implementation Guide v2.1</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+        h2 { margin-top: 2em; }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #dfe2e5;
+            padding: 12px;
+            text-align: left;
+        }
+        th { background-color: #f6f8fa; font-weight: bold; }
+        tr:nth-child(even) { background-color: #fdfdfd; }
+        code {
+            background-color: #f3f3f3;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 85%;
+        }
+        pre {
+            background-color: #f6f8fa;
+            padding: 16px;
+            overflow: auto;
+            border-radius: 6px;
+        }
+        blockquote {
+            margin: 0;
+            padding: 0 1em;
+            color: #6a737d;
+            border-left: 0.25em solid #dfe2e5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="prd-v21-datacleaner-implementation-guide">PRD v2.1: 資料清洗器實作指南 (DataCleaner Implementation Guide)</h1>
+<p><strong>文件版本:</strong> v2.1 (Interface Contract Alignment)
+<strong>日期:</strong> 2026-02-12
+<strong>負責人:</strong> Oscar Chang
+<strong>目標模組:</strong> <code>src/etl/cleaner.py</code> (v2.0+)
+<strong>下游模組:</strong> <code>src/etl/feature_engineer.py</code> (v1.2+)</p>
+<hr />
+<h2 id="1">1. 執行總綱與變更重點</h2>
+<p>本文件是針對 <code>cleaner.py</code> 重構的<strong>詳細施工藍圖</strong>。 V2.1 版的核心變更在於 <strong>「介面契約 (Interface Contract)」</strong> 的嚴格化。</p>
+<p><strong>核心目標:</strong> 
+1. <strong>Gatekeeper (守門員)</strong>：確保髒數據絕不進入下游。
+2. <strong>Contract Provider (契約提供者)</strong>：保證輸出格式完全符合 <code>Feature Engineer v1.2</code> 的輸入要求。</p>
+<hr />
+<h2 id="2-output-contract">2. 輸出介面契約 (Output Contract)</h2>
+<p>這是有史以來最嚴格的規範，<strong>Cleaner 必須保證</strong>輸出 DataFrame 符合以下規格，否則視為清洗失敗。</p>
+<h3 id="21">2.1 必備欄位與格式</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">欄位名稱</th>
+<th style="text-align: left;">類型 (Polars)</th>
+<th style="text-align: left;">內容規範</th>
+<th style="text-align: left;">對應 Feature Engineer 需求</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>timestamp</code></td>
+<td style="text-align: left;"><code>Datetime(time_unit='us', time_zone='UTC')</code></td>
+<td style="text-align: left;">必須是 UTC，且無重複、無亂序</td>
+<td style="text-align: left;"><code>InputContract.timestamp_tz="UTC"</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>quality_flags</code></td>
+<td style="text-align: left;"><code>List(Utf8)</code></td>
+<td style="text-align: left;">空列表 <code>[]</code> 代表乾淨，否則包含錯誤代碼</td>
+<td style="text-align: left;"><code>InputContract.quality_flags_handling</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>*_temp</code></td>
+<td style="text-align: left;"><code>Float64</code></td>
+<td style="text-align: left;">單位必須是 <strong>攝氏 (°C)</strong></td>
+<td style="text-align: left;">Feature Engineer 物理公式輸入</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>*_flow</code></td>
+<td style="text-align: left;"><code>Float64</code></td>
+<td style="text-align: left;">單位必須是 <strong>LPM</strong> (或 GPM，需統一)</td>
+<td style="text-align: left;">-</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>*_kw</code></td>
+<td style="text-align: left;"><code>Float64</code></td>
+<td style="text-align: left;">單位必須是 <strong>kW</strong></td>
+<td style="text-align: left;">-</td>
+</tr>
+</tbody>
+</table>
+<h3 id="22">2.2 資料完整性保證</h3>
+<ol>
+<li><strong>無未來數據</strong>：<code>timestamp</code> 不得超過 <code>Now()</code>。</li>
+<li><strong>時序連續性</strong>：若設定 <code>resample_interval="15m"</code>，則輸出必須嚴格遵循 15 分鐘間隔（允許缺失值以 Null 表示，但時間軸不能斷）。</li>
+<li><strong>元數據 (Metadata)</strong>：每個欄位必須能透過 <code>feature_mapping</code> 查詢到 <code>physical_type</code>（供 Feature Engineer 的 Group Policy 使用）。</li>
+</ol>
+<hr />
+<h2 id="phase-1-pydantic">Phase 1: 基礎配置與 Pydantic 定義</h2>
+<h3 id="step-11">Step 1.1: 建立配置模型檔案</h3>
+<ul>
+<li><strong>動作</strong>: 建立新檔案 <code>src/etl/config_models.py</code></li>
+<li><strong>內容要求</strong>:</li>
+<li>定義 <code>UnitSystem</code> (Enum): <code>METRIC</code>, <code>IMPERIAL</code></li>
+<li>定義 <code>OutputSchema</code> (Pydantic 模型，新增於 v2.1):
+    <code>python
+    class OutputSchema(BaseModel):
+        ensure_utc: bool = True
+        ensure_regular_interval: bool = True
+        add_quality_flags: bool = True</code></li>
+<li>定義 <code>CleaningConfig</code> (BaseModel):<ul>
+<li><code>unit_system</code>: 預設 <code>METRIC</code></li>
+<li><code>output_contract</code>: OutputSchema (預設開啟所有檢查)</li>
+<li>... (其餘同 v2.0)</li>
+</ul>
+</li>
+</ul>
+<h3 id="step-12">Step 1.2: 更新設定檔</h3>
+<ul>
+<li><strong>動作</strong>: 編輯 <code>config/settings.yaml</code></li>
+<li><strong>內容要求</strong>: </li>
+<li>新增 <code>cleaning</code> 區塊，填入上述參數的預設值。</li>
+</ul>
+<hr />
+<h2 id="phase-2">Phase 2: 核心清洗器重構 (物理引擎)</h2>
+<h3 id="step-21-cleaner">Step 2.1: 建立新版 Cleaner 骨架</h3>
+<ul>
+<li><strong>動作</strong>: 建立 <code>src/etl/cleaner_v2.py</code></li>
+<li><strong>內容要求</strong>:</li>
+<li>class <code>DataCleaner</code>:<ul>
+<li><code>__init__(self, config: CleaningConfig)</code></li>
+<li><code>clean(self, df: pl.DataFrame) -&gt; pl.DataFrame</code>: 主入口，必須回傳符合契約的 DF。</li>
+</ul>
+</li>
+</ul>
+<h3 id="step-22-unit-normalizer">Step 2.2: 實作單位標準化層 (Unit Normalizer)</h3>
+<ul>
+<li><strong>動作</strong>: 在 <code>cleaner_v2.py</code> 中新增 helper 方法 <code>_to_si_units</code></li>
+<li><strong>邏輯</strong>: (同 v2.0，但強調輸出必須是 float64)</li>
+</ul>
+<h3 id="step-23-flags">Step 2.3: 實作精確熱平衡驗證 (產生 Flags)</h3>
+<ul>
+<li><strong>動作</strong>: 在 <code>cleaner_v2.py</code> 中實作 <code>validate_heat_balance</code></li>
+<li><strong>邏輯</strong>:</li>
+<li>計算熱平衡誤差。</li>
+<li><strong>關鍵變更</strong>: 若誤差過大，不刪除數據，而是將 <code>"HEAT_IMBALANCE"</code> 字串 append 到 <code>quality_flags</code> 欄位中。</li>
+<li>若 <code>quality_flags</code> 欄位不存在，則先初始化為空列表。</li>
+</ul>
+<h3 id="step-24-resampler">Step 2.4: 實作通用重採樣 (Resampler)</h3>
+<ul>
+<li><strong>動作</strong>: 在 <code>cleaner_v2.py</code> 中實作 <code>resample_data</code></li>
+<li><strong>邏輯</strong>:</li>
+<li>使用 <code>upsample</code> 或 <code>group_by_dynamic</code> 確保時間軸連續。</li>
+<li><strong>關鍵變更</strong>: 在重採樣後，必須檢查 <code>timestamp</code> 是否均勻，若有斷點需補上 Null 列（Feature Engineer 需要連續時間軸來做 Shift/Rolling）。</li>
+</ul>
+<hr />
+<h2 id="phase-3">Phase 3: 安全防護與契約驗證</h2>
+<h3 id="step-31-circuit-breaker">Step 3.1: 實作熔斷機制 (Circuit Breaker)</h3>
+<ul>
+<li><strong>動作</strong>: 同 v2.0，若品質太差則報警。</li>
+</ul>
+<h3 id="step-32-output-validator">Step 3.2: 輸出契約驗證 (Output Validator)</h3>
+<ul>
+<li><strong>動作</strong>: 在 <code>clean()</code> 方法的最後，呼叫 <code>_validate_output_contract(df)</code>。</li>
+<li><strong>邏輯</strong>:</li>
+<li>檢查 <code>timestamp</code> 是否為 UTC。</li>
+<li>檢查 <code>quality_flags</code> 欄位是否存在。</li>
+<li>檢查時間軸是否連續 (若 config 要求)。</li>
+<li>若驗證失敗，拋出 <code>ContractViolationError</code> (這是嚴重的開發錯誤，非數據錯誤)。</li>
+</ul>
+<hr />
+<h2 id="phase-4">Phase 4: 文檔與遷移</h2>
+<h3 id="step-41-readme">Step 4.1: 更新 README</h3>
+<ul>
+<li><strong>動作</strong>: 更新 <code>src/etl/README.md</code>，強調 Output Contract。</li>
+</ul>
+<h3 id="step-42">Step 4.2: 建立遷移腳本</h3>
+<ul>
+<li><strong>動作</strong>: 同 v2.0。</li>
+</ul>
+<hr />
+<h2 id="5-verification">5. 驗證步驟 (Verification)</h2>
+<p>每完成一個 Phase，請執行以下檢查：</p>
+<ol>
+<li>
+<p><strong>Phase 1 完成後</strong>:</p>
+<ul>
+<li>驗證 Config 載入無誤。</li>
+</ul>
+</li>
+<li>
+<p><strong>Phase 2 完成後</strong>:</p>
+<ul>
+<li>單元測試：輸入不平衡數據，驗證 <code>quality_flags</code> 包含 <code>"HEAT_IMBALANCE"</code>。</li>
+<li>單元測試：輸入缺漏時間點，驗證 Resampler 補齊了 Null 列。</li>
+</ul>
+</li>
+<li>
+<p><strong>Phase 3 完成後</strong>:</p>
+<ul>
+<li><strong>整合測試 (關鍵)</strong>：將 Cleaner 的輸出丟給 Feature Engineer v1.2 的 <code>_validate_input</code>，必須 <strong>PASS</strong>。</li>
+</ul>
+</li>
+</ol>
+<hr />
+<h2 id="6">6. 下一步指令</h2>
+<p>請確認是否準備好開始執行 <strong>Phase 1: 基礎配置</strong>？</p>
+    </div>
+</body>
+</html>

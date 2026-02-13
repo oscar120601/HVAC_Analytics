@@ -1,0 +1,1497 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PRD_CLEANER_v2.2</title>
+    
+<style>
+    body { 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
+        line-height: 1.6; 
+        max-width: 900px; 
+        margin: 0 auto; 
+        padding: 40px 20px; 
+        color: #24292e; 
+        background-color: #ffffff;
+    }
+    h1, h2, h3, h4, h5, h6 { 
+        margin-top: 24px; 
+        margin-bottom: 16px; 
+        font-weight: 600; 
+        color: #24292e;
+    }
+    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    h3 { font-size: 1.25em; }
+    p { margin-top: 0; margin-bottom: 16px; }
+    a { color: #0366d6; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    table { 
+        display: block; 
+        width: 100%; 
+        overflow: auto; 
+        border-spacing: 0; 
+        border-collapse: collapse; 
+        margin-bottom: 16px; 
+    }
+    table th, table td { 
+        padding: 6px 13px; 
+        border: 1px solid #dfe2e5; 
+    }
+    table th { 
+        font-weight: 600; 
+        background-color: #f6f8fa; 
+    }
+    table tr:nth-child(2n) { 
+        background-color: #f6f8fa; 
+    }
+    code { 
+        font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; 
+        background-color: #f6f8fa; 
+        padding: 0.2em 0.4em; 
+        border-radius: 3px; 
+        font-size: 85%; 
+    }
+    pre { 
+        background-color: #f6f8fa; 
+        padding: 16px; 
+        overflow: auto; 
+        border-radius: 3px; 
+        line-height: 1.45; 
+    }
+    pre code { 
+        background-color: transparent; 
+        padding: 0; 
+        border-radius: 0; 
+    }
+    blockquote { 
+        border-left: 0.25em solid #dfe2e5; 
+        color: #6a737d; 
+        padding: 0 1em; 
+        margin: 0 0 16px 0; 
+    }
+    hr {
+        height: 0.25em;
+        padding: 0;
+        margin: 24px 0;
+        background-color: #e1e4e8;
+        border: 0;
+    }
+    .mermaid {
+        display: flex;
+        justify-content: center;
+        margin: 20px 0;
+    }
+</style>
+
+</head>
+<body>
+    <h1 id="prd-v22-fa-enforce-datacleaner-implementation-guide">PRD v2.2-FA-ENFORCE: 資料清洗器實作指南 (DataCleaner Implementation Guide)</h1>
+<h1 id="feature-annotation-v12">強制執行版：整合 Feature Annotation v1.2 與職責分離強制機制</h1>
+<p><strong>文件版本:</strong> v2.2-FA-ENFORCE (Interface Contract Alignment &amp; SSOT Enforcement with Mandatory Output Contract Enforcement)<br />
+<strong>日期:</strong> 2026-02-13<br />
+<strong>負責人:</strong> Oscar Chang<br />
+<strong>目標模組:</strong> <code>src/etl/cleaner.py</code> (v2.2+)<br />
+<strong>上游契約:</strong> <code>src/etl/parser.py</code> (v2.1+, 輸出 UTC)<br />
+<strong>下游契約:</strong> <code>src/etl/batch_processor.py</code> (v1.3+, 輸入檢查點 #2)<br />
+<strong>關鍵相依:</strong> <code>src/features/annotation_manager.py</code> (v1.2+, 提供 device_role 查詢，但不寫入 metadata)<br />
+<strong>預估工時:</strong> 5 ~ 6 個工程天（含強制執行機制實作與 CI/CD Gate 配置）</p>
+<hr />
+<h2 id="1">1. 執行總綱與變更摘要</h2>
+<h3 id="11-v21-v22-fa-enforce">1.1 版本變更總覽 (v2.1 → v2.2-FA-ENFORCE)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">變更類別</th>
+<th style="text-align: left;">v2.1 狀態</th>
+<th style="text-align: left;">v2.2-FA-ENFORCE 修正</th>
+<th style="text-align: center;">影響層級</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>SSOT 引用</strong></td>
+<td style="text-align: left;">提及 flags 但未明確引用</td>
+<td style="text-align: left;"><strong>強制引用</strong> <code>VALID_QUALITY_FLAGS</code> 與 <code>FeatureAnnotationManager</code></td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>時區處理</strong></td>
+<td style="text-align: left;">要求輸入 UTC，但無容錯說明</td>
+<td style="text-align: left;"><strong>雙模容錯</strong> (直接通過/自動轉換)</td>
+<td style="text-align: center;">🟡 Medium</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>輸出驗證</strong></td>
+<td style="text-align: left;">基礎契約檢查</td>
+<td style="text-align: left;"><strong>強制執行契約驗證</strong> (<code>_validate_output_contract</code> + <code>_enforce_schema_sanitization</code>)</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Flags 產生</strong></td>
+<td style="text-align: left;">邏輯分散</td>
+<td style="text-align: left;"><strong>集中式 Flags 管理</strong> (統一產生與驗證)</td>
+<td style="text-align: center;">🟡 Medium</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Metadata 傳遞</strong></td>
+<td style="text-align: left;">無明確規範</td>
+<td style="text-align: left;"><strong>白名單強制過濾</strong> <code>ALLOWED_METADATA_KEYS</code>，<strong>主動淨化</strong>而非僅檢查</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Schema 淨化</strong></td>
+<td style="text-align: left;">無</td>
+<td style="text-align: left;"><strong>新增</strong>：<code>FORBIDDEN_COLS</code> 自動清除機制，防禦性編程確保禁止欄位絕不輸出</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Annotation 整合</strong></td>
+<td style="text-align: left;">無</td>
+<td style="text-align: left;"><strong>新增</strong>：讀取 <code>device_role</code> 進行語意感知清洗，但<strong>不寫入 DataFrame</strong></td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>職責分離</strong></td>
+<td style="text-align: left;">建議性描述</td>
+<td style="text-align: left;"><strong>強制執行</strong>：三層防護機制（白名單+Schema淨化+CI Gate）確保 E500 絕不發生</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>CI/CD Gate</strong></td>
+<td style="text-align: left;">測試為驗證項目</td>
+<td style="text-align: left;"><strong>Blocker 機制</strong>：<code>test_cleaner_output_no_device_role</code> 失敗阻擋合併</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+</tbody>
+</table>
+<h3 id="12">1.2 核心設計原則（強制執行版）</h3>
+<ol>
+<li><strong>Gatekeeper (守門員)</strong>: 髒數據絕不進入下游，物理不可能數據立即標記</li>
+<li><strong>SSOT 嚴格遵守</strong>: 所有品質標記、單位定義、物理限制必須引用 <code>config_models.py</code></li>
+<li><strong>職責分離強制執行 (Mandatory Separation of Concerns)</strong>:</li>
+<li><strong>Cleaner 職責</strong>：讀取 <code>device_role</code> 進行<strong>語意感知清洗</strong>（如備用設備放寬凍結檢測），但<strong>絕對禁止將 <code>device_role</code> 寫入輸出 DataFrame 或 metadata</strong></li>
+<li><strong>強制機制</strong>：透過 <code>ALLOWED_METADATA_KEYS</code> 白名單與 <code>FORBIDDEN_COLS</code> 自動清除，從技術層面杜絕誤寫入</li>
+<li><strong>下游職責</strong>：<code>FeatureEngineer</code> 直接從 <code>FeatureAnnotationManager</code> 讀取 <code>device_role</code>，不依賴 Cleaner 傳遞的 metadata</li>
+<li><strong>冪等性</strong>: 相同輸入執行多次，輸出必須完全一致 (時間戳對齊、Null 處理一致)</li>
+<li><strong>零複製銜接</strong>: 接收 Parser v2.1 的 UTC 輸出，無需時區轉換即可傳遞給 BatchProcessor</li>
+<li><strong>防禦性編程 (Defensive Programming)</strong>: 即使開發者誤寫入禁止欄位，系統自動淨化而非僅拋出警告</li>
+</ol>
+<h3 id="13-feature-annotation">1.3 與 Feature Annotation 的關係</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">graph</span><span class="w"> </span><span class="n">LR</span>
+<span class="w">    </span><span class="n">A</span><span class="p">[</span><span class="n">FeatureAnnotationManager</span><span class="p">]</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">提供查詢</span><span class="o">|</span><span class="w"> </span><span class="n">B</span><span class="p">[</span><span class="n">DataCleaner</span><span class="w"> </span><span class="n">v2</span><span class="mf">.2</span><span class="p">]</span>
+<span class="w">    </span><span class="n">B</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">讀取</span><span class="w"> </span><span class="n">device_role</span><span class="o">|</span><span class="w"> </span><span class="n">C</span><span class="p">[</span><span class="n">語意感知清洗邏輯</span><span class="p">]</span>
+<span class="w">    </span><span class="n">C</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">調整閾值</span><span class="o">|</span><span class="w"> </span><span class="n">D</span><span class="p">[</span><span class="n">凍結資料檢測</span><span class="p">]</span>
+<span class="w">    </span><span class="n">C</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">調整閾值</span><span class="o">|</span><span class="w"> </span><span class="n">E</span><span class="p">[</span><span class="n">離群值檢測</span><span class="p">]</span>
+<span class="w">    </span><span class="n">B</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">輸出</span><span class="o">|</span><span class="w"> </span><span class="n">F</span><span class="p">[</span><span class="n">Clean</span><span class="w"> </span><span class="n">DataFrame</span><span class="p">]</span>
+<span class="w">    </span><span class="n">F</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">強制淨化</span><span class="o">:</span><span class="w"> </span><span class="n">不含</span><span class="w"> </span><span class="n">device_role</span><span class="o">|</span><span class="w"> </span><span class="n">G</span><span class="p">[</span><span class="n">BatchProcessor</span><span class="w"> </span><span class="n">v1</span><span class="mf">.3</span><span class="p">]</span>
+<span class="w">    </span><span class="n">A</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">直接讀取</span><span class="o">|</span><span class="w"> </span><span class="n">H</span><span class="p">[</span><span class="n">FeatureEngineer</span><span class="w"> </span><span class="n">v1</span><span class="mf">.3</span><span class="p">]</span>
+
+<span class="w">    </span><span class="n">style</span><span class="w"> </span><span class="n">B</span><span class="w"> </span><span class="n">fill</span><span class="o">:</span><span class="err">#</span><span class="n">f9f</span><span class="p">,</span><span class="n">stroke</span><span class="o">:</span><span class="err">#</span><span class="mi">333</span><span class="p">,</span><span class="n">stroke</span><span class="o">-</span><span class="n">width</span><span class="o">:</span><span class="mi">4</span><span class="n">px</span>
+<span class="w">    </span><span class="n">style</span><span class="w"> </span><span class="n">F</span><span class="w"> </span><span class="n">fill</span><span class="o">:</span><span class="err">#</span><span class="n">bbf</span><span class="p">,</span><span class="n">stroke</span><span class="o">:</span><span class="err">#</span><span class="n">f00</span><span class="p">,</span><span class="n">stroke</span><span class="o">-</span><span class="n">width</span><span class="o">:</span><span class="mi">3</span><span class="n">px</span>
+<span class="w">    </span><span class="n">style</span><span class="w"> </span><span class="n">G</span><span class="w"> </span><span class="n">fill</span><span class="o">:</span><span class="err">#</span><span class="n">bfb</span><span class="p">,</span><span class="n">stroke</span><span class="o">:</span><span class="err">#</span><span class="mi">333</span><span class="p">,</span><span class="n">stroke</span><span class="o">-</span><span class="n">width</span><span class="o">:</span><span class="mi">2</span><span class="n">px</span>
+</code></pre></div>
+
+<p><strong>關鍵約束（強制執行）</strong>：
+- 🔴 <strong>Cleaner 不寫入 device_role</strong>：輸出 DataFrame 的 schema 中<strong>不得包含</strong> <code>device_role</code> 欄位或 metadata，且透過技術機制<strong>強制移除</strong>而非僅檢查
+- 🟡 <strong>Cleaner 讀取 device_role</strong>：僅用於內部清洗策略調整（如 <code>backup</code> 設備允許較長時間靜止值）
+- 🟢 <strong>SSOT 單一來源</strong>：所有 <code>device_role</code> 與 <code>physical_type</code> 必須來自 <code>FeatureAnnotationManager</code>，禁止硬編碼預設值</p>
+<hr />
+<h2 id="2-interface-contracts">2. 介面契約規範 (Interface Contracts)</h2>
+<h3 id="21-input-contract-from-parser-v21">2.1 輸入契約 (Input Contract from Parser v2.1)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">檢查項</th>
+<th style="text-align: left;">規範</th>
+<th style="text-align: left;">容錯處理</th>
+<th style="text-align: center;">錯誤代碼</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>timestamp</code></td>
+<td style="text-align: left;"><code>Datetime(time_unit='ns', time_zone='UTC')</code></td>
+<td style="text-align: left;">若為其他時區 → 自動轉換 UTC (Warning)</td>
+<td style="text-align: center;">E101</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>timestamp</code></td>
+<td style="text-align: left;">無未來資料 (&gt;<code>now+5min</code>)</td>
+<td style="text-align: left;">拋出例外 (Data Leakage 防護)</td>
+<td style="text-align: center;">E102</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>quality_flags</code></td>
+<td style="text-align: left;"><code>List(Utf8)</code> (可選)</td>
+<td style="text-align: left;">若存在，驗證值 ⊆ <code>VALID_QUALITY_FLAGS</code></td>
+<td style="text-align: center;">E103</td>
+</tr>
+<tr>
+<td style="text-align: left;">數值欄位</td>
+<td style="text-align: left;"><code>Float64</code> (SI 單位)</td>
+<td style="text-align: left;">單位轉換 (若配置 <code>unit_system=IMPERIAL</code>)</td>
+<td style="text-align: center;">E104</td>
+</tr>
+<tr>
+<td style="text-align: left;">編碼</td>
+<td style="text-align: left;">UTF-8，無 BOM</td>
+<td style="text-align: left;">發現 BOM → 截斷並記錄 Warning</td>
+<td style="text-align: center;">E105</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>欄位存在性</strong></td>
+<td style="text-align: left;">所有欄位必須在 Annotation 中定義</td>
+<td style="text-align: left;">未定義欄位依 <code>unannotated_column_policy</code> 處理</td>
+<td style="text-align: center;"><strong>E402</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="22-output-contract-to-batchprocessor-v13">2.2 輸出契約 (Output Contract to BatchProcessor v1.3)</h3>
+<p><strong>這是與 BatchProcessor 的硬性契約，必須嚴格遵守，且透過強制執行機制確保：</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CleanerOutputContract</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Cleaner v2.2-FA-ENFORCE 輸出資料規範（強制執行版）&quot;&quot;&quot;</span>
+
+    <span class="c1"># 1. 時間戳規範 (與 Parser v2.1 一致，直接透傳)</span>
+    <span class="n">timestamp</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">Datetime</span><span class="p">(</span><span class="n">time_unit</span><span class="o">=</span><span class="s2">&quot;ns&quot;</span><span class="p">,</span> <span class="n">time_zone</span><span class="o">=</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span>
+
+    <span class="c1"># 2. 品質標記 (核心變更：必須引用 SSOT)</span>
+    <span class="n">quality_flags</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">List</span><span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">Utf8</span><span class="p">)</span>  <span class="c1"># 值必須 ∈ VALID_QUALITY_FLAGS</span>
+
+    <span class="c1"># 3. 資料欄位 (SI 單位，無單位字元)</span>
+    <span class="n">data_columns</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">Float64</span>  <span class="c1"># 所有感測器數值</span>
+
+    <span class="c1"># 4. 時間軸完整性標記</span>
+    <span class="n">temporal_continuity</span><span class="p">:</span> <span class="nb">bool</span>  <span class="c1"># True=連續無缺漏, False=有缺漏已補Null</span>
+
+    <span class="c1"># 5. Metadata (傳遞給 BatchProcessor 寫入 Manifest)</span>
+    <span class="c1"># 【關鍵】不包含 device_role，僅包含物理類型與單位，且經過白名單強制過濾</span>
+    <span class="n">column_metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ColumnMeta</span><span class="p">]</span>  <span class="c1"># 僅限 ALLOWED_METADATA_KEYS 中的鍵</span>
+    <span class="c1"># ❌ 絕對禁止包含：device_role, ignore_warnings, is_target, role, device_type</span>
+</code></pre></div>
+
+<h3 id="23-feature-annotation">2.3 Feature Annotation 整合契約</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">項目</th>
+<th style="text-align: left;">來源</th>
+<th style="text-align: center;">使用方式</th>
+<th style="text-align: center;">是否寫入輸出</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>physical_type</code></td>
+<td style="text-align: left;"><code>FeatureAnnotationManager</code></td>
+<td style="text-align: center;">物理限制檢查、單位驗證</td>
+<td style="text-align: center;">✅ 是（經白名單過濾後寫入 metadata）</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>unit</code></td>
+<td style="text-align: left;"><code>FeatureAnnotationManager</code></td>
+<td style="text-align: center;">單位轉換驗證</td>
+<td style="text-align: center;">✅ 是（經白名單過濾後寫入 metadata）</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>device_role</code></td>
+<td style="text-align: left;"><code>FeatureAnnotationManager</code></td>
+<td style="text-align: center;"><strong>語意感知清洗策略調整</strong></td>
+<td style="text-align: center;">❌ <strong>否</strong>（僅 runtime 使用，且強制移除）</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>ignore_warnings</code></td>
+<td style="text-align: left;"><code>FeatureAnnotationManager</code></td>
+<td style="text-align: center;">決定是否標記特定 Warning</td>
+<td style="text-align: center;">❌ <strong>否</strong>（僅 runtime 使用，且強制移除）</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>is_target</code></td>
+<td style="text-align: left;"><code>FeatureAnnotationManager</code></td>
+<td style="text-align: center;">跳過特定清洗（如 target 不標記 FROZEN）</td>
+<td style="text-align: center;">❌ <strong>否</strong>（僅 runtime 使用，且強制移除）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="24-output-contract-enforcement">2.4 輸出契約強制執行機制 (Output Contract Enforcement)</h3>
+<p>為確保 E500 絕對不發生，實作層必須採用<strong>防禦性程式設計三層防護機制</strong>：</p>
+<h4 id="241-metadata-metadata-whitelist">2.4.1 第一層：Metadata 白名單機制 (Metadata Whitelist)</h4>
+<p><strong>強制要求</strong>：定義嚴格的白名單，任何不在白名單的鍵於 <code>_build_column_metadata</code> 階段<strong>自動刪除</strong>，而非僅發出警告。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 檔案: src/etl/cleaner.py</span>
+<span class="c1"># 類別層級常數定義（強制執行）</span>
+<span class="n">ALLOWED_METADATA_KEYS</span><span class="p">:</span> <span class="n">Final</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span>
+    <span class="s1">&#39;physical_type&#39;</span><span class="p">,</span> 
+    <span class="s1">&#39;unit&#39;</span><span class="p">,</span> 
+    <span class="s1">&#39;description&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;column_name&#39;</span>  <span class="c1"># 內部使用，但允許傳遞</span>
+<span class="p">})</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_sanitize_metadata_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">meta</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">column_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    強制執行：Metadata 白名單過濾</span>
+<span class="sd">    無論開發者意圖為何，僅允許 ALLOWED_METADATA_KEYS 中的鍵通過</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        meta: 原始 metadata dict（可能包含誤寫入的 device_role 等）</span>
+<span class="sd">        column_name: 欄位名稱，用於日誌記錄</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        淨化後的 metadata dict，保證僅含白名單鍵</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sanitized</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">removed_keys</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">meta</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">ALLOWED_METADATA_KEYS</span><span class="p">:</span>
+            <span class="n">sanitized</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">removed_keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+
+    <span class="c1"># 強制執行：發現禁止鍵時記錄 Warning，但絕不拋出錯誤（防禦性編程）</span>
+    <span class="k">if</span> <span class="n">removed_keys</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;[強制執行] 欄位 &#39;</span><span class="si">{</span><span class="n">column_name</span><span class="si">}</span><span class="s2">&#39; 發現禁止 metadata 鍵 </span><span class="si">{</span><span class="n">removed_keys</span><span class="si">}</span><span class="s2">，&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;已自動移除。請檢查程式碼是否誤寫入 device_role 等資訊。&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">sanitized</span>
+</code></pre></div>
+
+<h4 id="242-schema-schema-sanitization">2.4.2 第二層：Schema 強制淨化 (Schema Sanitization)</h4>
+<p><strong>強制要求</strong>：在 <code>_validate_output_contract</code> 中，使用 <code>df.select()</code> <strong>主動清除</strong>可能的禁止欄位（即使誤寫入），確保輸出 schema 絕對純淨。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 檔案: src/etl/cleaner.py</span>
+<span class="c1"># 禁止欄位定義（擴充版，包含可能的變體）</span>
+<span class="n">FORBIDDEN_COLS</span><span class="p">:</span> <span class="n">Final</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span>
+    <span class="s1">&#39;device_role&#39;</span><span class="p">,</span> 
+    <span class="s1">&#39;ignore_warnings&#39;</span><span class="p">,</span> 
+    <span class="s1">&#39;is_target&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;role&#39;</span><span class="p">,</span>           <span class="c1"># 可能的簡寫</span>
+    <span class="s1">&#39;device_type&#39;</span><span class="p">,</span>    <span class="c1"># 可能的混淆名稱</span>
+    <span class="s1">&#39;annotation_role&#39;</span><span class="p">,</span> <span class="c1"># 可能的命名</span>
+    <span class="s1">&#39;col_role&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;feature_role&#39;</span>
+<span class="p">})</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_enforce_schema_sanitization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    強制執行：Schema 淨化</span>
+<span class="sd">    使用 Polars 選擇器強制排除禁止欄位，即使這些欄位被誤寫入</span>
+
+<span class="sd">    此為防禦性編程最後防線，確保無論上游邏輯如何，輸出絕對乾淨</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        df: 可能包含禁止欄位的 DataFrame</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        淨化後的 DataFrame，保證不含 FORBIDDEN_COLS 中的任何欄位</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">current_cols</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+    <span class="n">forbidden_in_df</span> <span class="o">=</span> <span class="n">current_cols</span> <span class="o">&amp;</span> <span class="n">FORBIDDEN_COLS</span>
+
+    <span class="k">if</span> <span class="n">forbidden_in_df</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;[強制執行] 發現禁止欄位 </span><span class="si">{</span><span class="n">forbidden_in_df</span><span class="si">}</span><span class="s2"> 於輸出 DataFrame，&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;執行強制移除。這表示上游邏輯誤寫入 device_role 等資訊。&quot;</span>
+        <span class="p">)</span>
+
+        <span class="c1"># 強制執行：使用 Polars select 主動排除（絕不拋錯，確保流程繼續）</span>
+        <span class="n">clean_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">FORBIDDEN_COLS</span><span class="p">]</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">clean_cols</span><span class="p">)</span>
+
+        <span class="c1"># 記錄稽核軌跡</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[強制執行] 已移除欄位: </span><span class="si">{</span><span class="n">forbidden_in_df</span><span class="si">}</span><span class="s2">，剩餘欄位: </span><span class="si">{</span><span class="n">clean_cols</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">df</span>
+</code></pre></div>
+
+<h4 id="243-gate-unit-test-gate">2.4.3 第三層：單元測試 Gate (Unit Test Gate)</h4>
+<p><strong>強制要求</strong>：<code>test_cleaner_output_no_device_role</code> 測試案例必須通過，才能合併至 main 分支。此測試為<strong>架構防護測試 (Architecture Guard Test)</strong>，失敗即阻擋部署管線。</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 檔案: tests/test_cleaner_output_contract.py</span>
+<span class="c1"># 此測試為 CI/CD Required Status Check，失敗阻擋合併</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">TestCleanerOutputContractEnforcement</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;輸出契約強制執行測試（CI/CD Blocker）&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_cleaner_output_no_device_role</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sample_annotation_manager</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        強制執行測試：驗證輸出絕對不含 device_role 欄位或 metadata</span>
+
+<span class="sd">        此測試失敗表示：</span>
+<span class="sd">        1. 白名單機制失效，或</span>
+<span class="sd">        2. Schema 淨化失效，或  </span>
+<span class="sd">        3. 開發者繞過防護機制直接寫入</span>
+
+<span class="sd">        後果：立即阻擋合併至 main 分支（P1 優先級）</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Arrange: 建立包含 device_role 的 Annotation 環境</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">CleanerConfig</span><span class="p">(</span>
+            <span class="n">use_device_role_from_annotation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">unannotated_column_policy</span><span class="o">=</span><span class="s2">&quot;error&quot;</span>
+        <span class="p">)</span>
+        <span class="n">cleaner</span> <span class="o">=</span> <span class="n">DataCleaner</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">annotation_manager</span><span class="o">=</span><span class="n">sample_annotation_manager</span><span class="p">)</span>
+
+        <span class="c1"># 建立測試資料（模擬可能誘使寫入 role 的場景）</span>
+        <span class="n">test_data</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+            <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2026</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">tzinfo</span><span class="o">=</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)],</span>
+            <span class="s2">&quot;sensor_A&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">25.0</span><span class="p">],</span>  <span class="c1"># 假設為 backup 設備</span>
+        <span class="p">})</span>
+
+        <span class="c1"># Act: 執行清洗</span>
+        <span class="n">result_df</span><span class="p">,</span> <span class="n">metadata</span> <span class="o">=</span> <span class="n">cleaner</span><span class="o">.</span><span class="n">clean</span><span class="p">(</span><span class="n">test_data</span><span class="p">)</span>
+
+        <span class="c1"># Assert: 絕對禁止欄位檢查（硬斷言，無容錯）</span>
+        <span class="k">assert</span> <span class="s2">&quot;device_role&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">result_df</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> \
+            <span class="sa">f</span><span class="s2">&quot;E500 違規：輸出 DataFrame 包含禁止欄位 &#39;device_role&#39;。Columns: </span><span class="si">{</span><span class="n">result_df</span><span class="o">.</span><span class="n">columns</span><span class="si">}</span><span class="s2">&quot;</span>
+
+        <span class="k">assert</span> <span class="s2">&quot;role&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">result_df</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> \
+            <span class="sa">f</span><span class="s2">&quot;E500 違規：輸出 DataFrame 包含禁止欄位 &#39;role&#39;。Columns: </span><span class="si">{</span><span class="n">result_df</span><span class="o">.</span><span class="n">columns</span><span class="si">}</span><span class="s2">&quot;</span>
+
+        <span class="c1"># Assert: Metadata 白名單檢查</span>
+        <span class="k">for</span> <span class="n">col_name</span><span class="p">,</span> <span class="n">meta</span> <span class="ow">in</span> <span class="n">metadata</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">forbidden_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">&amp;</span> <span class="n">FORBIDDEN_COLS</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">forbidden_keys</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> \
+                <span class="sa">f</span><span class="s2">&quot;E500 違規：欄位 &#39;</span><span class="si">{</span><span class="n">col_name</span><span class="si">}</span><span class="s2">&#39; 的 metadata 包含禁止鍵 </span><span class="si">{</span><span class="n">forbidden_keys</span><span class="si">}</span><span class="s2">。 &quot;</span> \
+                <span class="sa">f</span><span class="s2">&quot;Metadata 內容: </span><span class="si">{</span><span class="n">meta</span><span class="si">}</span><span class="s2">&quot;</span>
+
+            <span class="c1"># 驗證僅含白名單鍵</span>
+            <span class="k">assert</span> <span class="nb">set</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">ALLOWED_METADATA_KEYS</span><span class="p">),</span> \
+                <span class="sa">f</span><span class="s2">&quot;E500 違規：欄位 &#39;</span><span class="si">{</span><span class="n">col_name</span><span class="si">}</span><span class="s2">&#39; 的 metadata 包含非白名單鍵。 &quot;</span> \
+                <span class="sa">f</span><span class="s2">&quot;允許: </span><span class="si">{</span><span class="n">ALLOWED_METADATA_KEYS</span><span class="si">}</span><span class="s2">, 實際: </span><span class="si">{</span><span class="nb">set</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_cleaner_forced_sanitization_effectiveness</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        驗證強制淨化機制有效性：即使手動注入禁止欄位，輸出仍被淨化</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cleaner</span> <span class="o">=</span> <span class="n">DataCleaner</span><span class="p">(</span><span class="n">CleanerConfig</span><span class="p">())</span>
+
+        <span class="c1"># 模擬誤寫入场景：手動構造含禁止欄位的 DataFrame</span>
+        <span class="n">contaminated_df</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+            <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2026</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">tzinfo</span><span class="o">=</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)],</span>
+            <span class="s2">&quot;sensor_A&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">25.0</span><span class="p">],</span>
+            <span class="s2">&quot;device_role&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;backup&quot;</span><span class="p">],</span>  <span class="c1"># 模擬誤寫入</span>
+            <span class="s2">&quot;ignore_warnings&quot;</span><span class="p">:</span> <span class="p">[</span><span class="kc">True</span><span class="p">]</span>   <span class="c1"># 模擬誤寫入</span>
+        <span class="p">})</span>
+
+        <span class="c1"># 透過反射呼叫內部淨化方法驗證</span>
+        <span class="n">clean_df</span> <span class="o">=</span> <span class="n">cleaner</span><span class="o">.</span><span class="n">_enforce_schema_sanitization</span><span class="p">(</span><span class="n">contaminated_df</span><span class="p">)</span>
+
+        <span class="k">assert</span> <span class="s2">&quot;device_role&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">clean_df</span><span class="o">.</span><span class="n">columns</span>
+        <span class="k">assert</span> <span class="s2">&quot;ignore_warnings&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">clean_df</span><span class="o">.</span><span class="n">columns</span>
+        <span class="k">assert</span> <span class="s2">&quot;sensor_A&quot;</span> <span class="ow">in</span> <span class="n">clean_df</span><span class="o">.</span><span class="n">columns</span>  <span class="c1"># 正常欄位保留</span>
+</code></pre></div>
+
+<hr />
+<h2 id="3-phase-based-implementation">3. 分階段實作計畫 (Phase-Based Implementation)</h2>
+<h3 id="phase-0-annotation-day-1-2">Phase 0: Annotation 整合基礎建設與強制機制 (Day 1-2, 重大更新)</h3>
+<h4 id="step-01-annotationmanager">Step 0.1: 建構子與 AnnotationManager 注入（含強制檢查）</h4>
+<p><strong>檔案</strong>: <code>src/etl/cleaner.py</code> (頂部與 <code>__init__</code>)</p>
+<p><strong>實作內容</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Final</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Any</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">polars</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pl</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span><span class="p">,</span> <span class="n">timezone</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">validator</span>
+
+<span class="c1"># 【關鍵】SSOT 嚴格引用</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">src.etl.config_models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">VALID_QUALITY_FLAGS</span><span class="p">,</span>      <span class="c1"># SSOT: 6個標準品質標記</span>
+    <span class="n">TIMESTAMP_CONFIG</span><span class="p">,</span>         <span class="c1"># SSOT: 時間戳規範 (UTC, ns)</span>
+    <span class="n">CleanerConfig</span><span class="p">,</span>           <span class="c1"># 配置模型（已移除 default_device_role）</span>
+<span class="p">)</span>
+
+<span class="c1"># 【新增】Feature Annotation 整合</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">src.features.annotation_manager</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeatureAnnotationManager</span><span class="p">,</span> <span class="n">ColumnAnnotation</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">src.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigurationError</span><span class="p">,</span> <span class="n">ContractViolationError</span><span class="p">,</span> <span class="n">DataValidationError</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">DataCleaner</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    DataCleaner v2.2-FA-ENFORCE - 整合 Feature Annotation 與職責分離強制執行機制</span>
+
+<span class="sd">    核心職責：</span>
+<span class="sd">    1. 資料清洗與品質標記（SSOT 嚴格引用）</span>
+<span class="sd">    2. 語意感知清洗（根據 device_role 調整策略，但不寫入 metadata）</span>
+<span class="sd">    3. **強制執行輸出契約**（三層防護：白名單+Schema淨化+驗證）</span>
+
+<span class="sd">    強制機制保證：</span>
+<span class="sd">    - 輸出絕對不含 device_role 等禁止欄位（即使誤寫入也自動清除）</span>
+<span class="sd">    - Metadata 僅含白名單鍵（自動過濾，不拋錯）</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># 【強制執行】類別層級常數定義</span>
+    <span class="n">ALLOWED_METADATA_KEYS</span><span class="p">:</span> <span class="n">Final</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span>
+        <span class="s1">&#39;physical_type&#39;</span><span class="p">,</span> <span class="s1">&#39;unit&#39;</span><span class="p">,</span> <span class="s1">&#39;description&#39;</span><span class="p">,</span> <span class="s1">&#39;column_name&#39;</span>
+    <span class="p">})</span>
+
+    <span class="n">FORBIDDEN_COLS</span><span class="p">:</span> <span class="n">Final</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span>
+        <span class="s1">&#39;device_role&#39;</span><span class="p">,</span> <span class="s1">&#39;ignore_warnings&#39;</span><span class="p">,</span> <span class="s1">&#39;is_target&#39;</span><span class="p">,</span> <span class="s1">&#39;role&#39;</span><span class="p">,</span> 
+        <span class="s1">&#39;device_type&#39;</span><span class="p">,</span> <span class="s1">&#39;annotation_role&#39;</span><span class="p">,</span> <span class="s1">&#39;col_role&#39;</span><span class="p">,</span> <span class="s1">&#39;feature_role&#39;</span>
+    <span class="p">})</span>
+
+    <span class="n">DEVICE_ROLE_THRESHOLDS</span><span class="p">:</span> <span class="n">Final</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;primary&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;frozen_multiplier&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+            <span class="s2">&quot;zero_ratio_warning&quot;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;backup&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;frozen_multiplier&quot;</span><span class="p">:</span> <span class="mf">3.0</span><span class="p">,</span>
+            <span class="s2">&quot;zero_ratio_warning&quot;</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;seasonal&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;frozen_multiplier&quot;</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">,</span>
+            <span class="s2">&quot;zero_ratio_warning&quot;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">config</span><span class="p">:</span> <span class="n">CleanerConfig</span><span class="p">,</span>
+        <span class="n">annotation_manager</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">FeatureAnnotationManager</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            config: 清洗配置（已移除 default_device_role）</span>
+<span class="sd">            annotation_manager: 特徵標註管理器（提供 device_role 查詢，但不寫入輸出）</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ConfigurationError: 若啟用 Annotation 整合但未提供 Manager</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">annotation</span> <span class="o">=</span> <span class="n">annotation_manager</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="s2">&quot;DataCleaner&quot;</span><span class="p">)</span>
+
+        <span class="c1"># 驗證：若啟用 Annotation 整合，必須提供 Manager</span>
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">use_device_role_from_annotation</span> <span class="ow">and</span> <span class="n">annotation_manager</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
+                <span class="s2">&quot;E402: 啟用 device_role 感知但未提供 FeatureAnnotationManager&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># 驗證：檢查常數定義完整性（防禦性檢查）</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_METADATA_KEYS</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span><span class="s2">&quot;ALLOWED_METADATA_KEYS 不可為空&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;初始化 DataCleaner (SSOT Flags: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">VALID_QUALITY_FLAGS</span><span class="p">)</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Annotation Enabled: </span><span class="si">{</span><span class="n">annotation_manager</span><span class="w"> </span><span class="ow">is</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="kc">None</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;強制執行模式: 白名單+Schema淨化)&quot;</span>
+        <span class="p">)</span>
+</code></pre></div>
+
+<h4 id="step-02-e402">Step 0.2: 未定義欄位處理策略 (E402)（維持不變，詳細實作）</h4>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_validate_columns_annotated</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    驗證所有欄位已在 Annotation 中定義 (E402)</span>
+
+<span class="sd">    策略依據 config.unannotated_column_policy:</span>
+<span class="sd">    - &quot;error&quot;: 拋出 E402 (strict_mode)</span>
+<span class="sd">    - &quot;skip&quot;: 跳過未標註欄位（不清洗，直接傳遞，但不寫入 metadata）</span>
+<span class="sd">    - &quot;warn&quot;: 記錄警告，使用保守預設進行清洗</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">use_device_role_from_annotation</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">df</span>
+
+    <span class="n">unannotated</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_skipped_columns</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>  <span class="c1"># 記錄需跳過的欄位</span>
+
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">col</span> <span class="o">==</span> <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation</span><span class="o">.</span><span class="n">is_column_annotated</span><span class="p">(</span><span class="n">col</span><span class="p">):</span>
+            <span class="n">unannotated</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">col</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">unannotated</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">df</span>
+
+    <span class="n">policy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">unannotated_column_policy</span>
+
+    <span class="k">if</span> <span class="n">policy</span> <span class="o">==</span> <span class="s2">&quot;error&quot;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">DataValidationError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;E402: 以下欄位未定義於 Feature Annotation，無法進行語意感知清洗: &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">unannotated</span><span class="si">}</span><span class="s2">。請執行: python main.py features wizard --from-csv &lt;file&gt;&quot;</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="n">policy</span> <span class="o">==</span> <span class="s2">&quot;skip&quot;</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;E402 (Skip): 跳過未定義欄位: </span><span class="si">{</span><span class="n">unannotated</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_skipped_columns</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">unannotated</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">policy</span> <span class="o">==</span> <span class="s2">&quot;warn&quot;</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;E402 (Warn): 未定義欄位使用保守預設: </span><span class="si">{</span><span class="n">unannotated</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_warned_columns</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">unannotated</span><span class="p">)</span>  <span class="c1"># 供後續使用保守邏輯</span>
+
+    <span class="k">return</span> <span class="n">df</span>
+</code></pre></div>
+
+<hr />
+<h3 id="phase-1-ssot-day-2">Phase 1: SSOT 配置與基礎建設 (Day 2)</h3>
+<h4 id="step-11-ssot">Step 1.1: SSOT 引用與物理限制（維持不變）</h4>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 物理限制常數 (SSOT，供物理驗證使用)</span>
+<span class="n">PHYSICAL_LIMITS</span><span class="p">:</span> <span class="n">Final</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;temperature&quot;</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="mf">40.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">),</span>
+    <span class="s2">&quot;flow_rate&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">10000.0</span><span class="p">),</span>
+    <span class="s2">&quot;power&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">10000.0</span><span class="p">),</span>
+    <span class="s2">&quot;pressure&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">2000.0</span><span class="p">),</span>
+    <span class="s2">&quot;frequency&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">120.0</span><span class="p">),</span>
+    <span class="s2">&quot;humidity&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">),</span>
+    <span class="s2">&quot;chiller_load&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">),</span>
+    <span class="s2">&quot;cooling_tower_load&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">),</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<hr />
+<h3 id="phase-2-day-2-3">Phase 2: 時間標準化與重採樣 (Day 2-3)</h3>
+<h4 id="step-21-23">Step 2.1-2.3: 時間處理（詳細實作）</h4>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_normalize_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Step 1: 時間戳標準化 (E101 處理)</span>
+
+<span class="sd">    邏輯：</span>
+<span class="sd">    1. 檢查是否為 Datetime 類型</span>
+<span class="sd">    2. 若無時區資訊，假設為 UTC（記錄 Warning）</span>
+<span class="sd">    3. 若為其他時區，自動轉換為 UTC（記錄 E101 Warning）</span>
+<span class="sd">    4. 統一 time_unit 為 &#39;ns&#39; 以確保精度</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="s2">&quot;timestamp&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">DataValidationError</span><span class="p">(</span><span class="s2">&quot;輸入資料缺少必要欄位 &#39;timestamp&#39;&quot;</span><span class="p">)</span>
+
+    <span class="n">ts_col</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span>
+
+    <span class="c1"># 檢查類型</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ts_col</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">pl</span><span class="o">.</span><span class="n">Datetime</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">DataValidationError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;timestamp 欄位類型錯誤: </span><span class="si">{</span><span class="n">ts_col</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># 時區處理</span>
+    <span class="n">current_tz</span> <span class="o">=</span> <span class="n">ts_col</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">time_zone</span>
+
+    <span class="k">if</span> <span class="n">current_tz</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;timestamp 無時區資訊，假設為 UTC&quot;</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span>
+            <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;timestamp&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">replace_time_zone</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;timestamp&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="n">current_tz</span> <span class="o">!=</span> <span class="s2">&quot;UTC&quot;</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;E101: 偵測到非 UTC 時區 </span><span class="si">{</span><span class="n">current_tz</span><span class="si">}</span><span class="s2">，自動轉換&quot;</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span>
+            <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;timestamp&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">convert_time_zone</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;timestamp&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="c1"># 確保精度為 nanosecond</span>
+    <span class="k">if</span> <span class="n">ts_col</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">time_unit</span> <span class="o">!=</span> <span class="s2">&quot;ns&quot;</span><span class="p">:</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span>
+            <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;timestamp&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">Datetime</span><span class="p">(</span><span class="n">time_unit</span><span class="o">=</span><span class="s2">&quot;ns&quot;</span><span class="p">,</span> <span class="n">time_zone</span><span class="o">=</span><span class="s2">&quot;UTC&quot;</span><span class="p">))</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">df</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_check_future_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Step 2: 未來資料檢查 (E102)</span>
+
+<span class="sd">    偵測未來時間戳（超過現在 5 分鐘），防止 Data Leakage</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
+    <span class="n">threshold</span> <span class="o">=</span> <span class="n">now</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+
+    <span class="n">future_mask</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">threshold</span>
+    <span class="n">future_count</span> <span class="o">=</span> <span class="n">future_mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">future_count</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">future_samples</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">future_mask</span><span class="p">)[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+        <span class="k">raise</span> <span class="n">DataValidationError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;E102: 偵測到 </span><span class="si">{</span><span class="n">future_count</span><span class="si">}</span><span class="s2"> 筆未來資料（&gt;</span><span class="si">{</span><span class="n">threshold</span><span class="si">}</span><span class="s2">）。&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;樣本: </span><span class="si">{</span><span class="n">future_samples</span><span class="si">}</span><span class="s2">。請檢查系統時鐘與資料來源。&quot;</span>
+        <span class="p">)</span>
+</code></pre></div>
+
+<hr />
+<h3 id="phase-3-semantic-aware-cleaning-day-3-4">Phase 3: 語意感知清洗 (Semantic-Aware Cleaning) (Day 3-4, 核心新增)</h3>
+<p><strong>這是 v2.2-FA-ENFORCE 的核心階段，實現「讀取 device_role 但不寫入」的職責分離，並強制執行輸出淨化</strong></p>
+<h4 id="step-31-device-role">Step 3.1: 凍結資料偵測（Device Role 感知）</h4>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_detect_frozen_data_semantic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    語意感知凍結資料偵測（嚴格執行職責分離）</span>
+
+<span class="sd">    邏輯：</span>
+<span class="sd">    - Primary 設備：連續 3 個區間值相同 → FROZEN</span>
+<span class="sd">    - Backup 設備：連續 9 個區間值相同（3×3）→ FROZEN（可能正常停機）</span>
+<span class="sd">    - Seasonal 設備：連續 6 個區間值相同（3×2）→ FROZEN</span>
+
+<span class="sd">    **關鍵**：僅讀取 device_role 調整閾值，絕不寫入 DataFrame</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">base_intervals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">physics</span><span class="o">.</span><span class="n">frozen_data_intervals</span>  <span class="c1"># 預設 3</span>
+
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="s2">&quot;quality_flags&quot;</span><span class="p">]:</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># 查詢 device_role（僅用於內部邏輯）</span>
+        <span class="n">role</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_column_role</span><span class="p">(</span><span class="n">col</span><span class="p">)</span>  <span class="c1"># 輔助方法見下方</span>
+
+        <span class="c1"># 跳過未定義欄位（若 policy=skip）</span>
+        <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_skipped_columns&#39;</span><span class="p">,</span> <span class="nb">set</span><span class="p">()):</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># 取得角色特定閾值</span>
+        <span class="n">multiplier</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEVICE_ROLE_THRESHOLDS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">role</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;frozen_multiplier&quot;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">threshold</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">base_intervals</span> <span class="o">*</span> <span class="n">multiplier</span><span class="p">)</span>
+
+        <span class="c1"># 構建凍結檢測表達式（向後看 threshold 個）</span>
+        <span class="n">is_frozen</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="n">col</span><span class="p">)</span> <span class="o">==</span> <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="n">col</span><span class="p">)</span><span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">threshold</span><span class="p">):</span>
+            <span class="n">is_frozen</span> <span class="o">=</span> <span class="n">is_frozen</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="n">col</span><span class="p">)</span> <span class="o">==</span> <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="n">col</span><span class="p">)</span><span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+
+        <span class="n">is_frozen</span> <span class="o">=</span> <span class="n">is_frozen</span> <span class="o">&amp;</span> <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="n">col</span><span class="p">)</span><span class="o">.</span><span class="n">is_not_null</span><span class="p">()</span>
+
+        <span class="c1"># 【SSOT 引用】標記 FROZEN（使用常數索引而非硬編碼）</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span>
+            <span class="n">pl</span><span class="o">.</span><span class="n">when</span><span class="p">(</span><span class="n">is_frozen</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span>
+                <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;quality_flags&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">list</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+                    <span class="n">pl</span><span class="o">.</span><span class="n">lit</span><span class="p">([</span><span class="n">VALID_QUALITY_FLAGS</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>  <span class="c1"># &quot;FROZEN&quot;</span>
+                <span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">otherwise</span><span class="p">(</span>
+                <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;quality_flags&quot;</span><span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;quality_flags&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># 記錄語意調整（僅日誌，絕不寫入資料）</span>
+        <span class="k">if</span> <span class="n">role</span> <span class="o">!=</span> <span class="s2">&quot;primary&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;[語意感知] 欄位 </span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s2"> (role=</span><span class="si">{</span><span class="n">role</span><span class="si">}</span><span class="s2">) 凍結閾值調整為 </span><span class="si">{</span><span class="n">threshold</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;(base=</span><span class="si">{</span><span class="n">base_intervals</span><span class="si">}</span><span class="s2"> × multiplier=</span><span class="si">{</span><span class="n">multiplier</span><span class="si">}</span><span class="s2">)&quot;</span>
+            <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">df</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_column_role</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">col_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    輔助方法：查詢欄位 device_role（內部使用，不暴露至輸出）</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: device_role 值（primary/backup/seasonal/unknown）</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation</span> <span class="ow">or</span> <span class="n">col_name</span> <span class="ow">in</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_skipped_columns&#39;</span><span class="p">,</span> <span class="nb">set</span><span class="p">()):</span>
+        <span class="k">return</span> <span class="s2">&quot;primary&quot;</span>  <span class="c1"># 保守預設</span>
+
+    <span class="n">col_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation</span><span class="o">.</span><span class="n">get_column_config</span><span class="p">(</span><span class="n">col_name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">col_config</span> <span class="ow">and</span> <span class="n">col_config</span><span class="o">.</span><span class="n">device_role</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">col_config</span><span class="o">.</span><span class="n">device_role</span>
+
+    <span class="k">return</span> <span class="s2">&quot;primary&quot;</span>
+</code></pre></div>
+
+<h4 id="step-32-device-role">Step 3.2: 零值比例檢查（Device Role 感知）</h4>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_check_zero_ratio_semantic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    語意感知零值檢查（W403 相關）</span>
+
+<span class="sd">    - Primary 設備：&gt;10% 零值標記警告（可能異常）</span>
+<span class="sd">    - Backup/Seasonal 設備：允許高零值比例，不標記 W403</span>
+
+<span class="sd">    **注意**：此處僅記錄日誌，實際 W403 標記應在下游根據 Annotation 產生</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="s2">&quot;quality_flags&quot;</span><span class="p">]:</span>
+            <span class="k">continue</span>
+
+        <span class="n">role</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_column_role</span><span class="p">(</span><span class="n">col</span><span class="p">)</span>
+
+        <span class="c1"># 計算零值比例（Polars 高效計算）</span>
+        <span class="n">zero_count</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="n">total_count</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">is_not_null</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">total_count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+        <span class="n">zero_ratio</span> <span class="o">=</span> <span class="n">zero_count</span> <span class="o">/</span> <span class="n">total_count</span>
+        <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">DEVICE_ROLE_THRESHOLDS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">role</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;zero_ratio_warning&quot;</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)</span>
+
+        <span class="c1"># 僅 Primary 設備記錄警告（實際標記由下游處理）</span>
+        <span class="k">if</span> <span class="n">role</span> <span class="o">==</span> <span class="s2">&quot;primary&quot;</span> <span class="ow">and</span> <span class="n">zero_ratio</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;W403: 欄位 </span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s2"> (primary) 零值比例 </span><span class="si">{</span><span class="n">zero_ratio</span><span class="si">:</span><span class="s2">.1%</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;超過閾值 </span><span class="si">{</span><span class="n">threshold</span><span class="si">:</span><span class="s2">.1%</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">role</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;backup&quot;</span><span class="p">,</span> <span class="s2">&quot;seasonal&quot;</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;[語意感知] 欄位 </span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s2"> (role=</span><span class="si">{</span><span class="n">role</span><span class="si">}</span><span class="s2">) 零值比例 </span><span class="si">{</span><span class="n">zero_ratio</span><span class="si">:</span><span class="s2">.1%</span><span class="si">}</span><span class="s2">，&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;已抑制 W403 警告（備用/季節性設備正常）&quot;</span>
+            <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">df</span>
+</code></pre></div>
+
+<h4 id="step-33-annotation-valid_range">Step 3.3: 物理限制檢查（使用 Annotation valid_range）</h4>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_apply_physical_constraints_semantic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    應用物理限制（從 Annotation 讀取 valid_range，而非僅硬編碼）</span>
+
+<span class="sd">    優先順序：</span>
+<span class="sd">    1. Annotation 中的 valid_range（若存在）</span>
+<span class="sd">    2. 本地 PHYSICAL_LIMITS（根據 physical_type 對應）</span>
+<span class="sd">    3. 保守全域預設（若皆無）</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="s2">&quot;quality_flags&quot;</span><span class="p">]:</span>
+            <span class="k">continue</span>
+
+        <span class="n">col_config</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation</span><span class="p">:</span>
+            <span class="n">col_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation</span><span class="o">.</span><span class="n">get_column_config</span><span class="p">(</span><span class="n">col</span><span class="p">)</span>
+
+        <span class="c1"># 取得 valid_range</span>
+        <span class="n">valid_range</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">col_config</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">col_config</span><span class="p">,</span> <span class="s1">&#39;valid_range&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">col_config</span><span class="o">.</span><span class="n">valid_range</span><span class="p">:</span>
+            <span class="n">valid_range</span> <span class="o">=</span> <span class="p">(</span><span class="n">col_config</span><span class="o">.</span><span class="n">valid_range</span><span class="o">.</span><span class="n">min</span><span class="p">,</span> <span class="n">col_config</span><span class="o">.</span><span class="n">valid_range</span><span class="o">.</span><span class="n">max</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># 使用本地映射</span>
+            <span class="n">physical_type</span> <span class="o">=</span> <span class="n">col_config</span><span class="o">.</span><span class="n">physical_type</span> <span class="k">if</span> <span class="n">col_config</span> <span class="k">else</span> <span class="s2">&quot;gauge&quot;</span>
+            <span class="n">valid_range</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">PHYSICAL_LIMITS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">physical_type</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">valid_range</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+        <span class="n">min_val</span><span class="p">,</span> <span class="n">max_val</span> <span class="o">=</span> <span class="n">valid_range</span>
+
+        <span class="c1"># 檢測超出範圍值</span>
+        <span class="n">is_out_of_range</span> <span class="o">=</span> <span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="n">col</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">min_val</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="n">col</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">max_val</span><span class="p">)</span>
+        <span class="n">out_of_range_count</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">is_out_of_range</span><span class="p">)</span><span class="o">.</span><span class="n">height</span>
+
+        <span class="k">if</span> <span class="n">out_of_range_count</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;欄位 </span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s2"> 發現 </span><span class="si">{</span><span class="n">out_of_range_count</span><span class="si">}</span><span class="s2"> 筆超出物理限制資料 &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;([</span><span class="si">{</span><span class="n">min_val</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">max_val</span><span class="si">}</span><span class="s2">])&quot;</span>
+            <span class="p">)</span>
+
+            <span class="c1"># 標記 PHYSICAL_IMPOSSIBLE（使用 SSOT）</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span>
+                <span class="n">pl</span><span class="o">.</span><span class="n">when</span><span class="p">(</span><span class="n">is_out_of_range</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span>
+                    <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;quality_flags&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">list</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+                        <span class="n">pl</span><span class="o">.</span><span class="n">lit</span><span class="p">([</span><span class="n">VALID_QUALITY_FLAGS</span><span class="p">[</span><span class="mi">2</span><span class="p">]])</span>  <span class="c1"># 假設索引 2 為 PHYSICAL_IMPOSSIBLE</span>
+                    <span class="p">)</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">otherwise</span><span class="p">(</span>
+                    <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;quality_flags&quot;</span><span class="p">)</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;quality_flags&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">df</span>
+</code></pre></div>
+
+<h4 id="step-34">Step 3.4: 整合語意清洗流程</h4>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_semantic_aware_cleaning</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    語意感知清洗主流程（讀取 device_role，但絕不寫入輸出）</span>
+
+<span class="sd">    此階段後，DataFrame 仍應保持「純淨」（不含 device_role 等欄位），</span>
+<span class="sd">    後續的 _enforce_schema_sanitization 作為最後防線</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;未啟用 Annotation 整合，跳過語意感知清洗&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">df</span>
+
+    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;啟動語意感知清洗（device_role 感知，輸出隔離）...&quot;</span><span class="p">)</span>
+
+    <span class="c1"># 1. 凍結資料偵測（角色感知閾值）</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_detect_frozen_data_semantic</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+
+    <span class="c1"># 2. 零值比例檢查（角色感知警告抑制）</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_zero_ratio_semantic</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+
+    <span class="c1"># 3. 物理限制檢查（使用 Annotation 中的 valid_range）</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_physical_constraints_semantic</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+
+    <span class="c1"># **關鍵**：此時 df 仍不應包含 device_role，但為防萬一，</span>
+    <span class="c1"># 最終淨化會在 _validate_output_contract 中執行</span>
+
+    <span class="k">return</span> <span class="n">df</span>
+</code></pre></div>
+
+<hr />
+<h3 id="phase-4-day-4">Phase 4: 重採樣與缺漏處理 (Day 4)</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_resample_and_fill</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Step 4: 重採樣與缺漏標記</span>
+
+<span class="sd">    確保時間軸連續，缺漏點標記 INSUFFICIENT_DATA</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resample</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">df</span>
+
+    <span class="n">interval</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resample</span><span class="o">.</span><span class="n">interval</span>
+
+    <span class="c1"># 建立完整時間軸</span>
+    <span class="n">start_time</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+    <span class="n">end_time</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+
+    <span class="c1"># 使用 Polars 重採樣</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">set_sorted</span><span class="p">(</span><span class="s2">&quot;timestamp&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">upsample</span><span class="p">(</span>
+        <span class="n">time_column</span><span class="o">=</span><span class="s2">&quot;timestamp&quot;</span><span class="p">,</span>
+        <span class="n">every</span><span class="o">=</span><span class="n">interval</span><span class="p">,</span>
+        <span class="n">by</span><span class="o">=</span><span class="kc">None</span>  <span class="c1"># 可依需求分組</span>
+    <span class="p">)</span>
+
+    <span class="c1"># 標記原本缺漏的點（upsample 產生的 null）</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="s2">&quot;quality_flags&quot;</span><span class="p">]:</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># 若數值為 null 且 quality_flags 不含 INSUFFICIENT_DATA，則添加</span>
+        <span class="n">is_missing</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="n">col</span><span class="p">)</span><span class="o">.</span><span class="n">is_null</span><span class="p">()</span>
+
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span>
+            <span class="n">pl</span><span class="o">.</span><span class="n">when</span><span class="p">(</span><span class="n">is_missing</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span>
+                <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;quality_flags&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">list</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+                    <span class="n">pl</span><span class="o">.</span><span class="n">lit</span><span class="p">([</span><span class="n">VALID_QUALITY_FLAGS</span><span class="p">[</span><span class="mi">3</span><span class="p">]])</span>  <span class="c1"># 假設 INSUFFICIENT_DATA</span>
+                <span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">otherwise</span><span class="p">(</span>
+                <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;quality_flags&quot;</span><span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;quality_flags&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="c1"># 前向填充（可選，依配置）</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">resample</span><span class="o">.</span><span class="n">fill_strategy</span> <span class="o">==</span> <span class="s2">&quot;forward&quot;</span><span class="p">:</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">fill_null</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;forward&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">df</span>
+</code></pre></div>
+
+<hr />
+<h3 id="phase-5-day-4-5">Phase 5: 輸出契約強制執行 (Day 4-5, 關鍵更新)</h3>
+<h4 id="step-51-metadata">Step 5.1: Metadata 強制淨化（白名單機制）</h4>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_build_column_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Step 7: 建構欄位元資料（嚴格白名單過濾）</span>
+
+<span class="sd">    【強制執行】使用 ALLOWED_METADATA_KEYS 白名單確保絕不輸出禁止欄位。</span>
+<span class="sd">    即使開發者在程式碼中誤寫入 device_role，也會被 _sanitize_metadata_dict 自動移除。</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Dict[str, Dict]: 僅含白名單鍵的 metadata</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">col</span> <span class="o">==</span> <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># 從 Annotation 讀取原始資訊（可能包含 device_role 等）</span>
+        <span class="n">raw_meta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_raw_metadata</span><span class="p">(</span><span class="n">col</span><span class="p">)</span>
+
+        <span class="c1"># 【強制執行】白名單過濾，自動移除禁止鍵</span>
+        <span class="n">sanitized_meta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sanitize_metadata_dict</span><span class="p">(</span><span class="n">raw_meta</span><span class="p">,</span> <span class="n">col</span><span class="p">)</span>
+
+        <span class="n">metadata</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">sanitized_meta</span>
+
+        <span class="c1"># 驗證：確保過濾後確實乾淨（防禦性檢查）</span>
+        <span class="k">assert</span> <span class="nb">set</span><span class="p">(</span><span class="n">sanitized_meta</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_METADATA_KEYS</span><span class="p">),</span> \
+            <span class="sa">f</span><span class="s2">&quot;內部錯誤：欄位 </span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s2"> 的 metadata 仍有非白名單鍵&quot;</span>
+
+    <span class="k">return</span> <span class="n">metadata</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_extract_raw_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">col_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    提取原始 metadata（可能包含禁止鍵，需後續淨化）</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;column_name&quot;</span><span class="p">:</span> <span class="n">col_name</span><span class="p">,</span>
+            <span class="s2">&quot;physical_type&quot;</span><span class="p">:</span> <span class="s2">&quot;gauge&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="s2">&quot;unknown&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;未定義欄位&quot;</span>
+        <span class="p">}</span>
+
+    <span class="n">col_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation</span><span class="o">.</span><span class="n">get_column_config</span><span class="p">(</span><span class="n">col_name</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">col_config</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;column_name&quot;</span><span class="p">:</span> <span class="n">col_name</span><span class="p">,</span>
+            <span class="s2">&quot;physical_type&quot;</span><span class="p">:</span> <span class="n">col_config</span><span class="o">.</span><span class="n">physical_type</span><span class="p">,</span>
+            <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">col_config</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">col_config</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
+            <span class="c1"># 危險：若開發者在此加入 device_role，會被後續淨化移除</span>
+            <span class="c1"># &quot;device_role&quot;: col_config.device_role,  # 錯誤示範，將被白名單過濾</span>
+        <span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># 未定義欄位（若 policy=warn）</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;column_name&quot;</span><span class="p">:</span> <span class="n">col_name</span><span class="p">,</span>
+            <span class="s2">&quot;physical_type&quot;</span><span class="p">:</span> <span class="s2">&quot;gauge&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="s2">&quot;unknown&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;未定義欄位（保守預設）&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+</code></pre></div>
+
+<h4 id="step-52-schema">Step 5.2: Schema 強制淨化與契約驗證</h4>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_validate_output_contract</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Step 6: 最終輸出驗證與強制淨化 (Interface Contract Enforcement)</span>
+
+<span class="sd">    此為三層防護的最後一層，確保無論前期邏輯如何，輸出絕對符合契約。</span>
+
+<span class="sd">    執行項目:</span>
+<span class="sd">    1. 時間戳格式驗證 (UTC, ns)</span>
+<span class="sd">    2. quality_flags 型別與內容驗證</span>
+<span class="sd">    3. **強制執行**：Schema 淨化（移除 FORBIDDEN_COLS）</span>
+<span class="sd">    4. 資料欄位型別檢查 (Float64)</span>
+<span class="sd">    5. 無未來資料二次確認</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        淨化後的 DataFrame（保證不含禁止欄位）</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ContractViolationError: 僅在無法淨化（如欄位為 Primary Key）時拋出</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">errors</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># 1. 時間戳檢查</span>
+    <span class="k">if</span> <span class="s2">&quot;timestamp&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;缺少必要欄位 &#39;timestamp&#39;&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">ts_dtype</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ts_dtype</span><span class="p">,</span> <span class="n">pl</span><span class="o">.</span><span class="n">Datetime</span><span class="p">):</span>
+            <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;timestamp 類型錯誤: </span><span class="si">{</span><span class="n">ts_dtype</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">ts_dtype</span><span class="o">.</span><span class="n">time_zone</span> <span class="o">!=</span> <span class="s2">&quot;UTC&quot;</span><span class="p">:</span>
+            <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;timestamp 時區錯誤: </span><span class="si">{</span><span class="n">ts_dtype</span><span class="o">.</span><span class="n">time_zone</span><span class="si">}</span><span class="s2">（應為 UTC）&quot;</span><span class="p">)</span>
+
+    <span class="c1"># 2. quality_flags 檢查</span>
+    <span class="k">if</span> <span class="s2">&quot;quality_flags&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;缺少必要欄位 &#39;quality_flags&#39;&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># 驗證所有 flags 皆在 SSOT 中</span>
+        <span class="n">all_flags</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;quality_flags&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">explode</span><span class="p">()</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+        <span class="n">invalid_flags</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">all_flags</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">VALID_QUALITY_FLAGS</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">invalid_flags</span><span class="p">:</span>
+            <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;發現非法品質標記: </span><span class="si">{</span><span class="n">invalid_flags</span><span class="si">}</span><span class="s2">（不在 SSOT）&quot;</span><span class="p">)</span>
+
+    <span class="c1"># 3. 【強制執行】Schema 淨化（核心更新）</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_enforce_schema_sanitization</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+
+    <span class="c1"># 4. 資料欄位型別檢查</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="s2">&quot;quality_flags&quot;</span><span class="p">]:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="n">pl</span><span class="o">.</span><span class="n">Float64</span><span class="p">:</span>
+            <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;欄位 &#39;</span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s2">&#39; 類型為 </span><span class="si">{</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">（應為 Float64）&quot;</span><span class="p">)</span>
+
+    <span class="c1"># 5. 未來資料二次確認（嚴格模式）</span>
+    <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s2">&quot;timestamp&quot;</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">now</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+        <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;E102: 輸出仍包含未來資料（時序防護失效）&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">errors</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">ContractViolationError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Cleaner 輸出契約驗證失敗 (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">errors</span><span class="p">)</span><span class="si">}</span><span class="s2"> 項):</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">errors</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;輸出契約驗證通過：</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span><span class="si">}</span><span class="s2"> 欄位，&quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;已執行 Schema 淨化（禁止欄位檢查）&quot;</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">df</span>
+</code></pre></div>
+
+<hr />
+<h2 id="4-call-chain">4. 完整方法呼叫鏈 (Call Chain)</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">clean</span><span class="p">(</span><span class="n">df</span><span class="p">:</span><span class="w"> </span><span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Tuple</span><span class="p">[</span><span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span><span class="w"> </span><span class="n">Dict</span><span class="p">]</span>
+<span class="w">  </span><span class="err">├──</span><span class="w"> </span><span class="n">_validate_columns_annotated</span><span class="p">(</span><span class="n">df</span><span class="p">)</span><span class="w">      </span><span class="c1"># Step 0: E402 檢查</span>
+<span class="w">  </span><span class="err">├──</span><span class="w"> </span><span class="n">_normalize_timestamp</span><span class="p">(</span><span class="n">df</span><span class="p">)</span><span class="w">             </span><span class="c1"># Step 1: 時區標準化 (UTC)</span>
+<span class="w">  </span><span class="err">├──</span><span class="w"> </span><span class="n">_check_future_data</span><span class="p">(</span><span class="n">df</span><span class="p">)</span><span class="w">               </span><span class="c1"># Step 2: 未來資料檢查 (E102)</span>
+<span class="w">  </span><span class="err">├──</span><span class="w"> </span><span class="n">_semantic_aware_cleaning</span><span class="p">(</span><span class="n">df</span><span class="p">)</span><span class="w">         </span><span class="c1"># Step 3: 語意感知清洗（讀取 role）</span>
+<span class="w">  </span><span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="n">_detect_frozen_data_semantic</span><span class="p">()</span><span class="w">      </span><span class="c1"># 調整閾值，但不寫入 role</span>
+<span class="w">  </span><span class="err">│</span><span class="w">   </span><span class="err">├──</span><span class="w"> </span><span class="n">_check_zero_ratio_semantic</span><span class="p">()</span><span class="w">        </span><span class="c1"># 抑制警告，但不寫入 role</span>
+<span class="w">  </span><span class="err">│</span><span class="w">   </span><span class="err">└──</span><span class="w"> </span><span class="n">_apply_physical_constraints_semantic</span><span class="p">()</span>
+<span class="w">  </span><span class="err">├──</span><span class="w"> </span><span class="n">_resample_and_fill</span><span class="p">(</span><span class="n">df</span><span class="p">)</span><span class="w">               </span><span class="c1"># Step 4: 重採樣與缺漏標記</span>
+<span class="w">  </span><span class="err">├──</span><span class="w"> </span><span class="n">_validate_quality_flags</span><span class="p">(</span><span class="n">df</span><span class="p">)</span><span class="w">          </span><span class="c1"># Step 5: Flags 合法性驗證 (E103)</span>
+<span class="w">  </span><span class="err">├──</span><span class="w"> </span><span class="n">_validate_output_contract</span><span class="p">(</span><span class="n">df</span><span class="p">)</span><span class="w">        </span><span class="c1"># Step 6: **強制執行** Schema淨化</span>
+<span class="w">  </span><span class="err">│</span><span class="w">   </span><span class="err">└──</span><span class="w"> </span><span class="n">_enforce_schema_sanitization</span><span class="p">()</span><span class="w">      </span><span class="c1"># 移除 FORBIDDEN_COLS</span>
+<span class="w">  </span><span class="err">├──</span><span class="w"> </span><span class="n">_build_column_metadata</span><span class="p">(</span><span class="n">df</span><span class="p">)</span><span class="w">           </span><span class="c1"># Step 7: **強制執行** 白名單過濾</span>
+<span class="w">  </span><span class="err">│</span><span class="w">   </span><span class="err">└──</span><span class="w"> </span><span class="n">_sanitize_metadata_dict</span><span class="p">()</span><span class="w">           </span><span class="c1"># 移除非白名單鍵</span>
+<span class="w">  </span><span class="err">└──</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="p">(</span><span class="n">clean_df</span><span class="p">,</span><span class="w"> </span><span class="n">metadata</span><span class="p">)</span><span class="w">          </span><span class="c1"># 保證絕對不含 device_role</span>
+</code></pre></div>
+
+<hr />
+<h2 id="5-error-codes-">5. 錯誤代碼對照表 (Error Codes) - 強制執行版</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">錯誤代碼</th>
+<th style="text-align: left;">名稱</th>
+<th style="text-align: center;">發生階段</th>
+<th style="text-align: left;">說明</th>
+<th style="text-align: left;">處理建議</th>
+<th style="text-align: center;">嚴重度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>E101</strong></td>
+<td style="text-align: left;"><code>TIMEZONE_MISMATCH</code></td>
+<td style="text-align: center;">Step 1</td>
+<td style="text-align: left;">輸入時區非 UTC，已自動轉換</td>
+<td style="text-align: left;">確認 Parser 版本，建議升級至 v2.1</td>
+<td style="text-align: center;">🟡 Medium</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E102</strong></td>
+<td style="text-align: left;"><code>FUTURE_DATA_DETECTED</code></td>
+<td style="text-align: center;">Step 2</td>
+<td style="text-align: left;">資料時間超過現在時間+5分鐘</td>
+<td style="text-align: left;">檢查系統時鐘與資料來源時間設定</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E103</strong></td>
+<td style="text-align: left;"><code>UNKNOWN_QUALITY_FLAG</code></td>
+<td style="text-align: center;">Step 5</td>
+<td style="text-align: left;">產生非法品質標記 (不在 SSOT)</td>
+<td style="text-align: left;">檢查程式碼硬編碼，更新 config_models</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E104</strong></td>
+<td style="text-align: left;"><code>UNIT_CONVERSION_ERROR</code></td>
+<td style="text-align: center;">Phase 3</td>
+<td style="text-align: left;">單位轉換失敗</td>
+<td style="text-align: left;">檢查輸入資料單位標註</td>
+<td style="text-align: center;">🟡 Medium</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E105</strong></td>
+<td style="text-align: left;"><code>ENCODING_WARNING</code></td>
+<td style="text-align: center;">輸入檢查</td>
+<td style="text-align: left;">發現 BOM 殘留</td>
+<td style="text-align: left;">確認 Parser 編碼處理邏輯</td>
+<td style="text-align: center;">🟢 Low</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E402</strong></td>
+<td style="text-align: left;"><code>UNANNOTATED_COLUMN</code></td>
+<td style="text-align: center;">Step 0</td>
+<td style="text-align: left;">資料欄位未定義於 Annotation</td>
+<td style="text-align: left;">執行 <code>features wizard</code> 進行標註</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E407</strong></td>
+<td style="text-align: left;"><code>CIRCULAR_INHERITANCE</code></td>
+<td style="text-align: center;">(Manager)</td>
+<td style="text-align: left;">Annotation 繼承循環</td>
+<td style="text-align: left;">檢查 YAML inherit 欄位</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E500</strong></td>
+<td style="text-align: left;"><code>OUTPUT_CONTRACT_VIOLATION</code></td>
+<td style="text-align: center;">Step 6</td>
+<td style="text-align: left;">輸出包含無法淨化的禁止欄位</td>
+<td style="text-align: left;">檢查是否有欄位為 Primary Key 且被禁止</td>
+<td style="text-align: center;">🔴 <strong>Critical</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E501</strong></td>
+<td style="text-align: left;"><code>METADATA_WHITELIST_VIOLATION</code></td>
+<td style="text-align: center;">Step 7</td>
+<td style="text-align: left;">Metadata 包含無法移除的禁止鍵</td>
+<td style="text-align: left;">內部錯誤，檢查 _sanitize_metadata_dict 實作</td>
+<td style="text-align: center;">🔴 <strong>Critical</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-test-plan-">6. 測試與驗證計畫 (Test Plan) - 強制執行版</h2>
+<h3 id="61-unit-tests-">6.1 單元測試 (Unit Tests) - 新增強制執行測試</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">測試案例 ID</th>
+<th style="text-align: left;">描述</th>
+<th style="text-align: left;">輸入</th>
+<th style="text-align: left;">預期輸出</th>
+<th style="text-align: center;">對應 Step</th>
+<th style="text-align: center;">CI/CD 屬性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">C22-001</td>
+<td style="text-align: left;">時區直接通過</td>
+<td style="text-align: left;">UTC 輸入</td>
+<td style="text-align: left;">無轉換，直接通過</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">Standard</td>
+</tr>
+<tr>
+<td style="text-align: left;">C22-002</td>
+<td style="text-align: left;">時區自動轉換</td>
+<td style="text-align: left;">Asia/Taipei 輸入</td>
+<td style="text-align: left;">正確轉 UTC，發 E101</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">Standard</td>
+</tr>
+<tr>
+<td style="text-align: left;">C22-003</td>
+<td style="text-align: left;">未來資料攔截</td>
+<td style="text-align: left;">時間戳為明天</td>
+<td style="text-align: left;">拋出 E102</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">Standard</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>C22-FA-01</strong></td>
+<td style="text-align: left;">未定義欄位處理 (error)</td>
+<td style="text-align: left;">CSV 含未標註欄位</td>
+<td style="text-align: left;">拋出 E402</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">Standard</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>C22-FA-02</strong></td>
+<td style="text-align: left;">未定義欄位處理 (skip)</td>
+<td style="text-align: left;">policy=skip</td>
+<td style="text-align: left;">跳過清洗，欄位保留但不標記</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">Standard</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>C22-FA-03</strong></td>
+<td style="text-align: left;">凍結檢測 (Primary)</td>
+<td style="text-align: left;">連續 3 筆相同值，role=primary</td>
+<td style="text-align: left;">標記 FROZEN</td>
+<td style="text-align: center;">3</td>
+<td style="text-align: center;">Standard</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>C22-FA-04</strong></td>
+<td style="text-align: left;">凍結檢測 (Backup)</td>
+<td style="text-align: left;">連續 3 筆相同值，role=backup</td>
+<td style="text-align: left;"><strong>不標記</strong> FROZEN（閾值放寬）</td>
+<td style="text-align: center;">3</td>
+<td style="text-align: center;">Standard</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>⚠️ C22-FA-05</strong></td>
+<td style="text-align: left;"><strong>職責分離 Gate Test</strong></td>
+<td style="text-align: left;">輸出 DataFrame schema</td>
+<td style="text-align: left;"><strong>絕對不包含</strong> device_role 欄位</td>
+<td style="text-align: center;">6</td>
+<td style="text-align: center;"><strong>🔴 Blocker</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>⚠️ C22-FA-06</strong></td>
+<td style="text-align: left;"><strong>Metadata Gate Test</strong></td>
+<td style="text-align: left;">輸出 metadata dict</td>
+<td style="text-align: left;">僅含白名單鍵</td>
+<td style="text-align: center;">7</td>
+<td style="text-align: center;"><strong>🔴 Blocker</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>C22-FA-07</strong></td>
+<td style="text-align: left;"><strong>強制淨化有效性</strong></td>
+<td style="text-align: left;">手動注入禁止欄位</td>
+<td style="text-align: left;">自動清除，流程不中斷</td>
+<td style="text-align: center;">6</td>
+<td style="text-align: center;"><strong>🔴 Blocker</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;">C22-008</td>
+<td style="text-align: left;">SSOT Flags 驗證</td>
+<td style="text-align: left;">硬編碼非法 flag</td>
+<td style="text-align: left;">拋出 E103</td>
+<td style="text-align: center;">5</td>
+<td style="text-align: center;">Standard</td>
+</tr>
+</tbody>
+</table>
+<h3 id="62-integration-tests">6.2 整合測試 (Integration Tests)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">測試案例 ID</th>
+<th style="text-align: left;">描述</th>
+<th style="text-align: center;">上游</th>
+<th style="text-align: center;">下游</th>
+<th style="text-align: left;">驗證目標</th>
+<th style="text-align: center;">屬性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">INT-C01</td>
+<td style="text-align: left;">Parser v2.1 → Cleaner v2.2</td>
+<td style="text-align: center;">Parser v2.1 (UTC)</td>
+<td style="text-align: center;">Cleaner v2.2</td>
+<td style="text-align: left;">無需時區轉換</td>
+<td style="text-align: center;">Standard</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>INT-C-FA-01</strong></td>
+<td style="text-align: left;"><strong>Annotation 整合流程</strong></td>
+<td style="text-align: center;">CSV + Annotation</td>
+<td style="text-align: center;">Cleaner v2.2</td>
+<td style="text-align: left;">正確讀取 role，輸出不含 role</td>
+<td style="text-align: center;"><strong>🔴 Blocker</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>INT-C-FA-02</strong></td>
+<td style="text-align: left;"><strong>Backup 設備清洗</strong></td>
+<td style="text-align: center;">backup 設備長期 0 值</td>
+<td style="text-align: center;">Cleaner → BP</td>
+<td style="text-align: left;">不標記 FROZEN/W403</td>
+<td style="text-align: center;">Standard</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-C02</td>
+<td style="text-align: left;">Cleaner → BatchProcessor</td>
+<td style="text-align: center;">Cleaner v2.2</td>
+<td style="text-align: center;">BP v1.3</td>
+<td style="text-align: left;">Manifest 正確接收 metadata</td>
+<td style="text-align: center;">Standard</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>INT-C-FA-03</strong></td>
+<td style="text-align: left;"><strong>強制淨化端到端</strong></td>
+<td style="text-align: center;">模擬誤寫入場景</td>
+<td style="text-align: center;">Full Pipeline</td>
+<td style="text-align: left;">禁止欄位被淨化，不影響下游</td>
+<td style="text-align: center;"><strong>🔴 Blocker</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="63-cicd">6.3 CI/CD 配置要求</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># .github/workflows/required-checks.yml</span>
+<span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Required Architecture Checks</span>
+
+<span class="nt">on</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">pull_request</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">branches</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="nv">main</span><span class="w"> </span><span class="p p-Indicator">]</span>
+
+<span class="nt">jobs</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">cleaner-output-contract</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">runs-on</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ubuntu-latest</span>
+<span class="w">    </span><span class="nt">steps</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/checkout@v3</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Run Cleaner Output Contract Tests</span>
+<span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<span class="w">          </span><span class="no">pytest tests/test_cleaner_output_contract.py::TestCleanerOutputContractEnforcement -v</span>
+
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Block Merge on Failure</span>
+<span class="w">        </span><span class="nt">if</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">failure()</span>
+<span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<span class="w">          </span><span class="no">echo &quot;::error::C22-FA-05 或 C22-FA-06 測試失敗：職責分離機制被破壞，禁止合併&quot;</span>
+<span class="w">          </span><span class="no">exit 1</span>
+</code></pre></div>
+
+<hr />
+<h2 id="7-risk-assessment-">7. 風險評估與緩解 (Risk Assessment) - 強制執行版</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">風險</th>
+<th style="text-align: center;">嚴重度</th>
+<th style="text-align: center;">可能性</th>
+<th style="text-align: left;">緩解措施</th>
+<th style="text-align: center;">狀態</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>職責邊界混淆</strong> (開發者誤將 device_role 寫入輸出)</td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: left;"><strong>三層防護</strong>：白名單自動過濾 + Schema 自動清除 + CI Gate 阻擋合併</td>
+<td style="text-align: center;">已實作</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>白名單繞過風險</strong> (開發者直接操作 dict 繞過 <code>_sanitize_metadata_dict</code>)</td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: center;">Low</td>
+<td style="text-align: left;"><strong>Code Review 檢查清單</strong>：檢查所有 metadata 操作是否經過白名單函數</td>
+<td style="text-align: center;">流程管控</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>效能影響</strong> (Schema 淨化增加額外 select 操作)</td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: center;">Low</td>
+<td style="text-align: left;"><strong>Polars 零複製特性</strong>：select 操作為 O(1) 指標操作，無資料複製</td>
+<td style="text-align: center;">已驗證</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Annotation 未載入</strong> (Manager 為 None 但 config 啟用)</td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: center;">Low</td>
+<td style="text-align: left;"><strong>建構子強制檢查</strong>：拋出 ConfigurationError (E402)</td>
+<td style="text-align: center;">已實作</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>時區轉換效能</strong> (大檔案時區轉換耗時)</td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: left;">Parser v2.1 輸出 UTC，正常無需轉換；舊版資料轉換時記錄 Warning</td>
+<td style="text-align: center;">已實作</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Backup 設備誤判</strong> (正常停機被標記異常)</td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: center;">Low</td>
+<td style="text-align: left;">已實作 role 感知閾值；可配置 <code>frozen_multiplier</code>；記錄調整日誌供稽核</td>
+<td style="text-align: center;">已實作</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>SSOT 版本不匹配</strong></td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: left;">CI/CD 檢查確保所有模組引用相同 commit 的 config_models</td>
+<td style="text-align: center;">流程管控</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-deliverables">8. 交付物清單 (Deliverables)</h2>
+<h3 id="81">8.1 程式碼檔案</h3>
+<ol>
+<li><code>src/etl/cleaner.py</code> - 主要實作 (v2.2-FA-ENFORCE，含三層強制執行機制)</li>
+<li><code>src/etl/config_models.py</code> - 擴充（移除 <code>default_device_role</code>，新增 <code>unannotated_column_policy</code>）</li>
+<li><code>src/utils/physics.py</code> - 熱平衡計算等物理公式（若有更新）</li>
+</ol>
+<h3 id="82">8.2 測試檔案（強制執行相關）</h3>
+<ol>
+<li><code>tests/test_cleaner_v22_fa.py</code> - v2.2-FA 專屬測試（含語意感知）</li>
+<li><code>tests/test_cleaner_output_contract.py</code> - <strong>新增</strong>：輸出契約強制執行測試（CI/CD Blocker）</li>
+<li><code>tests/test_cleaner_schema_sanitization.py</code> - <strong>新增</strong>：Schema 淨化機制單元測試</li>
+<li><code>tests/test_cleaner_whitelist_enforcement.py</code> - <strong>新增</strong>：Metadata 白名單強制過濾測試</li>
+</ol>
+<h3 id="83">8.3 文件檔案</h3>
+<ol>
+<li><code>docs/cleaner/PRD_CLEANER_v2.2-FA-ENFORCE.md</code> - 本文件</li>
+<li><code>docs/cleaner/MIGRATION_v21_to_v22_FA_ENFORCE.md</code> - 升級指引（強調強制執行機制與 CI/CD 配置）</li>
+<li><code>docs/cleaner/SEPARATION_OF_CONCERNS_SOP.md</code> - <strong>新增</strong>：職責分離標準作業程序（防止誤寫入指南）</li>
+</ol>
+<h3 id="84-cicd">8.4 CI/CD 配置</h3>
+<ol>
+<li><code>.github/workflows/required-checks.yml</code> - <strong>新增</strong>：強制執行測試 Gate 配置</li>
+</ol>
+<hr />
+<h2 id="9-sign-off-checklist-">9. 驗收簽核 (Sign-off Checklist) - 強制執行版</h2>
+<ul>
+<li>[ ] <strong>時區處理</strong>: 接收 UTC 直接通過，接收 Asia/Taipei 正確轉換並發 Warning (E101)</li>
+<li>[ ] <strong>SSOT 引用</strong>: 無硬編碼 flags，所有標記產生均使用 <code>VALID_QUALITY_FLAGS</code></li>
+<li>[ ] <strong>E402 處理</strong>: 未定義欄位依 <code>unannotated_column_policy</code> 正確處理（error/skip/warn）</li>
+<li>[ ] <strong>職責分離強制執行（三層防護）</strong>: </li>
+<li>[ ] <strong>第一層（白名單）</strong>: <code>ALLOWED_METADATA_KEYS</code> 運作正常，禁止鍵自動移除且記錄 Warning</li>
+<li>[ ] <strong>第二層（Schema 淨化）</strong>: <code>FORBIDDEN_COLS</code> 自動清除，即使手動注入禁止欄位也有效移除</li>
+<li>[ ] <strong>第三層（CI Gate）</strong>: <code>test_cleaner_output_no_device_role</code> 配置為 Required Status Check，失敗阻擋合併</li>
+<li>[ ] <strong>語意感知</strong>: Backup 設備的高零值/凍結資料正確抑制異常標記（不標記 FROZEN/W403）</li>
+<li>[ ] <strong>物理驗證</strong>: 熱平衡、凍結偵測、物理限制檢查正確運作，使用 Annotation 中的 valid_range</li>
+<li>[ ] <strong>時間軸</strong>: 重採樣後時間軸連續，缺漏點標記 <code>INSUFFICIENT_DATA</code></li>
+<li>[ ] <strong>輸出契約</strong>: 通過 <code>_validate_output_contract</code>，包含 <code>quality_flags: List[str]</code> 與強制淨化後的 schema</li>
+<li>[ ] <strong>Metadata</strong>: 正確產生並傳遞 <code>column_metadata</code> 給 BatchProcessor（經白名單過濾，僅含 physical_type, unit 等）</li>
+<li>[ ] <strong>防禦性驗證</strong>: 手動測試「故意寫入 device_role」场景，驗證系統自動淨化且不拋錯（僅記錄 Warning）</li>
+</ul>
+<hr />
+<p><strong>文件結束</strong></p>
+<p><strong>重要提醒</strong>：本版本 PRD 已將「職責分離」從<strong>建議性規範</strong>提升為<strong>技術強制機制</strong>，透過白名單、Schema 淨化與 CI/CD Gate 三層防護，確保 <code>device_role</code> 絕對不會洩漏至下游模組。任何試圖繞過這些機制的程式碼變更，皆會被自動化測試阻擋。</p>
+    
+<script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true });
+</script>
+
+</body>
+</html>

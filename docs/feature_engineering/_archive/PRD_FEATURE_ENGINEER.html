@@ -1,0 +1,160 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feature Engineering Implementation Guide</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+        h2 { margin-top: 2em; }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #dfe2e5;
+            padding: 12px;
+            text-align: left;
+        }
+        th { background-color: #f6f8fa; font-weight: bold; }
+        tr:nth-child(even) { background-color: #fdfdfd; }
+        code {
+            background-color: #f3f3f3;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 85%;
+        }
+        pre {
+            background-color: #f6f8fa;
+            padding: 16px;
+            overflow: auto;
+            border-radius: 6px;
+        }
+        blockquote {
+            margin: 0;
+            padding: 0 1em;
+            color: #6a737d;
+            border-left: 0.25em solid #dfe2e5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="prd-v10-feature-engineering-implementation-guide">PRD v1.0: 特徵工程實作指南 (Feature Engineering Implementation Guide)</h1>
+<p><strong>文件版本:</strong> v1.0
+<strong>日期:</strong> 2026-02-12
+<strong>負責人:</strong> Oscar Chang
+<strong>目標模組:</strong> <code>src/etl/feature_engineer.py</code> (New Module)</p>
+<hr />
+<h2 id="1">1. 執行總綱</h2>
+<p>本文件是構建全新 <strong>特徵工程模組 (Feature Engineer)</strong> 的施工藍圖。
+該模組專注於 <strong>「加法與創造」</strong>，嚴格禁止執行資料清洗或過濾。</p>
+<p><strong>核心職責:</strong>
+1. <strong>P1 物理特徵</strong>: 計算濕球溫度 (Wet Bulb)、焓值 (Enthalpy)。
+2. <strong>P1 時間特徵</strong>: 提取小時、星期、平假日。
+3. <strong>P2 統計特徵</strong>: 滾動平均 (Rolling)、延遲特徵 (Lags)。
+4. <strong>P3 互動特徵</strong>: 產生非線性的交互項 (如 <code>Load^2</code>)。</p>
+<hr />
+<h2 id="phase-1">Phase 1: 基礎架構與配置</h2>
+<h3 id="step-11">Step 1.1: 定義特徵配置模型</h3>
+<ul>
+<li><strong>動作</strong>: 編輯 <code>src/etl/config_models.py</code></li>
+<li><strong>內容</strong>: 新增 <code>FeatureEngineeringConfig</code>。
+  <code>python
+  class FeatureConfig(BaseModel):
+      enable_physics_features: bool = True  # 是否計算濕球/焓值
+      enable_time_features: bool = True     # 是否產生 hour, weekday
+      rolling_window_hours: List[int] = [1, 24]  # 滾動視窗大小 (小時)
+      lag_hours: List[int] = [1]            # 延遲特徵 (小時)</code></li>
+</ul>
+<h3 id="step-12">Step 1.2: 建立模組骨架</h3>
+<ul>
+<li><strong>動作</strong>: 建立 <code>src/etl/feature_engineer.py</code></li>
+<li><strong>內容</strong>:</li>
+<li>class <code>FeatureEngineer</code>:<ul>
+<li><code>__init__(self, config: FeatureConfig)</code></li>
+<li><code>transform(self, df: pl.DataFrame) -&gt; pl.DataFrame</code>: 主入口方法。</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2 id="phase-2-physics-features">Phase 2: 物理特徵引擎 (Physics Features)</h2>
+<h3 id="step-21">Step 2.1: 遷移濕球溫度計算</h3>
+<ul>
+<li><strong>動作</strong>: 從 <code>cleaner.py</code> (舊版) 提取 <code>calculate_wet_bulb_temp</code> 邏輯，重構至 <code>src/utils/physics.py</code> (新工具檔)。</li>
+<li><strong>要求</strong>:</li>
+<li>確保使用 <code>numpy</code> 或 <code>polars</code> 表達式進行向量化計算 (Vectorized)，<strong>禁止</strong>使用 for loop。</li>
+<li>輸入參數統一為 SI 制 (°C, %RH, hPa)。</li>
+</ul>
+<h3 id="step-22">Step 2.2: 實作物理轉換層</h3>
+<ul>
+<li><strong>動作</strong>: 在 <code>FeatureEngineer.transform</code> 中呼叫物理工具。</li>
+<li><strong>邏輯</strong>:</li>
+<li>識別現有欄位中的 <code>dry_bulb_temp</code> 與 <code>relative_humidity</code>。</li>
+<li>計算 <code>wet_bulb_temp</code> 與 <code>enthalpy</code>。</li>
+<li>將新欄位併入 DataFrame。</li>
+</ul>
+<hr />
+<h2 id="phase-3-time-stats">Phase 3: 時間與統計特徵 (Time &amp; Stats)</h2>
+<h3 id="step-31">Step 3.1: 實作週期性時間編碼</h3>
+<ul>
+<li><strong>動作</strong>: 在 <code>src/etl/feature_engineer.py</code> 新增 <code>_generate_time_features</code>。</li>
+<li><strong>邏輯</strong>:</li>
+<li>解析 <code>timestamp</code> 欄位。</li>
+<li>產生 <code>hour</code>, <code>day_of_week</code>, <code>is_weekend</code>。</li>
+<li>(進階) 產生 <code>hour_sin</code>, <code>hour_cos</code> (將時間映射到圓形空間，避免 23點 與 0點 距離過遠的問題)。</li>
+</ul>
+<h3 id="step-32-lag-rolling">Step 3.2: 實作 Lag 與 Rolling 特徵</h3>
+<ul>
+<li><strong>動作</strong>: 在 <code>src/etl/feature_engineer.py</code> 新增 <code>_generate_lag_rolling</code>。</li>
+<li><strong>注意</strong>: <strong>必須先確保資料的時間序列是連續的</strong> (這在 Cleaner 階段應已由 Resampling 保證)。</li>
+<li><strong>邏輯</strong>:</li>
+<li>對核心變數 (如 <code>chiller_load</code>) 執行 <code>shift(n)</code> 產生 Lag 特徵。</li>
+<li>執行 <code>rolling_mean(window_size)</code> 產生趨勢特徵。</li>
+</ul>
+<hr />
+<h2 id="phase-4">Phase 4: 整合與驗證</h2>
+<h3 id="step-41">Step 4.1: 更新主流程介面</h3>
+<ul>
+<li><strong>動作</strong>: 更新 <code>src/interface.py</code></li>
+<li><strong>內容</strong>: 在 <code>clean_data</code> 之後，<code>train_model</code> 之前，插入 <code>feature_engineer.transform()</code>。</li>
+</ul>
+<h3 id="step-42">Step 4.2: 單元測試</h3>
+<ul>
+<li><strong>動作</strong>: 建立 <code>tests/test_feature_engineer.py</code></li>
+<li><strong>Case A (Physics)</strong>: 驗證 30°C / 50% RH 的濕球溫度計算結果是否準確。</li>
+<li><strong>Case B (Time)</strong>: 驗證 23:00 的 <code>hour_sin/cos</code> 與 01:00 是否鄰近。</li>
+<li><strong>Case C (Data Leak)</strong>: 確保 Lag 特徵沒有參照到「未來」的數據。</li>
+</ul>
+<hr />
+<h2 id="5">5. 交付產物清單</h2>
+<ol>
+<li><code>src/etl/feature_engineer.py</code>: 核心程式碼。</li>
+<li><code>src/utils/physics.py</code>: 獨立的物理公式庫。</li>
+<li><code>tests/test_feature_engineer.py</code>: 測試案例。</li>
+<li><code>config/settings.yaml</code>: 新增 <code>feature_engineering</code> 設定區塊。</li>
+</ol>
+<hr />
+<h2 id="6">6. 下一步指令</h2>
+<p><strong>建議順序</strong>：先完成 <code>DataCleaner (PRD v2.0)</code> 的實作，確保地基穩固後，再開始本 PRD 的實作。</p>
+    </div>
+</body>
+</html>

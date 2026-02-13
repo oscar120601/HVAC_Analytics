@@ -1,0 +1,122 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2026-02-13 Work Plan</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+        h2 { margin-top: 2em; }
+        ul { padding-left: 20px; }
+        li { margin-bottom: 8px; }
+        code {
+            background-color: #f3f3f3;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 85%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="2026-02-13-v2">📅 2026-02-13 工作計畫：系統整合與 V2 啟動</h1>
+<p><strong>目標：</strong> 完成 ETL 架構的最後一哩路（系統整合與配置），並產出模型訓練與最佳化引擎的規格書，下午正式啟動程式碼實作。</p>
+<hr />
+<h2 id="1-0900-1200">1. 上午：架構補完與規格定義 (09:00 - 12:00)</h2>
+<p>重點在於將分散的 ETL 模組串聯起來，並定義「後 ETL 時代」的應用場景。</p>
+<h3 id="1-prd_system_integration_v10md">✅ 任務 1：撰寫 <code>PRD_SYSTEM_INTEGRATION_v1.0.md</code> (系統整合架構)</h3>
+<ul>
+<li><strong>核心目標</strong>：定義模組如何組裝，以及如何管理全域配置 (SSOT)。</li>
+<li><strong>關鍵內容</strong>：<ul>
+<li><strong>配置系統 (Configuration System)</strong>：<ul>
+<li>定義 <code>config_models.py</code> 的完整結構（含 <code>feature_mapping</code> 的 Pydantic Schema）。</li>
+<li>確立 <code>settings.yaml</code> 的階層結構。</li>
+</ul>
+</li>
+<li><strong>依賴注入 (Dependency Injection)</strong>：<ul>
+<li>設計 <code>Container</code> 類別，負責初始化 Cleaner, BatchProcessor, FeatureEngineer。</li>
+</ul>
+</li>
+<li><strong>Entry Point</strong>：<ul>
+<li>設計 <code>main.py</code> 的 CLI 介面 (e.g., <code>python main.py run-etl --date 2026-02-12</code>)。</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="2-prd_model_training_v10md">✅ 任務 2：撰寫 <code>PRD_MODEL_TRAINING_v1.0.md</code> (模型訓練管線)</h3>
+<ul>
+<li><strong>核心目標</strong>：定義從「特徵工程輸出」到「模型產出」的標準流程。</li>
+<li><strong>關鍵內容</strong>：<ul>
+<li><strong>Input Contract</strong>：如何讀取 Feature Engineer 的 Parquet 輸出。</li>
+<li><strong>Model Registry</strong>：模型檔案 (<code>.model</code>, <code>.json</code>) 的命名與版控規則。</li>
+<li><strong>Evaluation</strong>：定義驗收指標 (CVRMSE &lt; 10%, R2 &gt; 0.9)。</li>
+</ul>
+</li>
+</ul>
+<h3 id="3-prd_optimization_engine_v10md">✅ 任務 3：撰寫 <code>PRD_OPTIMIZATION_ENGINE_v1.0.md</code> (最佳化引擎)</h3>
+<ul>
+<li><strong>核心目標</strong>：定義如何利用訓練好的模型進行參數建議。</li>
+<li><strong>關鍵內容</strong>：<ul>
+<li><strong>Objective Function</strong>：最小化 <code>KW/RT</code> 或 <code>Total KW</code>。</li>
+<li><strong>Constraints</strong>：定義物理限制 (e.g., 冰水出水溫不可低於 6.5°C)。</li>
+<li><strong>Output Format</strong>：建議值的 JSON 結構 (供與控制系統對接)。</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2 id="2-v2-1300-1800">2. 下午：V2 實作啟動 (13:00 - 18:00)</h2>
+<p>結束純文件工作，開始寫 Code，驗證架構設計的可行性。</p>
+<h3 id="4-ssot-stage-0-1">🚀 任務 4：建立 SSOT 核心 (Stage 0-1)</h3>
+<ul>
+<li><strong>檔案</strong>：<code>src/etl/config_models.py</code></li>
+<li><strong>實作細節</strong>：<ul>
+<li>定義 <code>VALID_QUALITY_FLAGS</code> (Cleaner/Batch/Feature 共用)。</li>
+<li>實作 <code>ParquetOutputConfig</code> (強制 INT64/UTC)。</li>
+<li>實作 <code>FeatureMapping</code> 的 Pydantic 模型 (取代舊的 pure dict)。</li>
+</ul>
+</li>
+</ul>
+<h3 id="5-stage-0-2">🚀 任務 5：建立專案骨架 (Stage 0-2)</h3>
+<ul>
+<li><strong>檔案</strong>：<code>src/main.py</code>, <code>src/container.py</code></li>
+<li><strong>實作細節</strong>：<ul>
+<li>建立空的 <code>ETLConfig</code> 載入邏輯。</li>
+<li>設定全域 Logger。</li>
+<li>建立一個 "Hello World" 等級的 Pipeline 串接測試。</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2 id="3-deliverables">3. 預期交付產物 (Deliverables)</h2>
+<ol>
+<li>📄 <code>docs/integration/PRD_SYSTEM_INTEGRATION_v1.0.md</code></li>
+<li>📄 <code>docs/modeling/PRD_MODEL_TRAINING_v1.0.md</code></li>
+<li>📄 <code>docs/optimization/PRD_OPTIMIZATION_ENGINE_v1.0.md</code></li>
+<li>💻 <code>src/etl/config_models.py</code> (Source Code)</li>
+</ol>
+<hr />
+<h2 id="4">4. 風險預警</h2>
+<ul>
+<li><strong>Feature Mapping 遷移風險</strong>：舊的 <code>feature_mapping.py</code> 結構雜亂，轉移到 Pydantic 時可能會發現缺少 metadata (如 unit, physical_type)。下午實作時需優先盤點缺漏。</li>
+</ul>
+    </div>
+</body>
+</html>

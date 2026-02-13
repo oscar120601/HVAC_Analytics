@@ -1,0 +1,1568 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PRD_Chiller_Plant_Optimization_V1.1</title>
+    
+<style>
+    body { 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
+        line-height: 1.6; 
+        max-width: 900px; 
+        margin: 0 auto; 
+        padding: 40px 20px; 
+        color: #24292e; 
+        background-color: #ffffff;
+    }
+    h1, h2, h3, h4, h5, h6 { 
+        margin-top: 24px; 
+        margin-bottom: 16px; 
+        font-weight: 600; 
+        color: #24292e;
+    }
+    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    h3 { font-size: 1.25em; }
+    p { margin-top: 0; margin-bottom: 16px; }
+    a { color: #0366d6; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    table { 
+        display: block; 
+        width: 100%; 
+        overflow: auto; 
+        border-spacing: 0; 
+        border-collapse: collapse; 
+        margin-bottom: 16px; 
+    }
+    table th, table td { 
+        padding: 6px 13px; 
+        border: 1px solid #dfe2e5; 
+    }
+    table th { 
+        font-weight: 600; 
+        background-color: #f6f8fa; 
+    }
+    table tr:nth-child(2n) { 
+        background-color: #f6f8fa; 
+    }
+    code { 
+        font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; 
+        background-color: #f6f8fa; 
+        padding: 0.2em 0.4em; 
+        border-radius: 3px; 
+        font-size: 85%; 
+    }
+    pre { 
+        background-color: #f6f8fa; 
+        padding: 16px; 
+        overflow: auto; 
+        border-radius: 3px; 
+        line-height: 1.45; 
+    }
+    pre code { 
+        background-color: transparent; 
+        padding: 0; 
+        border-radius: 0; 
+    }
+    blockquote { 
+        border-left: 0.25em solid #dfe2e5; 
+        color: #6a737d; 
+        padding: 0 1em; 
+        margin: 0 0 16px 0; 
+    }
+    hr {
+        height: 0.25em;
+        padding: 0;
+        margin: 24px 0;
+        background-color: #e1e4e8;
+        border: 0;
+    }
+    .mermaid {
+        display: flex;
+        justify-content: center;
+        margin: 20px 0;
+    }
+</style>
+
+</head>
+<body>
+    <h1 id="prd-v11-chiller-plant-optimization-engine">PRD v1.1: 冰水主機房最佳化引擎 (Chiller Plant Optimization Engine)</h1>
+<h1 id="_1">離線建議模式：設備組合最佳化與節能評估</h1>
+<p><strong>文件版本:</strong> v1.1 (System-Level Optimization &amp; Model Registry Integration)<br />
+<strong>日期:</strong> 2026-02-13<br />
+<strong>負責人:</strong> Oscar Chang<br />
+<strong>目標模組:</strong> <code>src/optimization/engine.py</code>, <code>src/optimization/constraints.py</code>, <code>src/optimization/scenarios.py</code>, <code>src/optimization/model_interface.py</code><br />
+<strong>上游契約:</strong> <code>src/modeling/training_pipeline.py</code> (v1.2+, Model Registry Index)<br />
+<strong>關鍵相依:</strong> <code>src/features/annotation_manager.py</code> (v1.2+, 提供物理限制與設備角色)<br />
+<strong>預估工時:</strong> 6 ~ 7 個工程天（含模型註冊表整合、特徵向量化、系統級黑盒優化）</p>
+<hr />
+<h2 id="1">1. 執行總綱與設計哲學</h2>
+<h3 id="11">1.1 核心目標</h3>
+<p>建立<strong>離線配置最佳化引擎</strong>，採用<strong>系統級黑盒建模（System-Level Blackbox）</strong>策略，支援兩種工程決策模式：</p>
+<ol>
+<li><strong>負載驅動模式 (Load-Driven)</strong>：給定目標冷凍噸 RT，輸出最佳設備組合（開幾台主機、水泵頻率、冷卻水塔轉速）以達到最低總耗電 kW</li>
+<li><strong>效率驅動模式 (Efficiency-Driven)</strong>：給定目標效率 kW/RT，反推設備參數配置，並提供改善前後節能量評估</li>
+</ol>
+<h3 id="12">1.2 設計原則</h3>
+<ol>
+<li><strong>系統級黑盒優先</strong>: 採用 Model Training v1.2 的 <code>system_total_kw</code> 作為單一預測目標，透過 Model Registry Index 載入，確保預測精度與設備耦合效應（Copula effect）的完整性</li>
+<li><strong>混合整數規劃 (MIP) + 連續優化</strong>：設備啟停為離散變數（0/1），頻率轉速為連續變數（Hz/%）</li>
+<li><strong>邏輯約束優先</strong>：設備啟停需符合物理依賴關係（如開主機必須開對應冷卻水塔），再進行能耗優化</li>
+<li><strong>多案場繼承</strong>：支援 <code>base.yaml</code> → <code>site.yaml</code> 的設定繼承，不同案場可覆寫設備數量、效率曲線、約束條件</li>
+<li><strong>模型版本綁定</strong>：載入 Model Training v1.2 輸出的模型時，強制驗證 <code>model_registry_index.json</code> 中的 <code>annotation_checksum</code> 與當前 Feature Annotation v1.2 的相容性</li>
+<li><strong>特徵向量化層</strong>：明確定義設備配置（config）到模型特徵向量（feature vector）的轉換層，確保與訓練時特徵工程一致</li>
+<li><strong>離線報告輸出</strong>：產生工程師可讀的優化建議報告（Markdown + JSON 雙格式），非即時控制介面</li>
+</ol>
+<h3 id="13">1.3 與上游模組的關係</h3>
+<div class="codehilite"><pre><span></span><code><span class="nx">graph</span><span class="w"> </span><span class="nx">LR</span>
+<span class="w">    </span><span class="nx">A</span><span class="p">[</span><span class="nx">Model</span><span class="w"> </span><span class="nx">Training</span><span class="w"> </span><span class="nx">v1</span><span class="m m-Double">.2</span><span class="p">&lt;</span><span class="nx">br</span><span class="o">/</span><span class="p">&gt;</span><span class="nx">Model</span><span class="w"> </span><span class="nx">Registry</span><span class="w"> </span><span class="nx">Index</span><span class="p">]</span><span class="w"> </span><span class="o">--</span><span class="p">&gt;</span><span class="o">|</span><span class="nx">載入</span><span class="w"> </span><span class="nx">system_total_kw</span><span class="p">&lt;</span><span class="nx">br</span><span class="o">/</span><span class="p">&gt;</span><span class="nx">驗證</span><span class="w"> </span><span class="nx">checksum</span><span class="o">|</span><span class="w"> </span><span class="nx">B</span><span class="p">[</span><span class="nx">Optimization</span><span class="w"> </span><span class="nx">Engine</span><span class="w"> </span><span class="nx">v1</span><span class="m m-Double">.1</span><span class="p">]</span>
+<span class="w">    </span><span class="nx">C</span><span class="p">[</span><span class="nx">Feature</span><span class="w"> </span><span class="nx">Annotation</span><span class="w"> </span><span class="nx">v1</span><span class="m m-Double">.2</span><span class="p">&lt;</span><span class="nx">br</span><span class="o">/</span><span class="p">&gt;</span><span class="nx">physical_types</span><span class="p">.</span><span class="nx">yaml</span><span class="p">]</span><span class="w"> </span><span class="o">--</span><span class="p">&gt;</span><span class="o">|</span><span class="nx">物理限制</span><span class="p">&lt;</span><span class="nx">br</span><span class="o">/</span><span class="p">&gt;</span><span class="nx">valid_range</span><span class="o">|</span><span class="w"> </span><span class="nx">B</span>
+<span class="w">    </span><span class="nx">D</span><span class="p">[</span><span class="nx">Optimization</span><span class="w"> </span><span class="nx">Config</span><span class="p">&lt;</span><span class="nx">br</span><span class="o">/</span><span class="p">&gt;</span><span class="nx">sites</span><span class="o">/</span><span class="p">{</span><span class="nx">site_id</span><span class="p">}.</span><span class="nx">yaml</span><span class="p">]</span><span class="w"> </span><span class="o">--</span><span class="p">&gt;</span><span class="o">|</span><span class="nx">邏輯約束</span><span class="p">&lt;</span><span class="nx">br</span><span class="o">/</span><span class="p">&gt;</span><span class="nx">設備依賴關係</span><span class="o">|</span><span class="w"> </span><span class="nx">B</span>
+<span class="w">    </span><span class="nx">E</span><span class="p">[</span><span class="nx">工程師輸入</span><span class="p">&lt;</span><span class="nx">br</span><span class="o">/</span><span class="p">&gt;</span><span class="nx">RT</span><span class="w"> </span><span class="nx">或</span><span class="w"> </span><span class="nx">kW</span><span class="o">/</span><span class="nx">RT</span><span class="w"> </span><span class="nx">目標</span><span class="p">]</span><span class="w"> </span><span class="o">--</span><span class="p">&gt;</span><span class="o">|</span><span class="nx">最佳化目標</span><span class="o">|</span><span class="w"> </span><span class="nx">B</span>
+<span class="w">    </span><span class="nx">F</span><span class="p">[</span><span class="nx">環境資料</span><span class="p">&lt;</span><span class="nx">br</span><span class="o">/</span><span class="p">&gt;</span><span class="nx">weather</span><span class="p">.</span><span class="nx">csv</span><span class="p">]</span><span class="w"> </span><span class="o">--</span><span class="p">&gt;</span><span class="o">|</span><span class="nx">外氣條件</span><span class="o">|</span><span class="w"> </span><span class="nx">B</span>
+<span class="w">    </span><span class="nx">B</span><span class="w"> </span><span class="o">--</span><span class="p">&gt;</span><span class="o">|</span><span class="nx">配置建議</span><span class="o">|</span><span class="w"> </span><span class="nx">G</span><span class="p">[</span><span class="nx">離線報告</span><span class="p">&lt;</span><span class="nx">br</span><span class="o">/</span><span class="p">&gt;</span><span class="nx">改善前</span><span class="o">/</span><span class="nx">後評估</span><span class="p">]</span>
+
+<span class="w">    </span><span class="nx">style</span><span class="w"> </span><span class="nx">B</span><span class="w"> </span><span class="nx">fill</span><span class="p">:</span><span class="err">#</span><span class="nx">f9f</span><span class="p">,</span><span class="nx">stroke</span><span class="p">:</span><span class="err">#</span><span class="mi">333</span><span class="p">,</span><span class="nx">stroke</span><span class="o">-</span><span class="nx">width</span><span class="p">:</span><span class="mi">4</span><span class="nx">px</span>
+<span class="w">    </span><span class="nx">style</span><span class="w"> </span><span class="nx">G</span><span class="w"> </span><span class="nx">fill</span><span class="p">:</span><span class="err">#</span><span class="nx">bbf</span><span class="p">,</span><span class="nx">stroke</span><span class="p">:</span><span class="err">#</span><span class="mi">00</span><span class="nx">f</span><span class="p">,</span><span class="nx">stroke</span><span class="o">-</span><span class="nx">width</span><span class="p">:</span><span class="mi">2</span><span class="nx">px</span>
+</code></pre></div>
+
+<h3 id="14">1.4 訓練模式銜接策略</h3>
+<p>本引擎<strong>預設採用 System-Level 黑盒模式</strong>（對應 Training v1.2 模式 A），原因：
+1. 考慮設備間耦合效應（Copula effect），預測精度最高
+2. 簡化優化邏輯（單一預測目標）
+3. 與 Model Registry Index 標準格式無縫整合</p>
+<p><strong>當 Training 採用 Hybrid 模式（模式 C）時</strong>：
+- Optimization Engine 以 <code>system_total_kw</code> 為主要預測依據（必要）
+- Component-Level 模型（<code>chiller_1_kw</code> 等）僅用於節能報告中的耗電佔比分析（選用）
+- 若 System Model 與 Component Models 加總差異 &gt;5%，觸發警告 E805，但仍以 System Model 為準</p>
+<hr />
+<h2 id="2-interface-contracts">2. 介面契約規範 (Interface Contracts)</h2>
+<h3 id="21-input-contract-from-model-training-v12">2.1 輸入契約 (Input Contract from Model Training v1.2)</h3>
+<p><strong>檢查點 #8: Model Training → Optimization Engine</strong></p>
+<p>Optimization Engine 不再直接載入個別 <code>.joblib</code> 檔案，而是透過 <strong>Model Registry Index</strong> 統一管理：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">檢查項</th>
+<th style="text-align: left;">規格</th>
+<th style="text-align: center;">錯誤代碼</th>
+<th style="text-align: left;">處理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Registry Index 存在</strong></td>
+<td style="text-align: left;"><code>models/{site_id}/model_registry_index.json</code> 必須存在</td>
+<td style="text-align: center;">E801</td>
+<td style="text-align: left;">拒絕載入</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>目標模型可用</strong></td>
+<td style="text-align: left;"><code>system_total_kw</code> 必須在 <code>available_models</code> 中且 <code>optional: false</code></td>
+<td style="text-align: center;">E804</td>
+<td style="text-align: left;">拒絕載入</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Annotation 版本相容</strong></td>
+<td style="text-align: left;"><code>annotation_checksum</code> 比對當前 FeatureAnnotationManager</td>
+<td style="text-align: center;">E802</td>
+<td style="text-align: left;">拒絕載入</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>特徵維度對齊</strong></td>
+<td style="text-align: left;"><code>feature_count</code> 與 Optimization Config 特徵數一致</td>
+<td style="text-align: center;">E803</td>
+<td style="text-align: left;">拒絕載入</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>模型檔案完整性</strong></td>
+<td style="text-align: left;">Manifest 中引用的 <code>.joblib</code> 檔案存在且 checksum 驗證通過</td>
+<td style="text-align: center;">E801</td>
+<td style="text-align: left;">拒絕載入</td>
+</tr>
+</tbody>
+</table>
+<p><strong>ModelRegistry 實作規範</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ModelRegistry</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    模型註冊表：載入與驗證 Model Training v1.2 輸出</span>
+<span class="sd">    統一透過 model_registry_index.json 作為入口</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_from_registry</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
+        <span class="n">target_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;system_total_kw&quot;</span><span class="p">,</span>
+        <span class="n">pinned_timestamp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MultiModelArtifact</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        載入流程：</span>
+<span class="sd">        1. 讀取 models/{site_id}/model_registry_index.json</span>
+<span class="sd">        2. 驗證 schema_version &gt;= 1.2</span>
+<span class="sd">        3. 驗證 annotation_checksum（E802）</span>
+<span class="sd">        4. 依 target_id 找到對應 ModelEntry</span>
+<span class="sd">        5. 若 pinned_timestamp 指定，載入該版本；否則載入最新版本</span>
+<span class="sd">        6. 載入該 target 的 ensemble_manifest.json</span>
+<span class="sd">        7. 驗證 model 檔案 checksum</span>
+<span class="sd">        8. 回傳 MultiModelArtifact（含最佳模型與備援模型）</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            site_id: 案場識別碼</span>
+<span class="sd">            target_id: 預設 &quot;system_total_kw&quot;，可選 &quot;chiller_1_kw&quot; 等（Hybrid 診斷用）</span>
+<span class="sd">            pinned_timestamp: 鎖定特定版本（格式：YYYYMMDD_HHMMSS），確保重現性</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            E801: Model Registry Index 不存在或模型檔案遺失</span>
+<span class="sd">            E802: Annotation checksum 不匹配</span>
+<span class="sd">            E804: 請求的 target_id 不可用</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_hybrid_consistency</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> 
+        <span class="n">ambient</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Hybrid 模式一致性檢查：</span>
+<span class="sd">        - 使用 system_total_kw 預測總耗電</span>
+<span class="sd">        - 使用各 component models 預測並加總</span>
+<span class="sd">        - 比較兩者差異百分比</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            (is_consistent, discrepancy_percent)</span>
+<span class="sd">            is_consistent: discrepancy &lt;= tolerance</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+</code></pre></div>
+
+<h3 id="22-feature-vectorization">2.2 特徵向量化契約 (Feature Vectorization)</h3>
+<p><strong>檢查點 #8.5: Optimization Config → Model Features</strong></p>
+<p>將設備配置（離散+連續變數）轉換為模型輸入特徵向量，需與 Training v1.2 的特徵工程邏輯完全一致：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FeatureVectorizer</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    將 Optimization 的設備配置轉換為 ML 模型輸入特徵</span>
+<span class="sd">    確保特徵順序、名稱、縮放方式與訓練時一致</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site_config</span><span class="p">:</span> <span class="n">OptimizationConfig</span><span class="p">,</span> <span class="n">model_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            site_config: 案場設備配置（含設備 ID 對應關係）</span>
+<span class="sd">            model_features: 從 ModelEntry 讀取的特徵名稱列表（順序敏感）</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_features</span> <span class="o">=</span> <span class="n">model_features</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feature_scalers</span> <span class="o">=</span> <span class="n">site_config</span><span class="o">.</span><span class="n">feature_scalers</span>  <span class="c1"># 從 Training 繼承的縮放參數</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">vectorize</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">discrete_vars</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">],</span>      <span class="c1"># 如 {&quot;chiller_1_on&quot;: True, &quot;chiller_2_on&quot;: False}</span>
+        <span class="n">continuous_vars</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>   <span class="c1"># 如 {&quot;chiller_1_load_percent&quot;: 0.6, &quot;chw_pump_1_hz&quot;: 45}</span>
+        <span class="n">ambient</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>            <span class="c1"># 如 {&quot;wet_bulb_temp&quot;: 26.5, &quot;dry_bulb_temp&quot;: 32.0}</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        轉換邏輯：</span>
+<span class="sd">        1. 合併 discrete_vars（bool → float 1.0/0.0）</span>
+<span class="sd">        2. 合併 continuous_vars（單位轉換：Hz→%，RT→正規化等）</span>
+<span class="sd">        3. 合併 ambient（外氣條件）</span>
+<span class="sd">        4. 依照 self.model_features 的順序排列</span>
+<span class="sd">        5. 套用特徵縮放（若訓練時有使用 StandardScaler）</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: shape (n_features,)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_alignment</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        驗證 E803：確保 Optimization Config 能產生所有 model_features 所需的欄位</span>
+<span class="sd">        回傳 False 表示缺少必要特徵，無法進行預測</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+</code></pre></div>
+
+<h3 id="23">2.3 約束條件來源（雙軌制）</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">約束類型</th>
+<th style="text-align: left;">來源</th>
+<th style="text-align: left;">內容範例</th>
+<th style="text-align: center;">嚴格度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>物理限制</strong></td>
+<td style="text-align: left;">Feature Annotation v1.2</td>
+<td style="text-align: left;"><code>chiller_out_temp &gt;= 6.5</code> (°C), <code>pump_hz &lt;= 60</code></td>
+<td style="text-align: center;">硬約束 (Hard)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>邏輯約束</strong></td>
+<td style="text-align: left;">Optimization Config v1.1</td>
+<td style="text-align: left;"><code>chiller_1_on → ct_1_on</code> (開主機1必須開冷卻塔1)</td>
+<td style="text-align: center;">硬約束 (Hard)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>運行邊界</strong></td>
+<td style="text-align: left;">Optimization Config v1.1</td>
+<td style="text-align: left;"><code>min_chiller_load = 30%</code> (最低載率限制)</td>
+<td style="text-align: center;">硬約束 (Hard)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>偏好約束</strong></td>
+<td style="text-align: left;">Optimization Config v1.1</td>
+<td style="text-align: left;"><code>prefer_backup = true</code> (優先使用備用機組)</td>
+<td style="text-align: center;">軟約束 (Soft)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="24">2.4 工程師輸入介面</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">OptimizationRequest</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;最佳化請求（離線模式）&quot;&quot;&quot;</span>
+
+    <span class="c1"># 案場識別</span>
+    <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span>
+
+    <span class="c1"># 模式選擇（互斥）</span>
+    <span class="n">mode</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;load_driven&quot;</span><span class="p">,</span> <span class="s2">&quot;efficiency_driven&quot;</span><span class="p">]</span>
+
+    <span class="c1"># 模式 A：負載驅動</span>
+    <span class="n">target_rt</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># 目標冷凍噸，例如 500.0 RT</span>
+
+    <span class="c1"># 模式 B：效率驅動</span>
+    <span class="n">target_kw_per_rt</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># 目標效率，例如 0.65 kW/RT</span>
+
+    <span class="c1"># 環境條件（對應審查報告 3.1 建議）</span>
+    <span class="n">ambient_conditions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># 即時指定</span>
+    <span class="n">ambient_file</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># 從 CSV 檔案讀取歷史天氣資料進行批次模擬</span>
+
+    <span class="c1"># 運行邊界（可選，覆寫 Config 預設）</span>
+    <span class="n">constraints_override</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># 當前狀態（用於改善前後比較）</span>
+    <span class="n">current_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># 例如 {&quot;chiller_count&quot;: 2, &quot;pump_hz&quot;: 45, ...}</span>
+
+    <span class="c1"># 模型版本控制（v1.1 新增）</span>
+    <span class="n">model_version_policy</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;auto_update&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>                    <span class="c1"># 是否自動使用最新訓練的模型</span>
+        <span class="s2">&quot;pinned_timestamp&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>                <span class="c1"># 鎖定特定版本（確保重現性）</span>
+        <span class="s2">&quot;fallback_on_error&quot;</span><span class="p">:</span> <span class="kc">True</span>                <span class="c1"># 載入失敗時是否允許使用次佳模型</span>
+    <span class="p">}</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">OptimizationResponse</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;最佳化回應&quot;&quot;&quot;</span>
+
+    <span class="c1"># 最佳化結果</span>
+    <span class="n">recommended_config</span><span class="p">:</span> <span class="n">Dict</span>  <span class="c1"># 設備組合與參數</span>
+    <span class="n">predicted_kw</span><span class="p">:</span> <span class="nb">float</span>       <span class="c1"># 預測總耗電（來自 system_total_kw 模型）</span>
+    <span class="n">predicted_kw_per_rt</span><span class="p">:</span> <span class="nb">float</span>  <span class="c1"># 預測效率</span>
+
+    <span class="c1"># 預測信心區間（若使用 Random Forest 或啟用區間預測）</span>
+    <span class="n">prediction_interval</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># {&quot;lower&quot;: 290, &quot;upper&quot;: 310}</span>
+
+    <span class="c1"># 改善評估（若提供 current_config）</span>
+    <span class="n">baseline_kw</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">savings_kw</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">savings_percent</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">annual_savings_estimate</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># 年度預估節電量 (kWh)</span>
+
+    <span class="c1"># Hybrid 模式診斷資訊（若 Component Models 可用）</span>
+    <span class="n">component_breakdown</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># {&quot;chiller_1_kw&quot;: 150, &quot;pump_kw&quot;: 30, ...}</span>
+    <span class="n">hybrid_consistency_check</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># {&quot;system_pred&quot;: 300, &quot;component_sum&quot;: 295, &quot;discrepancy&quot;: 1.7%}</span>
+
+    <span class="c1"># 約束狀態</span>
+    <span class="n">constraint_violations</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>  <span class="c1"># 若有軟約束違反</span>
+    <span class="n">binding_constraints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>    <span class="c1"># 起作用的有效約束</span>
+
+    <span class="c1"># 模型資訊</span>
+    <span class="n">model_used</span><span class="p">:</span> <span class="nb">str</span>                   <span class="c1"># 實際使用的模型名稱（如 &quot;xgboost&quot;）</span>
+    <span class="n">model_timestamp</span><span class="p">:</span> <span class="nb">str</span>              <span class="c1"># 模型版本時間戳</span>
+
+    <span class="c1"># 報告</span>
+    <span class="n">recommendation_text</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># 工程師可讀的建議說明</span>
+    <span class="n">scenario_analysis</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># 多情境比較（如開1台vs2台）</span>
+</code></pre></div>
+
+<hr />
+<h2 id="3">3. 系統架構與核心模組</h2>
+<h3 id="31-feature-annotation-v12">3.1 多案場配置系統（繼承 Feature Annotation v1.2 模式）</h3>
+<p><strong>檔案結構</strong>：</p>
+<div class="codehilite"><pre><span></span><code>config/optimization/
+├── base.yaml                    # 基礎設備模型與通用約束
+├── sites/
+│   ├── cgmh_ty.yaml            # 長庚醫院桃園院區（繼承 base）
+│   └── farglory_o3.yaml        # 遠雄 O3（繼承 base）
+└── schemas/
+    └── optimization_schema.json # JSON Schema 驗證
+</code></pre></div>
+
+<p><strong>base.yaml 範例（v1.1 更新版）</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">schema_version</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;1.1&quot;</span>
+<span class="nt">inherit</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;none&quot;</span>
+
+<span class="c1"># 模型註冊表設定（v1.1 新增：取代個別 model_file）</span>
+<span class="nt">model_registry</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">index_file</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;models/{site_id}/model_registry_index.json&quot;</span><span class="w">  </span><span class="c1"># 統一入口</span>
+<span class="w">  </span><span class="nt">default_target</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;system_total_kw&quot;</span><span class="w">                         </span><span class="c1"># 預設使用系統級模型</span>
+<span class="w">  </span><span class="nt">fallback_to_components</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">                             </span><span class="c1"># 是否允許退回到 Component-Level 加總</span>
+<span class="w">  </span><span class="nt">version_policy</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">auto_update</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">                                      </span><span class="c1"># 預設鎖定版本，避免重現性問題</span>
+<span class="w">    </span><span class="nt">pinned_timestamp</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">                                  </span><span class="c1"># 指定版本，如 &quot;20260213_120000&quot;</span>
+
+<span class="c1"># 設備清單與規格（移除 model_file，改為純配置）</span>
+<span class="nt">equipment</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">chillers</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chiller_1</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">centrifugal</span>
+<span class="w">      </span><span class="nt">capacity_rt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
+<span class="w">      </span><span class="nt">min_load_percent</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span><span class="w">  </span><span class="c1"># 最低載率 30%</span>
+<span class="w">      </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;chw_pump_1&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;ct_1&quot;</span><span class="p p-Indicator">]</span><span class="w">  </span><span class="c1"># 邏輯約束：開機需開啟的輔助設備</span>
+<span class="w">      </span><span class="nt">device_role</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">primary</span>
+
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chiller_2</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">screw</span>
+<span class="w">      </span><span class="nt">capacity_rt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">200</span>
+<span class="w">      </span><span class="nt">min_load_percent</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">25</span>
+<span class="w">      </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;chw_pump_2&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;ct_2&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">device_role</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">backup</span>
+
+<span class="w">  </span><span class="nt">pumps</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chw_pump_1</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chilled_water</span>
+<span class="w">      </span><span class="nt">max_hz</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span>
+<span class="w">      </span><span class="nt">min_hz</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
+<span class="w">      </span><span class="nt">efficiency_curve</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;pump_curve_1.json&quot;</span><span class="w">  </span><span class="c1"># 僅作為物理約束參考，非預測模型</span>
+
+<span class="w">  </span><span class="nt">cooling_towers</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ct_1</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">induced_draft</span>
+<span class="w">      </span><span class="nt">capacity_kw</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1500</span>
+<span class="w">      </span><span class="nt">fan_speed_min</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span><span class="w">  </span><span class="c1"># %</span>
+<span class="w">      </span><span class="nt">fan_speed_max</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+
+<span class="c1"># 特徵映射設定（v1.1 新增：對應 Model Training 的特徵名稱）</span>
+<span class="nt">feature_mapping</span><span class="p">:</span>
+<span class="w">  </span><span class="c1"># 定義設備變數如何映射到模型特徵名稱</span>
+<span class="w">  </span><span class="c1"># 若為空，預設使用 {device_id}_{parameter} 格式</span>
+<span class="w">  </span><span class="nt">mappings</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">chiller_1_on</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chiller_1_status&quot;</span>
+<span class="w">    </span><span class="nt">chiller_1_load_percent</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chiller_1_load_ratio&quot;</span>
+<span class="w">    </span><span class="nt">chw_pump_1_hz</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chw_pump_1_frequency&quot;</span>
+<span class="w">    </span><span class="nt">wet_bulb_temp</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;ambient_wb_temp&quot;</span>
+
+<span class="c1"># 邏輯約束定義（Logic Constraints）</span>
+<span class="nt">logic_constraints</span><span class="p">:</span>
+<span class="w">  </span><span class="c1"># 互鎖約束（Interlock）</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">requires</span>
+<span class="w">    </span><span class="nt">if</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chiller_1_on&quot;</span>
+<span class="w">    </span><span class="nt">then</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;chw_pump_1_on&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;ct_1_on&quot;</span><span class="p p-Indicator">]</span>
+
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">requires</span>
+<span class="w">    </span><span class="nt">if</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chiller_2_on&quot;</span>
+<span class="w">    </span><span class="nt">then</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;chw_pump_2_on&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;ct_2_on&quot;</span><span class="p p-Indicator">]</span>
+
+<span class="w">  </span><span class="c1"># 互斥約束（Mutual Exclusion）- 可選</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mutex</span>
+<span class="w">    </span><span class="nt">devices</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;chiller_1&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;chiller_2&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">reason</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;電力容量限制，不可同時滿載&quot;</span>
+
+<span class="w">  </span><span class="c1"># 順序約束（Sequence）- 開機順序</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sequence</span>
+<span class="w">    </span><span class="nt">startup</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;ct_1&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;chw_pump_1&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;chiller_1&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">shutdown</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;chiller_1&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;chw_pump_1&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;ct_1&quot;</span><span class="p p-Indicator">]</span>
+
+<span class="w">  </span><span class="c1"># 運行時間約束（v1.1 新增：對應審查報告 3.3 建議）</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">min_runtime</span>
+<span class="w">    </span><span class="nt">device</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chiller_1&quot;</span>
+<span class="w">    </span><span class="nt">minutes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span><span class="w">  </span><span class="c1"># 最小運行 30 分鐘，防止頻繁啟停</span>
+
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">min_downtime</span>
+<span class="w">    </span><span class="nt">device</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;chiller_1&quot;</span>
+<span class="w">    </span><span class="nt">minutes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15</span><span class="w">  </span><span class="c1"># 最小停機 15 分鐘</span>
+
+<span class="c1"># 優化參數</span>
+<span class="nt">optimization</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">algorithm</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;differential_evolution&quot;</span><span class="w">  </span><span class="c1"># 或 &quot;slsqp&quot;（僅連續變數）</span>
+<span class="w">  </span><span class="nt">max_iter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000</span>
+<span class="w">  </span><span class="nt">population_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span><span class="w">  </span><span class="c1"># 遺傳演算法參數</span>
+<span class="w">  </span><span class="nt">constraint_tolerance</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.01</span>
+
+<span class="w">  </span><span class="c1"># 切換懲罰（v1.1 新增：防止頻繁啟停）</span>
+<span class="w">  </span><span class="nt">switching_penalty_kw</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5.0</span><span class="w">  </span><span class="c1"># 每次狀態切換增加 5kW 等效成本</span>
+
+<span class="w">  </span><span class="c1"># 目標函數權重（多目標時使用）</span>
+<span class="w">  </span><span class="nt">objectives</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;total_kw&quot;</span>
+<span class="w">      </span><span class="nt">weight</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.7</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;equipment_wear&quot;</span>
+<span class="w">      </span><span class="nt">weight</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.3</span><span class="w">  </span><span class="c1"># 設備磨耗懲罰（減少頻繁啟停）</span>
+
+<span class="c1"># 物理限制（可覆寫 Annotation 的值，但建議保持一致）</span>
+<span class="nt">physical_constraints</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">chiller_out_temp</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">min</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6.5</span><span class="w">  </span><span class="c1"># °C，覆寫 Annotation 若存在</span>
+<span class="w">    </span><span class="nt">max</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8.0</span>
+</code></pre></div>
+
+<h3 id="32-constraint-engine">3.2 約束引擎（Constraint Engine）</h3>
+<p><strong>檔案</strong>: <code>src/optimization/constraints.py</code></p>
+<p><strong>核心類別</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ConstraintEngine</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    統一約束管理器</span>
+<span class="sd">    整合物理限制（來自 Annotation）與邏輯約束（來自 Config）</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site_config</span><span class="p">:</span> <span class="n">OptimizationConfig</span><span class="p">,</span> <span class="n">annotation_manager</span><span class="p">:</span> <span class="n">FeatureAnnotationManager</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">physical_limits</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_physical_limits</span><span class="p">(</span><span class="n">annotation_manager</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logic_constraints</span> <span class="o">=</span> <span class="n">LogicConstraintGraph</span><span class="p">(</span><span class="n">site_config</span><span class="o">.</span><span class="n">logic_constraints</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equipment_specs</span> <span class="o">=</span> <span class="n">site_config</span><span class="o">.</span><span class="n">equipment</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">switching_penalty</span> <span class="o">=</span> <span class="n">site_config</span><span class="o">.</span><span class="n">optimization</span><span class="o">.</span><span class="n">switching_penalty_kw</span>  <span class="c1"># v1.1 新增</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_configuration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        驗證給定配置是否滿足所有硬約束</span>
+<span class="sd">        回傳: (是否可行, 違反的約束列表)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">violations</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># 1. 邏輯約束檢查</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">logic_constraints</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">config</span><span class="p">):</span>
+            <span class="n">violations</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">logic_constraints</span><span class="o">.</span><span class="n">get_violations</span><span class="p">())</span>
+
+        <span class="c1"># 2. 物理限制檢查</span>
+        <span class="k">for</span> <span class="n">device_id</span><span class="p">,</span> <span class="n">params</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">limits</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">physical_limits</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">device_id</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_limits</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">limits</span><span class="p">):</span>
+                <span class="n">violations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Physical limit violated: </span><span class="si">{</span><span class="n">device_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># 3. 設備規格檢查（載率、頻率範圍）</span>
+        <span class="k">for</span> <span class="n">eq_type</span><span class="p">,</span> <span class="n">devices</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">equipment_specs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">device</span> <span class="ow">in</span> <span class="n">devices</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_equipment_spec</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">device</span><span class="p">):</span>
+                    <span class="n">violations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Equipment spec violated: </span><span class="si">{</span><span class="n">device</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># 4. 運行時間約束檢查（v1.1 新增）</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_runtime_constraints</span><span class="p">(</span><span class="n">config</span><span class="p">):</span>
+            <span class="n">violations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Runtime constraint violated: min_runtime/min_downtime&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">violations</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">violations</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">calculate_switching_cost</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prev_config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">new_config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        計算狀態切換懲罰（v1.1 新增）</span>
+<span class="sd">        用於在目標函數中懲罰頻繁啟停</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">switches</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">prev_config</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">key</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;_on&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">prev_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="o">!=</span> <span class="n">new_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>
+                <span class="n">switches</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">switches</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">switching_penalty</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_feasible_regions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_rt</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        預篩選：給定目標 RT，找出所有可行的設備組合（離散變數枚舉）</span>
+<span class="sd">        回傳: 可行的設備啟停組合列表（連續變數尚未決定）</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># 使用 MIP 或簡單枚舉（若設備數量少）</span>
+        <span class="k">pass</span>
+</code></pre></div>
+
+<p><strong>邏輯約束圖（LogicConstraintGraph）</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">LogicConstraintGraph</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    設備依賴關係圖</span>
+<span class="sd">    支援 requires, mutex, sequence, min_runtime, min_downtime 五種約束</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constraints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">]):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">graph</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">DiGraph</span><span class="p">()</span>  <span class="c1"># NetworkX</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mutex_groups</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sequences</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">runtime_constraints</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># v1.1 新增：運行時間約束</span>
+
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">constraints</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">c</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;requires&#39;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;if&#39;</span><span class="p">],</span> <span class="n">c</span><span class="p">[</span><span class="s1">&#39;then&#39;</span><span class="p">])</span>
+            <span class="k">elif</span> <span class="n">c</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;mutex&#39;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">mutex_groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;devices&#39;</span><span class="p">]))</span>
+            <span class="k">elif</span> <span class="n">c</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;sequence&#39;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">sequences</span><span class="p">[</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;startup&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;shutdown&#39;</span><span class="p">,</span> <span class="p">[])</span>
+            <span class="k">elif</span> <span class="n">c</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;min_runtime&#39;</span><span class="p">,</span> <span class="s1">&#39;min_downtime&#39;</span><span class="p">]:</span>  <span class="c1"># v1.1 新增</span>
+                <span class="n">device</span> <span class="o">=</span> <span class="n">c</span><span class="p">[</span><span class="s1">&#39;device&#39;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">device</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">runtime_constraints</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">runtime_constraints</span><span class="p">[</span><span class="n">device</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">runtime_constraints</span><span class="p">[</span><span class="n">device</span><span class="p">][</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">c</span><span class="p">[</span><span class="s1">&#39;minutes&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">check</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">runtime_history</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        檢查邏輯約束</span>
+<span class="sd">        runtime_history: 設備運行歷史（用於檢查 min_runtime/min_downtime）</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># 檢查 requires：若 if 為 True，則 then 必須都為 True</span>
+        <span class="c1"># 檢查 mutex：同一組內不可同時為 True（或根據容量限制）</span>
+        <span class="c1"># 檢查 sequence：開關機順序（若提供歷史資料）</span>
+        <span class="c1"># 檢查 runtime：若 runtime_history 提供，驗證運行/停機時間</span>
+        <span class="k">pass</span>
+</code></pre></div>
+
+<hr />
+<h2 id="4-phase-based-implementation">4. 分階段實作計畫 (Phase-Based Implementation)</h2>
+<h3 id="phase-0-day-1">Phase 0: 模型載入與相容性驗證 (Day 1)</h3>
+<p><strong>Step 0.1: ModelRegistry 實作（v1.1 重大更新）</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ModelRegistry</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    模型註冊表：載入與驗證 Model Training v1.2 輸出</span>
+<span class="sd">    統一透過 model_registry_index.json 作為單一入口</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">models_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;models&quot;</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">models_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">models_dir</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># 快取載入的模型</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_from_registry</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
+        <span class="n">target_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;system_total_kw&quot;</span><span class="p">,</span>
+        <span class="n">pinned_timestamp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MultiModelArtifact</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        從 Model Registry Index 載入指定模型</span>
+
+<span class="sd">        流程：</span>
+<span class="sd">        1. 讀取 models/{site_id}/model_registry_index.json</span>
+<span class="sd">        2. 驗證 schema_version &gt;= 1.2（E801）</span>
+<span class="sd">        3. 比對 annotation_checksum（E802）</span>
+<span class="sd">        4. 尋找 target_id（E804）</span>
+<span class="sd">        5. 載入 MultiModelArtifact</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">index_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">models_dir</span> <span class="o">/</span> <span class="n">site_id</span> <span class="o">/</span> <span class="s2">&quot;model_registry_index.json&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">index_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="n">OptimizationError</span><span class="p">(</span><span class="s2">&quot;E801&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Model Registry Index 不存在: </span><span class="si">{</span><span class="n">index_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">index_path</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+        <span class="c1"># 驗證版本</span>
+        <span class="k">if</span> <span class="n">index</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;schema_version&#39;</span><span class="p">)</span> <span class="o">!=</span> <span class="s1">&#39;1.2&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Registry 版本 </span><span class="si">{</span><span class="n">index</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;schema_version&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2"> 非預期 1.2&quot;</span><span class="p">)</span>
+
+        <span class="c1"># 驗證 Annotation Checksum（關鍵檢查點）</span>
+        <span class="n">current_checksum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_current_annotation_checksum</span><span class="p">(</span><span class="n">site_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">index</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;annotation_checksum&#39;</span><span class="p">)</span> <span class="o">!=</span> <span class="n">current_checksum</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">OptimizationError</span><span class="p">(</span>
+                <span class="s2">&quot;E802&quot;</span><span class="p">,</span> 
+                <span class="sa">f</span><span class="s2">&quot;Annotation checksum 不匹配。模型訓練時: </span><span class="si">{</span><span class="n">index</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;annotation_checksum&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;當前: </span><span class="si">{</span><span class="n">current_checksum</span><span class="si">}</span><span class="s2">。請重新訓練模型或更新 Annotation。&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># 尋找目標模型</span>
+        <span class="n">available</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;available_models&#39;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="k">if</span> <span class="n">target_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">available</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">OptimizationError</span><span class="p">(</span>
+                <span class="s2">&quot;E804&quot;</span><span class="p">,</span> 
+                <span class="sa">f</span><span class="s2">&quot;目標模型 </span><span class="si">{</span><span class="n">target_id</span><span class="si">}</span><span class="s2"> 不可用。可用目標: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">available</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">model_entry</span> <span class="o">=</span> <span class="n">available</span><span class="p">[</span><span class="n">target_id</span><span class="p">]</span>
+
+        <span class="c1"># 版本控制（v1.1 新增）</span>
+        <span class="k">if</span> <span class="n">pinned_timestamp</span><span class="p">:</span>
+            <span class="c1"># 尋找特定版本</span>
+            <span class="n">manifest_pattern</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">target_id</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">pinned_timestamp</span><span class="si">}</span><span class="s2">_ensemble_manifest.json&quot;</span>
+            <span class="n">manifest_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">models_dir</span> <span class="o">/</span> <span class="n">site_id</span> <span class="o">/</span> <span class="n">manifest_pattern</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">manifest_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="n">OptimizationError</span><span class="p">(</span><span class="s2">&quot;E801&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;指定的模型版本不存在: </span><span class="si">{</span><span class="n">manifest_pattern</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># 使用最新版本（根據 index 中的 path）</span>
+            <span class="n">manifest_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">models_dir</span> <span class="o">/</span> <span class="n">site_id</span> <span class="o">/</span> <span class="n">model_entry</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">]</span>
+
+        <span class="c1"># 載入 MultiModelArtifact</span>
+        <span class="k">return</span> <span class="n">MultiModelArtifact</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">manifest_path</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_feature_names</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">target_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;system_total_kw&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        取得模型預期的特徵名稱列表（供 FeatureVectorizer 使用）</span>
+<span class="sd">        用於驗證 E803（特徵維度對齊）</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># 從 index 或 manifest 讀取 feature_names（若 Training v1.2 提供）</span>
+        <span class="k">pass</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_hybrid_consistency</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> 
+        <span class="n">ambient</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Hybrid 模式一致性檢查（v1.1 新增）</span>
+<span class="sd">        比較 System Model 預測與 Component Models 加總</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">system_artifact</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_from_registry</span><span class="p">(</span><span class="n">site_id</span><span class="p">,</span> <span class="s2">&quot;system_total_kw&quot;</span><span class="p">)</span>
+            <span class="n">system_pred</span> <span class="o">=</span> <span class="n">system_artifact</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">ambient</span><span class="p">)</span>
+
+            <span class="c1"># 嘗試載入各 component models</span>
+            <span class="n">component_sum</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">components</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">):</span>  <span class="c1"># 假設最多 4 台主機</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">chiller_art</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_from_registry</span><span class="p">(</span><span class="n">site_id</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;chiller_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">_kw&quot;</span><span class="p">)</span>
+                    <span class="n">pred</span> <span class="o">=</span> <span class="n">chiller_art</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">ambient</span><span class="p">)</span>
+                    <span class="n">component_sum</span> <span class="o">+=</span> <span class="n">pred</span>
+                    <span class="n">components</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;chiller_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">_kw&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pred</span>
+                <span class="k">except</span> <span class="n">OptimizationError</span><span class="p">:</span>
+                    <span class="k">continue</span>
+
+            <span class="n">discrepancy</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">system_pred</span> <span class="o">-</span> <span class="n">component_sum</span><span class="p">)</span> <span class="o">/</span> <span class="n">system_pred</span> <span class="k">if</span> <span class="n">system_pred</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
+
+            <span class="k">return</span> <span class="n">discrepancy</span> <span class="o">&lt;=</span> <span class="n">tolerance</span><span class="p">,</span> <span class="p">{</span>
+                <span class="s2">&quot;system_prediction&quot;</span><span class="p">:</span> <span class="n">system_pred</span><span class="p">,</span>
+                <span class="s2">&quot;component_sum&quot;</span><span class="p">:</span> <span class="n">component_sum</span><span class="p">,</span>
+                <span class="s2">&quot;discrepancy_percent&quot;</span><span class="p">:</span> <span class="n">discrepancy</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span>
+                <span class="s2">&quot;components&quot;</span><span class="p">:</span> <span class="n">components</span><span class="p">,</span>
+                <span class="s2">&quot;within_tolerance&quot;</span><span class="p">:</span> <span class="n">discrepancy</span> <span class="o">&lt;=</span> <span class="n">tolerance</span>
+            <span class="p">}</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)}</span>
+</code></pre></div>
+
+<p><strong>Step 0.2: FeatureVectorizer 實作（v1.1 新增）</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FeatureVectorizer</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    將 Optimization 配置轉換為模型特徵向量</span>
+<span class="sd">    確保與 Training v1.2 的特徵工程一致</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site_config</span><span class="p">:</span> <span class="n">OptimizationConfig</span><span class="p">,</span> <span class="n">model_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_features</span> <span class="o">=</span> <span class="n">model_features</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feature_mapping</span> <span class="o">=</span> <span class="n">site_config</span><span class="o">.</span><span class="n">feature_mapping</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mappings&#39;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scaler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_scaler</span><span class="p">(</span><span class="n">site_config</span><span class="p">)</span>  <span class="c1"># 載入訓練時的 StandardScaler</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">vectorize</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">discrete_vars</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">],</span>
+        <span class="n">continuous_vars</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+        <span class="n">ambient</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        轉換流程：</span>
+<span class="sd">        1. 合併所有變數</span>
+<span class="sd">        2. 套用特徵名稱映射（若 config 中有定義）</span>
+<span class="sd">        3. 依照 model_features 順序排列</span>
+<span class="sd">        4. 套用縮放（若需要）</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># 合併變數</span>
+        <span class="n">features</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># 處理離散變數（bool → float）</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">discrete_vars</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">mapped_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_mapping</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+            <span class="n">features</span><span class="p">[</span><span class="n">mapped_key</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="k">if</span> <span class="n">value</span> <span class="k">else</span> <span class="mf">0.0</span>
+
+        <span class="c1"># 處理連續變數（單位轉換）</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">continuous_vars</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">mapped_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_mapping</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+            <span class="c1"># 轉換邏輯：例如 load_percent 從 % 轉為 ratio</span>
+            <span class="k">if</span> <span class="s1">&#39;percent&#39;</span> <span class="ow">in</span> <span class="n">key</span> <span class="ow">and</span> <span class="s1">&#39;ratio&#39;</span> <span class="ow">in</span> <span class="n">mapped_key</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">value</span> <span class="o">/</span> <span class="mf">100.0</span>
+            <span class="n">features</span><span class="p">[</span><span class="n">mapped_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+        <span class="c1"># 處理環境變數</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">ambient</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">mapped_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_mapping</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+            <span class="n">features</span><span class="p">[</span><span class="n">mapped_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+        <span class="c1"># 依照 model_features 順序建立向量</span>
+        <span class="n">vector</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">features</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_features</span><span class="p">])</span>
+
+        <span class="c1"># 套用縮放</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">scaler</span><span class="p">:</span>
+            <span class="n">vector</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scaler</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">vector</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">vector</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_alignment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site_config</span><span class="p">:</span> <span class="n">OptimizationConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        驗證 E803：檢查是否能產生所有必要的特徵</span>
+<span class="sd">        回傳: (是否對齊, 缺少的特徵列表)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># 檢查必要特徵是否存在對應</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">feat</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_features</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">feat</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_mapping</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="c1"># 檢查是否可從設備配置推導</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_can_derive</span><span class="p">(</span><span class="n">feat</span><span class="p">,</span> <span class="n">site_config</span><span class="p">):</span>
+                    <span class="n">missing</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">feat</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">missing</span>
+</code></pre></div>
+
+<p><strong>錯誤碼定義（與 Training v1.2 對齊）</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">OptimizationError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="n">ERROR_CODES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;E801&quot;</span><span class="p">:</span> <span class="s2">&quot;MODEL_REGISTRY_ERROR - 無法載入 Model Registry Index 或模型檔案&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;E802&quot;</span><span class="p">:</span> <span class="s2">&quot;ANNOTATION_VERSION_MISMATCH - 模型訓練時的 Annotation checksum 與當前不符&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;E803&quot;</span><span class="p">:</span> <span class="s2">&quot;FEATURE_DIMENSION_MISMATCH - 特徵數量或名稱與模型預期不符&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;E804&quot;</span><span class="p">:</span> <span class="s2">&quot;TARGET_NOT_AVAILABLE - 請求的 target_id（如 system_total_kw）在 Registry 中不存在&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;E805&quot;</span><span class="p">:</span> <span class="s2">&quot;HYBRID_INCONSISTENCY - Component Models 加總與 System Model 預測差異過大（&gt;5%）&quot;</span><span class="p">,</span>
+        <span class="c1"># ... 其他原有錯誤碼</span>
+    <span class="p">}</span>
+</code></pre></div>
+
+<h3 id="phase-1-day-2-3">Phase 1: 約束引擎與可行解空間 (Day 2-3)</h3>
+<p><strong>Step 1.1: 物理限制載入</strong>
+- 從 <code>FeatureAnnotationManager</code> 讀取 <code>physical_types</code> 的 <code>valid_range</code>
+- 與 Optimization Config 中的 <code>physical_constraints</code> 合併（Config 優先）</p>
+<p><strong>Step 1.2: 邏輯約束引擎（含 v1.1 新增）</strong>
+- 實作 <code>LogicConstraintGraph</code>，支援 requires/mutex/sequence/min_runtime/min_downtime
+- 實作 <code>get_feasible_combinations()</code>：枚舉所有滿足邏輯約束的設備啟停組合
+- <strong>新增</strong>：<code>calculate_switching_penalty()</code> 計算狀態切換懲罰</p>
+<p><strong>Step 1.3: 可行解預篩選</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">enumerate_feasible_combinations</span><span class="p">(</span><span class="n">target_rt</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">site_config</span><span class="p">:</span> <span class="n">OptimizationConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    給定目標 RT，找出所有可行的設備啟停組合</span>
+<span class="sd">    策略：</span>
+<span class="sd">    1. 計算需要的總容量（target_rt / 總可用容量）</span>
+<span class="sd">    2. 枚舉所有組合（若設備數 &lt;= 8，可用窮舉；否則用啟發式）</span>
+<span class="sd">    3. 用邏輯約束過濾（requires, mutex, sequence）</span>
+<span class="sd">    4. 用物理限制過濾（如最低載率）</span>
+<span class="sd">    5. 用運行時間約束過濾（若提供歷史狀態）</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">pass</span>
+</code></pre></div>
+
+<h3 id="phase-2-day-3-4">Phase 2: 最佳化核心 (Day 3-4)</h3>
+<p><strong>Step 2.1: 目標函數封裝（v1.1 更新）</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ObjectiveFunction</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    支援兩種模式的目标函数（v1.1 更新：整合切換懲罰）</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
+        <span class="n">target_value</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> 
+        <span class="n">model_registry</span><span class="p">:</span> <span class="n">ModelRegistry</span><span class="p">,</span>
+        <span class="n">constraint_engine</span><span class="p">:</span> <span class="n">ConstraintEngine</span><span class="p">,</span>
+        <span class="n">vectorizer</span><span class="p">:</span> <span class="n">FeatureVectorizer</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">mode</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="n">target_value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">models</span> <span class="o">=</span> <span class="n">model_registry</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span> <span class="o">=</span> <span class="n">constraint_engine</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vectorizer</span> <span class="o">=</span> <span class="n">vectorizer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prev_config</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># 用於計算切換懲罰</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">continuous_vars</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> 
+        <span class="n">discrete_vars</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> 
+        <span class="n">ambient</span><span class="p">:</span> <span class="n">Dict</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        回傳損失值（越小越好）</span>
+<span class="sd">        v1.1 更新：</span>
+<span class="sd">        - 使用 FeatureVectorizer 轉換特徵</span>
+<span class="sd">        - 加入切換懲罰（switching_penalty）</span>
+<span class="sd">        - 支援預測區間（若使用 RF）</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">discrete_vars</span><span class="p">,</span> <span class="o">**</span><span class="n">continuous_vars</span><span class="p">}</span>
+
+        <span class="c1"># 特徵向量化</span>
+        <span class="n">feature_vector</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vectorizer</span><span class="o">.</span><span class="n">vectorize</span><span class="p">(</span><span class="n">discrete_vars</span><span class="p">,</span> <span class="n">continuous_vars</span><span class="p">,</span> <span class="n">ambient</span><span class="p">)</span>
+
+        <span class="c1"># 取得預測（透過 ModelRegistry）</span>
+        <span class="n">prediction_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">predict_with_interval</span><span class="p">(</span>
+            <span class="n">feature_vector</span><span class="p">,</span> 
+            <span class="n">target_id</span><span class="o">=</span><span class="s2">&quot;system_total_kw&quot;</span>
+        <span class="p">)</span>
+        <span class="n">predicted_kw</span> <span class="o">=</span> <span class="n">prediction_result</span><span class="p">[</span><span class="s1">&#39;prediction&#39;</span><span class="p">]</span>
+
+        <span class="c1"># 計算基礎損失</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;load_driven&quot;</span><span class="p">:</span>
+            <span class="c1"># 目標：滿足 RT 的前提下，最小化 kW</span>
+            <span class="n">predicted_rt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calculate_rt</span><span class="p">(</span><span class="n">discrete_vars</span><span class="p">,</span> <span class="n">continuous_vars</span><span class="p">)</span>  <span class="c1"># 基於設備容量計算</span>
+            <span class="n">rt_penalty</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span> <span class="o">-</span> <span class="n">predicted_rt</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">1000</span>
+            <span class="n">base_loss</span> <span class="o">=</span> <span class="n">predicted_kw</span> <span class="o">+</span> <span class="n">rt_penalty</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;efficiency_driven&quot;</span><span class="p">:</span>
+            <span class="c1"># 目標：達到 target kW/RT，最小化與目標的差距</span>
+            <span class="n">predicted_rt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calculate_rt</span><span class="p">(</span><span class="n">discrete_vars</span><span class="p">,</span> <span class="n">continuous_vars</span><span class="p">)</span>
+            <span class="n">actual_kw_rt</span> <span class="o">=</span> <span class="n">predicted_kw</span> <span class="o">/</span> <span class="n">predicted_rt</span> <span class="k">if</span> <span class="n">predicted_rt</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">)</span>
+            <span class="n">base_loss</span> <span class="o">=</span> <span class="p">(</span><span class="n">actual_kw_rt</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+
+        <span class="c1"># v1.1 新增：切換懲罰</span>
+        <span class="n">switching_cost</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">prev_config</span><span class="p">:</span>
+            <span class="n">switching_cost</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="o">.</span><span class="n">calculate_switching_cost</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">prev_config</span><span class="p">,</span> <span class="n">config</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">base_loss</span> <span class="o">+</span> <span class="n">switching_cost</span>
+</code></pre></div>
+
+<p><strong>Step 2.2: 混合優化策略</strong></p>
+<p>採用<strong>兩階段策略</strong>（與 v1.0 相同，但使用更新後的目標函數）：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">HybridOptimizer</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    混合整數規劃 + 連續優化（v1.1 更新：整合 ModelRegistry）</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_registry</span><span class="p">:</span> <span class="n">ModelRegistry</span><span class="p">,</span> <span class="n">constraint_engine</span><span class="p">:</span> <span class="n">ConstraintEngine</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_registry</span> <span class="o">=</span> <span class="n">model_registry</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">constraint_engine</span> <span class="o">=</span> <span class="n">constraint_engine</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">optimize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">OptimizationRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OptimizationResponse</span><span class="p">:</span>
+        <span class="c1"># Phase 1：枚舉所有可行的設備組合（離散變數）</span>
+        <span class="n">feasible_combos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraint_engine</span><span class="o">.</span><span class="n">get_feasible_combinations</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">target_rt</span><span class="p">)</span>
+
+        <span class="c1"># 初始化 FeatureVectorizer（v1.1 新增）</span>
+        <span class="n">model_features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_registry</span><span class="o">.</span><span class="n">get_feature_names</span><span class="p">(</span>
+            <span class="n">request</span><span class="o">.</span><span class="n">site_id</span><span class="p">,</span> 
+            <span class="n">target_id</span><span class="o">=</span><span class="s2">&quot;system_total_kw&quot;</span>
+        <span class="p">)</span>
+        <span class="n">vectorizer</span> <span class="o">=</span> <span class="n">FeatureVectorizer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">site_config</span><span class="p">,</span> <span class="n">model_features</span><span class="p">)</span>
+
+        <span class="c1"># 驗證特徵對齊（E803 檢查）</span>
+        <span class="n">is_aligned</span><span class="p">,</span> <span class="n">missing</span> <span class="o">=</span> <span class="n">vectorizer</span><span class="o">.</span><span class="n">validate_alignment</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">site_config</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_aligned</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">OptimizationError</span><span class="p">(</span>
+                <span class="s2">&quot;E803&quot;</span><span class="p">,</span> 
+                <span class="sa">f</span><span class="s2">&quot;特徵對齊失敗，缺少特徵: </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">best_result</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">best_score</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Phase 2：對每個組合，優化連續變數（頻率、轉速）</span>
+        <span class="k">for</span> <span class="n">combo</span> <span class="ow">in</span> <span class="n">feasible_combos</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimize_continuous</span><span class="p">(</span><span class="n">combo</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">vectorizer</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">score</span> <span class="o">&lt;</span> <span class="n">best_score</span><span class="p">:</span>
+                <span class="n">best_score</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">score</span>
+                <span class="n">best_result</span> <span class="o">=</span> <span class="n">result</span>
+
+        <span class="c1"># Hybrid 一致性檢查（若啟用）</span>
+        <span class="n">hybrid_check</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">site_config</span><span class="o">.</span><span class="n">model_registry</span><span class="o">.</span><span class="n">fallback_to_components</span><span class="p">:</span>
+            <span class="n">is_consistent</span><span class="p">,</span> <span class="n">check_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_registry</span><span class="o">.</span><span class="n">validate_hybrid_consistency</span><span class="p">(</span>
+                <span class="n">request</span><span class="o">.</span><span class="n">site_id</span><span class="p">,</span>
+                <span class="n">best_result</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
+                <span class="n">request</span><span class="o">.</span><span class="n">ambient_conditions</span>
+            <span class="p">)</span>
+            <span class="n">hybrid_check</span> <span class="o">=</span> <span class="n">check_data</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_response</span><span class="p">(</span><span class="n">best_result</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">hybrid_check</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_optimize_continuous</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">discrete_combo</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> 
+        <span class="n">request</span><span class="p">:</span> <span class="n">OptimizationRequest</span><span class="p">,</span>
+        <span class="n">vectorizer</span><span class="p">:</span> <span class="n">FeatureVectorizer</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        對固定設備組合，優化連續參數（v1.1 更新：使用 ModelRegistry 預測）</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">differential_evolution</span>
+
+        <span class="c1"># 定義目標函數（封裝 ModelRegistry 呼叫）</span>
+        <span class="n">obj_func</span> <span class="o">=</span> <span class="n">ObjectiveFunction</span><span class="p">(</span>
+            <span class="n">mode</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">mode</span><span class="p">,</span>
+            <span class="n">target_value</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">target_rt</span> <span class="ow">or</span> <span class="n">request</span><span class="o">.</span><span class="n">target_kw_per_rt</span><span class="p">,</span>
+            <span class="n">model_registry</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_registry</span><span class="p">,</span>
+            <span class="n">constraint_engine</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">constraint_engine</span><span class="p">,</span>
+            <span class="n">vectorizer</span><span class="o">=</span><span class="n">vectorizer</span>
+        <span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">objective</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+            <span class="n">continuous_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unpack_variables</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">obj_func</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">continuous_vars</span><span class="p">,</span> <span class="n">discrete_combo</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">ambient_conditions</span><span class="p">)</span>
+
+        <span class="c1"># 執行優化（略，與 v1.0 相同）</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">differential_evolution</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span>
+</code></pre></div>
+
+<h3 id="phase-3-day-4-5">Phase 3: 報告生成與節能評估 (Day 4-5)</h3>
+<p><strong>Step 3.1: 改善前後比較邏輯（v1.1 更新）</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SavingsCalculator</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    計算節能量與改善評估（v1.1 更新：使用 ModelRegistry）</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">calculate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">recommended</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> 
+        <span class="n">current</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> 
+        <span class="n">ambient</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
+        <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">operating_hours</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8760</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        回傳：</span>
+<span class="sd">        - 當前能耗（使用 system_total_kw 模型預測）</span>
+<span class="sd">        - 建議能耗</span>
+<span class="sd">        - 節省 kW、kWh/年、百分比</span>
+<span class="sd">        - CO2 減排量</span>
+<span class="sd">        - Hybrid 模式下的耗電佔比分解（若可用）</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># 載入 System-Level 模型（唯一真相來源）</span>
+        <span class="n">system_artifact</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_registry</span><span class="o">.</span><span class="n">load_from_registry</span><span class="p">(</span><span class="n">site_id</span><span class="p">,</span> <span class="s2">&quot;system_total_kw&quot;</span><span class="p">)</span>
+
+        <span class="c1"># 預測 baseline（當前配置）</span>
+        <span class="k">if</span> <span class="n">current</span><span class="p">:</span>
+            <span class="n">baseline_kw</span> <span class="o">=</span> <span class="n">system_artifact</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">ambient</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">baseline_kw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calculate_baseline</span><span class="p">(</span><span class="n">recommended</span><span class="p">[</span><span class="s1">&#39;target_rt&#39;</span><span class="p">])</span>
+
+        <span class="c1"># 預測建議配置</span>
+        <span class="n">recommended_kw</span> <span class="o">=</span> <span class="n">system_artifact</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">recommended</span><span class="p">,</span> <span class="n">ambient</span><span class="p">)</span>
+
+        <span class="c1"># Hybrid 分解（選用）</span>
+        <span class="n">component_breakdown</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_registry</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">fallback_to_components</span><span class="p">:</span>
+            <span class="n">component_breakdown</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_component_breakdown</span><span class="p">(</span><span class="n">site_id</span><span class="p">,</span> <span class="n">recommended</span><span class="p">,</span> <span class="n">ambient</span><span class="p">)</span>
+
+        <span class="c1"># 計算節能指標（略，與 v1.0 相同）</span>
+        <span class="n">savings_kw</span> <span class="o">=</span> <span class="n">baseline_kw</span> <span class="o">-</span> <span class="n">recommended_kw</span>
+        <span class="n">savings_percent</span> <span class="o">=</span> <span class="p">(</span><span class="n">savings_kw</span> <span class="o">/</span> <span class="n">baseline_kw</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span> <span class="k">if</span> <span class="n">baseline_kw</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;baseline_kw&#39;</span><span class="p">:</span> <span class="n">baseline_kw</span><span class="p">,</span>
+            <span class="s1">&#39;recommended_kw&#39;</span><span class="p">:</span> <span class="n">recommended_kw</span><span class="p">,</span>
+            <span class="s1">&#39;savings_kw&#39;</span><span class="p">:</span> <span class="n">savings_kw</span><span class="p">,</span>
+            <span class="s1">&#39;savings_percent&#39;</span><span class="p">:</span> <span class="n">savings_percent</span><span class="p">,</span>
+            <span class="s1">&#39;annual_savings_kwh&#39;</span><span class="p">:</span> <span class="n">savings_kw</span> <span class="o">*</span> <span class="n">operating_hours</span><span class="p">,</span>
+            <span class="s1">&#39;co2_reduction_tons&#39;</span><span class="p">:</span> <span class="n">savings_kw</span> <span class="o">*</span> <span class="n">operating_hours</span> <span class="o">*</span> <span class="mf">0.0005</span><span class="p">,</span>
+            <span class="s1">&#39;component_breakdown&#39;</span><span class="p">:</span> <span class="n">component_breakdown</span>  <span class="c1"># v1.1 新增</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_component_breakdown</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
+        <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> 
+        <span class="n">ambient</span><span class="p">:</span> <span class="n">Dict</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        使用 Component Models 分解耗電佔比（v1.1 新增）</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">breakdown</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">art</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_registry</span><span class="o">.</span><span class="n">load_from_registry</span><span class="p">(</span><span class="n">site_id</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;chiller_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">_kw&quot;</span><span class="p">)</span>
+                    <span class="n">breakdown</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;chiller_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">_kw&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">art</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">ambient</span><span class="p">)</span>
+                <span class="k">except</span><span class="p">:</span>
+                    <span class="k">continue</span>
+            <span class="c1"># 類似處理 pumps, towers...</span>
+            <span class="k">return</span> <span class="n">breakdown</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+</code></pre></div>
+
+<p><strong>Step 3.2: 報告生成器（v1.1 更新：增加模型資訊與 Hybrid 檢查）</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">OptimizationReportGenerator</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    生成工程師可讀的優化報告（v1.1 更新）</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">generate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">response</span><span class="p">:</span> <span class="n">OptimizationResponse</span><span class="p">,</span> 
+        <span class="n">request</span><span class="p">:</span> <span class="n">OptimizationRequest</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        產生 Markdown 格式報告，包含：</span>
+<span class="sd">        - 使用的模型版本資訊</span>
+<span class="sd">        - Hybrid 一致性檢查結果（若適用）</span>
+<span class="sd">        - 耗電佔比分解（若可用）</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">report</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2"># 冰水主機房最佳化建議報告</span>
+
+<span class="s2">## 案場資訊</span>
+<span class="s2">- 案場 ID：</span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">site_id</span><span class="si">}</span>
+<span class="s2">- 優化模式：</span><span class="si">{</span><span class="s1">&#39;負載驅動&#39;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">request</span><span class="o">.</span><span class="n">mode</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">&#39;load_driven&#39;</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;效率驅動&#39;</span><span class="si">}</span>
+<span class="s2">- 目標值：</span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">target_rt</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="n">request</span><span class="o">.</span><span class="n">target_kw_per_rt</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;RT&#39;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">request</span><span class="o">.</span><span class="n">mode</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">&#39;load_driven&#39;</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;kW/RT&#39;</span><span class="si">}</span>
+<span class="s2">- 分析時間：</span><span class="si">{</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="si">}</span>
+
+<span class="s2">## 模型資訊（v1.1 新增）</span>
+<span class="s2">- 使用模型：</span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">model_used</span><span class="si">}</span>
+<span class="s2">- 模型版本：</span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">model_timestamp</span><span class="si">}</span>
+<span class="s2">- 預測信心區間：</span><span class="si">{</span><span class="n">response</span><span class="o">.</span><span class="n">prediction_interval</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">&#39;未提供&#39;</span><span class="si">}</span>
+
+<span class="s2">## 建議配置</span>
+<span class="s2">...</span>
+
+<span class="s2">## 能耗評估</span>
+<span class="s2">...</span>
+
+<span class="s2">## Hybrid 一致性檢查（v1.1 新增，若適用）</span>
+<span class="s2">&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">hybrid_consistency_check</span><span class="p">:</span>
+            <span class="n">check</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">hybrid_consistency_check</span>
+            <span class="n">report</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">- 系統模型預測：</span><span class="si">{</span><span class="n">check</span><span class="p">[</span><span class="s1">&#39;system_prediction&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> kW</span>
+<span class="s2">- 組件加總預測：</span><span class="si">{</span><span class="n">check</span><span class="p">[</span><span class="s1">&#39;component_sum&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> kW</span>
+<span class="s2">- 差異率：</span><span class="si">{</span><span class="n">check</span><span class="p">[</span><span class="s1">&#39;discrepancy_percent&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">%</span>
+<span class="s2">- 狀態：</span><span class="si">{</span><span class="s1">&#39;通過&#39;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">check</span><span class="p">[</span><span class="s1">&#39;within_tolerance&#39;</span><span class="p">]</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;警告（差異 &gt;5%）&#39;</span><span class="si">}</span>
+<span class="s2">&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">report</span>
+</code></pre></div>
+
+<h3 id="phase-4-cli-day-5-6">Phase 4: CLI 與多案場支援 (Day 5-6)</h3>
+<p><strong>Step 4.1: OptimizationCLI（v1.1 更新）</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">OptimizationCLI</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    命令列介面（v1.1 更新：支援 Model Registry 與環境檔案）</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">optimize</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">site</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
+        <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
+        <span class="n">target</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">model_target</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;system_total_kw&quot;</span><span class="p">,</span>  <span class="c1"># v1.1 新增：指定使用哪個 target</span>
+        <span class="n">ambient_file</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>      <span class="c1"># v1.1 新增：環境資料檔案</span>
+        <span class="n">pinned_timestamp</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># v1.1 新增：鎖定模型版本</span>
+        <span class="n">output_format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;markdown&quot;</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        CLI 指令範例：</span>
+
+<span class="sd">        # 基本使用（使用最新 system_total_kw 模型）</span>
+<span class="sd">        python main.py optimization optimize \</span>
+<span class="sd">            --site cgmh_ty \</span>
+<span class="sd">            --mode load_driven \</span>
+<span class="sd">            --target 500 \</span>
+<span class="sd">            --output report.md</span>
+
+<span class="sd">        # 使用特定模型版本並提供環境資料</span>
+<span class="sd">        python main.py optimization optimize \</span>
+<span class="sd">            --site cgmh_ty \</span>
+<span class="sd">            --mode load_driven \</span>
+<span class="sd">            --target 500 \</span>
+<span class="sd">            --model-target system_total_kw \</span>
+<span class="sd">            --pinned-timestamp 20260213_120000 \</span>
+<span class="sd">            --ambient-file weather_202502.csv \</span>
+<span class="sd">            --output report.md</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">batch_scenarios</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> 
+        <span class="n">site</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
+        <span class="n">rt_range</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
+        <span class="n">step</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">ambient_file</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># v1.1 新增：批次分析必須提供環境資料</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        批次分析多個負載情境</span>
+<span class="sd">        python main.py optimization batch-scenarios \</span>
+<span class="sd">            --site cgmh_ty \</span>
+<span class="sd">            --rt-range 100-1000 \</span>
+<span class="sd">            --step 100 \</span>
+<span class="sd">            --ambient-file weather_year_2024.csv</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+</code></pre></div>
+
+<p><strong>Step 4.2: 多案場配置繼承（與 v1.0 相同，略）</strong></p>
+<hr />
+<h2 id="5-error-codes-v11">5. 錯誤代碼對照表 (Error Codes) - v1.1 更新</h2>
+<p>與 Model Training v1.2 對齊的錯誤碼體系：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">錯誤代碼</th>
+<th style="text-align: left;">名稱</th>
+<th style="text-align: center;">發生階段</th>
+<th style="text-align: left;">說明</th>
+<th style="text-align: left;">處理建議</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>E800</strong></td>
+<td style="text-align: left;"><code>CONFIG_VALIDATION_ERROR</code></td>
+<td style="text-align: center;">Phase 0</td>
+<td style="text-align: left;">Optimization Config YAML 格式錯誤</td>
+<td style="text-align: left;">檢查 config/optimization/sites/{site}.yaml</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E801</strong></td>
+<td style="text-align: left;"><code>MODEL_REGISTRY_NOT_FOUND</code></td>
+<td style="text-align: center;">Phase 0</td>
+<td style="text-align: left;">找不到 model_registry_index.json 或模型檔案</td>
+<td style="text-align: left;">確認模型訓練已完成（Training v1.2+），檔案路徑正確</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E802</strong></td>
+<td style="text-align: left;"><code>ANNOTATION_CHECKSUM_MISMATCH</code></td>
+<td style="text-align: center;">Phase 0</td>
+<td style="text-align: left;">模型訓練時的 Annotation checksum 與當前不符</td>
+<td style="text-align: left;">Feature Annotation 已更新，需重新訓練模型</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E803</strong></td>
+<td style="text-align: left;"><code>FEATURE_DIMENSION_MISMATCH</code></td>
+<td style="text-align: center;">Phase 0</td>
+<td style="text-align: left;">Optimization Config 特徵數與 ModelEntry.feature_count 不符，或特徵名稱無法對齊</td>
+<td style="text-align: left;">檢查 feature_mapping 設定或重新訓練模型</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E804</strong></td>
+<td style="text-align: left;"><code>TARGET_NOT_AVAILABLE</code></td>
+<td style="text-align: center;">Phase 0</td>
+<td style="text-align: left;">請求的 target_id（如 system_total_kw）在 Registry 中不存在或標記為 optional</td>
+<td style="text-align: left;">確認 Training Pipeline 已訓練該 target</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E805</strong></td>
+<td style="text-align: left;"><code>HYBRID_INCONSISTENCY</code></td>
+<td style="text-align: center;">Phase 2</td>
+<td style="text-align: left;">Component Models 加總與 System Model 預測差異 &gt;5%</td>
+<td style="text-align: left;">警告：檢查特徵工程或改用純 System-Level</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E806</strong></td>
+<td style="text-align: left;"><code>OPTIMIZATION_TIMEOUT</code></td>
+<td style="text-align: center;">Phase 2</td>
+<td style="text-align: left;">優化算法超時未收斂</td>
+<td style="text-align: left;">增加 max_iter 或改用啟發式算法</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E807</strong></td>
+<td style="text-align: left;"><code>RT_NOT_ACHIEVABLE</code></td>
+<td style="text-align: center;">Phase 2</td>
+<td style="text-align: left;">無法達到目標冷凍噸（設備容量不足）</td>
+<td style="text-align: left;">檢查目標 RT 是否超過總裝置容量</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E808</strong></td>
+<td style="text-align: left;"><code>EFFICIENCY_NOT_ACHIEVABLE</code></td>
+<td style="text-align: center;">Phase 2</td>
+<td style="text-align: left;">無法達到目標 kW/RT（可能過於激進）</td>
+<td style="text-align: left;">檢查目標效率是否低於理論最小值</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E809</strong></td>
+<td style="text-align: left;"><code>LOGIC_CONSTRAINT_VIOLATION</code></td>
+<td style="text-align: center;">Phase 1</td>
+<td style="text-align: left;">建議配置違反邏輯約束（如開主機未開泵）</td>
+<td style="text-align: left;">內部錯誤，檢查 ConstraintEngine</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>W801</strong></td>
+<td style="text-align: left;"><code>SOFT_CONSTRAINT_VIOLATED</code></td>
+<td style="text-align: center;">Phase 2</td>
+<td style="text-align: left;">違反軟約束（如建議開啟備用機組）</td>
+<td style="text-align: left;">建議接受，但記錄偏好衝突</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E901</strong></td>
+<td style="text-align: left;"><code>MULTI_TARGET_ANNOTATION_MISMATCH</code></td>
+<td style="text-align: center;">Training</td>
+<td style="text-align: left;">多目標訓練時 Annotation Context 不一致</td>
+<td style="text-align: left;">引用 Training v1.2 錯誤碼</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E903</strong></td>
+<td style="text-align: left;"><code>HYBRID_CONSISTENCY_VIOLATION</code></td>
+<td style="text-align: center;">Training</td>
+<td style="text-align: left;">Hybrid 模式下 Component 加總與 System 預測差異過大</td>
+<td style="text-align: left;">引用 Training v1.2 錯誤碼</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-version-compatibility-v11">6. 版本相容性矩陣 (Version Compatibility) - v1.1 更新</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Model Training</th>
+<th style="text-align: center;">Feature Annotation</th>
+<th style="text-align: center;">Optimization Engine</th>
+<th style="text-align: center;">相容性</th>
+<th style="text-align: left;">說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><strong>v1.2</strong></td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;"><strong>v1.1</strong></td>
+<td style="text-align: center;">✅ <strong>完全相容</strong></td>
+<td style="text-align: left;">推薦配置，透過 Model Registry Index 載入，支援 System/Component/Hybrid</td>
+</tr>
+<tr>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;">v1.0</td>
+<td style="text-align: center;">⚠️ <strong>部分相容</strong></td>
+<td style="text-align: left;">需手動指定模型路徑，無 Registry Index 支援</td>
+</tr>
+<tr>
+<td style="text-align: center;">v1.1</td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;"><strong>v1.1</strong></td>
+<td style="text-align: center;">⚠️ <strong>部分相容</strong></td>
+<td style="text-align: left;">需手動指定模型路徑，無 Index 自動發現</td>
+</tr>
+<tr>
+<td style="text-align: center;">v1.0</td>
+<td style="text-align: center;">任意</td>
+<td style="text-align: center;"><strong>v1.1</strong></td>
+<td style="text-align: center;">❌ <strong>不相容</strong></td>
+<td style="text-align: left;">輸出格式不同，無法載入</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-test-plan-v11">7. 測試與驗證計畫 (Test Plan) - v1.1 更新</h2>
+<h3 id="71">7.1 單元測試</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">測試案例 ID</th>
+<th style="text-align: left;">描述</th>
+<th style="text-align: left;">輸入</th>
+<th style="text-align: left;">預期結果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">OPT-001</td>
+<td style="text-align: left;">邏輯約束驗證</td>
+<td style="text-align: left;">chiller_1_on=True, chw_pump_1_on=False</td>
+<td style="text-align: left;">違反 requires 約束，回傳 False</td>
+</tr>
+<tr>
+<td style="text-align: left;">OPT-002</td>
+<td style="text-align: left;">可行組合枚舉</td>
+<td style="text-align: left;">target_rt=500, 2台主機各300RT</td>
+<td style="text-align: left;">回傳：[開1台+載率83%], [開2台+各載率42%]</td>
+</tr>
+<tr>
+<td style="text-align: left;">OPT-003</td>
+<td style="text-align: left;">負載驅動優化</td>
+<td style="text-align: left;">target_rt=400, ambient=30°C</td>
+<td style="text-align: left;">選擇效率最佳的設備組合與頻率</td>
+</tr>
+<tr>
+<td style="text-align: left;">OPT-004</td>
+<td style="text-align: left;">效率驅動優化</td>
+<td style="text-align: left;">target_kw_per_rt=0.6</td>
+<td style="text-align: left;">調整頻率與台數，使效率最接近0.6</td>
+</tr>
+<tr>
+<td style="text-align: left;">OPT-005</td>
+<td style="text-align: left;">節能計算</td>
+<td style="text-align: left;">baseline=500kW, recommended=400kW</td>
+<td style="text-align: left;">savings_kw=100, savings_percent=20%</td>
+</tr>
+<tr>
+<td style="text-align: left;">OPT-006</td>
+<td style="text-align: left;">繼承機制</td>
+<td style="text-align: left;">cgmh_ty 繼承 base</td>
+<td style="text-align: left;">正確合併 equipment 與 constraints</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>OPT-007</strong></td>
+<td style="text-align: left;"><strong>Registry 載入</strong></td>
+<td style="text-align: left;">site_id="cgmh_ty", target="system_total_kw"</td>
+<td style="text-align: left;">正確載入 MultiModelArtifact，驗證 checksum</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>OPT-008</strong></td>
+<td style="text-align: left;"><strong>特徵向量化</strong></td>
+<td style="text-align: left;">discrete_vars + continuous_vars</td>
+<td style="text-align: left;">產生與訓練時相同順序的特徵向量</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>OPT-009</strong></td>
+<td style="text-align: left;"><strong>版本鎖定</strong></td>
+<td style="text-align: left;">pinned_timestamp="20260213_120000"</td>
+<td style="text-align: left;">載入指定版本，非最新版本</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>OPT-010</strong></td>
+<td style="text-align: left;"><strong>Hybrid 一致性</strong></td>
+<td style="text-align: left;">config 導致 system=300kW, components=280kW</td>
+<td style="text-align: left;">觸發 E805 警告，但以 System 為準</td>
+</tr>
+</tbody>
+</table>
+<h3 id="72">7.2 整合測試</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">測試案例 ID</th>
+<th style="text-align: left;">描述</th>
+<th style="text-align: left;">驗證目標</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">INT-OPT-001</td>
+<td style="text-align: left;">端到端優化流程</td>
+<td style="text-align: left;">從 Request 到 Report 完整流程，使用 Registry Index</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-OPT-002</td>
+<td style="text-align: left;">多案場切換</td>
+<td style="text-align: left;">切換 cgmh_ty 與 farglory_o3，Config 與 Model 正確載入</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-OPT-003</td>
+<td style="text-align: left;">與 Model Training v1.2 銜接</td>
+<td style="text-align: left;">使用 Training v1.2 產出的 Registry Index 與 Artifacts</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>INT-OPT-004</strong></td>
+<td style="text-align: left;"><strong>特徵對齊驗證</strong></td>
+<td style="text-align: left;">驗證 FeatureVectorizer 輸出與 Model 預期一致（E803）</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>INT-OPT-005</strong></td>
+<td style="text-align: left;"><strong>環境資料批次輸入</strong></td>
+<td style="text-align: left;">透過 --ambient-file 載入 CSV 進行全年模擬</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>INT-OPT-006</strong></td>
+<td style="text-align: left;"><strong>模型版本鎖定</strong></td>
+<td style="text-align: left;">指定 pinned_timestamp 確保重現性</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-deliverables-v11">8. 交付物清單 (Deliverables) - v1.1 更新</h2>
+<h3 id="81">8.1 程式碼檔案</h3>
+<ol>
+<li><code>src/optimization/engine.py</code> - 最佳化主引擎（更新：整合 ModelRegistry）</li>
+<li><code>src/optimization/constraints.py</code> - 約束引擎（更新：增加 runtime constraints）</li>
+<li><code>src/optimization/scenarios.py</code> - 情境分析與批次處理</li>
+<li><code>src/optimization/model_interface.py</code> - <strong>新增：ModelRegistry 與 FeatureVectorizer</strong></li>
+<li><code>src/optimization/report.py</code> - 報告生成器（更新：增加模型資訊與 Hybrid 檢查）</li>
+<li><code>src/optimization/config.py</code> - OptimizationConfig（更新：增加 model_registry 設定）</li>
+</ol>
+<h3 id="82">8.2 配置文件</h3>
+<ol>
+<li><code>config/optimization/base.yaml</code> - 基礎設備模型與約束（更新：移除 model_file，增加 model_registry）</li>
+<li><code>config/optimization/sites/cgmh_ty.yaml</code> - 長庚醫院範例（更新格式）</li>
+<li><code>config/optimization/schemas/optimization_schema.json</code> - JSON Schema（更新驗證規則）</li>
+</ol>
+<h3 id="83">8.3 測試檔案</h3>
+<ol>
+<li><code>tests/test_optimization_engine.py</code> - 引擎單元測試（更新）</li>
+<li><code>tests/test_constraints.py</code> - 約束引擎測試（更新）</li>
+<li><code>tests/test_model_interface.py</code> - <strong>新增：ModelRegistry 與 FeatureVectorizer 測試</strong></li>
+<li><code>tests/test_optimization_integration.py</code> - 整合測試（更新）</li>
+</ol>
+<h3 id="84">8.4 文件檔案</h3>
+<ol>
+<li><code>docs/optimization/PRD_OPTIMIZATION_ENGINE_v1.1.md</code> - 本文件</li>
+<li><code>docs/optimization/USER_GUIDE.md</code> - 工程師使用手冊（含 Model Registry 使用說明）</li>
+<li><code>docs/optimization/MIGRATION_v1.0_to_v1.1.md</code> - <strong>新增：v1.0 升級指南</strong></li>
+</ol>
+<hr />
+<h2 id="9-sign-off-checklist-v11">9. 驗收簽核 (Sign-off Checklist) - v1.1 更新</h2>
+<ul>
+<li>[ ] <strong>Registry 載入</strong>：正確從 <code>model_registry_index.json</code> 載入模型，驗證 E801</li>
+<li>[ ] <strong>版本綁定</strong>：驗證 <code>annotation_checksum</code>，正確拋出 E802</li>
+<li>[ ] <strong>特徵對齊</strong>：FeatureVectorizer 正確轉換配置為特徵向量，驗證 E803</li>
+<li>[ ] <strong>目標可用性</strong>：請求不存在的 target 時正確拋出 E804</li>
+<li>[ ] <strong>Hybrid 檢查</strong>：Component 與 System 預測差異 &gt;5% 時觸發 E805 警告</li>
+<li>[ ] <strong>系統級優化</strong>：預設使用 <code>system_total_kw</code> 進行優化（黑盒模式）</li>
+<li>[ ] <strong>版本鎖定</strong>：支援 <code>pinned_timestamp</code> 鎖定特定模型版本</li>
+<li>[ ] <strong>環境資料輸入</strong>：支援從 CSV 檔案讀取環境條件進行批次模擬</li>
+<li>[ ] <strong>切換懲罰</strong>：目標函數正確計算設備啟停切換成本</li>
+<li>[ ] <strong>運行時間約束</strong>：支援 <code>min_runtime</code> / <code>min_downtime</code> 約束檢查</li>
+<li>[ ] <strong>負載驅動模式</strong>：給定 RT=500，輸出最佳設備組合（台數、頻率、轉速）</li>
+<li>[ ] <strong>效率驅動模式</strong>：給定 kW/RT=0.65，反推設備參數，達成目標效率</li>
+<li>[ ] <strong>可行解檢查</strong>：若目標 RT 超過總容量，正確拋出 E807</li>
+<li>[ ] <strong>節能評估</strong>：正確計算改善前後差異、年節電量、減碳量</li>
+<li>[ ] <strong>報告生成</strong>：產生工程師可讀的 Markdown 報告，包含模型版本與 Hybrid 檢查結果</li>
+<li>[ ] <strong>多案場支援</strong>：支援 base.yaml → site.yaml 繼承，設備參數可覆寫</li>
+<li>[ ] <strong>CLI 介面</strong>：<code>python main.py optimization optimize</code> 指令支援所有 v1.1 參數</li>
+</ul>
+<hr />
+<h2 id="10">10. 附錄：使用範例</h2>
+<h3 id="1_1">範例 1：負載驅動（使用預設最新模型）</h3>
+<div class="codehilite"><pre><span></span><code>python<span class="w"> </span>main.py<span class="w"> </span>optimization<span class="w"> </span>optimize<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--site<span class="w"> </span>cgmh_ty<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--mode<span class="w"> </span>load_driven<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--target<span class="w"> </span><span class="m">500</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--ambient<span class="w"> </span><span class="s1">&#39;{&quot;wet_bulb_temp&quot;: 26.5, &quot;dry_bulb_temp&quot;: 32.0}&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--output<span class="w"> </span>report_500rt.md
+</code></pre></div>
+
+<p><strong>預期輸出</strong>：</p>
+<div class="codehilite"><pre><span></span><code>模型資訊：使用 xgboost (20260213_120000)
+建議開啟：Chiller 1 (Primary, 300RT) + Chiller 2 (Backup, 200RT)
+載率分配：60% / 40%
+冷凍水泵：45 Hz / 40 Hz
+冷卻水塔：80% 轉速
+預測總耗電：325 kW (0.65 kW/RT) [信心區間: 315-335 kW]
+相較於全開基線 (400 kW)：節省 18.75%，年節電 657,000 kWh
+</code></pre></div>
+
+<h3 id="2">範例 2：效率驅動（鎖定模型版本並使用環境檔案）</h3>
+<div class="codehilite"><pre><span></span><code>python<span class="w"> </span>main.py<span class="w"> </span>optimization<span class="w"> </span>optimize<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--site<span class="w"> </span>cgmh_ty<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--mode<span class="w"> </span>efficiency_driven<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--target<span class="w"> </span><span class="m">0</span>.60<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--pinned-timestamp<span class="w"> </span>20260213_120000<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--ambient-file<span class="w"> </span>summer_weather.csv<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--current-config<span class="w"> </span>current_operation.json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--output<span class="w"> </span>report_efficiency.md
+</code></pre></div>
+
+<p><strong>預期輸出</strong>：</p>
+<div class="codehilite"><pre><span></span><code>模型版本：鎖定 20260213_120000 (xgboost)
+環境資料：使用 summer_weather.csv (共 720 筆小時資料)
+平均效率：當前 0.72 kW/RT → 建議 0.60 kW/RT
+建議調整：
+  1. 關閉 Chiller 2，僅使用 Chiller 1 (載率提升至 92%)
+  2. 降低冷卻水塔轉速至 65%
+  3. 調整冷凍水泵至 42 Hz
+預期節省：平均 100 kW (25%)，夏季總節電 72,000 kWh
+
+Hybrid 一致性檢查：
+<span class="k">-</span> 系統模型預測：300 kW
+<span class="k">-</span> 組件加總：295 kW (Chiller1: 200, Chiller2: 0, Pumps: 60, Towers: 35)
+<span class="k">-</span> 差異率：1.7% (通過)
+</code></pre></div>
+
+<h3 id="3_1">範例 3：批次情境分析（產生全年效率曲線）</h3>
+<div class="codehilite"><pre><span></span><code>python<span class="w"> </span>main.py<span class="w"> </span>optimization<span class="w"> </span>batch-scenarios<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--site<span class="w"> </span>cgmh_ty<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--rt-range<span class="w"> </span><span class="m">100</span>-1000<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--step<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--ambient-file<span class="w"> </span>weather_2024_hourly.csv<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--output<span class="w"> </span>annual_analysis.json
+</code></pre></div>
+
+<hr />
+<p><strong>關鍵設計確認 (v1.1)</strong>:
+1. <strong>系統級黑盒</strong>：採用 Training v1.2 的 <code>system_total_kw</code> 作為預設預測目標，透過 Model Registry Index 統一管理
+2. <strong>特徵向量化</strong>：明確定義 <code>FeatureVectorizer</code> 處理配置到特徵的轉換，確保與訓練時特徵工程一致
+3. <strong>版本控制</strong>：支援 <code>pinned_timestamp</code> 鎖定模型版本，確保離線分析的重現性
+4. <strong>Hybrid 驗證</strong>：保留對 Component Models 的載入能力，用於診斷與交叉驗證，但以 System Model 為優化依據
+5. <strong>環境資料</strong>：支援從 CSV 批次讀取環境條件，滿足離線批次模擬需求
+6. <strong>錯誤碼對齊</strong>：與 Training v1.2 錯誤碼體系一致（E801-E805, E901, E903）
+```</p>
+    
+<script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true });
+</script>
+
+</body>
+</html>
