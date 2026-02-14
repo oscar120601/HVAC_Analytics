@@ -1,0 +1,260 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Project_Execution_Evaluation_Report</title>
+    
+<style>
+    body { 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
+        line-height: 1.6; 
+        max-width: 900px; 
+        margin: 0 auto; 
+        padding: 40px 20px; 
+        color: #24292e; 
+        background-color: #ffffff;
+    }
+    h1, h2, h3, h4, h5, h6 { 
+        margin-top: 24px; 
+        margin-bottom: 16px; 
+        font-weight: 600; 
+        color: #24292e;
+    }
+    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    h3 { font-size: 1.25em; }
+    p { margin-top: 0; margin-bottom: 16px; }
+    a { color: #0366d6; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    table { 
+        display: block; 
+        width: 100%; 
+        overflow: auto; 
+        border-spacing: 0; 
+        border-collapse: collapse; 
+        margin-bottom: 16px; 
+    }
+    table th, table td { 
+        padding: 6px 13px; 
+        border: 1px solid #dfe2e5; 
+    }
+    table th { 
+        font-weight: 600; 
+        background-color: #f6f8fa; 
+    }
+    table tr:nth-child(2n) { 
+        background-color: #f6f8fa; 
+    }
+    code { 
+        font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; 
+        background-color: #f6f8fa; 
+        padding: 0.2em 0.4em; 
+        border-radius: 3px; 
+        font-size: 85%; 
+    }
+    pre { 
+        background-color: #f6f8fa; 
+        padding: 16px; 
+        overflow: auto; 
+        border-radius: 3px; 
+        line-height: 1.45; 
+    }
+    pre code { 
+        background-color: transparent; 
+        padding: 0; 
+        border-radius: 0; 
+    }
+    blockquote { 
+        border-left: 0.25em solid #dfe2e5; 
+        color: #6a737d; 
+        padding: 0 1em; 
+        margin: 0 0 16px 0; 
+    }
+    hr {
+        height: 0.25em;
+        padding: 0;
+        margin: 24px 0;
+        background-color: #e1e4e8;
+        border: 0;
+    }
+    .mermaid {
+        display: flex;
+        justify-content: center;
+        margin: 20px 0;
+    }
+</style>
+
+</head>
+<body>
+    <h1 id="prd-project-execution-evaluation-report">PRD 專案執行評估報告 (Project Execution Evaluation Report)</h1>
+<p><strong>評估工具</strong>: <code>requirements-clarity</code>, <code>product-manager-toolkit</code> (Antigravity Skills)
+<strong>評估日期</strong>: 2026-02-14
+<strong>評估範圍</strong>: <code>docs/</code> 目錄下所有核心 PRD (v1.0 - v2.2)</p>
+<hr />
+<h2 id="1-executive-summary">1. 執行總結 (Executive Summary)</h2>
+<p>本報告運用 <strong>Product Manager Toolkit</strong> 與 <strong>Requirements Clarity</strong> 技能標準，對 HVAC Analytics 專案進行全盤體檢。</p>
+<p><strong>總體評分 (Overall Clarity Score): 92/100</strong>
+專案整體處於 <strong>「高度就緒 (High Readiness)」</strong> 狀態。PRD 之間的契約定義明確，防禦性設計完善。然而，存在關鍵的 <strong>「地基依賴風險」</strong>，若未優先處理，將導致後續開發無效。</p>
+<ul>
+<li><strong>強項</strong>: 介面契約 (Interface Contract) 定義極為嚴謹，錯誤代碼 (Error Codes) 覆蓋率高。</li>
+<li><strong>風險</strong>: 核心邏輯高度依賴 <code>Feature Annotation</code> 與 <code>System Integration</code>，這兩者目前僅存在於文件，代碼尚為空缺。</li>
+</ul>
+<hr />
+<h2 id="2-prd-detailed-evaluation-matrix">2. PRD 深度評估矩陣 (Detailed Evaluation Matrix)</h2>
+<p>我們採用 <code>Requirements Clarity</code> 的評分維度 (Functional, Technical, Completeness, Business) 進行逐一審查。</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">PRD 文件</th>
+<th style="text-align: left;">版本</th>
+<th style="text-align: left;">清晰度評分</th>
+<th style="text-align: left;">評估結果 (Verdict)</th>
+<th style="text-align: left;">關鍵缺口與建議 (Gaps &amp; Recommendations)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Feature Annotation</strong></td>
+<td style="text-align: left;">v1.2</td>
+<td style="text-align: left;"><strong>98/100</strong></td>
+<td style="text-align: left;">🟢 <strong>Ready</strong></td>
+<td style="text-align: left;"><strong>核心 SSOT</strong>。定義極為完整，包含 Excel/YAML 轉換邏輯與備份機制。建議優先實作 <code>Wizard</code> 以鎖定 SSOT。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Interface Contract</strong></td>
+<td style="text-align: left;">v1.0</td>
+<td style="text-align: left;"><strong>95/100</strong></td>
+<td style="text-align: left;">🟢 <strong>Ready</strong></td>
+<td style="text-align: left;">定義了所有模組的溝通語言。錯誤代碼 (E-codes) 體系完整。建議加入 <code>Header Standardization</code> 的具體 Regex 規則。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Parser</strong></td>
+<td style="text-align: left;">v2.1</td>
+<td style="text-align: left;"><strong>90/100</strong></td>
+<td style="text-align: left;">🟢 <strong>Ready</strong></td>
+<td style="text-align: left;">明確規範了 UTC 與編碼處理。技術實作細節完整。需注意與 <code>cleaner</code> 的記憶體交接效能。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Cleaner</strong></td>
+<td style="text-align: left;">v2.2</td>
+<td style="text-align: left;"><strong>92/100</strong></td>
+<td style="text-align: left;">🟢 <strong>Ready</strong></td>
+<td style="text-align: left;">引進了 <strong>語意感知 (Semantic Aware)</strong> 清洗。邏輯清晰但複雜度高。需確保 <code>EquipmentValidator</code> 與 Optimization Config 的同步機制。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Batch Processor</strong></td>
+<td style="text-align: left;">v1.3</td>
+<td style="text-align: left;"><strong>88/100</strong></td>
+<td style="text-align: left;">🟡 <strong>Risk</strong></td>
+<td style="text-align: left;">流程圖與邏輯清晰，但對於 <strong>大數據量 (Large Scale)</strong> 的 Parquet 寫入效能未深入探討。建議加入 <code>Partitioning Strategy</code>。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Feature Engineer</strong></td>
+<td style="text-align: left;">v1.3</td>
+<td style="text-align: left;"><strong>90/100</strong></td>
+<td style="text-align: left;">🟢 <strong>Ready</strong></td>
+<td style="text-align: left;">清楚定義了 Lag/Rolling Window 邏輯。對 SSOT 的依賴性極高。需確保 <code>Group Policy</code> 能動態適應新增設備。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Model Training</strong></td>
+<td style="text-align: left;">v1.2</td>
+<td style="text-align: left;"><strong>85/100</strong></td>
+<td style="text-align: left;">🟡 <strong>Risk</strong></td>
+<td style="text-align: left;">定義了訓練流程與 Registry。但在 <strong>資源管理 (Resource Awareness)</strong> 部分僅有概念，缺乏具體的 Kubernetes/Docker 資源限制參數。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Optimization</strong></td>
+<td style="text-align: left;">v1.1</td>
+<td style="text-align: left;"><strong>85/100</strong></td>
+<td style="text-align: left;">🟡 <strong>Risk</strong></td>
+<td style="text-align: left;">數學邏輯完整。但對於 <strong>求解失敗 (Infeasible Solution)</strong> 的 Fallback 機制描述較少。建議補強 <code>Solver Timeout</code> 的處理流程。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Wizard Blockade</strong></td>
+<td style="text-align: left;">v1.0</td>
+<td style="text-align: left;"><strong>96/100</strong></td>
+<td style="text-align: left;">🟢 <strong>Ready</strong></td>
+<td style="text-align: left;">直接針對安全性痛點設計。<code>Import Hook</code> 與 <code>chattr</code> 機制具體可行。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>System Integration</strong></td>
+<td style="text-align: left;">v1.2</td>
+<td style="text-align: left;"><strong>94/100</strong></td>
+<td style="text-align: left;">🟢 <strong>Ready</strong></td>
+<td style="text-align: left;">解決了時間一致性問題。<code>PipelineContext</code> 設計優秀。需注意 <code>Locking</code> 機制在分散式環境下 (NFS) 的相容性。</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-execution-risk-analysis">3. 專案執行風險分析 (Execution Risk Analysis)</h2>
+<p>基於 <code>product-manager-toolkit</code> 的 Common Pitfalls 檢查：</p>
+<h3 id="31-dependency-deadlock-high">3.1 依賴性死鎖 (Dependency Deadlock) - [HIGH]</h3>
+<ul>
+<li><strong>分析</strong>: 所有模組 (Cleaner, Feature Engineer, Optimization) 都依賴 <code>Feature Annotation</code> 提供的 Metadata。</li>
+<li><strong>Pitfall</strong>: 若跳過 <code>Feature Annotation Manager</code> 直接開發 <code>Cleaner</code>，將導致大量的 Hardcoded 邏輯，未來重構成本極高 (Technical Debt)。</li>
+<li><strong>對策</strong>: <strong>強制執行 Phase 1</strong> (Foundation)，在 Feature Annotation 未就緒前，禁止開發 ETL 業務邏輯。</li>
+</ul>
+<h3 id="32-spatio-temporal-inconsistency-medium">3.2 數據時空不一致 (Spatio-Temporal Inconsistency) - [MEDIUM]</h3>
+<ul>
+<li><strong>分析</strong>: 模組間各自呼叫 <code>datetime.now()</code> 曾是痛點。</li>
+<li><strong>Pitfall</strong>: 在跨日 (00:00) 執行的 Pipeline 中，不同模組對「今天」的定義可能不同，導致數據遺失。</li>
+<li><strong>對策</strong>: 嚴格遵守 <code>System Integration</code> 中的 <code>PipelineContext</code> 設計，統一全域時間戳。</li>
+</ul>
+<h3 id="33-physics-logic-decoupling-medium">3.3 物理邏輯脫鉤 (Physics Logic Decoupling) - [MEDIUM]</h3>
+<ul>
+<li><strong>分析</strong>: 數據清洗與優化限制脫鉤。</li>
+<li><strong>Pitfall</strong>: 清洗時沒發現「開主機沒開泵」，導致模型學到錯誤物理規律。</li>
+<li><strong>對策</strong>: 落實 <code>Equation Dependency Validation</code>，將 Optimization 的限制條件反向同步到 Cleaner。</li>
+</ul>
+<hr />
+<h2 id="4-actionable-recommendations">4. 執行建議 (Actionable Recommendations)</h2>
+<p>根據 <code>agile-product-owner</code> 思維，建議以下列順序進行開發衝刺 (Sprints)：</p>
+<h3 id="sprint-1-foundation-security-the-wizard-sprint">Sprint 1: Foundation &amp; Security (The "Wizard" Sprint)</h3>
+<ul>
+<li><strong>Goal</strong>: 建立不可撼動的 SSOT 機制。</li>
+<li><strong>Tasks</strong>:<ol>
+<li>實作 <code>FeatureAnnotationManager</code> (讀取 YAML)。</li>
+<li>實作 <code>WizardImportGuard</code> (阻擋寫入)。</li>
+<li>實作 <code>Excel-to-YAML</code> 轉換器 (唯一寫入入口)。</li>
+</ol>
+</li>
+<li><strong>Definition of Done (DoD)</strong>: Python 程式無法修改 YAML，只能讀取；Excel 修改後能自動同步到 YAML。</li>
+</ul>
+<h3 id="sprint-2-data-pipeline-backbone-the-flow-sprint">Sprint 2: Data Pipeline Backbone (The "Flow" Sprint)</h3>
+<ul>
+<li><strong>Goal</strong>: 打通從 Raw File 到 Parquet 的數據流。</li>
+<li><strong>Tasks</strong>:<ol>
+<li>實作 <code>Interface Contract</code> (Base Classes &amp; Error Codes)。</li>
+<li>實作 <code>System Integration</code> (PipelineContext)。</li>
+<li>實作 <code>Parser</code> (UTC 強制)。</li>
+<li>實作 <code>Batch Processor</code> (Manifest 生成)。</li>
+</ol>
+</li>
+<li><strong>DoD</strong>: 能將原始 CSV 轉為標準 Parquet，且 Manifest 記錄正確的 Checksum。</li>
+</ul>
+<h3 id="sprint-3-logic-features-the-brain-sprint">Sprint 3: Logic &amp; Features (The "Brain" Sprint)</h3>
+<ul>
+<li><strong>Goal</strong>: 注入業務邏輯與特徵工程。</li>
+<li><strong>Tasks</strong>:<ol>
+<li>實作 <code>Cleaner</code> (含 Equipment Validator)。</li>
+<li>實作 <code>Feature Engineer</code> (含 Semantic-Aware Group Policy)。</li>
+</ol>
+</li>
+<li><strong>DoD</strong>: 產出的 Feature Matrix 無 <code>device_role</code> 欄位，且通過物理邏輯檢查。</li>
+</ul>
+<hr />
+<h2 id="5-conclusion">5. 結論 (Conclusion)</h2>
+<p>本專案的文件品質極高 (Quality Score &gt; 90)，已經超越了通常的 MVP 需求，進入了 <strong>Production-Ready</strong> 的規格。
+我們不需要再花時間「釐清需求」，現在的關鍵是 <strong>「紀律執行 (Disciplined Execution)」</strong>。</p>
+<p><strong>"Stop Planning, Start Building Foundation."</strong></p>
+<p>建議立即批准 <strong>Sprint 1</strong> 的執行。</p>
+    
+<script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,289 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Execution_Report</title>
+    
+<style>
+    body { 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
+        line-height: 1.6; 
+        max-width: 900px; 
+        margin: 0 auto; 
+        padding: 40px 20px; 
+        color: #24292e; 
+        background-color: #ffffff;
+    }
+    h1, h2, h3, h4, h5, h6 { 
+        margin-top: 24px; 
+        margin-bottom: 16px; 
+        font-weight: 600; 
+        color: #24292e;
+    }
+    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    h3 { font-size: 1.25em; }
+    p { margin-top: 0; margin-bottom: 16px; }
+    a { color: #0366d6; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    table { 
+        display: block; 
+        width: 100%; 
+        overflow: auto; 
+        border-spacing: 0; 
+        border-collapse: collapse; 
+        margin-bottom: 16px; 
+    }
+    table th, table td { 
+        padding: 6px 13px; 
+        border: 1px solid #dfe2e5; 
+    }
+    table th { 
+        font-weight: 600; 
+        background-color: #f6f8fa; 
+    }
+    table tr:nth-child(2n) { 
+        background-color: #f6f8fa; 
+    }
+    code { 
+        font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; 
+        background-color: #f6f8fa; 
+        padding: 0.2em 0.4em; 
+        border-radius: 3px; 
+        font-size: 85%; 
+    }
+    pre { 
+        background-color: #f6f8fa; 
+        padding: 16px; 
+        overflow: auto; 
+        border-radius: 3px; 
+        line-height: 1.45; 
+    }
+    pre code { 
+        background-color: transparent; 
+        padding: 0; 
+        border-radius: 0; 
+    }
+    blockquote { 
+        border-left: 0.25em solid #dfe2e5; 
+        color: #6a737d; 
+        padding: 0 1em; 
+        margin: 0 0 16px 0; 
+    }
+    hr {
+        height: 0.25em;
+        padding: 0;
+        margin: 24px 0;
+        background-color: #e1e4e8;
+        border: 0;
+    }
+    .mermaid {
+        display: flex;
+        justify-content: center;
+        margin: 20px 0;
+    }
+</style>
+
+</head>
+<body>
+    <h1 id="hvac-analytics-system-execution-report">HVAC Analytics 系統全方位執行報告 (System Execution Report)</h1>
+<p>本報告基於 <code>docs/</code> 目錄下所有核心 PRD (v1.0 ~ v2.2) 進行綜合分析，旨在為開發團隊提供一套嚴謹、無縫銜接的實作藍圖。</p>
+<hr />
+<h2 id="1-executive-summary">1. 執行摘要 (Executive Summary)</h2>
+<p>本專案的核心目標是建構一套<strong>「物理感知 (Physics-Aware)」</strong>且<strong>「契約驅動 (Contract-Driven)」</strong>的 HVAC 數據分析系統。</p>
+<p>經過對 12+ 份 PRD 的深度解析，本系統的架構建立在三個不可動搖的支柱上：</p>
+<ol>
+<li><strong>SSOT 絕對權威</strong>: 所有的特徵定義 (Feature Annotation) 來自 Excel，所有的優化限制 (Constraints) 來自 Optimization Config。任何模組不得私自定義這些規則。</li>
+<li><strong>時空一致性 (Spatio-Temporal Consistency)</strong>: 透過 <code>PipelineContext</code> 鎖定時間基準，並透過 <code>EquipmentValidator</code> 將物理限制逆向同步至 ETL 階段，確保「數據流」與「物理流」的一致。</li>
+<li><strong>防禦性架構 (Defensive Architecture)</strong>: 從 <code>Wizard</code> 的技術阻擋 (防止亂改 Config) 到 <code>Interface Contract</code> 的嚴格檢查點，系統假設 inputs are guilty until proven innocent。</li>
+</ol>
+<hr />
+<h2 id="2-prd-module-architecture">2. 核心模組架構與 PRD 映射 (Module Architecture)</h2>
+<h3 id="21-infrastructure-layer">2.1 基礎設施層 (Infrastructure Layer)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">模組</th>
+<th style="text-align: left;">關鍵 PRD</th>
+<th style="text-align: left;">核心職責</th>
+<th style="text-align: left;">關鍵機制</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Feature Annotation</strong></td>
+<td style="text-align: left;"><code>Feature_Annotation_Specification_V1.2</code></td>
+<td style="text-align: left;">定義點位、物理類型、設備角色。系統唯一的 Domain Knowledge 來源。</td>
+<td style="text-align: left;"><strong>Excel-Centric SSOT</strong>: 僅允許編輯 Excel，透過 <code>excel_to_yaml.py</code> 轉為 YAML 供程式讀取。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Wizard Blockade</strong></td>
+<td style="text-align: left;"><code>Wizard_Technical_Blockade_V1.0</code></td>
+<td style="text-align: left;"><strong>[New]</strong> 保護 SSOT 不被繞過。</td>
+<td style="text-align: left;"><strong>Runtime Import Hook</strong>: 禁止 <code>import yaml</code>。<br><strong>Filesystem Guard</strong>: YAML 檔設為 444 唯讀。<br><strong>Pre-commit</strong>: 阻擋直接修改 YAML 的 Commit。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>System Integration</strong></td>
+<td style="text-align: left;"><code>System_Integration_v1.2</code></td>
+<td style="text-align: left;"><strong>[New]</strong> 串聯所有模組，管理生命週期。</td>
+<td style="text-align: left;"><strong>PipelineContext</strong>: 統一全域時間戳 (UTC)，防止未來資料漂移。<br><strong>Container</strong>: 嚴格初始化順序 (Config -&gt; Lock -&gt; Manager -&gt; Modules)。</td>
+</tr>
+</tbody>
+</table>
+<h3 id="22-etl-data-processing-layer">2.2 ETL 數據處理層 (Data Processing Layer)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">模組</th>
+<th style="text-align: left;">關鍵 PRD</th>
+<th style="text-align: left;">接收輸入</th>
+<th style="text-align: left;">產出</th>
+<th style="text-align: left;">關鍵邏輯</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Parser</strong></td>
+<td style="text-align: left;"><code>Parser_V2.1</code></td>
+<td style="text-align: left;">Raw CSV/Excel</td>
+<td style="text-align: left;">DF (UTC, UTF-8)</td>
+<td style="text-align: left;"><strong>時區強制</strong>: 所有時間轉 UTC。<br><strong>編碼偵測</strong>: 自動處理 BOM/Big5。<br><strong>契約</strong>: 檢查點 #1。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Cleaner</strong></td>
+<td style="text-align: left;"><code>CLEANER_v2.2</code></td>
+<td style="text-align: left;">Parser DF</td>
+<td style="text-align: left;">Cleaned DF</td>
+<td style="text-align: left;"><strong>語意感知</strong>: 讀取 Annotation 知道哪些是「備機」，調整清洗策略。<br><strong>物理驗證</strong>: 呼叫 <code>EquipmentValidator</code> 標記物理不可能的數據 (E351)。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Validation</strong></td>
+<td style="text-align: left;"><code>Equipment_Dependency_Validation_v1.0</code></td>
+<td style="text-align: left;">Cleaner Row</td>
+<td style="text-align: left;">Quality Flags</td>
+<td style="text-align: left;"><strong>[New] 反向同步</strong>: 讀取 <code>Optimization Config</code>，在 ETL 階段就抓出「開主機沒開泵」等邏輯錯誤。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Batch Processor</strong></td>
+<td style="text-align: left;"><code>BATCH_PROCESSOR_v1.3</code></td>
+<td style="text-align: left;">Cleaned DF</td>
+<td style="text-align: left;">Manifest + Parquet</td>
+<td style="text-align: left;"><strong>稽核軌跡</strong>: 記錄 Annotation Version 與 Checksum。<br><strong>時序驗證</strong>: 計算開關機順序錯誤 (E353)。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Feature Engineer</strong></td>
+<td style="text-align: left;"><code>FEATURE_ENGINEER_V1.3</code></td>
+<td style="text-align: left;">Manifest</td>
+<td style="text-align: left;">Feature Matrix</td>
+<td style="text-align: left;"><strong>Group Policy</strong>: 根據物理類型自動生成特徵 (Lags, Windows)。<br><strong>Leakage Prevention</strong>: 嚴格排除 <code>device_role</code> 進入模型輸入。</td>
+</tr>
+</tbody>
+</table>
+<h3 id="23-modeling-optimization-layer">2.3 模型與優化層 (Modeling &amp; Optimization Layer)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">模組</th>
+<th style="text-align: left;">關鍵 PRD</th>
+<th style="text-align: left;">核心職責</th>
+<th style="text-align: left;">關鍵機制</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Model Training</strong></td>
+<td style="text-align: left;"><code>Model_Training_v1.2</code></td>
+<td style="text-align: left;">訓練系統/組件模型</td>
+<td style="text-align: left;"><strong>Registry</strong>: 標準化模型產出。<br><strong>Resource Aware</strong>: 動態調整訓練資源。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Consistency</strong></td>
+<td style="text-align: left;"><code>Hybrid_Model_Consistency_v1.0</code></td>
+<td style="text-align: left;">驗證 System vs Sum(Components)</td>
+<td style="text-align: left;"><strong>Copula Effect</strong>: 考慮組件間的耦合效應，動態計算容許誤差。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Optimization</strong></td>
+<td style="text-align: left;"><code>Chiller_Plant_Optimization_V1.1</code></td>
+<td style="text-align: left;">輸出最佳化建議</td>
+<td style="text-align: left;"><strong>Blackbox MIP</strong>: 混合整數規劃求解。<br><strong>Constraint Source</strong>: 定義物理限制 (供 ETL 反向同步)。</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-critical-implementation-details">3. 關鍵實作細節導讀 (Critical Implementation Details)</h2>
+<h3 id="31-wizard-technical-blockade">3.1 為什麼需要 Wizard Technical Blockade?</h3>
+<p>在之前的設計中，我們發現開發者或使用者可能會為了方便，直接去改 <code>server/config/features/sites/*.yaml</code>，導致 Excel (UI端) 與 YAML (系統端) 不同步。
+<strong>解決方案</strong>: 
+- <code>src/security/import_guard.py</code>: 讓 Python 程式碼無法匯入 <code>yaml</code> 函式庫，物理上斷絕寫入能力。
+- <code>chattr +i</code>: 在 Linux 層級鎖死檔案。
+這迫使所有變更<strong>必須</strong>回到 Excel 進行，確保 SSOT。</p>
+<h3 id="32-pipelinecontext">3.2 什麼是 PipelineContext 與時間基準？</h3>
+<p>過去各模組各自呼叫 <code>datetime.now()</code>，導致：
+- Parser 認為 10:00:00 是現在。
+- 到 BatchProcessor 時，時間變成了 10:00:05，結果 10:00:02 的數據被誤判為「過去」，或邊界數據被誤判為「未來」。
+<strong>解決方案</strong>: 
+- System Integration v1.2 引入 <code>PipelineContext</code>。
+- 在 Pipeline 啟動瞬間鎖定 <code>pipeline_timestamp</code>。
+- 所有模組的 <code>is_future_data()</code> 檢查都基於這個單一時間點。</p>
+<h3 id="33-equipment-dependency">3.3 設備依賴驗證 (Equipment Dependency) 的反向同步</h3>
+<p>Optimization 階段定義了「主機開啟時，冷卻水泵必須開啟」。如果歷史數據中有一天主機開了但水泵沒開（可能是感測器壞了），這筆數據若是進入訓練，會讓模型學到錯誤的物理規律。
+<strong>解決方案</strong>:
+- <code>ConstraintSyncManager</code> 在 ETL 階段讀取 Optimization 的規則。
+- <strong>Cleaner</strong> 逐行掃描：發現違規 -&gt; 標記 <code>FLAG_REQUIRES_VIOLATION</code>。
+- <strong>Feature Engineer</strong>: 看到此 Flag -&gt; 將該時段數據視為無效或進行特殊處理，不讓模型學壞。</p>
+<hr />
+<h2 id="4-phased-execution-plan">4. 建議執行順序 (Phased Execution Plan)</h2>
+<p>基於模組間的強依賴關係，我們<strong>不能</strong>平行開發所有功能。必須依序建立地基。</p>
+<h3 id="phase-1-foundation">Phase 1: 核心地基 (Foundation)</h3>
+<ul>
+<li><strong>Step 1.1</strong>: 實作 <strong>Feature Annotation Manager</strong> &amp; <strong>Wizard Blockade</strong>。<ul>
+<li><em>驗收</em>: Excel 修改能同步到 YAML，且無法直接修改 YAML。</li>
+</ul>
+</li>
+<li><strong>Step 1.2</strong>: 實作 <strong>Constraint Sync Manager</strong> (讀取 Optimization Config)。</li>
+<li><strong>Step 1.3</strong>: 建立 <strong>Interface Contract</strong> 的 Error Codes 與 Base Classes。</li>
+</ul>
+<h3 id="phase-2-etl-pipeline">Phase 2: 數據管線 (ETL Pipeline)</h3>
+<ul>
+<li><strong>Step 2.1</strong>: 實作 <strong>System Integration Container</strong> &amp; <strong>Pipeline Context</strong>。</li>
+<li><strong>Step 2.2</strong>: 實作 <strong>Parser</strong> (含 UTC 強制)。</li>
+<li><strong>Step 2.3</strong>: 實作 <strong>Equipment Validator</strong> (依賴 Step 1.2)。</li>
+<li><strong>Step 2.4</strong>: 實作 <strong>Cleaner</strong> (整合 Validator)。</li>
+<li><strong>Step 2.5</strong>: 實作 <strong>Batch Processor</strong> (產出 Manifest)。</li>
+</ul>
+<h3 id="phase-3-feature-model">Phase 3: 特徵與模型 (Feature &amp; Model)</h3>
+<ul>
+<li><strong>Step 3.1</strong>: 實作 <strong>Feature Engineer</strong> (讀取 Manifest + Annotation SSOT)。</li>
+<li><strong>Step 3.2</strong>: 實作 <strong>Model Training</strong> Pipeline。</li>
+<li><strong>Step 3.3</strong>: 實作 <strong>Hybrid Consistency Check</strong>。</li>
+</ul>
+<h3 id="phase-4-application">Phase 4: 應用層 (Application)</h3>
+<ul>
+<li><strong>Step 4.1</strong>: 實作 <strong>Optimization Engine</strong>。</li>
+<li><strong>Step 4.2</strong>: API 串接與 UI 呈現。</li>
+</ul>
+<hr />
+<h2 id="5-prd">5. 解答您的疑問：如何利用這些 PRD？</h2>
+<p><strong>給核心開發者 (您) 的操作指南：</strong></p>
+<ol>
+<li><strong>寫程式前</strong>：先看該模組的 <code>Input Contract</code> 和 <code>Output Contract</code>。例如寫 Cleaner 時，先看 Interface Contract 定義的 Input 是否符合 Parser 的 Output。</li>
+<li><strong>定義錯誤時</strong>：查閱 <code>Interface Contract</code> 的錯誤代碼表 (E000-E999)，不要自己發明錯誤碼。</li>
+<li><strong>處理配置時</strong>：永遠不要 hardcode 設備名稱或物理限制。<ul>
+<li>問設備角色？ -&gt; <code>annotation_manager.get_device_role()</code></li>
+<li>問物理限制？ -&gt; <code>constraint_manager.get_constraints()</code></li>
+</ul>
+</li>
+<li><strong>提交代碼前</strong>：檢查是否通過了該 PRD 定義的 <code>Contract Checkpoints</code> (例如檢查點 #5 Excel/YAML 同步)。</li>
+</ol>
+<p>這份報告匯總了所有文件精華，確保您在開發核心功能時，能精準命中需求，避免「做完了才發現架構不對」的風險。</p>
+    
+<script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true });
+</script>
+
+</body>
+</html>

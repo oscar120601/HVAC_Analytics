@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HVAC-1 系統 PRD 文件分析報告</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", "PingFang TC", sans-serif;
+      line-height: 1.8;
+      color: #333;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 60px 40px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+
+    .header .subtitle {
+      font-size: 1.2em;
+      opacity: 0.9;
+    }
+
+    .meta-info {
+      background: #f8f9fa;
+      padding: 20px 40px;
+      border-bottom: 3px solid #667eea;
+      display: flex;
+      justify-content: space-around;
+      flex-wrap: wrap;
+    }
+
+    .meta-item {
+      text-align: center;
+      padding: 10px;
+    }
+
+    .meta-label {
+      font-size: 0.9em;
+      color: #666;
+      margin-bottom: 5px;
+    }
+
+    .meta-value {
+      font-size: 1.1em;
+      font-weight: 600;
+      color: #667eea;
+    }
+
+    .content {
+      padding: 40px;
+    }
+
+    h2 {
+      color: #667eea;
+      font-size: 2em;
+      margin: 40px 0 20px 0;
+      padding-bottom: 10px;
+      border-bottom: 3px solid #667eea;
+    }
+
+    h3 {
+      color: #764ba2;
+      font-size: 1.5em;
+      margin: 30px 0 15px 0;
+    }
+
+    h4 {
+      color: #555;
+      font-size: 1.2em;
+      margin: 20px 0 10px 0;
+    }
+
+    p {
+      margin: 15px 0;
+      text-align: justify;
+    }
+
+    ul,
+    ol {
+      margin: 15px 0 15px 30px;
+    }
+
+    li {
+      margin: 8px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    thead {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    th {
+      padding: 15px;
+      text-align: left;
+      font-weight: 600;
+    }
+
+    td {
+      padding: 12px 15px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    tbody tr:hover {
+      background: #f5f5f5;
+    }
+
+    .alert {
+      padding: 15px 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+      border-left: 5px solid;
+    }
+
+    .alert-success {
+      background: #d4edda;
+      border-color: #28a745;
+      color: #155724;
+    }
+
+    .alert-warning {
+      background: #fff3cd;
+      border-color: #ffc107;
+      color: #856404;
+    }
+
+    .alert-danger {
+      background: #f8d7da;
+      border-color: #dc3545;
+      color: #721c24;
+    }
+
+    .alert-info {
+      background: #d1ecf1;
+      border-color: #17a2b8;
+      color: #0c5460;
+    }
+
+    .score-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      border-radius: 12px;
+      text-align: center;
+      margin: 30px 0;
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    }
+
+    .score-card .score {
+      font-size: 4em;
+      font-weight: 700;
+      margin: 20px 0;
+    }
+
+    .score-card .stars {
+      font-size: 2em;
+      margin: 10px 0;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.85em;
+      font-weight: 600;
+      margin: 0 5px;
+    }
+
+    .badge-success {
+      background: #28a745;
+      color: white;
+    }
+
+    .badge-warning {
+      background: #ffc107;
+      color: #333;
+    }
+
+    .badge-danger {
+      background: #dc3545;
+      color: white;
+    }
+
+    .badge-info {
+      background: #17a2b8;
+      color: white;
+    }
+
+    code {
+      background: #f4f4f4;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: "Courier New", monospace;
+      color: #e83e8c;
+    }
+
+    pre {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 20px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 20px 0;
+    }
+
+    pre code {
+      background: none;
+      color: inherit;
+      padding: 0;
+    }
+
+    .footer {
+      background: #f8f9fa;
+      padding: 30px;
+      text-align: center;
+      color: #666;
+      border-top: 3px solid #667eea;
+    }
+
+    .mermaid-placeholder {
+      background: #f8f9fa;
+      border: 2px dashed #667eea;
+      padding: 40px;
+      text-align: center;
+      color: #666;
+      margin: 20px 0;
+      border-radius: 8px;
+    }
+
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+
+      .container {
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🏢 HVAC-1 系統 PRD 文件分析報告</h1>
+      <div class="subtitle">可行性與完整性評估</div>
+    </div>
+
+    <div class="meta-info">
+      <div class="meta-item">
+        <div class="meta-label">分析日期</div>
+        <div class="meta-value">2026-02-14</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-label">分析範圍</div>
+        <div class="meta-value">13 份核心 PRD</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-label">版本對應</div>
+        <div class="meta-value">FA v1.2 / IC v1.1 / SI v1.2</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-label">分析師</div>
+        <div class="meta-value">Antigravity AI</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <h2>📋 執行摘要</h2>
+
+      <p>本報告針對 HVAC-1 專案的 13 份 PRD 文件進行全面分析，評估系統的可行性和完整性。整體而言，此系統採用<strong>嚴格契約導向設計 (Contract-First Design)</strong> 與
+        <strong>SSOT (Single Source of Truth)</strong> 原則，具備高度可行性。然而，<strong>實施順序管理 (Foundation First Policy)</strong> 與
+        <strong>資源管理強化</strong> 為成功的關鍵因素。</p>
+
+      <h3>🎯 關鍵發現</h3>
+
+      <div class="alert alert-success">
+        <strong>✅ 高度完整性</strong><br>
+        13 份 PRD 涵蓋從數據解析到優化引擎的完整流程
+      </div>
+
+      <div class="alert alert-success">
+        <strong>✅ 契約對齊清晰</strong><br>
+        Interface Contract v1.1 定義明確的檢查點與錯誤代碼
+      </div>
+
+      <div class="alert alert-warning">
+        <strong>⚠️ 實施依賴複雜</strong><br>
+        多個模組存在循環依賴風險，需嚴格遵循 Foundation First Policy
+      </div>
+
+      <div class="alert alert-warning">
+        <strong>⚠️ 資源管理挑戰</strong><br>
+        訓練階段記憶體需求可能超過容器限制，需動態調整
+      </div>
+
+      <div class="alert alert-info">
+        <strong>✅ 創新機制</strong><br>
+        Excel-Centric Feature Annotation、Wizard Technical Blockade、Hybrid Model Consistency 等設計具備生產就緒性
+      </div>
+
+      <hr style="margin: 40px 0; border: none; border-top: 2px solid #e0e0e0;">
+
+      <h2>🏗️ 一、系統架構完整性分析</h2>
+
+      <h3>1.1 模組覆蓋範圍</h3>
+
+      <table>
+        <thead>
+          <tr>
+            <th>模組層級</th>
+            <th>PRD 文件</th>
+            <th>版本</th>
+            <th>狀態</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>資料攝取</strong></td>
+            <td>PRD_Parser_V2.1</td>
+            <td>v2.1</td>
+            <td><span class="badge badge-success">✅ 完整</span></td>
+          </tr>
+          <tr>
+            <td><strong>資料清洗</strong></td>
+            <td>PRD_CLEANER_v2.2</td>
+            <td>v2.2</td>
+            <td><span class="badge badge-success">✅ 完整</span></td>
+          </tr>
+          <tr>
+            <td><strong>批次處理</strong></td>
+            <td>PRD_BATCH_PROCESSOR_v1.3</td>
+            <td>v1.3-CA</td>
+            <td><span class="badge badge-success">✅ 完整</span></td>
+          </tr>
+          <tr>
+            <td><strong>特徵工程</strong></td>
+            <td>PRD_FEATURE_ENGINEER_V1.3</td>
+            <td>v1.3-FA</td>
+            <td><span class="badge badge-success">✅ 完整</span></td>
+          </tr>
+          <tr>
+            <td><strong>模型訓練</strong></td>
+            <td>PRD_Model_Training_v1.3</td>
+            <td>v1.3</td>
+            <td><span class="badge badge-success">✅ 完整</span></td>
+          </tr>
+          <tr>
+            <td><strong>優化引擎</strong></td>
+            <td>PRD_Chiller_Plant_Optimization_V1.2</td>
+            <td>v1.2</td>
+            <td><span class="badge badge-success">✅ 完整</span></td>
+          </tr>
+          <tr>
+            <td><strong>特徵標註</strong></td>
+            <td>PRD_Feature_Annotation_Specification_V1.2</td>
+            <td>v1.2</td>
+            <td><span class="badge badge-success">✅ 完整</span></td>
+          </tr>
+          <tr>
+            <td><strong>設備驗證</strong></td>
+            <td>PRD_Equipment_Dependency_Validation_v1.0</td>
+            <td>v1.0</td>
+            <td><span class="badge badge-success">✅ 完整</span></td>
+          </tr>
+          <tr>
+            <td><strong>混合模型一致性</strong></td>
+            <td>PRD_Hybrid_Model_Consistency_v1.0</td>
+            <td>v1.0</td>
+            <td><span class="badge badge-success">✅ 完整</span></td>
+          </tr>
+          <tr>
+            <td><strong>技術阻擋</strong></td>
+            <td>PRD_Wizard_Technical_Blockade_V1.0</td>
+            <td>v1.0</td>
+            <td><span class="badge badge-success">✅ 完整</span></td>
+          </tr>
+          <tr>
+            <td><strong>介面契約</strong></td>
+            <td>PRD_Interface_Contract_v1.1</td>
+            <td>v1.1</td>
+            <td><span class="badge badge-success">✅ 完整</span></td>
+          </tr>
+          <tr>
+            <td><strong>系統整合</strong></td>
+            <td>PRD_System_Integration_v1.2</td>
+            <td>v1.2</td>
+            <td><span class="badge badge-success">✅ 完整</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p><strong>結論</strong>: 系統覆蓋 ETL → 訓練 → 優化的完整流程，無明顯模組缺失。</p>
+
+      <h3>1.2 檢查點對應關係</h3>
+
+      <div class="mermaid-placeholder">
+        <strong>📊 模組間契約流程圖</strong><br>
+        <em>Parser v2.1 → Cleaner v2.2 → BatchProcessor v1.3 → Feature Engineer v1.3 → Model Training v1.3 →
+          Optimization v1.2</em><br>
+        <small>各階段透過明確的檢查點 (#1-#9) 進行契約驗證</small>
+      </div>
+
+      <p><strong>驗證結果</strong>: 所有檢查點皆有對應的實作規範，無缺失。</p>
+
+      <hr style="margin: 40px 0; border: none; border-top: 2px solid #e0e0e0;">
+
+      <h2>🎨 二、核心設計原則評估</h2>
+
+      <h3>2.1 SSOT (Single Source of Truth) 機制</h3>
+
+      <h4>✅ 優勢</h4>
+      <ol>
+        <li><strong>統一配置來源</strong>
+          <ul>
+            <li><code>src/etl/config_models.py</code> 定義: <code>VALID_QUALITY_FLAGS</code>,
+              <code>TIMESTAMP_CONFIG</code>, <code>FEATURE_ANNOTATION_CONSTANTS</code></li>
+            <li>所有模組強制引用，避免硬編碼</li>
+          </ul>
+        </li>
+        <li><strong>Excel-Centric Feature Annotation</strong>
+          <ul>
+            <li>Excel 為唯一編輯界面</li>
+            <li>YAML 由 <code>excel_to_yaml.py</code> 單向生成</li>
+            <li>Wizard Technical Blockade 確保無法繞過 (Layer 1/2/3 防護)</li>
+          </ul>
+        </li>
+        <li><strong>Optimization Config 共享</strong>
+          <ul>
+            <li>Equipment Logic Constraints 定義於 <code>config/optimization/sites/{site}.yaml</code></li>
+            <li>ETL 階段透過 <code>ConstraintSyncManager</code> 唯讀存取，避免重複定義</li>
+          </ul>
+        </li>
+      </ol>
+
+      <h4>⚠️ 潛在風險</h4>
+      <div class="alert alert-warning">
+        <strong>同步延遲</strong><br>
+        Excel → YAML → Git → 部署流程可能造成延遲<br>
+        <strong>建議</strong>: 實施 E406 嚴格檢查，並提供明確錯誤訊息指引修復
+      </div>
+
+      <div class="alert alert-warning">
+        <strong>多人協作衝突</strong><br>
+        多位工程師同時編輯不同案場的 Excel<br>
+        <strong>建議</strong>: 檔案鎖機制 (<code>FileLockManager</code>) 需完整測試，超時處理需明確定義
+      </div>
+
+      <hr style="margin: 40px 0; border: none; border-top: 2px solid #e0e0e0;">
+
+      <h2>🚀 三、創新機制可行性評估</h2>
+
+      <h3>3.1 Excel-Centric Feature Annotation Workflow</h3>
+
+      <h4>✅ 創新優勢</h4>
+      <ol>
+        <li><strong>降低學習曲線</strong>: 工程師僅需編輯 Excel，無需理解 YAML 語法</li>
+        <li><strong>版本控制友好</strong>: Excel 與 YAML 同時提交，Git diff 清晰</li>
+        <li><strong>三層防護機制</strong>: 技術上無法繞過 Excel 直接修改 YAML</li>
+      </ol>
+
+      <h4>⚠️ 實施挑戰</h4>
+      <div class="alert alert-danger">
+        <strong>1. Excel 格式驗證</strong><br>
+        <strong>問題</strong>: <code>excel_to_yaml.py</code> 需詳細的格式驗證邏輯<br>
+        <strong>建議</strong>: 擴充 PRD 定義詳細的 Excel Template Validation Rules
+      </div>
+
+      <div class="alert alert-warning">
+        <strong>2. 緊急情況處理</strong><br>
+        <strong>問題</strong>: 生產環境緊急修復時，若 Excel 流程太長?<br>
+        <strong>現有機制</strong>: Emergency Override (需雙人驗證 + 30分鐘時間限制)<br>
+        <strong>建議</strong>: 完整測試 <code>EmergencyAccess</code> 流程，確保稽核日誌完整
+      </div>
+
+      <h3>3.2 Hybrid Model Consistency Validation</h3>
+
+      <p><strong>目標</strong>: 確保 System-Level Model (黑盒總耗電) 與 Component-Level Models (各設備耗電加總) 的預測一致性</p>
+
+      <h4>關鍵創新</h4>
+      <ul>
+        <li><strong>動態容差模型</strong>: 取代固定 5%，採用負載/複雜度/耦合效應多因子調整</li>
+        <li><strong>三維度驗證</strong>: 樣本級 (Point-wise) / 分群級 (Binned MAPE) / 趨勢級 (Correlation)</li>
+        <li><strong>物理可解釋性</strong>: 違規標記物理原因 (管路壓損、熱短路等)</li>
+      </ul>
+
+      <hr style="margin: 40px 0; border: none; border-top: 2px solid #e0e0e0;">
+
+      <h2>📊 四、資源管理與部署可行性</h2>
+
+      <h3>4.1 Kubernetes 資源限制策略 (Training v1.3)</h3>
+
+      <h4>✅ 優勢</h4>
+      <ul>
+        <li><strong>資源預估公式</strong>: 明確定義記憶體需求計算方式</li>
+        <li><strong>動態調整</strong>: 預估不足時，可降低 batch size 或提前終止</li>
+        <li><strong>檢查點機制</strong>: 記憶體壓力 > 85% 時觸發緊急檢查點</li>
+      </ul>
+
+      <h4>⚠️ 實施挑戰</h4>
+      <div class="alert alert-danger">
+        <strong>1. OOM Kill 風險</strong><br>
+        <strong>問題</strong>: Kubernetes 達到 Memory Limit 時會直接 Kill Pod，檢查點可能來不及儲存<br>
+        <strong>建議</strong>:
+        <ul>
+          <li>設定 <code>preStop</code> lifecycle hook，確保優雅終止</li>
+          <li>Memory Limit 應設為 Request 的 1.5-2x，提供緩衝</li>
+        </ul>
+      </div>
+
+      <div class="alert alert-warning">
+        <strong>2. GPU 資源管理</strong><br>
+        <strong>問題</strong>: PRD 提及 GPU 支援，但無詳細使用邏輯<br>
+        <strong>建議</strong>: 新增 <code>GPUAccelerationConfig</code> 明確定義何時啟用 GPU
+      </div>
+
+      <hr style="margin: 40px 0; border: none; border-top: 2px solid #e0e0e0;">
+
+      <h2>📝 五、待辦事項與建議</h2>
+
+      <h3>5.1 Critical (必須處理)</h3>
+      <ol>
+        <li><span class="badge badge-danger">Critical</span> <strong>Mock Interface 實作</strong> - 在 Foundation 模組未完成前，提供
+          Mock 版本避免 Dependency Deadlock</li>
+        <li><span class="badge badge-danger">Critical</span> <strong>E500 前置檢查</strong> - Parser v2.1 需新增
+          <code>device_role</code> 欄位檢查，避免舊版資料流入</li>
+        <li><span class="badge badge-danger">Critical</span> <strong>OOM Kill 防護</strong> - Kubernetes
+          <code>preStop</code> hook 需測試確保檢查點儲存成功</li>
+      </ol>
+
+      <h3>5.2 High (強烈建議)</h3>
+      <ol>
+        <li><span class="badge badge-warning">High</span> <strong>Excel Template Validation Rules</strong> - PRD Wizard
+          Technical Blockade 需擴充詳細的 Excel 格式驗證規則</li>
+        <li><span class="badge badge-warning">High</span> <strong>L2 等級一致性檢查降級</strong> - Hybrid Consistency
+          部分缺失時，應降低檢查嚴重度</li>
+        <li><span class="badge badge-warning">High</span> <strong>Equipment Violation Rate 閾值</strong> - Equipment
+          Validator 需新增 <code>max_acceptable_violation_rate</code> 配置</li>
+        <li><span class="badge badge-warning">High</span> <strong>Performance Benchmark 測試</strong> - 所有模組需定義明確效能目標</li>
+      </ol>
+
+      <h3>5.3 Medium (建議考慮)</h3>
+      <ol>
+        <li><span class="badge badge-info">Medium</span> <strong>Distributed Training 支援</strong> - Training v1.3 整合
+          Dask/Ray 處理大規模資料</li>
+        <li><span class="badge badge-info">Medium</span> <strong>GPU 加速詳細規範</strong> - 明確定義何時啟用 GPU、API 差異處理</li>
+        <li><span class="badge badge-info">Medium</span> <strong>Temporal Baseline Backward Compatibility</strong> -
+          允許從舊版資料推導時間基準</li>
+      </ol>
+
+      <hr style="margin: 40px 0; border: none; border-top: 2px solid #e0e0e0;">
+
+      <h2>🎯 六、結論與可行性評分</h2>
+
+      <div class="score-card">
+        <h3 style="color: white; margin-bottom: 10px;">整體可行性評分</h3>
+        <div class="score">4.6 / 5.0</div>
+        <div class="stars">⭐⭐⭐⭐☆</div>
+        <p style="margin-top: 20px; font-size: 1.1em;">系統設計高度可行且完整</p>
+      </div>
+
+      <h3>6.1 整體可行性評分</h3>
+
+      <table>
+        <thead>
+          <tr>
+            <th>評估維度</th>
+            <th>評分</th>
+            <th>說明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>架構完整性</strong></td>
+            <td>⭐⭐⭐⭐⭐</td>
+            <td>涵蓋 ETL → 訓練 → 優化完整流程</td>
+          </tr>
+          <tr>
+            <td><strong>契約設計</strong></td>
+            <td>⭐⭐⭐⭐⭐</td>
+            <td>Interface Contract 清晰定義所有檢查點</td>
+          </tr>
+          <tr>
+            <td><strong>SSOT 機制</strong></td>
+            <td>⭐⭐⭐⭐☆</td>
+            <td>Excel-Centric 設計創新，但需完整測試</td>
+          </tr>
+          <tr>
+            <td><strong>資源管理</strong></td>
+            <td>⭐⭐⭐⭐☆</td>
+            <td>K8s/Docker 配置完整，但缺分散式訓練</td>
+          </tr>
+          <tr>
+            <td><strong>測試策略</strong></td>
+            <td>⭐⭐⭐☆☆</td>
+            <td>單元測試完整，缺效能測試與 Golden Dataset</td>
+          </tr>
+          <tr>
+            <td><strong>文件完整性</strong></td>
+            <td>⭐⭐⭐⭐⭐</td>
+            <td>PRD 詳細程度極高，實作細節充足</td>
+          </tr>
+          <tr>
+            <td><strong>創新機制</strong></td>
+            <td>⭐⭐⭐⭐⭐</td>
+            <td>Wizard Blockade、Hybrid Consistency 設計優異</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>6.2 關鍵成功因素</h3>
+
+      <div class="alert alert-success">
+        <strong>✅ 必須做到</strong>
+        <ol>
+          <li>嚴格遵循 Foundation First Policy (避免 Dependency Deadlock)</li>
+          <li>完整實作三層 Wizard Technical Blockade (確保 SSOT 不被繞過)</li>
+          <li>Kubernetes OOM Kill 防護 (preStop hook + 檢查點機制)</li>
+          <li>E901-E905 Feature Alignment 嚴格驗證 (確保 Training-Optimization 對齊)</li>
+        </ol>
+      </div>
+
+      <div class="alert alert-warning">
+        <strong>⚠️ 風險管理</strong>
+        <ol>
+          <li>建立 Golden Dataset Repository (測試資料準備)</li>
+          <li>Mock Interface 實作 (解除模組間依賴)</li>
+          <li>Equipment Violation Rate 閾值調校 (避免歷史資料被過度拒絕)</li>
+          <li>Emergency Override 完整稽核 (緊急修復時的安全保障)</li>
+        </ol>
+      </div>
+
+      <h3>6.3 最終建議</h3>
+
+      <p>此系統設計<strong>高度可行且完整</strong>，採用先進的契約導向架構與 SSOT
+        原則，具備生產就緒性。主要風險在於<strong>實施順序管理</strong>與<strong>資源管理調校</strong>，建議:</p>
+
+      <ol>
+        <li><strong>分階段實施</strong>: 嚴格按照 Sprint 規劃 (Foundation → Integration → Enhancement)</li>
+        <li><strong>持續監控</strong>: 部署初期密切監控資源使用與錯誤代碼分布</li>
+        <li><strong>漸進優化</strong>: 初期使用保守參數，待累積資料後校準</li>
+      </ol>
+    </div>
+
+    <div class="footer">
+      <p><strong>報告結束</strong></p>
+      <p>© 2026 HVAC-1 專案團隊 | 分析師: Antigravity AI Assistant</p>
+      <p style="margin-top: 10px; font-size: 0.9em;">生成時間: 2026-02-14 14:46:15 +08:00</p>
+    </div>
+  </div>
+</body>
+
+</html>

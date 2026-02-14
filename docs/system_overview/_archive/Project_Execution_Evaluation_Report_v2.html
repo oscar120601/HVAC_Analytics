@@ -1,0 +1,234 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Project_Execution_Evaluation_Report_v2</title>
+    
+<style>
+    body { 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
+        line-height: 1.6; 
+        max-width: 900px; 
+        margin: 0 auto; 
+        padding: 40px 20px; 
+        color: #24292e; 
+        background-color: #ffffff;
+    }
+    h1, h2, h3, h4, h5, h6 { 
+        margin-top: 24px; 
+        margin-bottom: 16px; 
+        font-weight: 600; 
+        color: #24292e;
+    }
+    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    h3 { font-size: 1.25em; }
+    p { margin-top: 0; margin-bottom: 16px; }
+    a { color: #0366d6; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    table { 
+        display: block; 
+        width: 100%; 
+        overflow: auto; 
+        border-spacing: 0; 
+        border-collapse: collapse; 
+        margin-bottom: 16px; 
+    }
+    table th, table td { 
+        padding: 6px 13px; 
+        border: 1px solid #dfe2e5; 
+    }
+    table th { 
+        font-weight: 600; 
+        background-color: #f6f8fa; 
+    }
+    table tr:nth-child(2n) { 
+        background-color: #f6f8fa; 
+    }
+    code { 
+        font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; 
+        background-color: #f6f8fa; 
+        padding: 0.2em 0.4em; 
+        border-radius: 3px; 
+        font-size: 85%; 
+    }
+    pre { 
+        background-color: #f6f8fa; 
+        padding: 16px; 
+        overflow: auto; 
+        border-radius: 3px; 
+        line-height: 1.45; 
+    }
+    pre code { 
+        background-color: transparent; 
+        padding: 0; 
+        border-radius: 0; 
+    }
+    blockquote { 
+        border-left: 0.25em solid #dfe2e5; 
+        color: #6a737d; 
+        padding: 0 1em; 
+        margin: 0 0 16px 0; 
+    }
+    hr {
+        height: 0.25em;
+        padding: 0;
+        margin: 24px 0;
+        background-color: #e1e4e8;
+        border: 0;
+    }
+    .mermaid {
+        display: flex;
+        justify-content: center;
+        margin: 20px 0;
+    }
+</style>
+
+</head>
+<body>
+    <h1 id="prd-v20-contract-aligned">PRD 專案執行評估報告 (v2.0 - Contract Aligned)</h1>
+<p><strong>評估日期</strong>: 2026-02-14<br />
+<strong>評估對象</strong>: 核心 PRD 體系 (Interface Contract v1.1, Feature Annotation v1.2, Optimize v1.2, Training v1.3, Cleaner v2.2, Batch v1.3)<br />
+<strong>評估工具</strong>: <code>requirements-clarity</code>, <code>product-manager-toolkit</code> (Antigravity Skills)<br />
+<strong>評估結論</strong>: <strong>生產就緒 (Production Ready)</strong> - 強烈建議依據「基礎設施優先 (Foundation First)」策略執行</p>
+<hr />
+<h2 id="1-executive-summary">1. 執行總結 (Executive Summary)</h2>
+<p>經過對 v1.2+ 系列 PRD 的深入審查，本專案已從「功能定義階段」成熟至「契約驅動開發 (Contract-Driven Development) 階段」。</p>
+<p><strong>關鍵進展</strong>:
+1.  <strong>契約對齊 (Contract Alignment)</strong>: <code>Interface Contract v1.1</code> 成功整合了原本分散的模組介面，特別是 <strong>設備邏輯預檢 (Equipment Validation Sync)</strong> 與 <strong>時間基準 (Temporal Baseline)</strong>，有效解決了 v1.0 版本的「物理邏輯脫鉤」與「時間漂移」風險。
+2.  <strong>SSOT 強制執行</strong>: Feature Annotation v1.2 確立了 Excel 為唯一編輯入口，並透過 <code>device_role</code> 的嚴格管控（Cleaner 可讀不可寫），解決了資料隱私與職責分離問題。
+3.  <strong>防禦性設計</strong>: 各模組皆導入了詳細的錯誤代碼分層 (E000-E999)，大幅提升了系統的可維護性與除錯效率。</p>
+<hr />
+<h2 id="2-architecture-risk-assessment">2. 架構風險評估 (Architecture Risk Assessment)</h2>
+<p>依據 <code>product-manager-toolkit</code> 的風險評估模型，針對當前架構進行分析：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">風險項目</th>
+<th style="text-align: center;">嚴重度</th>
+<th style="text-align: center;">發生機率</th>
+<th style="text-align: center;">緩解狀態</th>
+<th style="text-align: left;">說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>依賴死鎖 (Dependency Deadlock)</strong></td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: center;">High</td>
+<td style="text-align: center;">✅ 已緩解</td>
+<td style="text-align: left;">透過 <strong>Foundation First Policy</strong>，明確定義了 <code>FeatureAnnotation</code> -&gt; <code>Cleaner</code> -&gt; <code>Batch</code> 的啟動順序，防止循環依賴。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>物理邏輯脫鉤 (Physics Logic Decoupling)</strong></td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: center;">✅ 已緩解</td>
+<td style="text-align: left;">Cleaner v2.2 導入 <strong>Equipment Validation Precheck</strong>，與 Optimization 共享 <code>EQUIPMENT_VALIDATION_CONSTRAINTS</code>，確保邏輯一致。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>時間漂移 (Temporal Drift)</strong></td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: center;">Low</td>
+<td style="text-align: center;">✅ 已緩解</td>
+<td style="text-align: left;">BatchProcessor v1.3 與 Cleaner v2.2 強制使用 <code>PipelineContext</code> 傳遞的 <code>pipeline_origin_timestamp</code>，禁止使用 <code>datetime.now()</code>。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>特徵錯位 (Feature Misalignment)</strong></td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: center;">Low</td>
+<td style="text-align: center;">✅ 已緩解</td>
+<td style="text-align: left;">Training v1.3 輸出 <code>feature_order_manifest</code>，Optimization v1.2 執行嚴格比對 (E901)，確保推論特徵順序正確。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Wizard 競態條件 (Race Condition)</strong></td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: center;">Low</td>
+<td style="text-align: center;">✅ 已緩解</td>
+<td style="text-align: left;">Wizard 改為僅更新 Excel，YAML 透過原子操作生成，並導入文件鎖機制。</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-module-execution-readiness">3. 模組執行整備度 (Module Execution Readiness)</h2>
+<p>基於 <code>requirements-clarity</code> 評分標準 (0-100)：</p>
+<h3 id="31-feature-annotation-v12-score-98100">3.1 Feature Annotation v1.2 (Score: 98/100)</h3>
+<ul>
+<li><strong>狀態</strong>: <strong>Ready for Dev</strong></li>
+<li><strong>亮點</strong>: 明確定義了 Excel/YAML/Git 的三層架構，並導入了 <code>device_role</code> 與 <code>ignore_warnings</code> 的細緻控制。</li>
+<li><strong>行動</strong>: 優先開發 <code>excel_to_yaml.py</code> 與 <code>Wizard</code>，作為所有下游模組的基石。</li>
+</ul>
+<h3 id="32-data-cleaner-v22-score-95100">3.2 Data Cleaner v2.2 (Score: 95/100)</h3>
+<ul>
+<li><strong>狀態</strong>: <strong>Ready for Dev</strong></li>
+<li><strong>亮點</strong>: 嚴格的 <strong>職責分離 (Separation of Concerns)</strong>，透過白名單機制防止 <code>device_role</code> 洩漏至 DataFrame。</li>
+<li><strong>注意</strong>: 需確保 <code>EQUIPMENT_VALIDATION_CONSTRAINTS</code> 在 <code>config_models.py</code> 中正確定義。</li>
+</ul>
+<h3 id="33-batch-processor-v13-score-92100">3.3 Batch Processor v1.3 (Score: 92/100)</h3>
+<ul>
+<li><strong>狀態</strong>: <strong>Ready for Dev</strong></li>
+<li><strong>亮點</strong>: 完整的 <strong>稽核軌跡 (Audit Trail)</strong>，包含 Annotation 版本與設備驗證結果，對除錯極有幫助。</li>
+<li><strong>挑戰</strong>: 需整合 <code>TemporalContext</code>，確保跨模組的時間一致性。</li>
+</ul>
+<h3 id="34-model-training-v13-optimization-v12-score-90100">3.4 Model Training v1.3 &amp; Optimization v1.2 (Score: 90/100)</h3>
+<ul>
+<li><strong>狀態</strong>: <strong>Ready for Dev</strong></li>
+<li><strong>亮點</strong>: <strong>Model Registry Index</strong> 的引入解決了模型版本混亂問題；<strong>Fallback 機制</strong> 確保了生產環境的穩定性。</li>
+<li><strong>建議</strong>: 在開發 Optimization 時，需同步建立詳細的 <code>feature_alignment</code> 單元測試。</li>
+</ul>
+<hr />
+<h2 id="4-implementation-roadmap">4. 執行路線圖建議 (Implementation Roadmap)</h2>
+<p>依據 <strong>Foundation First Policy</strong>，建議採用以下 Sprint 規劃：</p>
+<h3 id="sprint-1-foundation">Sprint 1: Foundation (基礎設施週)</h3>
+<ul>
+<li><strong>目標</strong>: 建立 SSOT 與 時間基準</li>
+<li><strong>交付物</strong>:<ol>
+<li><code>src/etl/config_models.py</code> (定義所有常數與錯誤代碼)</li>
+<li><code>src/features/annotation_manager.py</code> (Excel ↔ YAML 轉換工具)</li>
+<li><code>src/core/temporal_baseline.py</code> (PipelineContext)</li>
+</ol>
+</li>
+</ul>
+<h3 id="sprint-2-data-quality">Sprint 2: Data Quality (資料品質週)</h3>
+<ul>
+<li><strong>目標</strong>: 確保資料清洗與設備邏輯一致</li>
+<li><strong>交付物</strong>:<ol>
+<li><code>src/etl/parser.py</code> (v2.1 Header Standardization)</li>
+<li><code>src/etl/cleaner.py</code> (v2.2 含 Equipment Precheck)</li>
+<li><code>src/equipment/equipment_validator.py</code> (共用邏輯庫)</li>
+</ol>
+</li>
+</ul>
+<h3 id="sprint-3-core-pipeline">Sprint 3: Core Pipeline (核心管線週)</h3>
+<ul>
+<li><strong>目標</strong>: 串接批次處理與特徵工程</li>
+<li><strong>交付物</strong>:<ol>
+<li><code>src/etl/batch_processor.py</code> (v1.3 含 Manifest 生成)</li>
+<li><code>src/etl/feature_engineer.py</code> (v1.3 含 Feature Order Manifest)</li>
+</ol>
+</li>
+</ul>
+<h3 id="sprint-4-intelligence">Sprint 4: Intelligence (智能決策週)</h3>
+<ul>
+<li><strong>目標</strong>: 模型訓練與優化引擎</li>
+<li><strong>交付物</strong>:<ol>
+<li><code>src/training/</code> (v1.3 資源感知訓練)</li>
+<li><code>src/optimization/</code> (v1.2 契約對齊優化)</li>
+</ol>
+</li>
+</ul>
+<hr />
+<h2 id="5">5. 結論</h2>
+<p>本專案的 PRD 文件體系已達到高度完善的狀態。透過 v1.2/v1.3/v2.2 的迭代，我們不僅補強了功能，更在架構層面解決了「資料隱私」、「邏輯一致性」與「時序正確性」等深層問題。</p>
+<p><strong>最終建議</strong>:
+請開發團隊務必嚴格遵守 <strong>Interface Contract v1.1</strong> 定義的檢查點與錯誤代碼，切勿繞過 SSOT 進行 Hardcode 開發。只要遵循 Foundation First 策略，本專案將能順利交付高品質的 HVAC 分析系統。</p>
+    
+<script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true });
+</script>
+
+</body>
+</html>
