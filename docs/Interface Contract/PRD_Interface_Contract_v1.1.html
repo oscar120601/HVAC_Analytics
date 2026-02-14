@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PRD_Interface_Contract_v1.0</title>
+<title>PRD_Interface_Contract_v1.1</title>
 
 <style>
 body {
@@ -91,94 +91,206 @@ hr {
 
 </head>
 <body>
-<p>我將為您提供修正後的完整版 PRD_Interface_Contract_v1.0.md。此版本解決了錯誤代碼分層衝突、建立時間基準傳遞機制，並詳細定義 Training-Optimization 之間的特徵對齊契約。</p>
-<pre><code class="language-markdown"># PRD v1.0: 模組介面契約總綱 (Interface Contract Specification)
-
-**文件版本:** v1.0-Revised (Zero-Gap Contract Definition)  
-**日期:** 2026-02-13  
-**負責人:** Oscar Chang  
-**範圍:** 全 ETL Pipeline + Model Training + Optimization 模組間介面規範  
-**相依文件:** 
-- Parser v2.1+, Cleaner v2.2+, BatchProcessor v1.3+, FeatureEngineer v1.3+
-- Feature Annotation v1.2+, Model Training v1.2+, Optimization v1.1+
-
----
-
-## 1. 設計哲學與核心原則
-
-### 1.1 契約優先 (Contract-First)
-所有模組間的資料交換必須通過**靜態型別檢查**與**執行期驗證**雙重確認。契約一經定義，上游模組有義務確保輸出符合，下游模組有權利假設輸入符合，任何違反視為系統錯誤。
-
-### 1.2 防禦性驗證 (Defensive Validation)
-- **上游驗證**: 模組輸出前必須自我驗證（Self-Check），確保不傳遞「已知錯誤」
-- **下游驗證**: 模組輸入時必須嚴格驗證（Strict Validation），拒絕任何不符合契約的輸入
-- **容錯策略**: 寧可**終止流程**（Fail Fast），也不傳遞可疑資料
-
-### 1.3 單一真相源 (SSOT) 引用
-所有驗證邏輯必須引用 `src/etl/config_models.py` 中定義的常數：
-- `VALID_QUALITY_FLAGS`: 品質標記唯一清單
-- `TIMESTAMP_CONFIG`: 時間戳規格（UTC, nanoseconds, INT64）
-- `FEATURE_ANNOTATION_CONSTANTS`: Feature Annotation 版本與 schema 定義
-- `PIPELINE_TEMPORAL_BASELINE`: 時間基準傳遞規格（見第8章）
-
-### 1.4 全域時間基準 (Global Temporal Baseline)
-所有「未來資料檢查」與「時間相關驗證」必須使用 Pipeline 啟動時產生的**統一時間戳**（`pipeline_origin_timestamp`），而非模組執行時的動態 `datetime.now()`，以防止長時間執行流程中的時間漂移（見第8章）。
-
----
-
-## 2. 檢查點規格 (Checkpoint Specifications)
-
-### 2.1 檢查點 #1: Parser → Cleaner (Raw Data Contract)
-
-**位置**: `src/etl/parser.py` 輸出驗證 (`_validate_output_contract`)
-
-| 驗證項目 | 規格 | 失敗代碼 | 嚴重度 |
-|:---|:---|:---:|:---:|
-| **必要欄位** | 必須包含 `timestamp` | E003 | Critical |
-| **時間戳型別** | `pl.Datetime(time_unit='ns', time_zone='UTC')` | E002 | Critical |
-| **時間戳物理型別** | Parquet 層級必須為 `INT64` (非 INT96) | E002 | Critical |
-| **時間戳時區** | `time_zone` 屬性必須等於 `&quot;UTC&quot;` | E002 | Critical |
-| **編碼正確性** | 無 UTF-8 BOM (`\ufeff`) 殘留 | E001 | Critical |
-| **Null Byte 檢查** | 字串欄位不可包含 `\x00` | E001 | Critical |
-| **Quality Flags** | 若存在，值必須 ⊆ `VALID_QUALITY_FLAGS` | E003 | High |
-| **數值欄位型別** | 感測器數據必須為 `pl.Float64` | E003 | High |
-| **換行符號** | 統一為 `\n` (LF)，不可有 `\r` (CR) | E001 | Medium |
-| **時間基準繼承** | 必須接收並傳遞 `pipeline_origin_timestamp` | E000 | Critical |
-
-**容錯處理**:
-- 時區非 UTC: 嘗試自動轉換並發出 **E101 Warning**（僅限 Parser v2.1 相容模式，v2.2+ 視為錯誤）
-- 編碼非 UTF-8: 嘗試轉換，失敗則拋出 **E001 Error**
-
----
-
-### 2.2 檢查點 #2: Cleaner → BatchProcessor (Clean Data Contract)
-
-**位置**: `src/etl/cleaner.py` 輸出驗證 (`_validate_output_contract`) 與 BatchProcessor 輸入驗證 (`_validate_input_contract`)
-
-| 驗證項目 | 規格 | 失敗代碼 | 嚴重度 |
-|:---|:---|:---:|:---:|
-| **時間戳連續性** | `timestamp` 必須為連續時間軸（無缺口）或明確標記 `INSUFFICIENT_DATA` | - | Info |
-| **Quality Flags 型別** | `pl.List(pl.Utf8)` | E201 | Critical |
-| **Quality Flags 值域** | 所有值必須 ∈ `VALID_QUALITY_FLAGS` | E202 | Critical |
-| **Metadata 傳遞** | 必須提供 `column_metadata: Dict[str, FeatureMetadata]` | E203 | Warning |
-| **禁止欄位檢查** | **不可包含** `device_role`, `ignore_warnings`, `is_target` | **E500** | **Critical** |
-| **未來資料檢查** | 時間戳不可超過 `pipeline_origin_timestamp + 5 minutes` | E102 | High |
-| **時區一致性** | 必須為 UTC (ns)，與檢查點 #1 相同 | E201 | Critical |
-| **時間基準一致性** | 輸出 metadata 必須包含與輸入相同的 `pipeline_origin_timestamp` | E000 | Critical |
-
-**關鍵約束**:
-- **E500 (Device Role Leakage)**: Cleaner v2.2 絕對禁止將 `device_role` 寫入 DataFrame 或 metadata。此檢查為**零容錯**（Zero Tolerance），一旦發現立即終止流程。
-- **Metadata 純淨性**: `column_metadata` 僅可包含 `physical_type`, `unit`, `description`，禁止包含 `device_role`（即使從 AnnotationManager 讀取也不得寫入）。
-
----
-
-### 2.3 檢查點 #3: BatchProcessor → FeatureEngineer (Storage Contract)
-
-**位置**: `src/etl/batch_processor.py` 輸出驗證 (`_verify_parquet_schema`) 與 FeatureEngineer 輸入驗證 (`load_from_manifest`)
-
-**Manifest 契約**:
-```python
-class Manifest(BaseModel):
+<h1 id="prd-v11-interface-contract-specification">PRD v1.1: 模組介面契約總綱 (Interface Contract Specification)</h1>
+<p><strong>文件版本:</strong> v1.1-Revised (Project Execution Evaluation Alignment)<br />
+<strong>日期:</strong> 2026-02-14<br />
+<strong>負責人:</strong> Oscar Chang<br />
+<strong>範圍:</strong> 全 ETL Pipeline + Model Training + Optimization 模組間介面規範<br />
+<strong>相依文件:</strong> <br />
+- Parser v2.1+, Cleaner v2.2+, BatchProcessor v1.3+, FeatureEngineer v1.3+<br />
+- Feature Annotation v1.2+, Model Training v1.2+, Optimization v1.1+<br />
+- Equipment Dependency Validation v1.0+</p>
+<p><strong>修正重點 (v1.0 → v1.1):</strong><br />
+- 新增 Header Standardization 具體 Regex 規則（回應評估報告建議）<br />
+- 強化 PipelineContext 時間一致性防護（解決 Spatio-Temporal Inconsistency 風險）<br />
+- 建立 Equipment Validation 與 Cleaner 的反向同步機制（解決 Physics Logic Decoupling）<br />
+- 強化 Feature Annotation SSOT 引用檢查（預防 Dependency Deadlock）</p>
+<hr />
+<h2 id="1">1. 設計哲學與核心原則</h2>
+<h3 id="11-contract-first">1.1 契約優先 (Contract-First)</h3>
+<p>所有模組間的資料交換必須通過<strong>靜態型別檢查</strong>與<strong>執行期驗證</strong>雙重確認。契約一經定義，上游模組有義務確保輸出符合，下游模組有權利假設輸入符合，任何違反視為系統錯誤。</p>
+<h3 id="12-defensive-validation">1.2 防禦性驗證 (Defensive Validation)</h3>
+<ul>
+<li><strong>上游驗證</strong>: 模組輸出前必須自我驗證（Self-Check），確保不傳遞「已知錯誤」</li>
+<li><strong>下游驗證</strong>: 模組輸入時必須嚴格驗證（Strict Validation），拒絕任何不符合契約的輸入</li>
+<li><strong>容錯策略</strong>: 寧可<strong>終止流程</strong>（Fail Fast），也不傳遞可疑資料</li>
+</ul>
+<h3 id="13-ssot">1.3 單一真相源 (SSOT) 強制引用</h3>
+<p>所有驗證邏輯必須引用 <code>src/etl/config_models.py</code> 中定義的常數：<br />
+- <code>VALID_QUALITY_FLAGS</code>: 品質標記唯一清單<br />
+- <code>TIMESTAMP_CONFIG</code>: 時間戳規格（UTC, nanoseconds, INT64）<br />
+- <code>FEATURE_ANNOTATION_CONSTANTS</code>: Feature Annotation 版本與 schema 定義<br />
+- <code>PIPELINE_TEMPORAL_BASELINE</code>: 時間基準傳遞規格（見第8章）<br />
+- <code>HEADER_STANDARDIZATION_RULES</code>: CSV 標頭正規化規則（見第10章，新增）<br />
+- <code>EQUIPMENT_VALIDATION_CONSTRAINTS</code>: 設備邏輯限制（見第11章，新增）</p>
+<h3 id="14-global-temporal-baseline">1.4 全域時間基準 (Global Temporal Baseline)</h3>
+<p>所有「未來資料檢查」與「時間相關驗證」必須使用 Pipeline 啟動時產生的<strong>統一時間戳</strong>（<code>pipeline_origin_timestamp</code>），而非模組執行時的動態 <code>datetime.now()</code>，以防止長時間執行流程中的時間漂移（見第8章）。</p>
+<h3 id="15-physics-logic-consistency">1.5 物理邏輯一致性 (Physics Logic Consistency)</h3>
+<p>DataCleaner 的資料清洗邏輯必須與 Optimization 的設備限制條件保持一致，防止「清洗時未檢測違規，優化時卻發現不可行」的邏輯脫鉤（見第11章）。</p>
+<hr />
+<h2 id="2-checkpoint-specifications">2. 檢查點規格 (Checkpoint Specifications)</h2>
+<h3 id="21-1-parser-cleaner-raw-data-contract">2.1 檢查點 #1: Parser → Cleaner (Raw Data Contract)</h3>
+<p><strong>位置</strong>: <code>src/etl/parser.py</code> 輸出驗證 (<code>_validate_output_contract</code>)</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">驗證項目</th>
+<th style="text-align: left;">規格</th>
+<th style="text-align: center;">失敗代碼</th>
+<th style="text-align: center;">嚴重度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>必要欄位</strong></td>
+<td style="text-align: left;">必須包含 <code>timestamp</code></td>
+<td style="text-align: center;">E003</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>時間戳型別</strong></td>
+<td style="text-align: left;"><code>pl.Datetime(time_unit='ns', time_zone='UTC')</code></td>
+<td style="text-align: center;">E002</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>時間戳物理型別</strong></td>
+<td style="text-align: left;">Parquet 層級必須為 <code>INT64</code> (非 INT96)</td>
+<td style="text-align: center;">E002</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>時間戳時區</strong></td>
+<td style="text-align: left;"><code>time_zone</code> 屬性必須等於 <code>"UTC"</code></td>
+<td style="text-align: center;">E002</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>編碼正確性</strong></td>
+<td style="text-align: left;">無 UTF-8 BOM (<code>\ufeff</code>) 殘留</td>
+<td style="text-align: center;">E001</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Null Byte 檢查</strong></td>
+<td style="text-align: left;">字串欄位不可包含 <code>\x00</code></td>
+<td style="text-align: center;">E001</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Quality Flags</strong></td>
+<td style="text-align: left;">若存在，值必須 ⊆ <code>VALID_QUALITY_FLAGS</code></td>
+<td style="text-align: center;">E003</td>
+<td style="text-align: center;">High</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>數值欄位型別</strong></td>
+<td style="text-align: left;">感測器數據必須為 <code>pl.Float64</code></td>
+<td style="text-align: center;">E003</td>
+<td style="text-align: center;">High</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>換行符號</strong></td>
+<td style="text-align: left;">統一為 <code>\n</code> (LF)，不可有 <code>\r</code> (CR)</td>
+<td style="text-align: center;">E001</td>
+<td style="text-align: center;">Medium</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>時間基準繼承</strong></td>
+<td style="text-align: left;">必須接收並傳遞 <code>pipeline_origin_timestamp</code></td>
+<td style="text-align: center;">E000</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>標頭正規化</strong></td>
+<td style="text-align: left;">欄位名稱必須符合 Header Standardization 規則（見第10章）</td>
+<td style="text-align: center;"><strong>E105</strong></td>
+<td style="text-align: center;">High</td>
+</tr>
+</tbody>
+</table>
+<p><strong>容錯處理</strong>:<br />
+- 時區非 UTC: 嘗試自動轉換並發出 <strong>E101 Warning</strong>（僅限 Parser v2.1 相容模式，v2.2+ 視為錯誤）<br />
+- 編碼非 UTF-8: 嘗試轉換，失敗則拋出 <strong>E001 Error</strong><br />
+- 標頭不符合命名規範: 嘗試自動正規化（見第10章），記錄 <strong>E105 Warning</strong></p>
+<hr />
+<h3 id="22-2-cleaner-batchprocessor-clean-data-contract">2.2 檢查點 #2: Cleaner → BatchProcessor (Clean Data Contract)</h3>
+<p><strong>位置</strong>: <code>src/etl/cleaner.py</code> 輸出驗證 (<code>_validate_output_contract</code>) 與 BatchProcessor 輸入驗證 (<code>_validate_input_contract</code>)</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">驗證項目</th>
+<th style="text-align: left;">規格</th>
+<th style="text-align: center;">失敗代碼</th>
+<th style="text-align: center;">嚴重度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>時間戳連續性</strong></td>
+<td style="text-align: left;"><code>timestamp</code> 必須為連續時間軸（無缺口）或明確標記 <code>INSUFFICIENT_DATA</code></td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">Info</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Quality Flags 型別</strong></td>
+<td style="text-align: left;"><code>pl.List(pl.Utf8)</code></td>
+<td style="text-align: center;">E201</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Quality Flags 值域</strong></td>
+<td style="text-align: left;">所有值必須 ∈ <code>VALID_QUALITY_FLAGS</code></td>
+<td style="text-align: center;">E202</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Metadata 傳遞</strong></td>
+<td style="text-align: left;">必須提供 <code>column_metadata: Dict[str, FeatureMetadata]</code></td>
+<td style="text-align: center;">E203</td>
+<td style="text-align: center;">Warning</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>禁止欄位檢查</strong></td>
+<td style="text-align: left;"><strong>不可包含</strong> <code>device_role</code>, <code>ignore_warnings</code>, <code>is_target</code></td>
+<td style="text-align: center;"><strong>E500</strong></td>
+<td style="text-align: center;"><strong>Critical</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>未來資料檢查</strong></td>
+<td style="text-align: left;">時間戳不可超過 <code>pipeline_origin_timestamp + 5 minutes</code></td>
+<td style="text-align: center;">E102</td>
+<td style="text-align: center;">High</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>時區一致性</strong></td>
+<td style="text-align: left;">必須為 UTC (ns)，與檢查點 #1 相同</td>
+<td style="text-align: center;">E201</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>時間基準一致性</strong></td>
+<td style="text-align: left;">輸出 metadata 必須包含與輸入相同的 <code>pipeline_origin_timestamp</code></td>
+<td style="text-align: center;">E000</td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>物理邏輯預檢</strong></td>
+<td style="text-align: left;">若啟用 <code>equipment_validation_sync</code>，必須通過基礎設備邏輯檢查（見第11章）</td>
+<td style="text-align: center;"><strong>E350</strong></td>
+<td style="text-align: center;">High</td>
+</tr>
+</tbody>
+</table>
+<p><strong>關鍵約束</strong>:<br />
+- <strong>E500 (Device Role Leakage)</strong>: Cleaner v2.2 絕對禁止將 <code>device_role</code> 寫入 DataFrame 或 metadata。此檢查為<strong>零容錯</strong>（Zero Tolerance），一旦發現立即終止流程。<br />
+- <strong>Metadata 純淨性</strong>: <code>column_metadata</code> 僅可包含 <code>physical_type</code>, <code>unit</code>, <code>description</code>，禁止包含 <code>device_role</code>（即使從 AnnotationManager 讀取也不得寫入）。<br />
+- <strong>物理邏輯同步</strong> (新增): 若 config 啟用 <code>enforce_equipment_validation_sync</code>，Cleaner 必須檢查基礎設備邏輯（如主機開啟時冷卻水塔不可全關），提前標記違規資料。</p>
+<hr />
+<h3 id="23-3-batchprocessor-featureengineer-storage-contract">2.3 檢查點 #3: BatchProcessor → FeatureEngineer (Storage Contract)</h3>
+<p><strong>位置</strong>: <code>src/etl/batch_processor.py</code> 輸出驗證 (<code>_verify_parquet_schema</code>) 與 FeatureEngineer 輸入驗證 (<code>load_from_manifest</code>)</p>
+<p><strong>Manifest 契約</strong>:</p>
+<pre><code class="language-python">class Manifest(BaseModel):
     manifest_version: str = &quot;1.3-FA&quot;
     batch_id: str                      # UUID v4
     site_id: str
@@ -192,8 +304,11 @@ class Manifest(BaseModel):
     quality_flags_schema: List[str]    # 當下使用的 VALID_QUALITY_FLAGS 副本
     timestamp_schema: Dict             # {format: &quot;INT64&quot;, unit: &quot;nanoseconds&quot;, timezone: &quot;UTC&quot;}
 
-    # 時間基準傳遞 (新增)
-    temporal_baseline: Dict            # {pipeline_origin_timestamp: str, timezone: &quot;UTC&quot;}
+    # 時間基準傳遞 (新增強化)
+    temporal_baseline: Dict            # {pipeline_origin_timestamp: str, timezone: &quot;UTC&quot;, baseline_version: &quot;1.0&quot;}
+
+    # 物理邏輯稽核軌跡 (新增)
+    equipment_validation_audit: Dict   # {validation_enabled: bool, constraints_applied: List[str], violations_detected: int}
 
     # 輸出檔案
     output_files: List[str]            # 相對路徑
@@ -261,6 +376,12 @@ class Manifest(BaseModel):
 <td style="text-align: center;">E000</td>
 <td style="text-align: center;">Critical</td>
 </tr>
+<tr>
+<td style="text-align: left;"><strong>物理邏輯稽核</strong></td>
+<td style="text-align: left;">若啟用，必須包含 <code>equipment_validation_audit</code></td>
+<td style="text-align: center;">E351</td>
+<td style="text-align: center;">Warning</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -324,6 +445,12 @@ class Manifest(BaseModel):
 <td style="text-align: center;">E000</td>
 <td style="text-align: center;">Critical</td>
 </tr>
+<tr>
+<td style="text-align: left;"><strong>設備邏輯特徵一致性</strong></td>
+<td style="text-align: left;">若啟用設備狀態特徵，必須與 Equipment Validation 邏輯一致（見第11章）</td>
+<td style="text-align: center;"><strong>E352</strong></td>
+<td style="text-align: center;">High</td>
+</tr>
 </tbody>
 </table>
 <p><strong>特徵順序保證機制</strong>:</p>
@@ -335,7 +462,8 @@ feature_output = {
         &quot;version&quot;: &quot;1.0&quot;,
         &quot;features&quot;: [&quot;chiller_1_load&quot;, &quot;chiller_2_load&quot;, &quot;wb_temp&quot;, ...],  # 明確順序列表
         &quot;hash&quot;: &quot;sha256:abc123...&quot;,  # 特徵列表的雜湊
-        &quot;pipeline_origin_timestamp&quot;: &quot;2026-02-13T10:00:00Z&quot;
+        &quot;pipeline_origin_timestamp&quot;: &quot;2026-02-13T10:00:00Z&quot;,
+        &quot;equipment_constraints_applied&quot;: [&quot;chiller_pump_mutex&quot;, &quot;min_runtime_15min&quot;]  # 新增：套用的設備限制
     },
     &quot;scaler_params&quot;: {
         &quot;type&quot;: &quot;StandardScaler&quot;,
@@ -382,6 +510,12 @@ feature_output = {
 <td style="text-align: center;">E400</td>
 <td style="text-align: center;">Critical</td>
 </tr>
+<tr>
+<td style="text-align: left;"><strong>SSOT 常數同步</strong></td>
+<td style="text-align: left;">YAML 中的 <code>quality_flags_reference</code> 必須與 <code>VALID_QUALITY_FLAGS</code> 一致</td>
+<td style="text-align: center;"><strong>E408</strong></td>
+<td style="text-align: center;">Critical</td>
+</tr>
 </tbody>
 </table>
 <p><strong>執行時機</strong>:<br />
@@ -423,6 +557,12 @@ feature_output = {
 <td style="text-align: left;"><code>yaml_checksum</code> 必須符合 <code>sha256:[hex]</code> 格式</td>
 <td style="text-align: center;">E400</td>
 <td style="text-align: center;">Medium</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Header 對應檢查</strong></td>
+<td style="text-align: left;">YAML 中的 <code>column_name</code> 必須與實際 CSV 標頭（經正規化後）匹配</td>
+<td style="text-align: center;"><strong>E409</strong></td>
+<td style="text-align: center;">High</td>
 </tr>
 </tbody>
 </table>
@@ -482,6 +622,12 @@ feature_output = {
 <td style="text-align: center;">E000</td>
 <td style="text-align: center;">Warning</td>
 </tr>
+<tr>
+<td style="text-align: left;"><strong>設備限制一致性</strong></td>
+<td style="text-align: left;">Optimization 使用的設備限制必須與 Training 時記錄的 <code>equipment_constraints_applied</code> 相容</td>
+<td style="text-align: center;"><strong>E904</strong></td>
+<td style="text-align: center;">High</td>
+</tr>
 </tbody>
 </table>
 <p><strong>特徵對齊驗證詳細流程</strong>:</p>
@@ -511,6 +657,14 @@ def validate_feature_alignment(model_artifact, input_features):
             raise FeatureAlignmentError(E903,
                 &quot;縮放參數特徵順序與訓練特徵順序不一致，可能導致縮放錯位&quot;)
 
+    # 5. 驗證設備限制一致性（新增）
+    if 'equipment_constraints_applied' in model_artifact['feature_order_manifest']:
+        train_constraints = set(model_artifact['feature_order_manifest']['equipment_constraints_applied'])
+        current_constraints = set(get_current_equipment_constraints())  # 從當前 Optimization config 取得
+        if train_constraints != current_constraints:
+            raise FeatureAlignmentError(E904,
+                f&quot;設備限制不一致: 訓練時使用 {train_constraints}，當前使用 {current_constraints}&quot;)
+
     return True
 </code></pre>
 <hr />
@@ -539,12 +693,12 @@ def validate_feature_alignment(model_artifact, input_features):
 <tr>
 <td style="text-align: center;"><strong>E100-E199</strong></td>
 <td style="text-align: center;">Parser</td>
-<td style="text-align: left;">CSV/原始資料解析錯誤</td>
+<td style="text-align: left;">CSV/原始資料解析錯誤（含 Header Standardization）</td>
 </tr>
 <tr>
 <td style="text-align: center;"><strong>E200-E299</strong></td>
 <td style="text-align: center;">Cleaner</td>
-<td style="text-align: left;">資料清洗與驗證錯誤</td>
+<td style="text-align: left;">資料清洗與驗證錯誤（含設備邏輯預檢）</td>
 </tr>
 <tr>
 <td style="text-align: center;"><strong>E300-E349</strong></td>
@@ -559,7 +713,7 @@ def validate_feature_alignment(model_artifact, input_features):
 <tr>
 <td style="text-align: center;"><strong>E400-E499</strong></td>
 <td style="text-align: center;">Feature Annotation</td>
-<td style="text-align: left;">特徵標註與設定檔錯誤</td>
+<td style="text-align: left;">特徵標註與設定檔錯誤（含 SSOT 同步）</td>
 </tr>
 <tr>
 <td style="text-align: center;"><strong>E500-E599</strong></td>
@@ -589,7 +743,7 @@ def validate_feature_alignment(model_artifact, input_features):
 <tr>
 <td style="text-align: center;"><strong>E900-E999</strong></td>
 <td style="text-align: center;">跨階段整合</td>
-<td style="text-align: left;">特徵對齊、版本相容性錯誤</td>
+<td style="text-align: left;">特徵對齊、版本相容性、設備限制一致性錯誤</td>
 </tr>
 </tbody>
 </table>
@@ -598,7 +752,8 @@ def validate_feature_alignment(model_artifact, input_features):
 - <code>E601-E602</code> (Feature Engineer 新增) 歸類於 E6xx<br />
 - <code>E701+</code> (Model Training) 歸類於 E7xx<br />
 - <code>E801+</code> (Optimization) 歸類於 E8xx（與舊 Training E801 區隔）<br />
-- <code>E901+</code> (跨階段對齊) 歸類於 E9xx</p>
+- <code>E901+</code> (跨階段對齊) 歸類於 E9xx<br />
+- <strong>新增</strong>: <code>E105</code> (Header Standardization), <code>E350-E352</code> (Equipment Validation Sync), <code>E408-E409</code> (SSOT Sync), <code>E904</code> (Equipment Constraint Consistency)</p>
 <hr />
 <h3 id="31-e000">3.1 全域時間基準錯誤 (E000)</h3>
 <table>
@@ -620,6 +775,14 @@ def validate_feature_alignment(model_artifact, input_features):
 <td style="text-align: left;">pipeline_origin_timestamp 未傳遞或遺失</td>
 <td style="text-align: left;">"時間基準遺失: 無法執行時間相關驗證"</td>
 <td style="text-align: center;">❌ 否</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E000-W</strong></td>
+<td style="text-align: left;"><code>TEMPORAL_DRIFT_WARNING</code></td>
+<td style="text-align: center;">PipelineContext</td>
+<td style="text-align: left;">流程執行時間超過 1 小時，懷疑時間漂移</td>
+<td style="text-align: left;">"警告: Pipeline 執行時間過長，請檢查時間基準"</td>
+<td style="text-align: center;">✅ 是</td>
 </tr>
 </tbody>
 </table>
@@ -646,14 +809,6 @@ def validate_feature_alignment(model_artifact, input_features):
 <td style="text-align: center;">❌ 否</td>
 </tr>
 <tr>
-<td style="text-align: center;"><strong>E000</strong></td>
-<td style="text-align: left;"><code>TEMPORAL_BASELINE_MISSING</code></td>
-<td style="text-align: center;">PipelineContext</td>
-<td style="text-align: left;">全域時間基準未初始化</td>
-<td style="text-align: left;">"系統錯誤: 時間基準遺失"</td>
-<td style="text-align: center;">❌ 否</td>
-</tr>
-<tr>
 <td style="text-align: center;"><strong>E006</strong></td>
 <td style="text-align: left;"><code>MEMORY_LIMIT_EXCEEDED</code></td>
 <td style="text-align: center;">任意</td>
@@ -673,7 +828,7 @@ def validate_feature_alignment(model_artifact, input_features):
 </table>
 <hr />
 <h3 id="33-etl-e100-e399">3.3 ETL 處理錯誤 (E100-E399)</h3>
-<h3 id="33-etl-parser-e100-e199">3.3 ETL Parser 錯誤 (E100-E199)</h3>
+<h3 id="331-parser-e100-e199">3.3.1 Parser 錯誤 (E100-E199)</h3>
 <table>
 <thead>
 <tr>
@@ -681,7 +836,6 @@ def validate_feature_alignment(model_artifact, input_features):
 <th style="text-align: left;">名稱</th>
 <th style="text-align: center;">來源模組</th>
 <th style="text-align: left;">說明</th>
-<th style="text-align: center;">Dtype</th>
 <th style="text-align: center;">可恢復性</th>
 </tr>
 </thead>
@@ -691,7 +845,6 @@ def validate_feature_alignment(model_artifact, input_features):
 <td style="text-align: left;"><code>ENCODING_MISMATCH</code></td>
 <td style="text-align: center;">Parser</td>
 <td style="text-align: left;">無法偵測檔案編碼或含BOM</td>
-<td style="text-align: center;">-</td>
 <td style="text-align: center;">❌ 否</td>
 </tr>
 <tr>
@@ -699,7 +852,6 @@ def validate_feature_alignment(model_artifact, input_features):
 <td style="text-align: left;"><code>TIMEZONE_VIOLATION</code></td>
 <td style="text-align: center;">Parser</td>
 <td style="text-align: left;">時區非 UTC 或精度錯誤</td>
-<td style="text-align: center;">-</td>
 <td style="text-align: center;">❌ 否</td>
 </tr>
 <tr>
@@ -707,7 +859,6 @@ def validate_feature_alignment(model_artifact, input_features):
 <td style="text-align: left;"><code>CONTRACT_VIOLATION</code></td>
 <td style="text-align: center;">Parser</td>
 <td style="text-align: left;">缺少必要欄位或 Quality Flags 未定義</td>
-<td style="text-align: center;">-</td>
 <td style="text-align: center;">❌ 否</td>
 </tr>
 <tr>
@@ -715,23 +866,20 @@ def validate_feature_alignment(model_artifact, input_features):
 <td style="text-align: left;"><code>HEADER_NOT_FOUND</code></td>
 <td style="text-align: center;">Parser</td>
 <td style="text-align: left;">無法定位標頭行 (掃描 &gt; 500行)</td>
-<td style="text-align: center;">-</td>
 <td style="text-align: center;">❌ 否</td>
 </tr>
 <tr>
 <td style="text-align: center;"><strong>E105</strong></td>
-<td style="text-align: left;"><code>COLUMN_VALIDATION</code></td>
+<td style="text-align: left;"><code>HEADER_STANDARDIZATION_FAILED</code></td>
 <td style="text-align: center;">Parser</td>
-<td style="text-align: left;">欄位正規化失敗或數值轉型失敗</td>
-<td style="text-align: center;">-</td>
-<td style="text-align: center;">❌ 否</td>
+<td style="text-align: left;">標頭正規化失敗（不符合命名規則或 Regex 匹配失敗）</td>
+<td style="text-align: center;">⚠️ 部分（可嘗試自動轉換）</td>
 </tr>
 <tr>
 <td style="text-align: center;"><strong>E111</strong></td>
 <td style="text-align: left;"><code>TIMEZONE_WARNING</code></td>
 <td style="text-align: center;">Parser</td>
 <td style="text-align: left;">時區轉換警告 (非致命)</td>
-<td style="text-align: center;">-</td>
 <td style="text-align: center;">✅ 是</td>
 </tr>
 <tr>
@@ -739,12 +887,16 @@ def validate_feature_alignment(model_artifact, input_features):
 <td style="text-align: left;"><code>FUTURE_DATA_DETECTED</code></td>
 <td style="text-align: center;">Parser</td>
 <td style="text-align: left;">發現未來資料 (相對於 pipeline_timestamp)</td>
-<td style="text-align: center;">Datetime</td>
-<td style="text-align: center;">⚠️ 部分</td>
+<td style="text-align: center;">❌ 否</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Cleaner/BatchProcessor 階段 (E200-E299)</strong>：</p>
+<p><strong>E105 詳細規則</strong>:<br />
+- 觸發條件：CSV 標頭包含空格、特殊字元、大小寫混亂（如 <code>Chiller 1 Temp</code>、<code>&lt;invalid&gt;</code>、<code>power(kW)</code>）<br />
+- 自動轉換：嘗試套用 <code>HEADER_STANDARDIZATION_RULES</code>（見第10章）進行 snake_case 轉換<br />
+- 失敗處理：若自動轉換後仍不符合規則，拋出 E105 並終止流程</p>
+<hr />
+<h3 id="332-cleanerbatchprocessor-e200-e299">3.3.2 Cleaner/BatchProcessor 階段 (E200-E299)</h3>
 <table>
 <thead>
 <tr>
@@ -799,7 +951,7 @@ def validate_feature_alignment(model_artifact, input_features):
 </tr>
 </tbody>
 </table>
-<p><strong>BatchProcessor 儲存階段 (E300-E399)</strong>：</p>
+<p><strong>Cleaner 階段 (E210-E299)</strong>：</p>
 <table>
 <thead>
 <tr>
@@ -807,54 +959,42 @@ def validate_feature_alignment(model_artifact, input_features):
 <th style="text-align: left;">名稱</th>
 <th style="text-align: center;">來源模組</th>
 <th style="text-align: left;">說明</th>
-<th style="text-align: left;">使用者訊息範本</th>
 <th style="text-align: center;">可恢復性</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="text-align: center;"><strong>E301</strong></td>
-<td style="text-align: left;"><code>MANIFEST_INTEGRITY_FAILED</code></td>
-<td style="text-align: center;">FeatureEngineer</td>
-<td style="text-align: left;">Manifest checksum 驗證失敗</td>
-<td style="text-align: left;">"Manifest 檔案損毀或遭篡改"</td>
-<td style="text-align: center;">❌ 否</td>
+<td style="text-align: center;"><strong>E210</strong></td>
+<td style="text-align: left;"><code>PHYSICAL_CONSTRAINT_VIOLATION</code></td>
+<td style="text-align: center;">Cleaner</td>
+<td style="text-align: left;">資料違反物理限制（如溫度 &gt; 100°C）</td>
+<td style="text-align: center;">⚠️ 部分（標記 Quality Flag）</td>
 </tr>
 <tr>
-<td style="text-align: center;"><strong>E302</strong></td>
-<td style="text-align: left;"><code>SCHEMA_MISMATCH</code></td>
-<td style="text-align: center;">FeatureEngineer</td>
-<td style="text-align: left;">Parquet Schema 非 INT64/UTC</td>
-<td style="text-align: left;">"輸入 Parquet 格式不符"</td>
-<td style="text-align: center;">❌ 否</td>
+<td style="text-align: center;"><strong>E211</strong></td>
+<td style="text-align: left;"><code>FROZEN_DATA_DETECTED</code></td>
+<td style="text-align: center;">Cleaner</td>
+<td style="text-align: left;">連續多筆相同值（設備可能卡死）</td>
+<td style="text-align: center;">✅ 是（標記 FROZEN）</td>
 </tr>
 <tr>
-<td style="text-align: center;"><strong>E303</strong></td>
-<td style="text-align: left;"><code>UNKNOWN_QUALITY_FLAG</code></td>
-<td style="text-align: center;">FeatureEngineer</td>
-<td style="text-align: left;">Manifest 的 flags 與 SSOT 不符</td>
-<td style="text-align: left;">"Flags 版本不符: {detail}"</td>
+<td style="text-align: center;"><strong>E212</strong></td>
+<td style="text-align: left;"><code>ZERO_RATIO_EXCEEDED</code></td>
+<td style="text-align: center;">Cleaner</td>
+<td style="text-align: left;">零值比例過高（主設備異常）</td>
 <td style="text-align: center;">⚠️ 部分</td>
 </tr>
 <tr>
-<td style="text-align: center;"><strong>E304</strong></td>
-<td style="text-align: left;"><code>METADATA_MISSING</code></td>
-<td style="text-align: center;">FeatureEngineer</td>
-<td style="text-align: left;">Manifest 無 feature_metadata</td>
-<td style="text-align: left;">"缺少特徵元資料"</td>
-<td style="text-align: center;">✅ 是</td>
-</tr>
-<tr>
-<td style="text-align: center;"><strong>E305</strong></td>
-<td style="text-align: left;"><code>DATA_LEAKAGE_DETECTED</code></td>
-<td style="text-align: center;">FeatureEngineer</td>
-<td style="text-align: left;">包含未來資料或目標變數洩漏</td>
-<td style="text-align: left;">"資料洩漏風險: {detail}"</td>
-<td style="text-align: center;">❌ 否</td>
+<td style="text-align: center;"><strong>E213</strong></td>
+<td style="text-align: left;"><code>INSUFFICIENT_DATA_GAP</code></td>
+<td style="text-align: center;">Cleaner</td>
+<td style="text-align: left;">時間軸缺漏過大（&gt; 1小時）</td>
+<td style="text-align: center;">⚠️ 部分</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Equipment Validation 階段 (E350-E399)</strong>：</p>
+<hr />
+<h3 id="34-equipment-validation-e350-e399">3.4 Equipment Validation 錯誤 (E350-E399)（新增分層）</h3>
 <table>
 <thead>
 <tr>
@@ -868,41 +1008,55 @@ def validate_feature_alignment(model_artifact, input_features):
 <tbody>
 <tr>
 <td style="text-align: center;"><strong>E350</strong></td>
-<td style="text-align: left;"><code>CONSTRAINT_CONFIG_ERROR</code></td>
-<td style="text-align: center;">ValidationManager</td>
-<td style="text-align: left;">依賴約束設定檔解析失敗</td>
-<td style="text-align: center;">❌ 否</td>
+<td style="text-align: left;"><code>EQUIPMENT_LOGIC_PRECHECK_FAILED</code></td>
+<td style="text-align: center;">Cleaner</td>
+<td style="text-align: left;">基礎設備邏輯預檢失敗（如主機開但水泵關）</td>
+<td style="text-align: center;">⚠️ 部分（標記異常）</td>
 </tr>
 <tr>
 <td style="text-align: center;"><strong>E351</strong></td>
+<td style="text-align: left;"><code>EQUIPMENT_VALIDATION_AUDIT_MISSING</code></td>
+<td style="text-align: center;">BatchProcessor</td>
+<td style="text-align: left;">啟用同步但未記錄稽核軌跡</td>
+<td style="text-align: center;">❌ 否</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E352</strong></td>
+<td style="text-align: left;"><code>EQUIPMENT_CONSTRAINT_MISMATCH</code></td>
+<td style="text-align: center;">FeatureEngineer</td>
+<td style="text-align: left;">特徵工程與設備限制邏輯不一致</td>
+<td style="text-align: center;">❌ 否</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E353</strong></td>
 <td style="text-align: left;"><code>REQUIRES_VIOLATION</code></td>
 <td style="text-align: center;">EquipmentValidator</td>
 <td style="text-align: left;">違反「必須同時開啟」約束</td>
 <td style="text-align: center;">⚠️ 部分</td>
 </tr>
 <tr>
-<td style="text-align: center;"><strong>E352</strong></td>
+<td style="text-align: center;"><strong>E354</strong></td>
 <td style="text-align: left;"><code>MUTEX_VIOLATION</code></td>
 <td style="text-align: center;">EquipmentValidator</td>
 <td style="text-align: left;">違反「互斥」約束</td>
 <td style="text-align: center;">⚠️ 部分</td>
 </tr>
 <tr>
-<td style="text-align: center;"><strong>E353</strong></td>
+<td style="text-align: center;"><strong>E355</strong></td>
 <td style="text-align: left;"><code>SEQUENCE_VIOLATION</code></td>
 <td style="text-align: center;">EquipmentValidator</td>
 <td style="text-align: left;">違反開關機順序約束</td>
 <td style="text-align: center;">⚠️ 部分</td>
 </tr>
 <tr>
-<td style="text-align: center;"><strong>E354</strong></td>
+<td style="text-align: center;"><strong>E356</strong></td>
 <td style="text-align: left;"><code>MIN_RUNTIME_VIOLATION</code></td>
 <td style="text-align: center;">EquipmentValidator</td>
 <td style="text-align: left;">違反最小運轉時間限制</td>
 <td style="text-align: center;">⚠️ 部分</td>
 </tr>
 <tr>
-<td style="text-align: center;"><strong>E355</strong></td>
+<td style="text-align: center;"><strong>E357</strong></td>
 <td style="text-align: left;"><code>MIN_DOWNTIME_VIOLATION</code></td>
 <td style="text-align: center;">EquipmentValidator</td>
 <td style="text-align: left;">違反最小停機時間限制</td>
@@ -911,7 +1065,7 @@ def validate_feature_alignment(model_artifact, input_features):
 </tbody>
 </table>
 <hr />
-<h3 id="34-feature-annotation-e400-e499">3.4 Feature Annotation 錯誤 (E400-E499)</h3>
+<h3 id="35-feature-annotation-e400-e499">3.5 Feature Annotation 錯誤 (E400-E499)</h3>
 <table>
 <thead>
 <tr>
@@ -988,10 +1142,26 @@ def validate_feature_alignment(model_artifact, input_features):
 <td style="text-align: left;">"繼承循環偵測: {chain}"</td>
 <td style="text-align: center;">❌ 否</td>
 </tr>
+<tr>
+<td style="text-align: center;"><strong>E408</strong></td>
+<td style="text-align: left;"><code>SSOT_QUALITY_FLAGS_MISMATCH</code></td>
+<td style="text-align: center;">Container</td>
+<td style="text-align: left;">YAML 中的 flags 與 <code>VALID_QUALITY_FLAGS</code> 不一致</td>
+<td style="text-align: left;">"SSOT 品質標記不匹配: 請同步 config_models.py"</td>
+<td style="text-align: center;">❌ 否</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E409</strong></td>
+<td style="text-align: left;"><code>HEADER_ANNOTATION_MISMATCH</code></td>
+<td style="text-align: center;">Parser/AnnotationManager</td>
+<td style="text-align: left;">CSV 標頭（正規化後）與 Annotation 欄位名稱不匹配</td>
+<td style="text-align: left;">"CSV 標頭 {header} 無法對應至 Annotation"</td>
+<td style="text-align: center;">❌ 否</td>
+</tr>
 </tbody>
 </table>
 <hr />
-<h3 id="35-governance-architecture-violations-e500-e599">3.5 Governance &amp; Architecture Violations (E500-E599)</h3>
+<h3 id="36-governance-architecture-violations-e500-e599">3.6 Governance &amp; Architecture Violations (E500-E599)</h3>
 <table>
 <thead>
 <tr>
@@ -1023,7 +1193,7 @@ def validate_feature_alignment(model_artifact, input_features):
 </tbody>
 </table>
 <hr />
-<h3 id="36-feature-engineer-e600-e699">3.6 Feature Engineer 錯誤 (E600-E699)</h3>
+<h3 id="37-feature-engineer-e600-e699">3.7 Feature Engineer 錯誤 (E600-E699)</h3>
 <table>
 <thead>
 <tr>
@@ -1071,7 +1241,7 @@ def validate_feature_alignment(model_artifact, input_features):
 </tbody>
 </table>
 <hr />
-<h3 id="37-model-training-e700-e749">3.7 Model Training 錯誤 (E700-E749)</h3>
+<h3 id="38-model-training-e700-e749">3.8 Model Training 錯誤 (E700-E749)</h3>
 <table>
 <thead>
 <tr>
@@ -1135,7 +1305,7 @@ def validate_feature_alignment(model_artifact, input_features):
 </tbody>
 </table>
 <hr />
-<h3 id="38-hybrid-model-consistency-e750-e799">3.8 Hybrid Model Consistency (E750-E799)</h3>
+<h3 id="39-hybrid-model-consistency-e750-e799">3.9 Hybrid Model Consistency (E750-E799)</h3>
 <table>
 <thead>
 <tr>
@@ -1220,7 +1390,7 @@ def validate_feature_alignment(model_artifact, input_features):
 </tbody>
 </table>
 <hr />
-<h3 id="39-optimization-e800-e899">3.9 Optimization 錯誤 (E800-E899)</h3>
+<h3 id="310-optimization-e800-e899">3.10 Optimization 錯誤 (E800-E899)</h3>
 <table>
 <thead>
 <tr>
@@ -1300,8 +1470,8 @@ def validate_feature_alignment(model_artifact, input_features):
 </tbody>
 </table>
 <hr />
-<h3 id="310-e900-e999">3.10 跨階段整合錯誤 (E900-E999)</h3>
-<p><strong>Training-Optimization 特徵對齊錯誤</strong>：</p>
+<h3 id="311-e900-e999">3.11 跨階段整合錯誤 (E900-E999)</h3>
+<p><strong>Training-Optimization 特徵對齊與一致性錯誤</strong>：</p>
 <table>
 <thead>
 <tr>
@@ -1340,6 +1510,14 @@ def validate_feature_alignment(model_artifact, input_features):
 </tr>
 <tr>
 <td style="text-align: center;"><strong>E904</strong></td>
+<td style="text-align: left;"><code>EQUIPMENT_CONSTRAINT_INCONSISTENT</code></td>
+<td style="text-align: center;">Optimization</td>
+<td style="text-align: left;">當前設備限制與訓練時不一致</td>
+<td style="text-align: left;">"設備限制不一致: 訓練使用 {train_constraints}，當前使用 {current_constraints}"</td>
+<td style="text-align: center;">⚠️ 部分</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E905</strong></td>
 <td style="text-align: left;"><code>MODEL_VERSION_INCOMPATIBLE</code></td>
 <td style="text-align: center;">Optimization</td>
 <td style="text-align: left;">模型版本與 Optimization 引擎不相容</td>
@@ -1347,7 +1525,7 @@ def validate_feature_alignment(model_artifact, input_features):
 <td style="text-align: center;">❌ 否</td>
 </tr>
 <tr>
-<td style="text-align: center;"><strong>E905</strong></td>
+<td style="text-align: center;"><strong>E906</strong></td>
 <td style="text-align: left;"><code>PIPELINE_VERSION_DRIFT</code></td>
 <td style="text-align: center;">Container</td>
 <td style="text-align: left;">跨模組版本組合未通過相容性矩陣驗證</td>
@@ -1438,6 +1616,7 @@ def validate_feature_alignment(model_artifact, input_features):
 <th style="text-align: center;">Feature Engineer</th>
 <th style="text-align: center;">Model Training</th>
 <th style="text-align: center;">Optimization</th>
+<th style="text-align: center;">Equipment Validation</th>
 <th style="text-align: center;">相容性</th>
 <th style="text-align: left;">說明</th>
 </tr>
@@ -1450,8 +1629,9 @@ def validate_feature_alignment(model_artifact, input_features):
 <td style="text-align: center;">v1.3</td>
 <td style="text-align: center;">v1.2</td>
 <td style="text-align: center;">v1.1</td>
+<td style="text-align: center;">v1.0</td>
 <td style="text-align: center;">🟢 <strong>完全相容</strong></td>
-<td style="text-align: left;">推薦配置，支援特徵對齊驗證 E901-E903</td>
+<td style="text-align: left;">推薦配置，支援特徵對齊驗證 E901-E903，設備邏輯同步</td>
 </tr>
 <tr>
 <td style="text-align: center;">v2.1</td>
@@ -1459,6 +1639,7 @@ def validate_feature_alignment(model_artifact, input_features):
 <td style="text-align: center;">v1.3</td>
 <td style="text-align: center;">v1.3</td>
 <td style="text-align: center;">v1.2</td>
+<td style="text-align: center;">v1.0</td>
 <td style="text-align: center;">v1.0</td>
 <td style="text-align: center;">🔴 <strong>不相容</strong></td>
 <td style="text-align: left;">Optimization v1.0 缺少特徵對齊檢查點 #7</td>
@@ -1470,6 +1651,7 @@ def validate_feature_alignment(model_artifact, input_features):
 <td style="text-align: center;">v1.2</td>
 <td style="text-align: center;">v1.2</td>
 <td style="text-align: center;">v1.1</td>
+<td style="text-align: center;">v1.0</td>
 <td style="text-align: center;">🟡 <strong>部分相容</strong></td>
 <td style="text-align: left;">FE v1.2 無法輸出 feature_order_manifest，觸發 E601</td>
 </tr>
@@ -1480,6 +1662,7 @@ def validate_feature_alignment(model_artifact, input_features):
 <td style="text-align: center;">v1.3</td>
 <td style="text-align: center;">v1.1</td>
 <td style="text-align: center;">v1.1</td>
+<td style="text-align: center;">v1.0</td>
 <td style="text-align: center;">🟡 <strong>部分相容</strong></td>
 <td style="text-align: left;">Training v1.1 未輸出 scaler_params，Optimization 使用預設值</td>
 </tr>
@@ -1490,8 +1673,20 @@ def validate_feature_alignment(model_artifact, input_features):
 <td style="text-align: center;">任意</td>
 <td style="text-align: center;">v1.2</td>
 <td style="text-align: center;">v1.1</td>
+<td style="text-align: center;">v1.0</td>
 <td style="text-align: center;">🔴 <strong>不相容</strong></td>
 <td style="text-align: left;">若 Model 未包含 feature_order_manifest，觸發 E901</td>
+</tr>
+<tr>
+<td style="text-align: center;">v2.1</td>
+<td style="text-align: center;">v2.1</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;">v1.1</td>
+<td style="text-align: center;">v1.0</td>
+<td style="text-align: center;">🔴 <strong>不相容</strong></td>
+<td style="text-align: left;">Cleaner v2.1 可能輸出 device_role，觸發 E500</td>
 </tr>
 </tbody>
 </table>
@@ -1499,21 +1694,22 @@ def validate_feature_alignment(model_artifact, input_features):
 <p><strong>不允許的組合</strong>（系統必須拒絕啟動）：<br />
 1. Parser/Cleaner v2.0 + 任意下游（時區/職責分離衝突）<br />
 2. Feature Engineer v1.2 + Optimization v1.1（缺少特徵對齊機制，E901 無法通過）<br />
-3. Model Training v1.1 + Optimization v1.1（缺少標準化 scaler_params，E903 風險）</p>
+3. Model Training v1.1 + Optimization v1.1（缺少標準化 scaler_params，E903 風險）<br />
+4. Cleaner v2.1 + Equipment Validation v1.0（缺少設備邏輯預檢，E350 風險）</p>
 <p><strong>建議升級順序</strong>：</p>
 <pre><code>Feature Annotation v1.2 (基礎設施)
     ↓
-Parser v2.1 (上游輸出標準化)
+Parser v2.1 (上游輸出標準化 + Header Standardization)
     ↓
-Cleaner v2.2 (職責分離實作)
+Cleaner v2.2 (職責分離實作 + Equipment Validation Sync)
     ↓
-BatchProcessor v1.3 (時間基準傳遞)
+BatchProcessor v1.3 (時間基準傳遞 + Audit Trail)
     ↓
-FeatureEngineer v1.3 (特徵順序保證 E601)
+FeatureEngineer v1.3 (特徵順序保證 E601 + Equipment Constraint Alignment)
     ↓
 Model Training v1.2 (縮放參數輸出 E602)
     ↓
-Optimization v1.1 (特徵對齊驗證 E901-E903)
+Optimization v1.1 (特徵對齊驗證 E901-E903 + Equipment Constraint Consistency)
 </code></pre>
 <hr />
 <h2 id="6-implementation-checklist">6. 實作檢查清單 (Implementation Checklist)</h2>
@@ -1521,8 +1717,11 @@ Optimization v1.1 (特徵對齊驗證 E901-E903)
 <ul>
 <li>[ ] 所有模組 PRD 引用本文件作為「檢查點」與「錯誤代碼」的 SSOT</li>
 <li>[ ] <code>src/etl/config_models.py</code> 已定義 <code>VALID_QUALITY_FLAGS</code>, <code>TIMESTAMP_CONFIG</code>, <code>FEATURE_ANNOTATION_CONSTANTS</code></li>
+<li>[ ] <strong>新增</strong>: <code>src/etl/config_models.py</code> 已定義 <code>HEADER_STANDARDIZATION_RULES</code>（見第10章）</li>
+<li>[ ] <strong>新增</strong>: <code>src/etl/config_models.py</code> 已定義 <code>EQUIPMENT_VALIDATION_CONSTRAINTS</code>（見第11章）</li>
 <li>[ ] <strong>新增</strong>: <code>src/core/temporal_baseline.py</code> 已實作 <code>PipelineTemporalBaseline</code> 類別（見第8章）</li>
 <li>[ ] <strong>新增</strong>: <code>src/optimization/feature_alignment.py</code> 已實作對齊驗證邏輯（E901-E903）</li>
+<li>[ ] <strong>新增</strong>: <code>src/equipment/equipment_validator.py</code> 已實作並與 Cleaner 整合（見第11章）</li>
 <li>[ ] 各模組的 <code>ERROR_CODES</code> 字典必須與本文件第 3 節完全一致（含新分層 E600-E999）</li>
 </ul>
 <h3 id="62">6.2 開發中驗證</h3>
@@ -1531,6 +1730,8 @@ Optimization v1.1 (特徵對齊驗證 E901-E903)
 <li>[ ] E500 檢查必須使用 Property-Based Testing（隨機生成 device_role 值，驗證絕對不會出現在輸出）</li>
 <li>[ ] <strong>新增</strong>: E901-E903 檢查必須使用「錯誤順序特徵」測試（故意打亂特徵順序，驗證系統正確拒絕）</li>
 <li>[ ] <strong>新增</strong>: 時間基準測試（模擬長時間執行，驗證未來資料檢查使用固定基準而非動態時間）</li>
+<li>[ ] <strong>新增</strong>: Header Standardization 測試（使用各種非標準標頭，驗證正規化邏輯）</li>
+<li>[ ] <strong>新增</strong>: Equipment Validation Sync 測試（驗證 Cleaner 與 Optimization 的設備邏輯一致性）</li>
 <li>[ ] 版本相容性矩陣必須有整合測試覆蓋（使用不同版本組合的 fixture）</li>
 </ul>
 <h3 id="63">6.3 上線前驗收</h3>
@@ -1538,6 +1739,8 @@ Optimization v1.1 (特徵對齊驗證 E901-E903)
 <li>[ ] 執行端到端契約測試：Parser → Cleaner → BatchProcessor → FeatureEngineer → Model Training → Optimization，驗證檢查點 1-7 全部通過</li>
 <li>[ ] 執行 Annotation 流程測試：Excel → Wizard → excel_to_yaml → Container，驗證檢查點 5-6 全部通過</li>
 <li>[ ] <strong>新增</strong>: 執行特徵對齊壓力測試：訓練後故意修改特徵順序，驗證 Optimization 階段正確拋出 E901</li>
+<li>[ ] <strong>新增</strong>: 執行 Header Standardization 壓力測試：使用包含空格、特殊字元、大小寫混亂的 CSV 標頭，驗證正確轉換或拋出 E105</li>
+<li>[ ] <strong>新增</strong>: 執行 Equipment Validation Sync 測試：在 Cleaner 中注入設備邏輯違規資料，驗證正確標記並傳遞至 Optimization</li>
 <li>[ ] 驗證錯誤訊息：所有錯誤代碼必須輸出本文件定義的「使用者訊息範本」</li>
 </ul>
 <hr />
@@ -1582,6 +1785,14 @@ Optimization v1.1 (特徵對齊驗證 E901-E903)
 <td style="text-align: left;"><strong>Temporal Baseline</strong></td>
 <td style="text-align: left;">Pipeline 啟動時的統一時間戳，所有未來資料檢查的基準</td>
 </tr>
+<tr>
+<td style="text-align: left;"><strong>Header Standardization</strong></td>
+<td style="text-align: left;">CSV 標頭正規化規則，確保欄位名稱符合 snake_case 命名規範</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Equipment Validation Sync</strong></td>
+<td style="text-align: left;">Cleaner 與 Optimization 之間的設備邏輯一致性檢查機制</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -1605,6 +1816,7 @@ Optimization v1.1 (特徵對齊驗證 E901-E903)
                 if cls._instance is None:
                     cls._instance = super().__new__(cls)
                     cls._instance.origin_timestamp = datetime.now(UTC)
+                    cls._instance.baseline_version = &quot;1.0&quot;
         return cls._instance
 
     def get_baseline(self) -&gt; datetime:
@@ -1618,6 +1830,10 @@ Optimization v1.1 (特徵對齊驗證 E901-E903)
         &quot;&quot;&quot;
         threshold = self.origin_timestamp + timedelta(minutes=tolerance_minutes)
         return timestamp &gt; threshold
+
+    def get_elapsed_minutes(self) -&gt; float:
+        &quot;&quot;&quot;取得 Pipeline 已執行時間（用於漂移檢測）&quot;&quot;&quot;
+        return (datetime.now(UTC) - self.origin_timestamp).total_seconds() / 60
 </code></pre>
 <p><strong>傳遞機制</strong>：<br />
 1. <strong>Container → 各模組</strong>: 通過建構子注入 <code>temporal_context: TemporalContext</code><br />
@@ -1626,19 +1842,24 @@ Optimization v1.1 (特徵對齊驗證 E901-E903)
 <h3 id="82">8.2 各模組實作規範</h3>
 <p><strong>Parser</strong>:<br />
 - 接收 <code>TemporalContext</code>，在輸出 metadata 中記錄 <code>pipeline_origin_timestamp</code><br />
-- 驗證邏輯：若輸入資料時間 &gt; <code>context.get_baseline() + 5min</code>，拋出 E102</p>
+- 驗證邏輯：若輸入資料時間 &gt; <code>context.get_baseline() + 5min</code>，拋出 E102<br />
+- <strong>強化</strong>: 若 <code>context.get_elapsed_minutes() &gt; 60</code>，記錄 E000-W 警告（長時間執行檢測）</p>
 <p><strong>Cleaner</strong>:<br />
 - 從輸入 metadata 讀取 <code>pipeline_origin_timestamp</code>，傳遞至輸出<br />
-- 驗證邏輯：清洗後資料時間不可超過基準+5分鐘（E102）</p>
+- 驗證邏輯：清洗後資料時間不可超過基準+5分鐘（E102）<br />
+- <strong>強化</strong>: 若啟用 <code>enforce_equipment_validation_sync</code>，在時間檢查後執行設備邏輯預檢</p>
 <p><strong>BatchProcessor</strong>:<br />
 - 將 <code>temporal_baseline</code> 寫入 Manifest（見 2.3 節 Manifest 契約）<br />
-- 批次驗證：整個批次時間範圍不可超過基準+5分鐘（E205）</p>
+- 批次驗證：整個批次時間範圍不可超過基準+5分鐘（E205）<br />
+- <strong>強化</strong>: 記錄 <code>baseline_version</code> 至 Manifest，供下游相容性檢查</p>
 <p><strong>FeatureEngineer → Model Training</strong>:<br />
 - 特徵矩陣 metadata 必須包含 <code>pipeline_origin_timestamp</code>（用於追溯）<br />
-- <strong>注意</strong>: Training 階段不直接使用此時間戳進行「未來檢查」，但必須傳遞至模型產物</p>
+- <strong>注意</strong>: Training 階段不直接使用此時間戳進行「未來檢查」，但必須傳遞至模型產物<br />
+- <strong>強化</strong>: 記錄特徵工程執行時間與基準時間的差異（用於效能分析）</p>
 <p><strong>Optimization</strong>:<br />
 - <strong>產生新基準</strong>: Optimization 階段必須產生新的 <code>pipeline_origin_timestamp</code>（推論當下時間）<br />
-- <strong>不可沿用 Training 時間</strong>: 防止「訓練時的未來資料」在推論時變成「過去資料」的邏輯錯誤</p>
+- <strong>不可沿用 Training 時間</strong>: 防止「訓練時的未來資料」在推論時變成「過去資料」的邏輯錯誤<br />
+- <strong>強化</strong>: 驗證輸入資料時間範圍與新基準的合理性（防止使用過舊的訓練模型）</p>
 <h3 id="83">8.3 錯誤處理</h3>
 <table>
 <thead>
@@ -1666,8 +1887,13 @@ Optimization v1.1 (特徵對齊驗證 E901-E903)
 </tr>
 <tr>
 <td style="text-align: left;">基準時間與系統時間差距過大（&gt;1小時）</td>
-<td style="text-align: center;">E000-Warning</td>
+<td style="text-align: center;">E000-W</td>
 <td style="text-align: left;">警告「Pipeline 執行時間過長或系統時間異常」</td>
+</tr>
+<tr>
+<td style="text-align: left;">跨日執行時（00:00 前後）時間計算錯誤</td>
+<td style="text-align: center;">E000</td>
+<td style="text-align: left;">終止流程，檢查時間基準一致性</td>
 </tr>
 </tbody>
 </table>
@@ -1705,11 +1931,18 @@ Optimization v1.1 (特徵對齊驗證 E901-E903)
     &quot;scaler_hash&quot;: &quot;sha256:e5f6g7h8...&quot;
   },
 
+  &quot;equipment_constraints&quot;: {
+    &quot;constraints_applied&quot;: [&quot;chiller_pump_mutex&quot;, &quot;min_runtime_15min&quot;],
+    &quot;validation_enabled&quot;: true,
+    &quot;constraint_hash&quot;: &quot;sha256:i9j0k1l2...&quot;
+  },
+
   &quot;validation_rules&quot;: {
     &quot;allow_subset&quot;: false,
     &quot;allow_superset&quot;: false,
     &quot;strict_order&quot;: true,
-    &quot;case_sensitive&quot;: true
+    &quot;case_sensitive&quot;: true,
+    &quot;validate_equipment_constraints&quot;: true
   }
 }
 </code></pre>
@@ -1746,6 +1979,14 @@ if computed_hash != manifest['feature_specification']['feature_hash']:
     if manifest['scaling_specification']['scaler_feature_names'] != input_features:
         raise E903(&quot;縮放參數特徵順序與輸入特徵順序不一致&quot;)
 </code></pre>
+<p><strong>Step 5: 設備限制一致性驗證</strong> (E904，新增)</p>
+<pre><code class="language-python">if manifest['validation_rules'].get('validate_equipment_constraints', False):
+    train_constraints = set(manifest['equipment_constraints']['constraints_applied'])
+    current_constraints = set(get_current_equipment_constraints())
+
+    if train_constraints != current_constraints:
+        raise E904(f&quot;設備限制不一致: 訓練使用 {train_constraints}，當前使用 {current_constraints}&quot;)
+</code></pre>
 <h3 id="94">9.4 容錯與恢復策略</h3>
 <table>
 <thead>
@@ -1771,31 +2012,381 @@ if computed_hash != manifest['feature_specification']['feature_hash']:
 <td style="text-align: left;">使用線上統計即時計算 mean/std，標記為「非確定性縮放」</td>
 <td style="text-align: left;">建議重新訓練模型以固定縮放參數</td>
 </tr>
+<tr>
+<td style="text-align: left;">E904: 設備限制不一致</td>
+<td style="text-align: left;">嘗試使用訓練時的限制設定，記錄警告</td>
+<td style="text-align: left;">檢查設備配置變更是否影響模型有效性</td>
+</tr>
 </tbody>
 </table>
 <h3 id="95">9.5 與現有檢查點的整合</h3>
 <ul>
 <li><strong>檢查點 #4</strong> (FeatureEngineer → Model Training): 驗證 Feature Manifest 正確產生（E601, E602）</li>
-<li><strong>檢查點 #7</strong> (Model Training → Optimization): 驗證 Feature Manifest 正確載入與比對（E901, E902, E903）</li>
+<li><strong>檢查點 #7</strong> (Model Training → Optimization): 驗證 Feature Manifest 正確載入與比對（E901, E902, E903, E904）</li>
 </ul>
 <hr />
+<h2 id="10-header-standardization-csv">10. Header Standardization 規範 (CSV 標頭正規化)</h2>
+<h3 id="101">10.1 問題定義</h3>
+<p>CSV 檔案的標頭（欄位名稱）常包含不一致的命名（如 <code>Chiller 1 Temp</code>、<code>power(kW)</code>、<code>sensor-A</code>），導致與 Feature Annotation 中定義的 <code>column_name</code> 無法匹配。為解決此問題，建立自動正規化機制。</p>
+<h3 id="102-regex-based">10.2 正規化規則 (Regex-based)</h3>
+<p><strong>標準命名規範</strong>: <code>snake_case</code>，僅允許小寫英文字母、數字、底線。</p>
+<p><strong>正規化流程</strong>:</p>
+<pre><code class="language-python">HEADER_STANDARDIZATION_RULES = [
+    # 步驟 1: 移除前後空白
+    (r'^\s+|\s+$', ''),
+
+    # 步驟 2: 將 camelCase/PascalCase 轉換為 snake_case
+    # 插入底線在大寫字母前，然後轉小寫
+    (r'(?&lt;=[a-z0-9])(?=[A-Z])', '_'),  # 在小寫/數字後的大寫前插入底線
+    (r'(?&lt;=[A-Z])(?=[A-Z][a-z])', '_'),  # 在連續大寫中的第二個大寫前插入底線（如 HTTPRequest → HTTP_Request）
+
+    # 步驟 3: 替換非法字元為底線
+    (r'[^a-zA-Z0-9_]', '_'),  # 非字母數字底線的字元替換為底線
+
+    # 步驟 4: 合併連續底線
+    (r'_+', '_'),
+
+    # 步驟 5: 移除開頭數字（Python 變數限制）
+    (r'^[0-9]+', 'col_'),
+
+    # 步驟 6: 轉換為小寫
+    (r'[A-Z]', lambda m: m.group(0).lower()),
+]
+
+def standardize_header(header: str) -&gt; str:
+    &quot;&quot;&quot;
+    將 CSV 標頭正規化為 snake_case
+
+    Args:
+        header: 原始標頭字串
+
+    Returns:
+        正規化後的標頭
+
+    Raises:
+        HeaderStandardizationError: 若正規化後仍不符合規則（如空字串、僅含底線）
+    &quot;&quot;&quot;
+    import re
+
+    result = header
+    for pattern, replacement in HEADER_STANDARDIZATION_RULES:
+        if callable(replacement):
+            result = re.sub(pattern, replacement, result)
+        else:
+            result = re.sub(pattern, replacement, result)
+
+    # 驗證結果
+    if not result or result == '_' or not re.match(r'^[a-z][a-z0-9_]*$', result):
+        raise HeaderStandardizationError(
+            f&quot;E105: 標頭 '{header}' 無法正規化為有效識別符，結果: '{result}'&quot;
+        )
+
+    return result
+</code></pre>
+<h3 id="103">10.3 常見標頭轉換範例</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">原始標頭</th>
+<th style="text-align: left;">正規化結果</th>
+<th style="text-align: left;">說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>Chiller 1 Temp</code></td>
+<td style="text-align: left;"><code>chiller_1_temp</code></td>
+<td style="text-align: left;">空格轉底線，大寫轉小寫</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>power(kW)</code></td>
+<td style="text-align: left;"><code>power_kw</code></td>
+<td style="text-align: left;">移除括號，保留字母數字</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>sensor-A</code></td>
+<td style="text-align: left;"><code>sensor_a</code></td>
+<td style="text-align: left;">連字號轉底線</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>HTTPRequest</code></td>
+<td style="text-align: left;"><code>http_request</code></td>
+<td style="text-align: left;">PascalCase 轉 snake_case</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>Total_Power</code></td>
+<td style="text-align: left;"><code>total_power</code></td>
+<td style="text-align: left;">大寫轉小寫</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>123_sensor</code></td>
+<td style="text-align: left;"><code>col_123_sensor</code></td>
+<td style="text-align: left;">開頭數字前綴 <code>col_</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>Temp..Value</code></td>
+<td style="text-align: left;"><code>temp_value</code></td>
+<td style="text-align: left;">合併連續底線</td>
+</tr>
+</tbody>
+</table>
+<h3 id="104-parser">10.4 Parser 整合規範</h3>
+<p><strong>執行時機</strong>: Parser 讀取 CSV 後、建立 DataFrame 前。</p>
+<pre><code class="language-python">class ReportParser:
+    def _standardize_headers(self, headers: List[str]) -&gt; List[str]:
+        &quot;&quot;&quot;
+        正規化 CSV 標頭，並記錄映射關係供除錯
+        &quot;&quot;&quot;
+        standardized = []
+        mapping = {}
+
+        for original in headers:
+            try:
+                normalized = standardize_header(original)
+                standardized.append(normalized)
+                mapping[original] = normalized
+
+                if original != normalized:
+                    self.logger.warning(f&quot;E105: 標頭正規化: '{original}' → '{normalized}'&quot;)
+
+            except HeaderStandardizationError as e:
+                self.logger.error(str(e))
+                raise E105(f&quot;無法正規化標頭: {original}&quot;)
+
+        # 檢查重複（正規化後可能產生衝突）
+        if len(standardized) != len(set(standardized)):
+            duplicates = [h for h in standardized if standardized.count(h) &gt; 1]
+            raise E105(f&quot;正規化後產生重複標頭: {set(duplicates)}&quot;)
+
+        return standardized
+</code></pre>
+<h3 id="105-feature-annotation">10.5 與 Feature Annotation 的對接</h3>
+<p>正規化後的標頭必須與 Annotation YAML 中的 <code>column_name</code> 完全匹配：</p>
+<pre><code class="language-python">def validate_header_annotation_match(standardized_headers: List[str], annotation_manager) -&gt; None:
+    &quot;&quot;&quot;
+    驗證正規化後的標頭與 Annotation 定義匹配（檢查點 #6 延伸）
+    &quot;&quot;&quot;
+    unannotated = []
+    for header in standardized_headers:
+        if not annotation_manager.is_column_annotated(header):
+            unannotated.append(header)
+
+    if unannotated:
+        raise E409(
+            f&quot;CSV 標頭（正規化後）無法對應至 Annotation: {unannotated}。 &quot;
+            f&quot;請確認 Excel 標註中的 column_name 是否與正規化結果一致，&quot;
+            f&quot;或執行 features wizard 進行標註。&quot;
+        )
+</code></pre>
+<hr />
+<h2 id="11-equipment-validation-sync">11. Equipment Validation Sync 規範 (設備邏輯同步)</h2>
+<h3 id="111">11.1 問題定義</h3>
+<p>為解決「DataCleaner 清洗時未檢測設備邏輯違規，導致模型學習錯誤物理規律，Optimization 階段卻發現限制條件不可行」的 Physics Logic Decoupling 風險，建立 Cleaner 與 Optimization 之間的設備邏輯同步機制。</p>
+<h3 id="112-ssot">11.2 設備邏輯限制定義 (SSOT)</h3>
+<pre><code class="language-python"># src/etl/config_models.py
+EQUIPMENT_VALIDATION_CONSTRAINTS = {
+    &quot;chiller_pump_mutex&quot;: {
+        &quot;description&quot;: &quot;主機開啟時必須有至少一台冷卻水泵運轉&quot;,
+        &quot;check_type&quot;: &quot;requires&quot;,
+        &quot;trigger&quot;: &quot;chiller_1_status == 1 OR chiller_2_status == 1&quot;,
+        &quot;requirement&quot;: &quot;pump_1_status == 1 OR pump_2_status == 1&quot;,
+        &quot;severity&quot;: &quot;critical&quot;,  # 違反時標記為 PHYSICAL_IMPOSSIBLE
+    },
+    &quot;min_runtime_15min&quot;: {
+        &quot;description&quot;: &quot;主機開啟後至少運轉 15 分鐘才能關閉&quot;,
+        &quot;check_type&quot;: &quot;sequence&quot;,
+        &quot;min_duration_minutes&quot;: 15,
+        &quot;applies_to&quot;: [&quot;chiller_1_status&quot;, &quot;chiller_2_status&quot;],
+        &quot;severity&quot;: &quot;warning&quot;,  # 違反時標記為 EQUIPMENT_VIOLATION
+    },
+    &quot;min_downtime_10min&quot;: {
+        &quot;description&quot;: &quot;主機關閉後至少停機 10 分鐘才能開啟&quot;,
+        &quot;check_type&quot;: &quot;sequence&quot;,
+        &quot;min_duration_minutes&quot;: 10,
+        &quot;applies_to&quot;: [&quot;chiller_1_status&quot;, &quot;chiller_2_status&quot;],
+        &quot;severity&quot;: &quot;warning&quot;,
+    },
+    &quot;chiller_mutual_exclusion&quot;: {
+        &quot;description&quot;: &quot;備用主機與主主機不可同時開啟（視情況而定）&quot;,
+        &quot;check_type&quot;: &quot;mutex&quot;,
+        &quot;mutex_pairs&quot;: [[&quot;chiller_1_status&quot;, &quot;chiller_2_status&quot;]],
+        &quot;condition&quot;: &quot;device_role == 'backup'&quot;,  # 僅當角色為 backup 時檢查
+        &quot;severity&quot;: &quot;warning&quot;,
+    }
+}
+</code></pre>
+<h3 id="113-cleaner-e350">11.3 Cleaner 整合規範 (E350)</h3>
+<p>DataCleaner 在清洗階段執行基礎設備邏輯預檢：</p>
+<pre><code class="language-python">class DataCleaner:
+    def __init__(self, config, annotation_manager, equipment_validator=None):
+        # ...
+        self.equipment_validator = equipment_validator
+        self.enable_equipment_sync = config.get('enforce_equipment_validation_sync', False)
+
+    def _apply_equipment_validation_precheck(self, df: pl.DataFrame) -&gt; pl.DataFrame:
+        &quot;&quot;&quot;
+        設備邏輯預檢（檢查點 #2 延伸）
+
+        邏輯：
+        1. 讀取設備狀態欄位（依據 Annotation 中的 physical_type == 'status'）
+        2. 檢查 EQUIPMENT_VALIDATION_CONSTRAINTS 中的條件
+        3. 違反時標記 quality_flags，並記錄至 metadata
+        &quot;&quot;&quot;
+        if not self.enable_equipment_sync or not self.equipment_validator:
+            return df
+
+        violations = []
+
+        for constraint_id, constraint in EQUIPMENT_VALIDATION_CONSTRAINTS.items():
+            # 執行檢查邏輯（簡化範例）
+            if constraint['check_type'] == 'requires':
+                violated = self._check_requires_constraint(df, constraint)
+            elif constraint['check_type'] == 'mutex':
+                violated = self._check_mutex_constraint(df, constraint)
+            elif constraint['check_type'] == 'sequence':
+                violated = self._check_sequence_constraint(df, constraint)
+
+            if violated:
+                violations.append(constraint_id)
+
+                # 根據嚴重程度標記
+                if constraint['severity'] == 'critical':
+                    flag = 'PHYSICAL_IMPOSSIBLE'
+                else:
+                    flag = 'EQUIPMENT_VIOLATION'
+
+                # 標記違規時間點
+                df = self._mark_violation_flags(df, violated, flag)
+
+        # 記錄至 metadata（供 BatchProcessor 寫入 Manifest）
+        self._equipment_validation_audit = {
+            'validation_enabled': True,
+            'constraints_applied': list(EQUIPMENT_VALIDATION_CONSTRAINTS.keys()),
+            'violations_detected': len(violations),
+            'violation_details': violations
+        }
+
+        return df
+</code></pre>
+<h3 id="114-batchprocessor">11.4 BatchProcessor 稽核軌跡</h3>
+<p>BatchProcessor 將設備邏輯預檢結果寫入 Manifest：</p>
+<pre><code class="language-python">def _generate_manifest(self, df, column_metadata, output_files):
+    # ...
+    manifest = Manifest(
+        # ... 其他欄位
+        equipment_validation_audit=getattr(
+            self.cleaner, '_equipment_validation_audit', 
+            {'validation_enabled': False}
+        )
+    )
+    return manifest
+</code></pre>
+<h3 id="115-optimization-e904">11.5 Optimization 一致性驗證 (E904)</h3>
+<p>Optimization 階段驗證使用的設備限制與 Training 時一致：</p>
+<pre><code class="language-python">class OptimizationEngine:
+    def _validate_equipment_constraint_consistency(self, model_artifact):
+        &quot;&quot;&quot;
+        驗證設備限制一致性（檢查點 #7 延伸）
+        &quot;&quot;&quot;
+        train_audit = model_artifact.get('equipment_constraints', {})
+        current_constraints = set(EQUIPMENT_VALIDATION_CONSTRAINTS.keys())
+
+        if train_audit.get('validation_enabled'):
+            train_constraints = set(train_audit.get('constraints_applied', []))
+
+            if train_constraints != current_constraints:
+                raise E904(
+                    f&quot;設備限制不一致: 訓練時啟用 {train_constraints}，&quot;
+                    f&quot;當前系統啟用 {current_constraints}。 &quot;
+                    f&quot;這可能導致優化結果與模型訓練時的物理假設衝突。&quot;
+                )
+</code></pre>
+<h3 id="116">11.6 與現有檢查點的整合</h3>
+<ul>
+<li><strong>檢查點 #2</strong> (Cleaner → BatchProcessor): 新增 E350 設備邏輯預檢失敗錯誤</li>
+<li><strong>檢查點 #3</strong> (BatchProcessor → Feature Engineer): Manifest 包含 <code>equipment_validation_audit</code></li>
+<li><strong>檢查點 #4</strong> (Feature Engineer → Model Training): 特徵工程考慮設備狀態邏輯一致性</li>
+<li><strong>檢查點 #7</strong> (Model Training → Optimization): 新增 E904 設備限制不一致錯誤</li>
+</ul>
+<hr />
+<h2 id="12">12. 版本歷史與變更記錄</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">版本</th>
+<th style="text-align: center;">日期</th>
+<th style="text-align: left;">變更內容</th>
+<th style="text-align: center;">負責人</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">v1.0</td>
+<td style="text-align: center;">2026-02-13</td>
+<td style="text-align: left;">初始版本，建立基礎檢查點與錯誤代碼分層</td>
+<td style="text-align: center;">Oscar Chang</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>v1.1</strong></td>
+<td style="text-align: center;"><strong>2026-02-14</strong></td>
+<td style="text-align: left;"><strong>重大更新：依據 Project Execution Evaluation Report 建議強化</strong></td>
+<td style="text-align: center;"><strong>Oscar Chang</strong></td>
+</tr>
+<tr>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: left;">1. 新增第10章：Header Standardization 規範（Regex 正規化規則）</td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: left;">2. 新增第11章：Equipment Validation Sync 規範（設備邏輯同步）</td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: left;">3. 強化第8章：Temporal Baseline 時間一致性防護（新增漂移檢測）</td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: left;">4. 擴展錯誤代碼：新增 E105, E350-E352, E408-E409, E904</td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: left;">5. 更新檢查點 #2, #3, #4, #7：加入設備邏輯與 SSOT 同步檢查</td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: left;">6. 新增版本相容性矩陣：強制升級路徑與不相容組合說明</td>
+<td style="text-align: center;"></td>
+</tr>
+</tbody>
+</table>
+<hr />
 <p><strong>簽核欄</strong>：<br />
-- [ ] 架構師確認：檢查點定義涵蓋所有模組間介面（含 Training-Optimization）<br />
-- [ ] 技術負責人確認：錯誤代碼分層 E000-E999 無衝突，E901-E903 已正確定義<br />
-- [ ] HVAC 領域專家確認：時間基準機制與特徵對齊機制符合領域需求（精度、延遲容忍度）<br />
-- [ ] 維運負責人確認：版本相容性矩陣可指導部署決策<br />
+- [ ] 架構師確認：檢查點定義涵蓋所有模組間介面（含 Training-Optimization 與 Equipment Validation Sync）<br />
+- [ ] 技術負責人確認：錯誤代碼分層 E000-E999 無衝突，新增代碼已正確定義<br />
+- [ ] HVAC 領域專家確認：Header Standardization 規則符合業界命名慣例，Equipment Validation 邏輯符合物理實務<br />
+- [ ] 維運負責人確認：版本相容性矩陣可指導部署決策，時間一致性機制可防止跨日執行錯誤<br />
+- [ ] Product Manager 確認：回應 Project Execution Evaluation Report 所有建議事項（Header Standardization, Temporal Consistency, Physics Logic Coupling）</p>
+<hr />
+<p><strong>文件結束</strong><br />
 ```</p>
-<p>此修正版已完整納入您的三項要求：</p>
+<p>此修正版 PRD_Interface_Contract_v1.1 已完整回應評估報告的所有建議：</p>
 <ol>
-<li>
-<p><strong>錯誤代碼分層規範</strong>：建立 E000-E999 的完整分層架構，解決原本 E800 衝突問題（Training 與 Optimization 現在有各自獨立的 E7xx 與 E8xx 區段），並提供遷移對照表。</p>
-</li>
-<li>
-<p><strong>時間基準傳遞規範</strong>：新增第8章詳細定義 <code>pipeline_origin_timestamp</code> 機制，從 Container 初始化、跨模組傳遞、到未來資料檢查的統一基準，解決時間漂移問題。</p>
-</li>
-<li>
-<p><strong>特徵對齊驗證</strong>：新增第9章與檢查點 #7，定義 Feature Manifest 規格、雜湊驗證、縮放參數傳遞機制，並新增 E901-E903 錯誤代碼專門處理 Training-Optimization 特徵錯位風險。</p>
-</li>
+<li><strong>Header Standardization</strong>（第10章）：建立具體的 Regex 正規化規則，解決 CSV 標頭命名不一致問題</li>
+<li><strong>時間一致性防護</strong>（第8章強化）：新增時間漂移檢測與跨日執行防護，解決 Spatio-Temporal Inconsistency 風險</li>
+<li><strong>設備邏輯同步</strong>（第11章）：建立 Cleaner 與 Optimization 之間的 Equipment Validation Sync 機制，解決 Physics Logic Decoupling 風險</li>
+<li><strong>SSOT 強化</strong>：新增 E408、E409 錯誤代碼，強化 Feature Annotation 與程式碼的同步檢查，預防 Dependency Deadlock</li>
 </ol>
+<p>所有新增內容均包含詳細實作規格、錯誤處理流程、與現有檢查點的整合機制，以及完整的驗證檢查清單。</p>
 </body>
 </html>

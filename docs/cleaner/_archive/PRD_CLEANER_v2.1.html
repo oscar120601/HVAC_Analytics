@@ -1,74 +1,107 @@
-
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DataCleaner Implementation Guide v2.1</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            background-color: #f8f9fa;
-        }
-        .container {
-            background-color: #fff;
-            padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        h1, h2, h3 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-        h2 { margin-top: 2em; }
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 20px 0;
-        }
-        th, td {
-            border: 1px solid #dfe2e5;
-            padding: 12px;
-            text-align: left;
-        }
-        th { background-color: #f6f8fa; font-weight: bold; }
-        tr:nth-child(even) { background-color: #fdfdfd; }
-        code {
-            background-color: #f3f3f3;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 85%;
-        }
-        pre {
-            background-color: #f6f8fa;
-            padding: 16px;
-            overflow: auto;
-            border-radius: 6px;
-        }
-        blockquote {
-            margin: 0;
-            padding: 0 1em;
-            color: #6a737d;
-            border-left: 0.25em solid #dfe2e5;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_CLEANER_v2.1</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
 </head>
 <body>
-    <div class="container">
-        <h1 id="prd-v21-datacleaner-implementation-guide">PRD v2.1: 資料清洗器實作指南 (DataCleaner Implementation Guide)</h1>
-<p><strong>文件版本:</strong> v2.1 (Interface Contract Alignment)
-<strong>日期:</strong> 2026-02-12
-<strong>負責人:</strong> Oscar Chang
-<strong>目標模組:</strong> <code>src/etl/cleaner.py</code> (v2.0+)
+<h1 id="prd-v21-datacleaner-implementation-guide">PRD v2.1: 資料清洗器實作指南 (DataCleaner Implementation Guide)</h1>
+<p><strong>文件版本:</strong> v2.1 (Interface Contract Alignment)<br />
+<strong>日期:</strong> 2026-02-12<br />
+<strong>負責人:</strong> Oscar Chang<br />
+<strong>目標模組:</strong> <code>src/etl/cleaner.py</code> (v2.0+)<br />
 <strong>下游模組:</strong> <code>src/etl/feature_engineer.py</code> (v1.2+)</p>
 <hr />
 <h2 id="1">1. 執行總綱與變更重點</h2>
 <p>本文件是針對 <code>cleaner.py</code> 重構的<strong>詳細施工藍圖</strong>。 V2.1 版的核心變更在於 <strong>「介面契約 (Interface Contract)」</strong> 的嚴格化。</p>
-<p><strong>核心目標:</strong> 
-1. <strong>Gatekeeper (守門員)</strong>：確保髒數據絕不進入下游。
+<p><strong>核心目標:</strong> <br />
+1. <strong>Gatekeeper (守門員)</strong>：確保髒數據絕不進入下游。<br />
 2. <strong>Contract Provider (契約提供者)</strong>：保證輸出格式完全符合 <code>Feature Engineer v1.2</code> 的輸入要求。</p>
 <hr />
 <h2 id="2-output-contract">2. 輸出介面契約 (Output Contract)</h2>
@@ -129,8 +162,8 @@
 <li><strong>動作</strong>: 建立新檔案 <code>src/etl/config_models.py</code></li>
 <li><strong>內容要求</strong>:</li>
 <li>定義 <code>UnitSystem</code> (Enum): <code>METRIC</code>, <code>IMPERIAL</code></li>
-<li>定義 <code>OutputSchema</code> (Pydantic 模型，新增於 v2.1):
-    <code>python
+<li>定義 <code>OutputSchema</code> (Pydantic 模型，新增於 v2.1):<br />
+<code>python
     class OutputSchema(BaseModel):
         ensure_utc: bool = True
         ensure_regular_interval: bool = True
@@ -189,11 +222,11 @@
 <h3 id="step-32-output-validator">Step 3.2: 輸出契約驗證 (Output Validator)</h3>
 <ul>
 <li><strong>動作</strong>: 在 <code>clean()</code> 方法的最後，呼叫 <code>_validate_output_contract(df)</code>。</li>
-<li><strong>邏輯</strong>:</li>
-<li>檢查 <code>timestamp</code> 是否為 UTC。</li>
-<li>檢查 <code>quality_flags</code> 欄位是否存在。</li>
-<li>檢查時間軸是否連續 (若 config 要求)。</li>
-<li>若驗證失敗，拋出 <code>ContractViolationError</code> (這是嚴重的開發錯誤，非數據錯誤)。</li>
+<li><strong>邏輯</strong>:<br />
+  1. 檢查 <code>timestamp</code> 是否為 UTC。<br />
+  2. 檢查 <code>quality_flags</code> 欄位是否存在。<br />
+  3. 檢查時間軸是否連續 (若 config 要求)。<br />
+  4. 若驗證失敗，拋出 <code>ContractViolationError</code> (這是嚴重的開發錯誤，非數據錯誤)。</li>
 </ul>
 <hr />
 <h2 id="phase-4">Phase 4: 文檔與遷移</h2>
@@ -232,6 +265,5 @@
 <hr />
 <h2 id="6">6. 下一步指令</h2>
 <p>請確認是否準備好開始執行 <strong>Phase 1: 基礎配置</strong>？</p>
-    </div>
 </body>
 </html>

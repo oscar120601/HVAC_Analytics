@@ -1,94 +1,97 @@
-
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PRD_Parser_V2.1</title>
-    
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_Parser_V2.1</title>
+
 <style>
-    body { 
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
-        line-height: 1.6; 
-        max-width: 900px; 
-        margin: 0 auto; 
-        padding: 40px 20px; 
-        color: #24292e; 
-        background-color: #ffffff;
-    }
-    h1, h2, h3, h4, h5, h6 { 
-        margin-top: 24px; 
-        margin-bottom: 16px; 
-        font-weight: 600; 
-        color: #24292e;
-    }
-    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-    h3 { font-size: 1.25em; }
-    p { margin-top: 0; margin-bottom: 16px; }
-    a { color: #0366d6; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    table { 
-        display: block; 
-        width: 100%; 
-        overflow: auto; 
-        border-spacing: 0; 
-        border-collapse: collapse; 
-        margin-bottom: 16px; 
-    }
-    table th, table td { 
-        padding: 6px 13px; 
-        border: 1px solid #dfe2e5; 
-    }
-    table th { 
-        font-weight: 600; 
-        background-color: #f6f8fa; 
-    }
-    table tr:nth-child(2n) { 
-        background-color: #f6f8fa; 
-    }
-    code { 
-        font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; 
-        background-color: #f6f8fa; 
-        padding: 0.2em 0.4em; 
-        border-radius: 3px; 
-        font-size: 85%; 
-    }
-    pre { 
-        background-color: #f6f8fa; 
-        padding: 16px; 
-        overflow: auto; 
-        border-radius: 3px; 
-        line-height: 1.45; 
-    }
-    pre code { 
-        background-color: transparent; 
-        padding: 0; 
-        border-radius: 0; 
-    }
-    blockquote { 
-        border-left: 0.25em solid #dfe2e5; 
-        color: #6a737d; 
-        padding: 0 1em; 
-        margin: 0 0 16px 0; 
-    }
-    hr {
-        height: 0.25em;
-        padding: 0;
-        margin: 24px 0;
-        background-color: #e1e4e8;
-        border: 0;
-    }
-    .mermaid {
-        display: flex;
-        justify-content: center;
-        margin: 20px 0;
-    }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
 </style>
 
 </head>
 <body>
-    <h1 id="prd-v21-reportparser-robustness-refactoring">PRD v2.1: 報表解析器强健性重構 (ReportParser Robustness Refactoring)</h1>
+<h1 id="prd-v21-reportparser-robustness-refactoring">PRD v2.1: 報表解析器强健性重構 (ReportParser Robustness Refactoring)</h1>
 <p><strong>文件版本:</strong> v2.1 (Interface Contract Alignment &amp; Zero-Gap Integration)<br />
 <strong>日期:</strong> 2026-02-13<br />
 <strong>負責人:</strong> Oscar Chang<br />
@@ -196,86 +199,83 @@
 </ul>
 <h3 id="23">2.3 時區強制規範 (關鍵修正)</h3>
 <p><strong>無論輸入資料為何種時區，輸出必須為 UTC</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># 輸入可能性：</span>
-<span class="c1"># 1. Naive datetime (無時區) → 假設為 Asia/Taipei → 轉換為 UTC</span>
-<span class="c1"># 2. Asia/Taipei (UTC+8) → 轉換為 UTC  </span>
-<span class="c1"># 3. 其他時區 (如 America/New_York) → 轉換為 UTC</span>
-<span class="c1"># 4. 已為 UTC → 直接通過</span>
+<pre><code class="language-python"># 輸入可能性：
+# 1. Naive datetime (無時區) → 假設為 Asia/Taipei → 轉換為 UTC
+# 2. Asia/Taipei (UTC+8) → 轉換為 UTC  
+# 3. 其他時區 (如 America/New_York) → 轉換為 UTC
+# 4. 已為 UTC → 直接通過
 
-<span class="c1"># 輸出統一為：</span>
-<span class="c1"># Datetime(time_unit=&#39;ns&#39;, time_zone=&#39;UTC&#39;)</span>
-</code></pre></div>
-
+# 輸出統一為：
+# Datetime(time_unit='ns', time_zone='UTC')
+</code></pre>
 <hr />
 <h2 id="3-phase-based-implementation">3. 分階段實作計畫 (Phase-Based Implementation)</h2>
 <h3 id="phase-1-ssot-day-1">Phase 1: 基礎建設與 SSOT 引用 (Day 1)</h3>
 <h4 id="step-11">Step 1.1: 建立自訂例外類別 (例外分級)</h4>
 <p><strong>檔案</strong>: <code>src/etl/exceptions.py</code> (若已存在則擴充)</p>
 <p><strong>新增例外類別</strong>:</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ContractViolationError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;違反模組間介面契約 (Interface Contract)&quot;&quot;&quot;</span>
-    <span class="k">pass</span>
+<pre><code class="language-python">class ContractViolationError(Exception):
+    &quot;&quot;&quot;違反模組間介面契約 (Interface Contract)&quot;&quot;&quot;
+    pass
 
-<span class="k">class</span><span class="w"> </span><span class="nc">EncodingError</span><span class="p">(</span><span class="n">ContractViolationError</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;編碼相關錯誤 (無法偵測、BOM殘留、非UTF-8輸出)&quot;&quot;&quot;</span>
-    <span class="k">pass</span>
+class EncodingError(ContractViolationError):
+    &quot;&quot;&quot;編碼相關錯誤 (無法偵測、BOM殘留、非UTF-8輸出)&quot;&quot;&quot;
+    pass
 
-<span class="k">class</span><span class="w"> </span><span class="nc">TimezoneError</span><span class="p">(</span><span class="n">ContractViolationError</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;時區轉換錯誤或非預期時區 (E102/E111)&quot;&quot;&quot;</span>
-    <span class="k">pass</span>
+class TimezoneError(ContractViolationError):
+    &quot;&quot;&quot;時區轉換錯誤或非預期時區 (E102/E111)&quot;&quot;&quot;
+    pass
 
-<span class="k">class</span><span class="w"> </span><span class="nc">DataValidationError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;資料內容驗證失敗 (Schema、Nulls、型別)&quot;&quot;&quot;</span>
-    <span class="k">pass</span>
-</code></pre></div>
-
-<p><strong>驗收標準</strong>:
-- [ ] 所有例外可被 <code>parser.py</code> 正確 import
+class DataValidationError(Exception):
+    &quot;&quot;&quot;資料內容驗證失敗 (Schema、Nulls、型別)&quot;&quot;&quot;
+    pass
+</code></pre>
+<p><strong>驗收標準</strong>:<br />
+- [ ] 所有例外可被 <code>parser.py</code> 正確 import<br />
 - [ ] 例外訊息必須包含違反的契約條款編號 (如 <code>E101_ENCODING_MISMATCH</code>)</p>
 <h4 id="step-12-ssot">Step 1.2: SSOT 配置引用</h4>
 <p><strong>檔案</strong>: <code>src/etl/parser.py</code> (檔案頂部)</p>
 <p><strong>實作內容</strong>:</p>
-<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">src.etl.config_models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">VALID_QUALITY_FLAGS</span><span class="p">,</span>  <span class="c1"># SSOT: 品質標記唯一真相源</span>
-    <span class="n">TIMESTAMP_CONFIG</span><span class="p">,</span>     <span class="c1"># SSOT: 時間戳規範</span>
-    <span class="n">ParserConfig</span>          <span class="c1"># 配置模型</span>
-<span class="p">)</span>
-</code></pre></div>
-
-<p><strong>驗收標準</strong>:
-- [ ] 無硬編碼的 flags 列表 (如 <code>["FROZEN", "OUTLIER"]</code>)
+<pre><code class="language-python">from src.etl.config_models import (
+    VALID_QUALITY_FLAGS,  # SSOT: 品質標記唯一真相源
+    TIMESTAMP_CONFIG,     # SSOT: 時間戳規範
+    ParserConfig          # 配置模型
+)
+</code></pre>
+<p><strong>驗收標準</strong>:<br />
+- [ ] 無硬編碼的 flags 列表 (如 <code>["FROZEN", "OUTLIER"]</code>)<br />
 - [ ] 時區轉換邏輯引用 <code>TIMESTAMP_CONFIG["time_zone"]</code> (應為 "UTC")</p>
 <hr />
 <h3 id="phase-2-day-1-2">Phase 2: 編碼自適應與標頭搜尋 (Day 1-2)</h3>
 <h4 id="step-21-bom">Step 2.1: 編碼自動偵測 (含 BOM 處理)</h4>
 <p><strong>方法</strong>: <code>_detect_encoding(file_path: Path) -&gt; str</code></p>
-<p><strong>詳細邏輯</strong>:
-1. <strong>BOM 優先偵測</strong>:
-   <code>python
+<p><strong>詳細邏輯</strong>:<br />
+1. <strong>BOM 優先偵測</strong>:<br />
+<code>python
    with open(file_path, 'rb') as f:
        raw = f.read(4)
        if raw.startswith(b'\xef\xbb\xbf'):
            return 'utf-8-sig'  # Python 會自動處理 BOM
        elif raw.startswith(b'\xff\xfe') or raw.startswith(b'\xfe\xff'):
            return 'utf-16'</code></p>
-<ol>
-<li><strong>編碼嘗試順序</strong> (嚴格順序，不可調換):</li>
-<li>嘗試 <code>utf-8</code>: 使用 <code>raw.decode('utf-8')</code>，成功則回傳 <code>'utf-8'</code></li>
-<li>嘗試 <code>cp950</code> (Big5): 使用 <code>raw.decode('cp950')</code>，成功則回傳 <code>'cp950'</code></li>
-<li>嘗試 <code>utf-16</code>: 使用 <code>raw.decode('utf-16')</code>，成功則回傳 <code>'utf-16'</code></li>
-<li>全部失敗: 拋出 <code>EncodingError(f"E101: 無法偵測編碼，已嘗試 UTF-8/Big5/UTF-16")</code></li>
+<ol start="2">
+<li><strong>編碼嘗試順序</strong> (嚴格順序，不可調換):<br />
+   - 嘗試 <code>utf-8</code>: 使用 <code>raw.decode('utf-8')</code>，成功則回傳 <code>'utf-8'</code><br />
+   - 嘗試 <code>cp950</code> (Big5): 使用 <code>raw.decode('cp950')</code>，成功則回傳 <code>'cp950'</code><br />
+   - 嘗試 <code>utf-16</code>: 使用 <code>raw.decode('utf-16')</code>，成功則回傳 <code>'utf-16'</code><br />
+   - 全部失敗: 拋出 <code>EncodingError(f"E101: 無法偵測編碼，已嘗試 UTF-8/Big5/UTF-16")</code></li>
 </ol>
-<p><strong>驗收標準</strong>:
-- [ ] UTF-8 BOM 檔案 (<code>\ufeff</code>) 不會在欄位名稱或資料中殘留
-- [ ] Big5 編碼檔案 (如台灣 BAS 系統匯出) 正確讀取
+<p><strong>驗收標準</strong>:<br />
+- [ ] UTF-8 BOM 檔案 (<code>\ufeff</code>) 不會在欄位名稱或資料中殘留<br />
+- [ ] Big5 編碼檔案 (如台灣 BAS 系統匯出) 正確讀取<br />
 - [ ] 編碼錯誤檔案拋出 <code>E101_ENCODING_MISMATCH</code></p>
 <h4 id="step-22">Step 2.2: 智慧標頭搜尋 (多語系與一致性驗證)</h4>
 <p><strong>方法</strong>: <code>_find_header_line(file_path: Path, encoding: str) -&gt; int</code></p>
 <p><strong>詳細邏輯</strong>:</p>
 <ol>
 <li>
-<p><strong>關鍵字定義</strong> (引用 SSOT):
-   <code>python
+<p><strong>關鍵字定義</strong> (引用 SSOT):<br />
+<code>python
    HEADER_KEYWORDS = {
        'timestamp': ['Date', 'Time', '日期', '時間', 'DateTime', 'Timestamp', '时间'],
        'required': ['Date', '日期']  # 必須至少存在一個
@@ -285,48 +285,46 @@
 <p><strong>搜尋範圍</strong>: 前 500 行 (可配置 <code>max_header_scan_lines</code>)</p>
 </li>
 <li>
-<p><strong>候選行評分</strong>:</p>
-</li>
-<li>找到同時包含 <code>Date/日期</code> 與 <code>Time/時間</code> 的行 → 分數 +2</li>
-<li>找到包含 <code>DateTime/Timestamp</code> 的行 → 分數 +2</li>
-<li>
-<p>該行欄位數量 &gt; 3 → 分數 +1</p>
+<p><strong>候選行評分</strong>:<br />
+   - 找到同時包含 <code>Date/日期</code> 與 <code>Time/時間</code> 的行 → 分數 +2<br />
+   - 找到包含 <code>DateTime/Timestamp</code> 的行 → 分數 +2<br />
+   - 該行欄位數量 &gt; 3 → 分數 +1</p>
 </li>
 <li>
-<p><strong>分隔符一致性驗證</strong> (防誤觸):
-   ```python
-   candidate_line = lines[header_line]
+<p><strong>分隔符一致性驗證</strong> (防誤觸):<br />
+   ```python<br />
+   candidate_line = lines[header_line]<br />
    next_line = lines[header_line + 1]</p>
 </li>
 </ol>
-<p># 計算分隔符數量 (逗號、Tab、分號)
-   candidate_delims = count_delimiters(candidate_line)
+<p># 計算分隔符數量 (逗號、Tab、分號)<br />
+   candidate_delims = count_delimiters(candidate_line)<br />
    next_delims = count_delimiters(next_line)</p>
-<p># 必須一致 (容差 ±1，考慮最後一欄可能為空)
-   if abs(candidate_delims - next_delims) &gt; 1:
-       continue  # 跳過此候選行，繼續搜尋
+<p># 必須一致 (容差 ±1，考慮最後一欄可能為空)<br />
+   if abs(candidate_delims - next_delims) &gt; 1:<br />
+       continue  # 跳過此候選行，繼續搜尋<br />
    ```</p>
-<ol>
-<li><strong>失敗處理</strong>:</li>
-<li>若找不到標頭行，拋出 <code>ContractViolationError("E104: 無法定位標頭行，已掃描 500 行")</code></li>
-<li>禁止 fallback 到硬編碼行號 (如 211)</li>
+<ol start="5">
+<li><strong>失敗處理</strong>:<br />
+   - 若找不到標頭行，拋出 <code>ContractViolationError("E104: 無法定位標頭行，已掃描 500 行")</code><br />
+   - 禁止 fallback 到硬編碼行號 (如 211)</li>
 </ol>
-<p><strong>驗收標準</strong>:
-- [ ] 中文標頭 (<code>日期</code>, <code>時間</code>) 正確識別
-- [ ] 包含特殊前綴的標頭 (<code>&lt;&gt;Date</code>, <code>"Time"</code>) 正規化後識別
-- [ ] 中繼資料行 (分隔符數量與資料行不符) 不會被誤判為標頭
+<p><strong>驗收標準</strong>:<br />
+- [ ] 中文標頭 (<code>日期</code>, <code>時間</code>) 正確識別<br />
+- [ ] 包含特殊前綴的標頭 (<code>&lt;&gt;Date</code>, <code>"Time"</code>) 正規化後識別<br />
+- [ ] 中繼資料行 (分隔符數量與資料行不符) 不會被誤判為標頭<br />
 - [ ] 無標頭檔案拋出明確例外 (非靜默 fallback)</p>
 <h4 id="step-23">Step 2.3: 標頭正規化</h4>
 <p><strong>方法</strong>: <code>_normalize_header(headers: List[str]) -&gt; List[str]</code></p>
-<p><strong>處理規則</strong>:
-1. 移除前後空白: <code>strip()</code>
-2. 移除引號: <code>replace('"', '').replace("'", '')</code>
-3. 移除特殊前綴: <code>replace('&lt;&gt;', '')</code>
-4. 統一命名: 將 <code>日期</code> 映射為 <code>Date</code>，<code>時間</code> 映射為 <code>Time</code> (為後續 timestamp 合併做準備)
+<p><strong>處理規則</strong>:<br />
+1. 移除前後空白: <code>strip()</code><br />
+2. 移除引號: <code>replace('"', '').replace("'", '')</code><br />
+3. 移除特殊前綴: <code>replace('&lt;&gt;', '')</code><br />
+4. 統一命名: 將 <code>日期</code> 映射為 <code>Date</code>，<code>時間</code> 映射為 <code>Time</code> (為後續 timestamp 合併做準備)<br />
 5. 驗證唯一性: 若正規化後仍有重複欄位名稱，拋出 <code>DataValidationError</code></p>
-<p><strong>驗收標準</strong>:
-- [ ] <code>"&lt;&gt;Date"</code> → <code>Date</code>
-- [ ] <code>"  Time  "</code> → <code>Time</code>
+<p><strong>驗收標準</strong>:<br />
+- [ ] <code>"&lt;&gt;Date"</code> → <code>Date</code><br />
+- [ ] <code>"  Time  "</code> → <code>Time</code><br />
 - [ ] <code>"溫度_1"</code> → <code>溫度_1</code> (保留中文，但確保無空白)</p>
 <hr />
 <h3 id="phase-3-day-2">Phase 3: 資料解析與清洗 (Day 2)</h3>
@@ -335,8 +333,8 @@
 <p><strong>詳細邏輯</strong>:</p>
 <ol>
 <li>
-<p><strong>Null 值定義</strong> (擴充):
-   <code>python
+<p><strong>Null 值定義</strong> (擴充):<br />
+<code>python
    NULL_VALUES = [
        "", "NA", "null", "NULL", 
        "---", "Error", "N/A", "OFF", "OFFLINE", 
@@ -344,230 +342,226 @@
    ]</code></p>
 </li>
 <li>
-<p><strong>數值欄位清洗</strong> (針對 BAS 常見髒資料):
-   ```python
-   for col in numeric_columns:
-       # 步驟 1: 移除單位與非數字字元 (保留數字、小數點、負號、科學記號)
-       df = df.with_columns(
-           pl.col(col).str.replace_all(r"[^0-9.-eE]", "").alias(col)
+<p><strong>數值欄位清洗</strong> (針對 BAS 常見髒資料):<br />
+   ```python<br />
+   for col in numeric_columns:<br />
+       # 步驟 1: 移除單位與非數字字元 (保留數字、小數點、負號、科學記號)<br />
+       df = df.with_columns(<br />
+           pl.col(col).str.replace_all(r"[^0-9.-eE]", "").alias(col)<br />
        )</p>
-<p># 步驟 2: 空字串轉為 Null
-   df = df.with_columns(
-       pl.when(pl.col(col) == "").then(None).otherwise(pl.col(col)).alias(col)
+<p># 步驟 2: 空字串轉為 Null<br />
+   df = df.with_columns(<br />
+       pl.when(pl.col(col) == "").then(None).otherwise(pl.col(col)).alias(col)<br />
    )</p>
-<p># 步驟 3: 強制轉型 Float64 (無法轉型則設為 Null，非拋出例外)
-   df = df.with_columns(
-       pl.col(col).cast(pl.Float64, strict=False)
-   )
+<p># 步驟 3: 強制轉型 Float64 (無法轉型則設為 Null，非拋出例外)<br />
+   df = df.with_columns(<br />
+       pl.col(col).cast(pl.Float64, strict=False)<br />
+   )<br />
    ```</p>
 </li>
 <li>
-<p><strong>時間欄位合併</strong>:</p>
+<p><strong>時間欄位合併</strong>:<br />
+   - 若存在分開的 <code>Date</code> 與 <code>Time</code> 欄位，合併為 <code>timestamp</code><br />
+   - 格式: <code>yyyy-MM-dd HH:mm:ss</code> (假設為 Asia/Taipei 輸入，後續轉 UTC)</p>
 </li>
-<li>若存在分開的 <code>Date</code> 與 <code>Time</code> 欄位，合併為 <code>timestamp</code></li>
-<li>格式: <code>yyyy-MM-dd HH:mm:ss</code> (假設為 Asia/Taipei 輸入，後續轉 UTC)</li>
 </ol>
-<p><strong>驗收標準</strong>:
-- [ ] <code>"25.3 C"</code> → <code>25.3</code> (Float64)
-- [ ] <code>"100%"</code> → <code>100.0</code> (Float64)
-- [ ] <code>"---"</code> → <code>null</code>
-- [ ] <code>"Error"</code> → <code>null</code>
+<p><strong>驗收標準</strong>:<br />
+- [ ] <code>"25.3 C"</code> → <code>25.3</code> (Float64)<br />
+- [ ] <code>"100%"</code> → <code>100.0</code> (Float64)<br />
+- [ ] <code>"---"</code> → <code>null</code><br />
+- [ ] <code>"Error"</code> → <code>null</code><br />
 - [ ] 轉型失敗不拋出例外，設為 Null 並記錄 Warning</p>
 <hr />
 <h3 id="phase-4-day-2-3">Phase 4: 時區標準化 (關鍵修正) (Day 2-3)</h3>
 <h4 id="step-34-v21">Step 3.4: 時區強制轉換 (v2.1 核心修正)</h4>
 <p><strong>方法</strong>: <code>_standardize_timezone(df: pl.DataFrame) -&gt; pl.DataFrame</code></p>
 <p><strong>詳細邏輯</strong>:</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_standardize_timezone</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    強制將時間戳轉換為 UTC (Interface Contract v1.0 強制規範)</span>
+<pre><code class="language-python">def _standardize_timezone(self, df: pl.DataFrame) -&gt; pl.DataFrame:
+    &quot;&quot;&quot;
+    強制將時間戳轉換為 UTC (Interface Contract v1.0 強制規範)
 
-<span class="sd">    處理流程:</span>
-<span class="sd">    1. 檢查輸入時區</span>
-<span class="sd">    2. 若無時區 (Naive)，假設為 Asia/Taipei (台灣 BAS 系統慣例)</span>
-<span class="sd">    3. 轉換為 UTC</span>
-<span class="sd">    4. 驗證輸出時區</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="s2">&quot;timestamp&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">ContractViolationError</span><span class="p">(</span><span class="s2">&quot;E103: 缺少必要欄位 &#39;timestamp&#39;&quot;</span><span class="p">)</span>
+    處理流程:
+    1. 檢查輸入時區
+    2. 若無時區 (Naive)，假設為 Asia/Taipei (台灣 BAS 系統慣例)
+    3. 轉換為 UTC
+    4. 驗證輸出時區
+    &quot;&quot;&quot;
+    if &quot;timestamp&quot; not in df.columns:
+        raise ContractViolationError(&quot;E103: 缺少必要欄位 'timestamp'&quot;)
 
-    <span class="n">ts_col</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span>
+    ts_col = df[&quot;timestamp&quot;]
 
-    <span class="c1"># 情況 1: 已為 UTC → 直接通過 (但需確保 time_unit=&#39;ns&#39;)</span>
-    <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_col</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">time_zone</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;UTC&quot;</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;輸入已為 UTC，僅確認 time_unit&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">df</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span>
-            <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;timestamp&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">cast_time_unit</span><span class="p">(</span><span class="s2">&quot;ns&quot;</span><span class="p">)</span>
-        <span class="p">)</span>
+    # 情況 1: 已為 UTC → 直接通過 (但需確保 time_unit='ns')
+    if str(ts_col.dtype.time_zone) == &quot;UTC&quot;:
+        self.logger.debug(&quot;輸入已為 UTC，僅確認 time_unit&quot;)
+        return df.with_columns(
+            pl.col(&quot;timestamp&quot;).dt.cast_time_unit(&quot;ns&quot;)
+        )
 
-    <span class="c1"># 情況 2: 為其他時區 (如 Asia/Taipei) → 轉換為 UTC</span>
-    <span class="k">if</span> <span class="n">ts_col</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">time_zone</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;將時區 </span><span class="si">{</span><span class="n">ts_col</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">time_zone</span><span class="si">}</span><span class="s2"> 轉換為 UTC&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">df</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span>
-            <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;timestamp&quot;</span><span class="p">)</span>
-            <span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">convert_time_zone</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span>
-            <span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">cast_time_unit</span><span class="p">(</span><span class="s2">&quot;ns&quot;</span><span class="p">)</span>  <span class="c1"># 確保 nanoseconds</span>
-        <span class="p">)</span>
+    # 情況 2: 為其他時區 (如 Asia/Taipei) → 轉換為 UTC
+    if ts_col.dtype.time_zone is not None:
+        self.logger.info(f&quot;將時區 {ts_col.dtype.time_zone} 轉換為 UTC&quot;)
+        return df.with_columns(
+            pl.col(&quot;timestamp&quot;)
+            .dt.convert_time_zone(&quot;UTC&quot;)
+            .dt.cast_time_unit(&quot;ns&quot;)  # 確保 nanoseconds
+        )
 
-    <span class="c1"># 情況 3: 無時區 (Naive) → 假設為 Asia/Taipei 後轉 UTC</span>
-    <span class="c1"># 【注意】這是針對台灣 BAS 系統的業務邏輯，若擴展至其他地區需改為配置</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;時間戳無時區資訊，假設為 Asia/Taipei 並轉換為 UTC&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">df</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span>
-        <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;timestamp&quot;</span><span class="p">)</span>
-        <span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">replace_time_zone</span><span class="p">(</span><span class="s2">&quot;Asia/Taipei&quot;</span><span class="p">)</span>  <span class="c1"># 先賦予時區</span>
-        <span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">convert_time_zone</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span>           <span class="c1"># 再轉換</span>
-        <span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">cast_time_unit</span><span class="p">(</span><span class="s2">&quot;ns&quot;</span><span class="p">)</span>
-    <span class="p">)</span>
-</code></pre></div>
-
-<p><strong>關鍵驗證點</strong>:
-- [ ] 輸出 <code>df.schema["timestamp"]</code> 必須顯示 <code>Datetime(time_unit='ns', time_zone='UTC')</code>
-- [ ] 輸入 <code>Asia/Taipei</code> (如 <code>2026-02-13 08:00:00+08:00</code>) → 輸出 <code>2026-02-13 00:00:00+00:00</code>
+    # 情況 3: 無時區 (Naive) → 假設為 Asia/Taipei 後轉 UTC
+    # 【注意】這是針對台灣 BAS 系統的業務邏輯，若擴展至其他地區需改為配置
+    self.logger.warning(&quot;時間戳無時區資訊，假設為 Asia/Taipei 並轉換為 UTC&quot;)
+    return df.with_columns(
+        pl.col(&quot;timestamp&quot;)
+        .dt.replace_time_zone(&quot;Asia/Taipei&quot;)  # 先賦予時區
+        .dt.convert_time_zone(&quot;UTC&quot;)           # 再轉換
+        .dt.cast_time_unit(&quot;ns&quot;)
+    )
+</code></pre>
+<p><strong>關鍵驗證點</strong>:<br />
+- [ ] 輸出 <code>df.schema["timestamp"]</code> 必須顯示 <code>Datetime(time_unit='ns', time_zone='UTC')</code><br />
+- [ ] 輸入 <code>Asia/Taipei</code> (如 <code>2026-02-13 08:00:00+08:00</code>) → 輸出 <code>2026-02-13 00:00:00+00:00</code><br />
 - [ ] 輸入無時區 (如 <code>2026-02-13 08:00:00</code>) → 視為 <code>Asia/Taipei</code> → 輸出 <code>2026-02-13 00:00:00+00:00</code></p>
 <hr />
 <h3 id="phase-5-day-3">Phase 5: 輸出契約驗證 (Day 3)</h3>
 <h4 id="step-35-output-contract-validation">Step 3.5: 輸出契約驗證 (Output Contract Validation)</h4>
 <p><strong>方法</strong>: <code>_validate_output_contract(df: pl.DataFrame) -&gt; None</code></p>
 <p><strong>詳細邏輯</strong>:</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_validate_output_contract</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    最終輸出驗證 (Interface Contract v1.0 檢查點 #1)</span>
+<pre><code class="language-python">def _validate_output_contract(self, df: pl.DataFrame) -&gt; None:
+    &quot;&quot;&quot;
+    最終輸出驗證 (Interface Contract v1.0 檢查點 #1)
 
-<span class="sd">    驗證項目:</span>
-<span class="sd">    1. 必要欄位存在性</span>
-<span class="sd">    2. 時間戳時區與精度</span>
-<span class="sd">    3. 編碼正確性 (無 BOM)</span>
-<span class="sd">    4. Quality flags 合法性 (若存在)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">errors</span> <span class="o">=</span> <span class="p">[]</span>
+    驗證項目:
+    1. 必要欄位存在性
+    2. 時間戳時區與精度
+    3. 編碼正確性 (無 BOM)
+    4. Quality flags 合法性 (若存在)
+    &quot;&quot;&quot;
+    errors = []
 
-    <span class="c1"># 1. 必要欄位檢查 (E103)</span>
-    <span class="n">required_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span>
-    <span class="n">missing</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">required_cols</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
-        <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;E103: 缺少必要欄位: </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    # 1. 必要欄位檢查 (E103)
+    required_cols = [&quot;timestamp&quot;]
+    missing = set(required_cols) - set(df.columns)
+    if missing:
+        errors.append(f&quot;E103: 缺少必要欄位: {missing}&quot;)
 
-    <span class="c1"># 2. 時間戳型別與時區檢查 (E102)</span>
-    <span class="n">ts_dtype</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ts_dtype</span><span class="p">,</span> <span class="n">pl</span><span class="o">.</span><span class="n">Datetime</span><span class="p">):</span>
-        <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;E102: timestamp 必須為 Datetime，得到 </span><span class="si">{</span><span class="n">ts_dtype</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_dtype</span><span class="o">.</span><span class="n">time_zone</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">&quot;UTC&quot;</span><span class="p">:</span>
-        <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;E102: timestamp 時區必須為 UTC，得到 </span><span class="si">{</span><span class="n">ts_dtype</span><span class="o">.</span><span class="n">time_zone</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">ts_dtype</span><span class="o">.</span><span class="n">time_unit</span> <span class="o">!=</span> <span class="s2">&quot;ns&quot;</span><span class="p">:</span>
-        <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;E102: timestamp 精度必須為 nanoseconds，得到 </span><span class="si">{</span><span class="n">ts_dtype</span><span class="o">.</span><span class="n">time_unit</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    # 2. 時間戳型別與時區檢查 (E102)
+    ts_dtype = df[&quot;timestamp&quot;].dtype
+    if not isinstance(ts_dtype, pl.Datetime):
+        errors.append(f&quot;E102: timestamp 必須為 Datetime，得到 {ts_dtype}&quot;)
+    elif str(ts_dtype.time_zone) != &quot;UTC&quot;:
+        errors.append(f&quot;E102: timestamp 時區必須為 UTC，得到 {ts_dtype.time_zone}&quot;)
+    elif ts_dtype.time_unit != &quot;ns&quot;:
+        errors.append(f&quot;E102: timestamp 精度必須為 nanoseconds，得到 {ts_dtype.time_unit}&quot;)
 
-    <span class="c1"># 3. 編碼檢查 (E101) - 確保無 BOM 殘留</span>
-    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">pl</span><span class="o">.</span><span class="n">Utf8</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\ufeff</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
-                <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;E101: 欄位 &#39;</span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s2">&#39; 包含 UTF-8 BOM 殘留&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\x00</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
-                <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;E101: 欄位 &#39;</span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s2">&#39; 包含 Null byte&quot;</span><span class="p">)</span>
+    # 3. 編碼檢查 (E101) - 確保無 BOM 殘留
+    for col in df.columns:
+        if df[col].dtype == pl.Utf8:
+            if df[col].str.contains(&quot;\ufeff&quot;).any():
+                errors.append(f&quot;E101: 欄位 '{col}' 包含 UTF-8 BOM 殘留&quot;)
+            if df[col].str.contains(&quot;\x00&quot;).any():
+                errors.append(f&quot;E101: 欄位 '{col}' 包含 Null byte&quot;)
 
-    <span class="c1"># 4. Quality Flags 合法性檢查 (E103)</span>
-    <span class="k">if</span> <span class="s2">&quot;quality_flags&quot;</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
-        <span class="n">actual_flags</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">flags</span> <span class="ow">in</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;quality_flags&quot;</span><span class="p">]:</span>
-            <span class="k">if</span> <span class="n">flags</span><span class="p">:</span>
-                <span class="n">actual_flags</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">flags</span><span class="p">)</span>
+    # 4. Quality Flags 合法性檢查 (E103)
+    if &quot;quality_flags&quot; in df.columns:
+        actual_flags = set()
+        for flags in df[&quot;quality_flags&quot;]:
+            if flags:
+                actual_flags.update(flags)
 
-        <span class="c1"># 注意: Parser 通常不產生 quality_flags，但若產生必須符合 SSOT</span>
-        <span class="n">invalid_flags</span> <span class="o">=</span> <span class="n">actual_flags</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">VALID_QUALITY_FLAGS</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">invalid_flags</span><span class="p">:</span>
-            <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;E103: quality_flags 包含未定義的標記: </span><span class="si">{</span><span class="n">invalid_flags</span><span class="si">}</span><span class="s2">. &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;SSOT 允許: </span><span class="si">{</span><span class="n">VALID_QUALITY_FLAGS</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span>
+        # 注意: Parser 通常不產生 quality_flags，但若產生必須符合 SSOT
+        invalid_flags = actual_flags - set(VALID_QUALITY_FLAGS)
+        if invalid_flags:
+            errors.append(
+                f&quot;E103: quality_flags 包含未定義的標記: {invalid_flags}. &quot;
+                f&quot;SSOT 允許: {VALID_QUALITY_FLAGS}&quot;
+            )
 
-    <span class="c1"># 5. 數值欄位型別檢查</span>
-    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="s2">&quot;quality_flags&quot;</span><span class="p">]:</span>
-            <span class="k">continue</span>
-        <span class="c1"># 所有非時間/標記欄位應為 Float64 (或 Int64，但統一為 Float64 更安全)</span>
-        <span class="k">if</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="n">pl</span><span class="o">.</span><span class="n">Float64</span><span class="p">,</span> <span class="n">pl</span><span class="o">.</span><span class="n">Int64</span><span class="p">]:</span>
-            <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;E103: 欄位 &#39;</span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s2">&#39; 型別為 </span><span class="si">{</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">，預期為數值型別&quot;</span><span class="p">)</span>
+    # 5. 數值欄位型別檢查
+    for col in df.columns:
+        if col in [&quot;timestamp&quot;, &quot;quality_flags&quot;]:
+            continue
+        # 所有非時間/標記欄位應為 Float64 (或 Int64，但統一為 Float64 更安全)
+        if df[col].dtype not in [pl.Float64, pl.Int64]:
+            errors.append(f&quot;E103: 欄位 '{col}' 型別為 {df[col].dtype}，預期為數值型別&quot;)
 
-    <span class="k">if</span> <span class="n">errors</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">ContractViolationError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Parser 輸出契約驗證失敗 (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">errors</span><span class="p">)</span><span class="si">}</span><span class="s2"> 項):</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">errors</span><span class="p">)</span>
-        <span class="p">)</span>
-</code></pre></div>
-
-<p><strong>驗收標準</strong>:
-- [ ] 時區非 UTC 時拋出 <code>ContractViolationError</code> (E102)
-- [ ] 欄位含 BOM 時拋出 <code>ContractViolationError</code> (E101)
+    if errors:
+        raise ContractViolationError(
+            f&quot;Parser 輸出契約驗證失敗 ({len(errors)} 項):\n&quot; + &quot;\n&quot;.join(errors)
+        )
+</code></pre>
+<p><strong>驗收標準</strong>:<br />
+- [ ] 時區非 UTC 時拋出 <code>ContractViolationError</code> (E102)<br />
+- [ ] 欄位含 BOM 時拋出 <code>ContractViolationError</code> (E101)<br />
 - [ ] 缺少 <code>timestamp</code> 時拋出 <code>ContractViolationError</code> (E103)</p>
 <hr />
 <h3 id="phase-6-day-3">Phase 6: 案場配置與擴展 (Day 3)</h3>
 <h4 id="step-41-site-templates">Step 4.1: 案場設定檔結構 (Site Templates)</h4>
 <p><strong>檔案</strong>: <code>config/site_templates.yaml</code></p>
 <p><strong>結構</strong>:</p>
-<div class="codehilite"><pre><span></span><code><span class="nt">schema_version</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;2.1&quot;</span>
+<pre><code class="language-yaml">schema_version: &quot;2.1&quot;
 
-<span class="nt">default</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">encoding</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span><span class="w">          </span><span class="c1"># auto | utf-8 | cp950 | utf-16</span>
-<span class="w">  </span><span class="nt">delimiter</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;,&quot;</span><span class="w">          </span><span class="c1"># 自動偵測時的優先順序: , → \t → ;</span>
-<span class="w">  </span><span class="nt">header_keywords</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">date</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;Date&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;日期&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;date&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;DATE&quot;</span><span class="p p-Indicator">]</span>
-<span class="w">    </span><span class="nt">time</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;Time&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;時間&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;time&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;TIME&quot;</span><span class="p p-Indicator">]</span>
-<span class="w">    </span><span class="nt">datetime</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;DateTime&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;Timestamp&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;日期時間&quot;</span><span class="p p-Indicator">]</span>
+default:
+  encoding: auto          # auto | utf-8 | cp950 | utf-16
+  delimiter: &quot;,&quot;          # 自動偵測時的優先順序: , → \t → ;
+  header_keywords:
+    date: [&quot;Date&quot;, &quot;日期&quot;, &quot;date&quot;, &quot;DATE&quot;]
+    time: [&quot;Time&quot;, &quot;時間&quot;, &quot;time&quot;, &quot;TIME&quot;]
+    datetime: [&quot;DateTime&quot;, &quot;Timestamp&quot;, &quot;日期時間&quot;]
 
-<span class="w">  </span><span class="c1"># 時區設定 (v2.1 新增，用於 naive datetime 的預設賦值)</span>
-<span class="w">  </span><span class="nt">assumed_timezone</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Asia/Taipei&quot;</span><span class="w">  </span><span class="c1"># 僅在輸入無時區時使用</span>
+  # 時區設定 (v2.1 新增，用於 naive datetime 的預設賦值)
+  assumed_timezone: &quot;Asia/Taipei&quot;  # 僅在輸入無時區時使用
 
-<span class="w">  </span><span class="nt">null_values</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;NA&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;null&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;---&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;Error&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;N/A&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;OFF&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;OFFLINE&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;#VALUE!&quot;</span><span class="p p-Indicator">]</span>
+  null_values: [&quot;&quot;, &quot;NA&quot;, &quot;null&quot;, &quot;---&quot;, &quot;Error&quot;, &quot;N/A&quot;, &quot;OFF&quot;, &quot;OFFLINE&quot;, &quot;#VALUE!&quot;]
 
-<span class="w">  </span><span class="c1"># 欄位名稱映射 (標準化對照表)</span>
-<span class="w">  </span><span class="nt">column_mapping</span><span class="p">:</span>
-<span class="w">    </span><span class="s">&quot;冰水主機電流&quot;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="s">&quot;chiller_current&quot;</span>
-<span class="w">    </span><span class="s">&quot;冷卻水塔溫度&quot;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="s">&quot;ct_temp&quot;</span>
-<span class="w">    </span><span class="s">&quot;外氣溫度&quot;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="s">&quot;oat&quot;</span>
+  # 欄位名稱映射 (標準化對照表)
+  column_mapping:
+    &quot;冰水主機電流&quot;: &quot;chiller_current&quot;
+    &quot;冷卻水塔溫度&quot;: &quot;ct_temp&quot;
+    &quot;外氣溫度&quot;: &quot;oat&quot;
 
-<span class="c1"># 長庚醫院桃園院區</span>
-<span class="nt">cgmh_ty</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">inherit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default</span>
-<span class="w">  </span><span class="nt">header_prefix</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&lt;&gt;&quot;</span><span class="w">           </span><span class="c1"># 特殊前綴處理</span>
-<span class="w">  </span><span class="nt">assumed_timezone</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Asia/Taipei&quot;</span>
+# 長庚醫院桃園院區
+cgmh_ty:
+  inherit: default
+  header_prefix: &quot;&lt;&gt;&quot;           # 特殊前綴處理
+  assumed_timezone: &quot;Asia/Taipei&quot;
 
-<span class="c1"># 遠雄 O3</span>
-<span class="nt">farglory_o3</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">inherit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default</span>
-<span class="w">  </span><span class="nt">delimiter</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;\t&quot;</span><span class="w">               </span><span class="c1"># Tab 分隔</span>
-<span class="w">  </span><span class="nt">encoding</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cp950</span><span class="w">               </span><span class="c1"># 固定編碼 (效能優化)</span>
-</code></pre></div>
-
+# 遠雄 O3
+farglory_o3:
+  inherit: default
+  delimiter: &quot;\t&quot;               # Tab 分隔
+  encoding: cp950               # 固定編碼 (效能優化)
+</code></pre>
 <h4 id="step-42">Step 4.2: 配置載入與繼承解析</h4>
 <p><strong>方法</strong>: <code>__init__(self, site_id: str = "default")</code></p>
 <p><strong>詳細邏輯</strong>:</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span><span class="p">):</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">site_id</span> <span class="o">=</span> <span class="n">site_id</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_site_config</span><span class="p">(</span><span class="n">site_id</span><span class="p">)</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;parser.</span><span class="si">{</span><span class="n">site_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<pre><code class="language-python">def __init__(self, site_id: str = &quot;default&quot;):
+    self.site_id = site_id
+    self.config = self._load_site_config(site_id)
+    self.logger = get_logger(f&quot;parser.{site_id}&quot;)
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_load_site_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;載入配置並處理繼承 (inherit)&quot;&quot;&quot;</span>
-    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;config/site_templates.yaml&quot;</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-        <span class="n">all_configs</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+def _load_site_config(self, site_id: str) -&gt; Dict:
+    &quot;&quot;&quot;載入配置並處理繼承 (inherit)&quot;&quot;&quot;
+    with open(&quot;config/site_templates.yaml&quot;, 'r', encoding='utf-8') as f:
+        all_configs = yaml.safe_load(f)
 
-    <span class="k">if</span> <span class="n">site_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">all_configs</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;未定義的案場 ID: </span><span class="si">{</span><span class="n">site_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    if site_id not in all_configs:
+        raise ConfigurationError(f&quot;未定義的案場 ID: {site_id}&quot;)
 
-    <span class="n">config</span> <span class="o">=</span> <span class="n">all_configs</span><span class="p">[</span><span class="n">site_id</span><span class="p">]</span>
+    config = all_configs[site_id]
 
-    <span class="c1"># 處理繼承</span>
-    <span class="k">if</span> <span class="s2">&quot;inherit&quot;</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span>
-        <span class="n">parent_id</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;inherit&quot;</span><span class="p">)</span>
-        <span class="n">parent_config</span> <span class="o">=</span> <span class="n">all_configs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">parent_id</span><span class="p">,</span> <span class="p">{})</span>
-        <span class="c1"># 深度合併 (子配置覆蓋父配置)</span>
-        <span class="n">merged</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">parent_config</span><span class="p">,</span> <span class="o">**</span><span class="n">config</span><span class="p">}</span>
-        <span class="k">return</span> <span class="n">merged</span>
+    # 處理繼承
+    if &quot;inherit&quot; in config:
+        parent_id = config.pop(&quot;inherit&quot;)
+        parent_config = all_configs.get(parent_id, {})
+        # 深度合併 (子配置覆蓋父配置)
+        merged = {**parent_config, **config}
+        return merged
 
-    <span class="k">return</span> <span class="n">config</span>
-</code></pre></div>
-
+    return config
+</code></pre>
 <hr />
 <h2 id="4-call-chain">4. 完整方法呼叫鏈 (Call Chain)</h2>
-<div class="codehilite"><pre><span></span><code>parse_file(file_path)
+<pre><code>parse_file(file_path)
   ├── _detect_encoding(file_path) → encoding
   ├── _find_header_line(file_path, encoding) → header_line
   ├── pl.read_csv(
@@ -580,8 +574,7 @@
   ├── _standardize_timezone(cleaned_df) → utc_df (關鍵)
   ├── _validate_output_contract(utc_df) → void (關鍵)
   └── return utc_df
-</code></pre></div>
-
+</code></pre>
 <hr />
 <h2 id="5-error-codes">5. 錯誤代碼對照表 (Error Codes)</h2>
 <table>
@@ -829,12 +822,12 @@
 <li><code>config/site_templates.yaml</code> - 案場配置範本 (含 v2.1 時區設定)</li>
 </ol>
 <h3 id="92">9.2 測試檔案</h3>
-<ol>
+<ol start="4">
 <li><code>tests/test_parser_v21.py</code> - v2.1 專屬單元測試</li>
 <li><code>tests/test_parser_cleaner_integration.py</code> - 整合測試</li>
 </ol>
 <h3 id="93">9.3 文件檔案</h3>
-<ol>
+<ol start="6">
 <li><code>docs/parser/PRD_PARSER_v2.1.md</code> - 本文件</li>
 <li><code>docs/parser/CHANGELOG_v2.0_to_v2.1.md</code> - 升級指引 (供維運團隊)</li>
 </ol>
@@ -884,11 +877,5 @@
 <li>[ ] <strong>向下相容</strong>: 明確標記與舊版 Cleaner 不相容，避免誤用</li>
 </ul>
 <hr />
-    
-<script type="module">
-    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-    mermaid.initialize({ startOnLoad: true });
-</script>
-
 </body>
 </html>

@@ -1,74 +1,107 @@
-
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DataCleaner PRD v2.0 (Detailed Guide)</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            background-color: #f8f9fa;
-        }
-        .container {
-            background-color: #fff;
-            padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        h1, h2, h3 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-        h2 { margin-top: 2em; }
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 20px 0;
-        }
-        th, td {
-            border: 1px solid #dfe2e5;
-            padding: 12px;
-            text-align: left;
-        }
-        th { background-color: #f6f8fa; font-weight: bold; }
-        tr:nth-child(even) { background-color: #fdfdfd; }
-        code {
-            background-color: #f3f3f3;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 85%;
-        }
-        pre {
-            background-color: #f6f8fa;
-            padding: 16px;
-            overflow: auto;
-            border-radius: 6px;
-        }
-        blockquote {
-            margin: 0;
-            padding: 0 1em;
-            color: #6a737d;
-            border-left: 0.25em solid #dfe2e5;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_CLEANER_v2.0</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
 </head>
 <body>
-    <div class="container">
-        <h1 id="prd-v20-datacleaner-implementation-guide">PRD v2.0: 資料清洗器實作指南 (DataCleaner Implementation Guide)</h1>
-<p><strong>文件版本:</strong> v2.0 (Step-by-Step Implementation Detail)
-<strong>日期:</strong> 2026-02-12
-<strong>負責人:</strong> Oscar Chang
+<h1 id="prd-v20-datacleaner-implementation-guide">PRD v2.0: 資料清洗器實作指南 (DataCleaner Implementation Guide)</h1>
+<p><strong>文件版本:</strong> v2.0 (Step-by-Step Implementation Detail)<br />
+<strong>日期:</strong> 2026-02-12<br />
+<strong>負責人:</strong> Oscar Chang<br />
 <strong>目標模組:</strong> <a href="file:///d:/12.任務/HVAC-1/src/etl/cleaner.py">src/etl/cleaner.py</a></p>
 <hr />
 <h2 id="1">1. 執行總綱</h2>
 <p>本文件是針對 <code>cleaner.py</code> 重構的<strong>詳細施工藍圖</strong>。我們將分三個階段進行，每個階段都有明確的「檔案操作指令」。</p>
-<p><strong>核心策略:</strong> 
-1. <strong>不破壞現有程式碼</strong>：先建立新模組 (<code>cleaner_v2.py</code>)，舊的 (<code>cleaner.py</code>) 改名保留。
-2. <strong>配置先行</strong>：先定義好 Config 模型，再寫邏輯。
+<p><strong>核心策略:</strong> <br />
+1. <strong>不破壞現有程式碼</strong>：先建立新模組 (<code>cleaner_v2.py</code>)，舊的 (<code>cleaner.py</code>) 改名保留。<br />
+2. <strong>配置先行</strong>：先定義好 Config 模型，再寫邏輯。<br />
 3. <strong>單元感知</strong>：物理計算一律先轉 SI 制（公制）。</p>
 <hr />
 <h2 id="phase-1-pydantic">Phase 1: 基礎配置與 Pydantic 定義</h2>
@@ -91,8 +124,8 @@
 <li><strong>動作</strong>: 編輯 <code>config/settings.yaml</code></li>
 <li><strong>內容要求</strong>: </li>
 <li>新增 <code>cleaning</code> 區塊，填入上述參數的預設值。</li>
-<li>例如：
-    <code>yaml
+<li>例如：<br />
+<code>yaml
     cleaning:
       unit_system: "imperial"  # 若現有案場是英制
       resample_interval: "5m"
@@ -134,14 +167,14 @@
 <h3 id="step-23">Step 2.3: 實作精確熱平衡驗證</h3>
 <ul>
 <li><strong>動作</strong>: 在 <code>cleaner_v2.py</code> 中實作 <code>validate_heat_balance</code></li>
-<li><strong>邏輯</strong>:</li>
-<li>呼叫 <code>_to_si_units</code> 取得公制數據。</li>
-<li>計算 Delta T = <code>temp_in</code> - <code>temp_out</code>。</li>
-<li>計算平均水溫 <code>t_avg</code> = (<code>temp_in</code> + <code>temp_out</code>) / 2。</li>
-<li>計算 Cp (比熱) = <code>poly_val(t_avg, self.config.cp_water_poly_coeffs)</code>。</li>
-<li>計算理論熱負載 <code>Q_calc (kW)</code> = <code>flow (LPM) * delta_T * Cp * density / 60</code>。</li>
-<li>比較 <code>Q_calc</code> 與儀表讀數 <code>Q_meter</code> (需注意單位轉換)。</li>
-<li>計算誤差率 <code>error_pct</code>。</li>
+<li><strong>邏輯</strong>:<br />
+  1. 呼叫 <code>_to_si_units</code> 取得公制數據。<br />
+  2. 計算 Delta T = <code>temp_in</code> - <code>temp_out</code>。<br />
+  3. 計算平均水溫 <code>t_avg</code> = (<code>temp_in</code> + <code>temp_out</code>) / 2。<br />
+  4. 計算 Cp (比熱) = <code>poly_val(t_avg, self.config.cp_water_poly_coeffs)</code>。<br />
+  5. 計算理論熱負載 <code>Q_calc (kW)</code> = <code>flow (LPM) * delta_T * Cp * density / 60</code>。<br />
+  6. 比較 <code>Q_calc</code> 與儀表讀數 <code>Q_meter</code> (需注意單位轉換)。<br />
+  7. 計算誤差率 <code>error_pct</code>。</li>
 <li><strong>輸出</strong>: 回傳一個 Boolean Series (True = 通過, False = 失敗)。</li>
 </ul>
 <h3 id="step-24-generic-resampler">Step 2.4: 實作通用重採樣 (Generic Resampler)</h3>
@@ -158,11 +191,11 @@
 <h3 id="step-31-circuit-breaker">Step 3.1: 實作熔斷機制 (Circuit Breaker)</h3>
 <ul>
 <li><strong>動作</strong>: 在 <code>cleaner_v2.py</code> 的主流程 <code>clean()</code> 方法中</li>
-<li><strong>邏輯</strong>:</li>
-<li>執行所有驗證 (Heat Balance, Affinity, etc.) 得到 <code>invalid_mask</code>。</li>
-<li>計算 <code>drop_count = invalid_mask.sum()</code>。</li>
-<li>計算 <code>drop_rate = drop_count / total_rows</code>。</li>
-<li><strong>檢查</strong>: <code>if drop_rate &gt; self.config.max_drop_rate</code>:<ul>
+<li><strong>邏輯</strong>:<br />
+  1. 執行所有驗證 (Heat Balance, Affinity, etc.) 得到 <code>invalid_mask</code>。<br />
+  2. 計算 <code>drop_count = invalid_mask.sum()</code>。<br />
+  3. 計算 <code>drop_rate = drop_count / total_rows</code>。<br />
+  4. <strong>檢查</strong>: <code>if drop_rate &gt; self.config.max_drop_rate</code>:<ul>
 <li>logger.error("Circuit Breaker Triggered!")</li>
 <li>拋出 <code>CircuitBreakerException</code> (需在 <code>src/exceptions.py</code> 新增)。</li>
 <li>或者：回傳原始 DF 並加上標籤 <code>"DATA_SUSPICIOUS"</code> (依策略而定)。</li>
@@ -223,6 +256,5 @@
 <hr />
 <h2 id="6">6. 下一步指令</h2>
 <p>請確認是否準備好開始執行 <strong>Phase 1: 基礎配置</strong>？</p>
-    </div>
 </body>
 </html>

@@ -1,94 +1,97 @@
-
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PRD_Equipment_Dependency_Validation_v1.0</title>
-    
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_Equipment_Dependency_Validation_v1.0</title>
+
 <style>
-    body { 
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
-        line-height: 1.6; 
-        max-width: 900px; 
-        margin: 0 auto; 
-        padding: 40px 20px; 
-        color: #24292e; 
-        background-color: #ffffff;
-    }
-    h1, h2, h3, h4, h5, h6 { 
-        margin-top: 24px; 
-        margin-bottom: 16px; 
-        font-weight: 600; 
-        color: #24292e;
-    }
-    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-    h3 { font-size: 1.25em; }
-    p { margin-top: 0; margin-bottom: 16px; }
-    a { color: #0366d6; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    table { 
-        display: block; 
-        width: 100%; 
-        overflow: auto; 
-        border-spacing: 0; 
-        border-collapse: collapse; 
-        margin-bottom: 16px; 
-    }
-    table th, table td { 
-        padding: 6px 13px; 
-        border: 1px solid #dfe2e5; 
-    }
-    table th { 
-        font-weight: 600; 
-        background-color: #f6f8fa; 
-    }
-    table tr:nth-child(2n) { 
-        background-color: #f6f8fa; 
-    }
-    code { 
-        font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; 
-        background-color: #f6f8fa; 
-        padding: 0.2em 0.4em; 
-        border-radius: 3px; 
-        font-size: 85%; 
-    }
-    pre { 
-        background-color: #f6f8fa; 
-        padding: 16px; 
-        overflow: auto; 
-        border-radius: 3px; 
-        line-height: 1.45; 
-    }
-    pre code { 
-        background-color: transparent; 
-        padding: 0; 
-        border-radius: 0; 
-    }
-    blockquote { 
-        border-left: 0.25em solid #dfe2e5; 
-        color: #6a737d; 
-        padding: 0 1em; 
-        margin: 0 0 16px 0; 
-    }
-    hr {
-        height: 0.25em;
-        padding: 0;
-        margin: 24px 0;
-        background-color: #e1e4e8;
-        border: 0;
-    }
-    .mermaid {
-        display: flex;
-        justify-content: center;
-        margin: 20px 0;
-    }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
 </style>
 
 </head>
 <body>
-    <h1 id="prd-v10-equipment-dependency-validation">PRD v1.0: 設備依賴關係驗證規範 (Equipment Dependency Validation)</h1>
+<h1 id="prd-v10-equipment-dependency-validation">PRD v1.0: 設備依賴關係驗證規範 (Equipment Dependency Validation)</h1>
 <h1 id="etl">ETL階段物理邏輯一致性檢查與歷史資料驗證</h1>
 <p><strong>文件版本:</strong> v1.0 (ETL-Stage Physical Logic Validation)<br />
 <strong>日期:</strong> 2026-02-13<br />
@@ -96,10 +99,10 @@
 <strong>目標模組:</strong> <code>src/etl/equipment_validator.py</code>, <code>src/etl/cleaner.py</code> (擴充), <code>src/etl/batch_processor.py</code> (擴充)<br />
 <strong>上游契約:</strong> <code>src/optimization/constraints.py</code> (Logic Constraints 定義)<br />
 <strong>下游契約:</strong> <code>src/etl/feature_engineer.py</code> (v1.3+, 檢查點 #3)<br />
-<strong>關鍵相依:</strong> 
-- <code>PRD_Chiller_Plant_Optimization_V1.1.md</code> (邏輯約束定義源頭)
-- <code>PRD_CLEANER_v2.2.md</code> (SSOT 與職責分離機制)
-- <code>PRD_Interface_Contract_v1.0.md</code> (錯誤代碼分層 E350-E399)
+<strong>關鍵相依:</strong> <br />
+- <code>PRD_Chiller_Plant_Optimization_V1.1.md</code> (邏輯約束定義源頭)<br />
+- <code>PRD_CLEANER_v2.2.md</code> (SSOT 與職責分離機制)<br />
+- <code>PRD_Interface_Contract_v1.0.md</code> (錯誤代碼分層 E350-E399)<br />
 - <code>PRD_BATCH_PROCESSOR_v1.3.md</code> (時間基準與 Manifest 傳遞)</p>
 <p><strong>預估工時:</strong> 4 ~ 5 個工程天（含約束同步機制、歷史資料驗證、整合測試）</p>
 <hr />
@@ -108,45 +111,40 @@
 <p>建立<strong>ETL階段的設備依賴驗證機制</strong>，將Optimization階段定義的物理邏輯約束（如「開主機必須開水泵」）<strong>反向同步</strong>至資料清洗階段，確保進入模型訓練的歷史資料符合物理現實，避免「主機開但水泵關」等不可能狀態流入下游。</p>
 <h3 id="12">1.2 設計原則</h3>
 <ol>
-<li><strong>約束單一來源 (Single Source of Constraints)</strong>: </li>
-<li>邏輯約束定義維持在 <code>config/optimization/sites/{site}.yaml</code> (Optimization v1.1 定義)</li>
-<li>ETL階段<strong>唯讀</strong>引用，不複製或重複定義約束</li>
 <li>
-<p>透過 <code>ConstraintSyncManager</code> 在Container初始化時載入並快取</p>
+<p><strong>約束單一來源 (Single Source of Constraints)</strong>: <br />
+   - 邏輯約束定義維持在 <code>config/optimization/sites/{site}.yaml</code> (Optimization v1.1 定義)<br />
+   - ETL階段<strong>唯讀</strong>引用，不複製或重複定義約束<br />
+   - 透過 <code>ConstraintSyncManager</code> 在Container初始化時載入並快取</p>
 </li>
 <li>
-<p><strong>分層驗證策略</strong>:</p>
-</li>
-<li><strong>Cleaner階段</strong>: 逐行即時驗證（Row-level Validation），標記異常但不中斷流程（因歷史資料可能確實存在違規）</li>
-<li><strong>BatchProcessor階段</strong>: 批次統計驗證（Batch-level Validation），計算約束違反率，寫入Manifest供訓練階段參考</li>
-<li>
-<p><strong>嚴格模式</strong>: 可配置為遇到物理不可能狀態時拋出錯誤（用於新案場首次資料導入檢查）</p>
+<p><strong>分層驗證策略</strong>:<br />
+   - <strong>Cleaner階段</strong>: 逐行即時驗證（Row-level Validation），標記異常但不中斷流程（因歷史資料可能確實存在違規）<br />
+   - <strong>BatchProcessor階段</strong>: 批次統計驗證（Batch-level Validation），計算約束違反率，寫入Manifest供訓練階段參考<br />
+   - <strong>嚴格模式</strong>: 可配置為遇到物理不可能狀態時拋出錯誤（用於新案場首次資料導入檢查）</p>
 </li>
 <li>
-<p><strong>與Optimization零Gap銜接</strong>:</p>
-</li>
-<li>完整支援 Optimization v1.1 定義的5種約束類型：<code>requires</code>, <code>mutex</code>, <code>sequence</code>, <code>min_runtime</code>, <code>min_downtime</code></li>
-<li>
-<p>錯誤代碼與Optimization階段連貫（E800系列為Optimization錯誤，E350-E399為ETL階段對應錯誤）</p>
+<p><strong>與Optimization零Gap銜接</strong>:<br />
+   - 完整支援 Optimization v1.1 定義的5種約束類型：<code>requires</code>, <code>mutex</code>, <code>sequence</code>, <code>min_runtime</code>, <code>min_downtime</code><br />
+   - 錯誤代碼與Optimization階段連貫（E800系列為Optimization錯誤，E350-E399為ETL階段對應錯誤）</p>
 </li>
 <li>
-<p><strong>職責分離維護</strong>:</p>
+<p><strong>職責分離維護</strong>:<br />
+   - 驗證邏輯不寫入 <code>device_role</code>（遵循Cleaner v2.2職責分離原則）<br />
+   - 僅讀取Optimization Config中的<code>logic_constraints</code>區塊，與Feature Annotation的<code>device_role</code>區分</p>
 </li>
-<li>驗證邏輯不寫入 <code>device_role</code>（遵循Cleaner v2.2職責分離原則）</li>
-<li>僅讀取Optimization Config中的<code>logic_constraints</code>區塊，與Feature Annotation的<code>device_role</code>區分</li>
 </ol>
 <h3 id="13">1.3 與上游模組的關係</h3>
-<div class="codehilite"><pre><span></span><code><span class="nx">graph</span><span class="w"> </span><span class="nx">LR</span>
-<span class="w">    </span><span class="nx">A</span><span class="p">[</span><span class="nx">Optimization</span><span class="w"> </span><span class="nx">Config</span><span class="p">&lt;</span><span class="nx">br</span><span class="o">/</span><span class="p">&gt;</span><span class="nx">sites</span><span class="o">/</span><span class="p">{</span><span class="nx">site</span><span class="p">}.</span><span class="nx">yaml</span><span class="p">&lt;</span><span class="nx">br</span><span class="o">/</span><span class="p">&gt;</span><span class="nx">logic_constraints</span><span class="p">]</span><span class="w"> </span><span class="o">--</span><span class="p">&gt;</span><span class="o">|</span><span class="nx">ConstraintSyncManager</span><span class="p">&lt;</span><span class="nx">br</span><span class="o">/</span><span class="p">&gt;</span><span class="nx">唯讀載入</span><span class="o">|</span><span class="w"> </span><span class="nx">B</span><span class="p">[</span><span class="nx">EquipmentValidator</span><span class="p">&lt;</span><span class="nx">br</span><span class="o">/</span><span class="p">&gt;</span><span class="nx">v1</span><span class="m m-Double">.0</span><span class="p">]</span>
-<span class="w">    </span><span class="nx">C</span><span class="p">[</span><span class="nx">Feature</span><span class="w"> </span><span class="nx">Annotation</span><span class="p">&lt;</span><span class="nx">br</span><span class="o">/</span><span class="p">&gt;</span><span class="nx">physical_types</span><span class="p">.</span><span class="nx">yaml</span><span class="p">]</span><span class="w"> </span><span class="o">--</span><span class="p">&gt;</span><span class="o">|</span><span class="nx">提供設備狀態欄位映射</span><span class="o">|</span><span class="w"> </span><span class="nx">B</span>
-<span class="w">    </span><span class="nx">D</span><span class="p">[</span><span class="nx">歷史資料</span><span class="p">&lt;</span><span class="nx">br</span><span class="o">/</span><span class="p">&gt;</span><span class="nx">Parser</span><span class="o">/</span><span class="nx">Cleaner</span><span class="p">]</span><span class="w"> </span><span class="o">--</span><span class="p">&gt;</span><span class="o">|</span><span class="nx">逐行驗證</span><span class="o">|</span><span class="w"> </span><span class="nx">B</span>
-<span class="w">    </span><span class="nx">B</span><span class="w"> </span><span class="o">--</span><span class="p">&gt;</span><span class="o">|</span><span class="nx">標記PHYSICAL_IMPOSSIBLE</span><span class="o">|</span><span class="w"> </span><span class="nx">E</span><span class="p">[</span><span class="nx">Cleaner</span><span class="w"> </span><span class="nx">Output</span><span class="p">&lt;</span><span class="nx">br</span><span class="o">/</span><span class="p">&gt;</span><span class="nx">quality_flags擴充</span><span class="p">]</span>
-<span class="w">    </span><span class="nx">B</span><span class="w"> </span><span class="o">--</span><span class="p">&gt;</span><span class="o">|</span><span class="nx">統計違反率</span><span class="o">|</span><span class="w"> </span><span class="nx">F</span><span class="p">[</span><span class="nx">BatchProcessor</span><span class="w"> </span><span class="nx">Manifest</span><span class="p">&lt;</span><span class="nx">br</span><span class="o">/</span><span class="p">&gt;</span><span class="nx">validation_summary</span><span class="p">]</span>
+<pre><code class="language-mermaid">graph LR
+    A[Optimization Config&lt;br/&gt;sites/{site}.yaml&lt;br/&gt;logic_constraints] --&gt;|ConstraintSyncManager&lt;br/&gt;唯讀載入| B[EquipmentValidator&lt;br/&gt;v1.0]
+    C[Feature Annotation&lt;br/&gt;physical_types.yaml] --&gt;|提供設備狀態欄位映射| B
+    D[歷史資料&lt;br/&gt;Parser/Cleaner] --&gt;|逐行驗證| B
+    B --&gt;|標記PHYSICAL_IMPOSSIBLE| E[Cleaner Output&lt;br/&gt;quality_flags擴充]
+    B --&gt;|統計違反率| F[BatchProcessor Manifest&lt;br/&gt;validation_summary]
 
-<span class="w">    </span><span class="nx">style</span><span class="w"> </span><span class="nx">B</span><span class="w"> </span><span class="nx">fill</span><span class="p">:</span><span class="err">#</span><span class="nx">f9f</span><span class="p">,</span><span class="nx">stroke</span><span class="p">:</span><span class="err">#</span><span class="mi">333</span><span class="p">,</span><span class="nx">stroke</span><span class="o">-</span><span class="nx">width</span><span class="p">:</span><span class="mi">4</span><span class="nx">px</span>
-<span class="w">    </span><span class="nx">style</span><span class="w"> </span><span class="nx">A</span><span class="w"> </span><span class="nx">fill</span><span class="p">:</span><span class="err">#</span><span class="nx">bbf</span><span class="p">,</span><span class="nx">stroke</span><span class="p">:</span><span class="err">#</span><span class="mi">00</span><span class="nx">f</span><span class="p">,</span><span class="nx">stroke</span><span class="o">-</span><span class="nx">width</span><span class="p">:</span><span class="mi">2</span><span class="nx">px</span>
-</code></pre></div>
-
+    style B fill:#f9f,stroke:#333,stroke-width:4px
+    style A fill:#bbf,stroke:#00f,stroke-width:2px
+</code></pre>
 <h3 id="14-optimization-v11-etl">1.4 約束類型對應表 (Optimization v1.1 → ETL)</h3>
 <table>
 <thead>
@@ -208,46 +206,45 @@
 <h3 id="21-input-contract-from-optimization-config">2.1 輸入契約 (Input Contract from Optimization Config)</h3>
 <p><strong>檢查點 #9: Optimization Config → EquipmentValidator</strong></p>
 <p>透過 <code>ConstraintSyncManager</code> 載入，確保約束定義與Optimization階段完全一致：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ConstraintSyncManager</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    約束同步管理器：從Optimization Config唯讀載入邏輯約束</span>
-<span class="sd">    確保ETL與Optimization使用完全相同的約束定義</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<pre><code class="language-python">class ConstraintSyncManager:
+    &quot;&quot;&quot;
+    約束同步管理器：從Optimization Config唯讀載入邏輯約束
+    確保ETL與Optimization使用完全相同的約束定義
+    &quot;&quot;&quot;
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">load_constraints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LogicConstraintSet</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        載入流程：</span>
-<span class="sd">        1. 讀取 config/optimization/sites/{site_id}.yaml</span>
-<span class="sd">        2. 提取 logic_constraints 區塊</span>
-<span class="sd">        3. 驗證約束語法（與Optimization使用相同的Pydantic模型）</span>
-<span class="sd">        4. 建立約束圖（Constraint Graph）供快速查詢</span>
-<span class="sd">        5. 快取於記憶體（避免重複讀取YAML）</span>
+    def load_constraints(self, site_id: str) -&gt; LogicConstraintSet:
+        &quot;&quot;&quot;
+        載入流程：
+        1. 讀取 config/optimization/sites/{site_id}.yaml
+        2. 提取 logic_constraints 區塊
+        3. 驗證約束語法（與Optimization使用相同的Pydantic模型）
+        4. 建立約束圖（Constraint Graph）供快速查詢
+        5. 快取於記憶體（避免重複讀取YAML）
 
-<span class="sd">        Returns:</span>
-<span class="sd">            LogicConstraintSet: 包含所有約束的結構化物件</span>
+        Returns:
+            LogicConstraintSet: 包含所有約束的結構化物件
 
-<span class="sd">        Raises:</span>
-<span class="sd">            E350: 無法載入約束或語法錯誤</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+        Raises:
+            E350: 無法載入約束或語法錯誤
+        &quot;&quot;&quot;
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_equipment_dependencies</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">equipment_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        查詢設備依賴（requires約束）</span>
-<span class="sd">        例如：get_equipment_dependencies(&quot;chiller_1&quot;) -&gt; [&quot;chw_pump_1&quot;, &quot;ct_1&quot;]</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+    def get_equipment_dependencies(self, equipment_id: str) -&gt; List[str]:
+        &quot;&quot;&quot;
+        查詢設備依賴（requires約束）
+        例如：get_equipment_dependencies(&quot;chiller_1&quot;) -&gt; [&quot;chw_pump_1&quot;, &quot;ct_1&quot;]
+        &quot;&quot;&quot;
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_mutex_groups</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        取得所有互斥設備組（mutex約束）</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+    def get_mutex_groups(self) -&gt; List[Set[str]]:
+        &quot;&quot;&quot;
+        取得所有互斥設備組（mutex約束）
+        &quot;&quot;&quot;
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">validate_constraint_consistency</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        驗證約束一致性（避免矛盾約束，如A依賴B但B與A互斥）</span>
-<span class="sd">        在Container初始化時執行</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-</code></pre></div>
-
+    def validate_constraint_consistency(self) -&gt; bool:
+        &quot;&quot;&quot;
+        驗證約束一致性（避免矛盾約束，如A依賴B但B與A互斥）
+        在Container初始化時執行
+        &quot;&quot;&quot;
+</code></pre>
 <p><strong>載入規格</strong>:</p>
 <table>
 <thead>
@@ -288,58 +285,56 @@
 <h3 id="22-output-contract-to-cleanerbatchprocessor">2.2 輸出契約 (Output Contract to Cleaner/BatchProcessor)</h3>
 <p><strong>Cleaner階段輸出 (Row-level Flags)</strong>:</p>
 <p>擴充 <code>VALID_QUALITY_FLAGS</code> (Interface Contract v1.0定義)，新增ETL階段設備依賴錯誤標記：</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># src/etl/config_models.py (SSOT擴充)</span>
-<span class="n">VALID_QUALITY_FLAGS</span><span class="p">:</span> <span class="n">Final</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="c1"># 原有標記 (v2.2)</span>
-    <span class="s2">&quot;FROZEN&quot;</span><span class="p">,</span>           <span class="c1"># 凍結資料</span>
-    <span class="s2">&quot;OUTLIER&quot;</span><span class="p">,</span>          <span class="c1"># 離群值</span>
-    <span class="s2">&quot;PHYSICAL_IMPOSSIBLE&quot;</span><span class="p">,</span>  <span class="c1"># 物理不可能（擴充含義）</span>
-    <span class="s2">&quot;INSUFFICIENT_DATA&quot;</span><span class="p">,</span>    <span class="c1"># 資料不足</span>
-    <span class="s2">&quot;MANUAL_REVIEW&quot;</span><span class="p">,</span>        <span class="c1"># 需人工複查</span>
-    <span class="s2">&quot;INTERPOLATED&quot;</span><span class="p">,</span>         <span class="c1"># 插值補點</span>
+<pre><code class="language-python"># src/etl/config_models.py (SSOT擴充)
+VALID_QUALITY_FLAGS: Final[List[str]] = [
+    # 原有標記 (v2.2)
+    &quot;FROZEN&quot;,           # 凍結資料
+    &quot;OUTLIER&quot;,          # 離群值
+    &quot;PHYSICAL_IMPOSSIBLE&quot;,  # 物理不可能（擴充含義）
+    &quot;INSUFFICIENT_DATA&quot;,    # 資料不足
+    &quot;MANUAL_REVIEW&quot;,        # 需人工複查
+    &quot;INTERPOLATED&quot;,         # 插值補點
 
-    <span class="c1"># 新增設備依賴標記 (v1.0)</span>
-    <span class="s2">&quot;LOGIC_CONSTRAINT_VIOLATION&quot;</span><span class="p">,</span>  <span class="c1"># 邏輯約束違反（通用）</span>
-    <span class="s2">&quot;REQUIRES_VIOLATION&quot;</span><span class="p">,</span>          <span class="c1"># 依賴缺失（如主機開水泵關）</span>
-    <span class="s2">&quot;MUTEX_VIOLATION&quot;</span><span class="p">,</span>             <span class="c1"># 互斥違反</span>
-    <span class="s2">&quot;SEQUENCE_VIOLATION&quot;</span><span class="p">,</span>          <span class="c1"># 順序違反</span>
-    <span class="s2">&quot;MIN_RUNTIME_VIOLATION&quot;</span><span class="p">,</span>       <span class="c1"># 運行時間不足</span>
-    <span class="s2">&quot;MIN_DOWNTIME_VIOLATION&quot;</span><span class="p">,</span>      <span class="c1"># 停機時間不足</span>
-<span class="p">]</span>
-</code></pre></div>
-
+    # 新增設備依賴標記 (v1.0)
+    &quot;LOGIC_CONSTRAINT_VIOLATION&quot;,  # 邏輯約束違反（通用）
+    &quot;REQUIRES_VIOLATION&quot;,          # 依賴缺失（如主機開水泵關）
+    &quot;MUTEX_VIOLATION&quot;,             # 互斥違反
+    &quot;SEQUENCE_VIOLATION&quot;,          # 順序違反
+    &quot;MIN_RUNTIME_VIOLATION&quot;,       # 運行時間不足
+    &quot;MIN_DOWNTIME_VIOLATION&quot;,      # 停機時間不足
+]
+</code></pre>
 <p><strong>BatchProcessor階段輸出 (Manifest擴充)</strong>:</p>
 <p>在 <code>Manifest.validation_summary</code> 中新增設備依賴統計：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Manifest</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-    <span class="c1"># ... 原有欄位 ...</span>
+<pre><code class="language-python">class Manifest(BaseModel):
+    # ... 原有欄位 ...
 
-    <span class="c1"># 新增設備依賴驗證摘要 (Equipment Dependency Validation Summary)</span>
-    <span class="n">equipment_validation_summary</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;constraint_set_version&quot;</span><span class="p">:</span> <span class="s2">&quot;1.0&quot;</span><span class="p">,</span>  <span class="c1"># 約束集版本（YAML checksum）</span>
-        <span class="s2">&quot;validation_timestamp&quot;</span><span class="p">:</span> <span class="s2">&quot;2026-02-13T10:00:00Z&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;row_level_stats&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s2">&quot;total_rows_checked&quot;</span><span class="p">:</span> <span class="mi">10000</span><span class="p">,</span>
-            <span class="s2">&quot;logic_violation_rows&quot;</span><span class="p">:</span> <span class="mi">150</span><span class="p">,</span>      <span class="c1"># 含任一邏輯違反的列數</span>
-            <span class="s2">&quot;violation_rate_percent&quot;</span><span class="p">:</span> <span class="mf">1.5</span>
-        <span class="p">},</span>
-        <span class="s2">&quot;constraint_breakdown&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s2">&quot;requires_violations&quot;</span><span class="p">:</span> <span class="mi">120</span><span class="p">,</span>       <span class="c1"># E351統計</span>
-            <span class="s2">&quot;mutex_violations&quot;</span><span class="p">:</span> <span class="mi">20</span><span class="p">,</span>           <span class="c1"># E352統計  </span>
-            <span class="s2">&quot;sequence_violations&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>         <span class="c1"># E353統計</span>
-            <span class="s2">&quot;min_runtime_violations&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>      <span class="c1"># E354統計</span>
-            <span class="s2">&quot;min_downtime_violations&quot;</span><span class="p">:</span> <span class="mi">2</span>      <span class="c1"># E355統計</span>
-        <span class="p">},</span>
-        <span class="s2">&quot;equipment_specific_stats&quot;</span><span class="p">:</span> <span class="p">{</span>
-            <span class="s2">&quot;chiller_1&quot;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="s2">&quot;requires_violations_with&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;chw_pump_1&quot;</span><span class="p">],</span>  <span class="c1"># 具體違反對象</span>
-                <span class="s2">&quot;violation_timestamps&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;2026-01-15T08:30:00Z&quot;</span><span class="p">,</span> <span class="s2">&quot;...&quot;</span><span class="p">]</span>  <span class="c1"># 取樣</span>
-            <span class="p">}</span>
-        <span class="p">},</span>
-        <span class="s2">&quot;severity_assessment&quot;</span><span class="p">:</span> <span class="s2">&quot;HIGH&quot;</span><span class="p">,</span>  <span class="c1"># HIGH(&gt;5%)/MEDIUM(1-5%)/LOW(&lt;1%)</span>
-        <span class="s2">&quot;recommendation&quot;</span><span class="p">:</span> <span class="s2">&quot;建議檢查chiller_1與chw_pump_1的感測器同步性&quot;</span>
-    <span class="p">}</span>
-</code></pre></div>
-
+    # 新增設備依賴驗證摘要 (Equipment Dependency Validation Summary)
+    equipment_validation_summary: Dict = {
+        &quot;constraint_set_version&quot;: &quot;1.0&quot;,  # 約束集版本（YAML checksum）
+        &quot;validation_timestamp&quot;: &quot;2026-02-13T10:00:00Z&quot;,
+        &quot;row_level_stats&quot;: {
+            &quot;total_rows_checked&quot;: 10000,
+            &quot;logic_violation_rows&quot;: 150,      # 含任一邏輯違反的列數
+            &quot;violation_rate_percent&quot;: 1.5
+        },
+        &quot;constraint_breakdown&quot;: {
+            &quot;requires_violations&quot;: 120,       # E351統計
+            &quot;mutex_violations&quot;: 20,           # E352統計  
+            &quot;sequence_violations&quot;: 5,         # E353統計
+            &quot;min_runtime_violations&quot;: 3,      # E354統計
+            &quot;min_downtime_violations&quot;: 2      # E355統計
+        },
+        &quot;equipment_specific_stats&quot;: {
+            &quot;chiller_1&quot;: {
+                &quot;requires_violations_with&quot;: [&quot;chw_pump_1&quot;],  # 具體違反對象
+                &quot;violation_timestamps&quot;: [&quot;2026-01-15T08:30:00Z&quot;, &quot;...&quot;]  # 取樣
+            }
+        },
+        &quot;severity_assessment&quot;: &quot;HIGH&quot;,  # HIGH(&gt;5%)/MEDIUM(1-5%)/LOW(&lt;1%)
+        &quot;recommendation&quot;: &quot;建議檢查chiller_1與chw_pump_1的感測器同步性&quot;
+    }
+</code></pre>
 <h3 id="23-optimization">2.3 與Optimization的對齊契約</h3>
 <table>
 <thead>
@@ -377,619 +372,610 @@
 </tr>
 </tbody>
 </table>
-<p><strong>關鍵保證</strong>: 
-- ETL階段標記為 <code>PHYSICAL_IMPOSSIBLE</code> 的資料，在Optimization階段<strong>必然</strong>會被視為約束違反（Consistency Guarantee）
+<p><strong>關鍵保證</strong>: <br />
+- ETL階段標記為 <code>PHYSICAL_IMPOSSIBLE</code> 的資料，在Optimization階段<strong>必然</strong>會被視為約束違反（Consistency Guarantee）<br />
 - ETL標記率與Optimization約束違反率的統計差異不得超過0.1%（Tolerance）</p>
 <hr />
 <h2 id="3">3. 系統架構與核心模組</h2>
 <h3 id="31-constraintsyncmanager">3.1 約束同步管理器 (ConstraintSyncManager)</h3>
 <p><strong>檔案</strong>: <code>src/validation/constraint_sync.py</code></p>
 <p><strong>職責</strong>: 作為Optimization與ETL之間的橋樑，確保兩端使用完全相同的約束定義</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ConstraintSyncManager</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    約束同步管理器（單例模式）</span>
-<span class="sd">    在Container初始化時載入，供Cleaner與BatchProcessor共用</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<pre><code class="language-python">class ConstraintSyncManager:
+    &quot;&quot;&quot;
+    約束同步管理器（單例模式）
+    在Container初始化時載入，供Cleaner與BatchProcessor共用
+    &quot;&quot;&quot;
 
-    <span class="n">_instance</span> <span class="o">=</span> <span class="kc">None</span>
+    _instance = None
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
-        <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_instance</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">cls</span><span class="o">.</span><span class="n">_instance</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
-            <span class="bp">cls</span><span class="o">.</span><span class="n">_instance</span><span class="o">.</span><span class="n">_constraints_cache</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_instance</span>
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._constraints_cache = {}
+        return cls._instance
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_for_site</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        為特定案場初始化約束快取</span>
-<span class="sd">        必須在Container.__init__中呼叫（早於Cleaner初始化）</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">config_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;config/optimization/sites/</span><span class="si">{</span><span class="n">site_id</span><span class="si">}</span><span class="s2">.yaml&quot;</span><span class="p">)</span>
+    def initialize_for_site(self, site_id: str):
+        &quot;&quot;&quot;
+        為特定案場初始化約束快取
+        必須在Container.__init__中呼叫（早於Cleaner初始化）
+        &quot;&quot;&quot;
+        config_path = Path(f&quot;config/optimization/sites/{site_id}.yaml&quot;)
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">config_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;E350: Optimization配置不存在: </span><span class="si">{</span><span class="n">config_path</span><span class="si">}</span><span class="s2">。 &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;請先建立設備依賴約束配置（PRD_Optimization_v1.1）&quot;</span>
-            <span class="p">)</span>
+        if not config_path.exists():
+            raise ConfigurationError(
+                f&quot;E350: Optimization配置不存在: {config_path}。 &quot;
+                f&quot;請先建立設備依賴約束配置（PRD_Optimization_v1.1）&quot;
+            )
 
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">config_path</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="n">config</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
 
-        <span class="n">constraints</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logic_constraints&#39;</span><span class="p">,</span> <span class="p">[])</span>
+        constraints = config.get('logic_constraints', [])
 
-        <span class="c1"># 驗證約束語法（使用與Optimization相同的Pydantic模型）</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_constraints_cache</span><span class="p">[</span><span class="n">site_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">LogicConstraintSet</span><span class="p">(</span><span class="n">constraints</span><span class="o">=</span><span class="n">constraints</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">ValidationError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;E350: 約束語法錯誤: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        # 驗證約束語法（使用與Optimization相同的Pydantic模型）
+        try:
+            self._constraints_cache[site_id] = LogicConstraintSet(constraints=constraints)
+        except ValidationError as e:
+            raise ConfigurationError(f&quot;E350: 約束語法錯誤: {e}&quot;)
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;案場 </span><span class="si">{</span><span class="n">site_id</span><span class="si">}</span><span class="s2">: 載入 </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">constraints</span><span class="p">)</span><span class="si">}</span><span class="s2"> 條邏輯約束&quot;</span><span class="p">)</span>
+        self.logger.info(f&quot;案場 {site_id}: 載入 {len(constraints)} 條邏輯約束&quot;)
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_constraints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LogicConstraintSet</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;取得指定案場的約束集&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">site_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_constraints_cache</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;E350: 案場 </span><span class="si">{</span><span class="n">site_id</span><span class="si">}</span><span class="s2"> 的約束未初始化&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_constraints_cache</span><span class="p">[</span><span class="n">site_id</span><span class="p">]</span>
-</code></pre></div>
-
+    def get_constraints(self, site_id: str) -&gt; LogicConstraintSet:
+        &quot;&quot;&quot;取得指定案場的約束集&quot;&quot;&quot;
+        if site_id not in self._constraints_cache:
+            raise RuntimeError(f&quot;E350: 案場 {site_id} 的約束未初始化&quot;)
+        return self._constraints_cache[site_id]
+</code></pre>
 <h3 id="32-equipmentstateresolver">3.2 設備狀態解析器 (EquipmentStateResolver)</h3>
 <p><strong>檔案</strong>: <code>src/validation/equipment_state.py</code></p>
 <p><strong>職責</strong>: 將原始感測器數值轉換為設備狀態（開/關/未知），處理不同設備類型的判斷邏輯</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">EquipmentStateResolver</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    設備狀態解析器</span>
-<span class="sd">    根據Feature Annotation的physical_type決定狀態判斷邏輯</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<pre><code class="language-python">class EquipmentStateResolver:
+    &quot;&quot;&quot;
+    設備狀態解析器
+    根據Feature Annotation的physical_type決定狀態判斷邏輯
+    &quot;&quot;&quot;
 
-    <span class="c1"># 設備狀態閾值配置（可從Optimization Config覆寫）</span>
-    <span class="n">DEFAULT_THRESHOLDS</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;chiller&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;on_threshold_kw&quot;</span><span class="p">:</span> <span class="mf">10.0</span><span class="p">,</span> <span class="s2">&quot;off_threshold_kw&quot;</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">},</span>  <span class="c1"># 主機用電判斷</span>
-        <span class="s2">&quot;pump&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;on_threshold_hz&quot;</span><span class="p">:</span> <span class="mf">35.0</span><span class="p">,</span> <span class="s2">&quot;off_threshold_hz&quot;</span><span class="p">:</span> <span class="mf">5.0</span><span class="p">},</span>     <span class="c1"># 水泵頻率判斷</span>
-        <span class="s2">&quot;cooling_tower&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;on_threshold_percent&quot;</span><span class="p">:</span> <span class="mf">20.0</span><span class="p">},</span>                 <span class="c1"># 冷卻塔轉速判斷</span>
-        <span class="s2">&quot;valve&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;on_threshold_percent&quot;</span><span class="p">:</span> <span class="mf">10.0</span><span class="p">}</span>                          <span class="c1"># 閥門開度判斷</span>
-    <span class="p">}</span>
+    # 設備狀態閾值配置（可從Optimization Config覆寫）
+    DEFAULT_THRESHOLDS = {
+        &quot;chiller&quot;: {&quot;on_threshold_kw&quot;: 10.0, &quot;off_threshold_kw&quot;: 2.0},  # 主機用電判斷
+        &quot;pump&quot;: {&quot;on_threshold_hz&quot;: 35.0, &quot;off_threshold_hz&quot;: 5.0},     # 水泵頻率判斷
+        &quot;cooling_tower&quot;: {&quot;on_threshold_percent&quot;: 20.0},                 # 冷卻塔轉速判斷
+        &quot;valve&quot;: {&quot;on_threshold_percent&quot;: 10.0}                          # 閥門開度判斷
+    }
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">annotation_manager</span><span class="p">:</span> <span class="n">FeatureAnnotationManager</span><span class="p">,</span> 
-                 <span class="n">custom_thresholds</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">annotation</span> <span class="o">=</span> <span class="n">annotation_manager</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">thresholds</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_THRESHOLDS</span><span class="p">,</span> <span class="o">**</span><span class="p">(</span><span class="n">custom_thresholds</span> <span class="ow">or</span> <span class="p">{})}</span>
+    def __init__(self, annotation_manager: FeatureAnnotationManager, 
+                 custom_thresholds: Optional[Dict] = None):
+        self.annotation = annotation_manager
+        self.thresholds = {**self.DEFAULT_THRESHOLDS, **(custom_thresholds or {})}
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">resolve_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">equipment_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">row</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">EquipmentState</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        解析設備在單一時間點的狀態</span>
+    def resolve_state(self, equipment_id: str, row: Dict[str, Any]) -&gt; EquipmentState:
+        &quot;&quot;&quot;
+        解析設備在單一時間點的狀態
 
-<span class="sd">        Returns:</span>
-<span class="sd">            EquipmentState: Enum [ON, OFF, UNKNOWN, TRANSITION]</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># 1. 取得設備對應的感測器欄位（從Annotation查詢）</span>
-        <span class="n">sensor_col</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_sensor_column</span><span class="p">(</span><span class="n">equipment_id</span><span class="p">)</span>
+        Returns:
+            EquipmentState: Enum [ON, OFF, UNKNOWN, TRANSITION]
+        &quot;&quot;&quot;
+        # 1. 取得設備對應的感測器欄位（從Annotation查詢）
+        sensor_col = self._get_sensor_column(equipment_id)
 
-        <span class="k">if</span> <span class="n">sensor_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">row</span> <span class="ow">or</span> <span class="n">row</span><span class="p">[</span><span class="n">sensor_col</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">EquipmentState</span><span class="o">.</span><span class="n">UNKNOWN</span>
+        if sensor_col not in row or row[sensor_col] is None:
+            return EquipmentState.UNKNOWN
 
-        <span class="n">value</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="n">sensor_col</span><span class="p">]</span>
-        <span class="n">physical_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation</span><span class="o">.</span><span class="n">get_physical_type</span><span class="p">(</span><span class="n">equipment_id</span><span class="p">)</span>
+        value = row[sensor_col]
+        physical_type = self.annotation.get_physical_type(equipment_id)
 
-        <span class="c1"># 2. 根據physical_type選擇判斷邏輯</span>
-        <span class="n">thresholds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">thresholds</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">physical_type</span><span class="p">,</span> <span class="p">{})</span>
+        # 2. 根據physical_type選擇判斷邏輯
+        thresholds = self.thresholds.get(physical_type, {})
 
-        <span class="k">if</span> <span class="n">physical_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;chiller&quot;</span><span class="p">,</span> <span class="s2">&quot;power_meter&quot;</span><span class="p">]:</span>
-            <span class="c1"># 用電設備：用kW判斷</span>
-            <span class="k">if</span> <span class="n">value</span> <span class="o">&gt;</span> <span class="n">thresholds</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;on_threshold_kw&quot;</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">):</span>
-                <span class="k">return</span> <span class="n">EquipmentState</span><span class="o">.</span><span class="n">ON</span>
-            <span class="k">elif</span> <span class="n">value</span> <span class="o">&lt;</span> <span class="n">thresholds</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;off_threshold_kw&quot;</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">):</span>
-                <span class="k">return</span> <span class="n">EquipmentState</span><span class="o">.</span><span class="n">OFF</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">EquipmentState</span><span class="o">.</span><span class="n">TRANSITION</span>  <span class="c1"># 過渡狀態（不穩定）</span>
+        if physical_type in [&quot;chiller&quot;, &quot;power_meter&quot;]:
+            # 用電設備：用kW判斷
+            if value &gt; thresholds.get(&quot;on_threshold_kw&quot;, 10.0):
+                return EquipmentState.ON
+            elif value &lt; thresholds.get(&quot;off_threshold_kw&quot;, 2.0):
+                return EquipmentState.OFF
+            else:
+                return EquipmentState.TRANSITION  # 過渡狀態（不穩定）
 
-        <span class="k">elif</span> <span class="n">physical_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;pump&quot;</span><span class="p">,</span> <span class="s2">&quot;fan&quot;</span><span class="p">]:</span>
-            <span class="c1"># 轉速設備：用Hz或%判斷</span>
-            <span class="k">if</span> <span class="n">value</span> <span class="o">&gt;</span> <span class="n">thresholds</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;on_threshold_hz&quot;</span><span class="p">,</span> <span class="mf">35.0</span><span class="p">):</span>
-                <span class="k">return</span> <span class="n">EquipmentState</span><span class="o">.</span><span class="n">ON</span>
-            <span class="k">elif</span> <span class="n">value</span> <span class="o">&lt;</span> <span class="n">thresholds</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;off_threshold_hz&quot;</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">):</span>
-                <span class="k">return</span> <span class="n">EquipmentState</span><span class="o">.</span><span class="n">OFF</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">EquipmentState</span><span class="o">.</span><span class="n">TRANSITION</span>
+        elif physical_type in [&quot;pump&quot;, &quot;fan&quot;]:
+            # 轉速設備：用Hz或%判斷
+            if value &gt; thresholds.get(&quot;on_threshold_hz&quot;, 35.0):
+                return EquipmentState.ON
+            elif value &lt; thresholds.get(&quot;off_threshold_hz&quot;, 5.0):
+                return EquipmentState.OFF
+            else:
+                return EquipmentState.TRANSITION
 
-        <span class="c1"># ... 其他設備類型</span>
+        # ... 其他設備類型
 
-        <span class="k">return</span> <span class="n">EquipmentState</span><span class="o">.</span><span class="n">UNKNOWN</span>
+        return EquipmentState.UNKNOWN
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_get_sensor_column</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">equipment_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        從Feature Annotation查詢設備對應的感測器欄位名稱</span>
-<span class="sd">        例如：chiller_1 -&gt; chiller_1_kw 或 chiller_1_status</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># 優先尋找狀態欄位（_status後綴），其次尋找主要感測器（_kw, _hz等）</span>
-        <span class="n">col_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation</span><span class="o">.</span><span class="n">get_column_config</span><span class="p">(</span><span class="n">equipment_id</span><span class="p">)</span>
-        <span class="c1"># 實作細節依Annotation schema決定</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">equipment_id</span><span class="si">}</span><span class="s2">_kw&quot;</span>  <span class="c1"># 簡化示例</span>
-</code></pre></div>
-
+    def _get_sensor_column(self, equipment_id: str) -&gt; str:
+        &quot;&quot;&quot;
+        從Feature Annotation查詢設備對應的感測器欄位名稱
+        例如：chiller_1 -&gt; chiller_1_kw 或 chiller_1_status
+        &quot;&quot;&quot;
+        # 優先尋找狀態欄位（_status後綴），其次尋找主要感測器（_kw, _hz等）
+        col_config = self.annotation.get_column_config(equipment_id)
+        # 實作細節依Annotation schema決定
+        return f&quot;{equipment_id}_kw&quot;  # 簡化示例
+</code></pre>
 <h3 id="33-constraintvalidationengine">3.3 約束驗證引擎 (ConstraintValidationEngine)</h3>
 <p><strong>檔案</strong>: <code>src/validation/constraint_engine.py</code></p>
 <p><strong>職責</strong>: 執行實際的約束驗證邏輯，支援逐行與批次兩種模式</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ConstraintValidationEngine</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    約束驗證引擎</span>
-<span class="sd">    執行Optimization定義的5種約束類型驗證</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<pre><code class="language-python">class ConstraintValidationEngine:
+    &quot;&quot;&quot;
+    約束驗證引擎
+    執行Optimization定義的5種約束類型驗證
+    &quot;&quot;&quot;
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constraint_set</span><span class="p">:</span> <span class="n">LogicConstraintSet</span><span class="p">,</span> 
-                 <span class="n">state_resolver</span><span class="p">:</span> <span class="n">EquipmentStateResolver</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span> <span class="o">=</span> <span class="n">constraint_set</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">state_resolver</span> <span class="o">=</span> <span class="n">state_resolver</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">violation_history</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># 記錄違反事件供統計</span>
+    def __init__(self, constraint_set: LogicConstraintSet, 
+                 state_resolver: EquipmentStateResolver):
+        self.constraints = constraint_set
+        self.state_resolver = state_resolver
+        self.violation_history = []  # 記錄違反事件供統計
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">validate_row</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">row</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">timestamp</span><span class="p">:</span> <span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ConstraintViolation</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        逐行驗證（Cleaner階段使用）</span>
+    def validate_row(self, row: Dict[str, Any], timestamp: datetime) -&gt; List[ConstraintViolation]:
+        &quot;&quot;&quot;
+        逐行驗證（Cleaner階段使用）
 
-<span class="sd">        Returns:</span>
-<span class="sd">            List[ConstraintViolation]: 該行違反的所有約束</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">violations</span> <span class="o">=</span> <span class="p">[]</span>
+        Returns:
+            List[ConstraintViolation]: 該行違反的所有約束
+        &quot;&quot;&quot;
+        violations = []
 
-        <span class="k">for</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">constraint</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;requires&quot;</span><span class="p">:</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_requires_violation</span><span class="p">(</span><span class="n">constraint</span><span class="p">,</span> <span class="n">row</span><span class="p">):</span>
-                    <span class="n">violations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ConstraintViolation</span><span class="p">(</span>
-                        <span class="n">constraint_type</span><span class="o">=</span><span class="s2">&quot;requires&quot;</span><span class="p">,</span>
-                        <span class="n">constraint_id</span><span class="o">=</span><span class="n">constraint</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
-                        <span class="n">equipment</span><span class="o">=</span><span class="n">constraint</span><span class="o">.</span><span class="n">if_device</span><span class="p">,</span>
-                        <span class="n">missing_dependencies</span><span class="o">=</span><span class="n">constraint</span><span class="o">.</span><span class="n">then_devices</span><span class="p">,</span>
-                        <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
-                        <span class="n">error_code</span><span class="o">=</span><span class="s2">&quot;E351&quot;</span>
-                    <span class="p">))</span>
+        for constraint in self.constraints:
+            if constraint.type == &quot;requires&quot;:
+                if self._check_requires_violation(constraint, row):
+                    violations.append(ConstraintViolation(
+                        constraint_type=&quot;requires&quot;,
+                        constraint_id=constraint.id,
+                        equipment=constraint.if_device,
+                        missing_dependencies=constraint.then_devices,
+                        timestamp=timestamp,
+                        error_code=&quot;E351&quot;
+                    ))
 
-            <span class="k">elif</span> <span class="n">constraint</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;mutex&quot;</span><span class="p">:</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_mutex_violation</span><span class="p">(</span><span class="n">constraint</span><span class="p">,</span> <span class="n">row</span><span class="p">):</span>
-                    <span class="n">violations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ConstraintViolation</span><span class="p">(</span>
-                        <span class="n">constraint_type</span><span class="o">=</span><span class="s2">&quot;mutex&quot;</span><span class="p">,</span>
-                        <span class="n">constraint_id</span><span class="o">=</span><span class="n">constraint</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
-                        <span class="n">conflicting_devices</span><span class="o">=</span><span class="n">constraint</span><span class="o">.</span><span class="n">devices</span><span class="p">,</span>
-                        <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
-                        <span class="n">error_code</span><span class="o">=</span><span class="s2">&quot;E352&quot;</span>
-                    <span class="p">))</span>
+            elif constraint.type == &quot;mutex&quot;:
+                if self._check_mutex_violation(constraint, row):
+                    violations.append(ConstraintViolation(
+                        constraint_type=&quot;mutex&quot;,
+                        constraint_id=constraint.id,
+                        conflicting_devices=constraint.devices,
+                        timestamp=timestamp,
+                        error_code=&quot;E352&quot;
+                    ))
 
-            <span class="c1"># sequence, min_runtime, min_downtime在批次階段處理</span>
+            # sequence, min_runtime, min_downtime在批次階段處理
 
-        <span class="k">return</span> <span class="n">violations</span>
+        return violations
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">validate_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BatchValidationReport</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        批次驗證（BatchProcessor階段使用）</span>
-<span class="sd">        處理需要時序分析的約束（sequence, min_runtime, min_downtime）</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">report</span> <span class="o">=</span> <span class="n">BatchValidationReport</span><span class="p">()</span>
+    def validate_batch(self, df: pl.DataFrame) -&gt; BatchValidationReport:
+        &quot;&quot;&quot;
+        批次驗證（BatchProcessor階段使用）
+        處理需要時序分析的約束（sequence, min_runtime, min_downtime）
+        &quot;&quot;&quot;
+        report = BatchValidationReport()
 
-        <span class="c1"># 1. Sequence驗證（開關機順序）</span>
-        <span class="k">for</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="o">.</span><span class="n">get_by_type</span><span class="p">(</span><span class="s2">&quot;sequence&quot;</span><span class="p">):</span>
-            <span class="n">violations</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_analyze_sequence_batch</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">constraint</span><span class="p">)</span>
-            <span class="n">report</span><span class="o">.</span><span class="n">add_sequence_violations</span><span class="p">(</span><span class="n">violations</span><span class="p">)</span>
+        # 1. Sequence驗證（開關機順序）
+        for constraint in self.constraints.get_by_type(&quot;sequence&quot;):
+            violations = self._analyze_sequence_batch(df, constraint)
+            report.add_sequence_violations(violations)
 
-        <span class="c1"># 2. Min Runtime驗證（最小運行時間）</span>
-        <span class="k">for</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="o">.</span><span class="n">get_by_type</span><span class="p">(</span><span class="s2">&quot;min_runtime&quot;</span><span class="p">):</span>
-            <span class="n">violations</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_analyze_runtime_batch</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">constraint</span><span class="p">,</span> <span class="s2">&quot;runtime&quot;</span><span class="p">)</span>
-            <span class="n">report</span><span class="o">.</span><span class="n">add_runtime_violations</span><span class="p">(</span><span class="n">violations</span><span class="p">)</span>
+        # 2. Min Runtime驗證（最小運行時間）
+        for constraint in self.constraints.get_by_type(&quot;min_runtime&quot;):
+            violations = self._analyze_runtime_batch(df, constraint, &quot;runtime&quot;)
+            report.add_runtime_violations(violations)
 
-        <span class="c1"># 3. Min Downtime驗證（最小停機時間）</span>
-        <span class="k">for</span> <span class="n">constraint</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span><span class="o">.</span><span class="n">get_by_type</span><span class="p">(</span><span class="s2">&quot;min_downtime&quot;</span><span class="p">):</span>
-            <span class="n">violations</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_analyze_runtime_batch</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">constraint</span><span class="p">,</span> <span class="s2">&quot;downtime&quot;</span><span class="p">)</span>
-            <span class="n">report</span><span class="o">.</span><span class="n">add_downtime_violations</span><span class="p">(</span><span class="n">violations</span><span class="p">)</span>
+        # 3. Min Downtime驗證（最小停機時間）
+        for constraint in self.constraints.get_by_type(&quot;min_downtime&quot;):
+            violations = self._analyze_runtime_batch(df, constraint, &quot;downtime&quot;)
+            report.add_downtime_violations(violations)
 
-        <span class="k">return</span> <span class="n">report</span>
+        return report
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_check_requires_violation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constraint</span><span class="p">:</span> <span class="n">RequiresConstraint</span><span class="p">,</span> 
-                                   <span class="n">row</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        檢查requires約束違反</span>
+    def _check_requires_violation(self, constraint: RequiresConstraint, 
+                                   row: Dict) -&gt; bool:
+        &quot;&quot;&quot;
+        檢查requires約束違反
 
-<span class="sd">        邏輯：若if_device為ON，但任一then_device為OFF，則違反</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">if_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_resolver</span><span class="o">.</span><span class="n">resolve_state</span><span class="p">(</span><span class="n">constraint</span><span class="o">.</span><span class="n">if_device</span><span class="p">,</span> <span class="n">row</span><span class="p">)</span>
+        邏輯：若if_device為ON，但任一then_device為OFF，則違反
+        &quot;&quot;&quot;
+        if_state = self.state_resolver.resolve_state(constraint.if_device, row)
 
-        <span class="k">if</span> <span class="n">if_state</span> <span class="o">!=</span> <span class="n">EquipmentState</span><span class="o">.</span><span class="n">ON</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">False</span>  <span class="c1"># 前提條件不成立，不檢查</span>
+        if if_state != EquipmentState.ON:
+            return False  # 前提條件不成立，不檢查
 
-        <span class="k">for</span> <span class="n">dep_device</span> <span class="ow">in</span> <span class="n">constraint</span><span class="o">.</span><span class="n">then_devices</span><span class="p">:</span>
-            <span class="n">dep_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_resolver</span><span class="o">.</span><span class="n">resolve_state</span><span class="p">(</span><span class="n">dep_device</span><span class="p">,</span> <span class="n">row</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">dep_state</span> <span class="o">==</span> <span class="n">EquipmentState</span><span class="o">.</span><span class="n">OFF</span><span class="p">:</span>
-                <span class="k">return</span> <span class="kc">True</span>  <span class="c1"># 發現依賴缺失</span>
+        for dep_device in constraint.then_devices:
+            dep_state = self.state_resolver.resolve_state(dep_device, row)
+            if dep_state == EquipmentState.OFF:
+                return True  # 發現依賴缺失
 
-        <span class="k">return</span> <span class="kc">False</span>
+        return False
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_check_mutex_violation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constraint</span><span class="p">:</span> <span class="n">MutexConstraint</span><span class="p">,</span> 
-                                <span class="n">row</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        檢查mutex約束違反</span>
+    def _check_mutex_violation(self, constraint: MutexConstraint, 
+                                row: Dict) -&gt; bool:
+        &quot;&quot;&quot;
+        檢查mutex約束違反
 
-<span class="sd">        邏輯：若互斥組中同時有超過1個設備為ON，則違反</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">on_count</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">for</span> <span class="n">device</span> <span class="ow">in</span> <span class="n">constraint</span><span class="o">.</span><span class="n">devices</span><span class="p">:</span>
-            <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_resolver</span><span class="o">.</span><span class="n">resolve_state</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="n">row</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">state</span> <span class="o">==</span> <span class="n">EquipmentState</span><span class="o">.</span><span class="n">ON</span><span class="p">:</span>
-                <span class="n">on_count</span> <span class="o">+=</span> <span class="mi">1</span>
-                <span class="k">if</span> <span class="n">on_count</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                    <span class="k">return</span> <span class="kc">True</span>
+        邏輯：若互斥組中同時有超過1個設備為ON，則違反
+        &quot;&quot;&quot;
+        on_count = 0
+        for device in constraint.devices:
+            state = self.state_resolver.resolve_state(device, row)
+            if state == EquipmentState.ON:
+                on_count += 1
+                if on_count &gt; 1:
+                    return True
 
-        <span class="k">return</span> <span class="kc">False</span>
+        return False
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_analyze_sequence_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> 
-                                <span class="n">constraint</span><span class="p">:</span> <span class="n">SequenceConstraint</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Violation</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        批次分析開關機順序</span>
+    def _analyze_sequence_batch(self, df: pl.DataFrame, 
+                                constraint: SequenceConstraint) -&gt; List[Violation]:
+        &quot;&quot;&quot;
+        批次分析開關機順序
 
-<span class="sd">        邏輯：檢查startup順序是否被遵守（後者先開為違反）</span>
-<span class="sd">        注意：歷史資料通常無法改變，此驗證主要用於標記異常時段</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">violations</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">startup_order</span> <span class="o">=</span> <span class="n">constraint</span><span class="o">.</span><span class="n">startup</span>  <span class="c1"># e.g., [&quot;ct_1&quot;, &quot;pump_1&quot;, &quot;chiller_1&quot;]</span>
+        邏輯：檢查startup順序是否被遵守（後者先開為違反）
+        注意：歷史資料通常無法改變，此驗證主要用於標記異常時段
+        &quot;&quot;&quot;
+        violations = []
+        startup_order = constraint.startup  # e.g., [&quot;ct_1&quot;, &quot;pump_1&quot;, &quot;chiller_1&quot;]
 
-        <span class="c1"># 轉換狀態時間序列</span>
-        <span class="n">state_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_to_state_series</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">startup_order</span><span class="p">)</span>
+        # 轉換狀態時間序列
+        state_df = self._convert_to_state_series(df, startup_order)
 
-        <span class="c1"># 檢查狀態轉換點</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">startup_order</span><span class="p">)):</span>
-            <span class="n">primary</span> <span class="o">=</span> <span class="n">startup_order</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>      <span class="c1"># 後開設備</span>
-            <span class="n">prerequisite</span> <span class="o">=</span> <span class="n">startup_order</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># 先開設備</span>
+        # 檢查狀態轉換點
+        for i in range(1, len(startup_order)):
+            primary = startup_order[i]      # 後開設備
+            prerequisite = startup_order[i-1]  # 先開設備
 
-            <span class="c1"># 尋找primary的開機時間點</span>
-            <span class="n">primary_starts</span> <span class="o">=</span> <span class="n">state_df</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-                <span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="n">primary</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;ON&quot;</span><span class="p">)</span> <span class="o">&amp;</span> 
-                <span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="n">primary</span><span class="p">)</span><span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">&quot;ON&quot;</span><span class="p">)</span>
-            <span class="p">)[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span>
+            # 尋找primary的開機時間點
+            primary_starts = state_df.filter(
+                (pl.col(primary) == &quot;ON&quot;) &amp; 
+                (pl.col(primary).shift(1) != &quot;ON&quot;)
+            )[&quot;timestamp&quot;]
 
-            <span class="k">for</span> <span class="n">start_time</span> <span class="ow">in</span> <span class="n">primary_starts</span><span class="p">:</span>
-                <span class="c1"># 檢查此時prerequisite是否已開</span>
-                <span class="n">prereq_state_at_start</span> <span class="o">=</span> <span class="n">state_df</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
-                    <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;timestamp&quot;</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">start_time</span>
-                <span class="p">)</span><span class="o">.</span><span class="n">tail</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="n">prerequisite</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            for start_time in primary_starts:
+                # 檢查此時prerequisite是否已開
+                prereq_state_at_start = state_df.filter(
+                    pl.col(&quot;timestamp&quot;) &lt;= start_time
+                ).tail(1)[prerequisite][0]
 
-                <span class="k">if</span> <span class="n">prereq_state_at_start</span> <span class="o">!=</span> <span class="s2">&quot;ON&quot;</span><span class="p">:</span>
-                    <span class="n">violations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ConstraintViolation</span><span class="p">(</span><span class="o">...</span><span class="p">))</span>
+                if prereq_state_at_start != &quot;ON&quot;:
+                    violations.append(ConstraintViolation(...))
 
-        <span class="k">return</span> <span class="n">violations</span>
+        return violations
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_analyze_runtime_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> 
-                               <span class="n">constraint</span><span class="p">:</span> <span class="n">RuntimeConstraint</span><span class="p">,</span>
-                               <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Violation</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        分析運行/停機時間是否滿足最小時長要求</span>
+    def _analyze_runtime_batch(self, df: pl.DataFrame, 
+                               constraint: RuntimeConstraint,
+                               mode: str) -&gt; List[Violation]:
+        &quot;&quot;&quot;
+        分析運行/停機時間是否滿足最小時長要求
 
-<span class="sd">        適用於min_runtime（運行時間）與min_downtime（停機時間）</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">device</span> <span class="o">=</span> <span class="n">constraint</span><span class="o">.</span><span class="n">device</span>
-        <span class="n">min_minutes</span> <span class="o">=</span> <span class="n">constraint</span><span class="o">.</span><span class="n">minutes</span>
+        適用於min_runtime（運行時間）與min_downtime（停機時間）
+        &quot;&quot;&quot;
+        device = constraint.device
+        min_minutes = constraint.minutes
 
-        <span class="c1"># 計算狀態持續時間</span>
-        <span class="n">state_series</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_to_state_series</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="p">[</span><span class="n">device</span><span class="p">])</span>
+        # 計算狀態持續時間
+        state_series = self._convert_to_state_series(df, [device])
 
-        <span class="c1"># 使用Polars計算狀態段（State Segments）</span>
-        <span class="n">segments</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_detect_state_segments</span><span class="p">(</span><span class="n">state_series</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+        # 使用Polars計算狀態段（State Segments）
+        segments = self._detect_state_segments(state_series, device)
 
-        <span class="n">violations</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">segment</span> <span class="ow">in</span> <span class="n">segments</span><span class="p">:</span>
-            <span class="n">duration_minutes</span> <span class="o">=</span> <span class="p">(</span><span class="n">segment</span><span class="o">.</span><span class="n">end_time</span> <span class="o">-</span> <span class="n">segment</span><span class="o">.</span><span class="n">start_time</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">/</span> <span class="mi">60</span>
+        violations = []
+        for segment in segments:
+            duration_minutes = (segment.end_time - segment.start_time).total_seconds() / 60
 
-            <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;runtime&quot;</span> <span class="ow">and</span> <span class="n">segment</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s2">&quot;ON&quot;</span> <span class="ow">and</span> <span class="n">duration_minutes</span> <span class="o">&lt;</span> <span class="n">min_minutes</span><span class="p">:</span>
-                <span class="n">violations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ConstraintViolation</span><span class="p">(</span>
-                    <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;min_runtime&quot;</span><span class="p">,</span>
-                    <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
-                    <span class="n">actual_minutes</span><span class="o">=</span><span class="n">duration_minutes</span><span class="p">,</span>
-                    <span class="n">required_minutes</span><span class="o">=</span><span class="n">min_minutes</span><span class="p">,</span>
-                    <span class="n">timestamp</span><span class="o">=</span><span class="n">segment</span><span class="o">.</span><span class="n">start_time</span>
-                <span class="p">))</span>
+            if mode == &quot;runtime&quot; and segment.state == &quot;ON&quot; and duration_minutes &lt; min_minutes:
+                violations.append(ConstraintViolation(
+                    type=&quot;min_runtime&quot;,
+                    device=device,
+                    actual_minutes=duration_minutes,
+                    required_minutes=min_minutes,
+                    timestamp=segment.start_time
+                ))
 
-            <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;downtime&quot;</span> <span class="ow">and</span> <span class="n">segment</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s2">&quot;OFF&quot;</span> <span class="ow">and</span> <span class="n">duration_minutes</span> <span class="o">&lt;</span> <span class="n">min_minutes</span><span class="p">:</span>
-                <span class="n">violations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ConstraintViolation</span><span class="p">(</span>
-                    <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;min_downtime&quot;</span><span class="p">,</span>
-                    <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
-                    <span class="n">actual_minutes</span><span class="o">=</span><span class="n">duration_minutes</span><span class="p">,</span>
-                    <span class="n">required_minutes</span><span class="o">=</span><span class="n">min_minutes</span><span class="p">,</span>
-                    <span class="n">timestamp</span><span class="o">=</span><span class="n">segment</span><span class="o">.</span><span class="n">start_time</span>
-                <span class="p">))</span>
+            elif mode == &quot;downtime&quot; and segment.state == &quot;OFF&quot; and duration_minutes &lt; min_minutes:
+                violations.append(ConstraintViolation(
+                    type=&quot;min_downtime&quot;,
+                    device=device,
+                    actual_minutes=duration_minutes,
+                    required_minutes=min_minutes,
+                    timestamp=segment.start_time
+                ))
 
-        <span class="k">return</span> <span class="n">violations</span>
-</code></pre></div>
-
+        return violations
+</code></pre>
 <hr />
 <h2 id="4-phase-based-implementation">4. 分階段實作計畫 (Phase-Based Implementation)</h2>
 <h3 id="phase-0-day-1">Phase 0: 約束同步基礎建設 (Day 1)</h3>
 <p><strong>Step 0.1: ConstraintSyncManager實作</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># src/validation/constraint_sync.py</span>
+<pre><code class="language-python"># src/validation/constraint_sync.py
 
-<span class="k">class</span><span class="w"> </span><span class="nc">LogicConstraintSet</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;約束集資料模型（與Optimization v1.1共享）&quot;&quot;&quot;</span>
-    <span class="n">constraints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span>
-        <span class="n">RequiresConstraint</span><span class="p">,</span>
-        <span class="n">MutexConstraint</span><span class="p">,</span> 
-        <span class="n">SequenceConstraint</span><span class="p">,</span>
-        <span class="n">RuntimeConstraint</span>
-    <span class="p">]]</span>
+class LogicConstraintSet(BaseModel):
+    &quot;&quot;&quot;約束集資料模型（與Optimization v1.1共享）&quot;&quot;&quot;
+    constraints: List[Union[
+        RequiresConstraint,
+        MutexConstraint, 
+        SequenceConstraint,
+        RuntimeConstraint
+    ]]
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_by_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">type_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">:</span>
-        <span class="k">return</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">constraints</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">type_name</span><span class="p">]</span>
+    def get_by_type(self, type_name: str) -&gt; List:
+        return [c for c in self.constraints if c.type == type_name]
 
-<span class="k">class</span><span class="w"> </span><span class="nc">ConstraintSyncManager</span><span class="p">:</span>
-    <span class="c1"># ... （見3.1節）...</span>
-    <span class="k">pass</span>
-</code></pre></div>
-
-<p><strong>驗收標準</strong>:
-- [ ] 成功載入 <code>cgmh_ty.yaml</code> 的logic_constraints
-- [ ] 語法錯誤時拋出E350並提供明確錯誤位置
+class ConstraintSyncManager:
+    # ... （見3.1節）...
+    pass
+</code></pre>
+<p><strong>驗收標準</strong>:<br />
+- [ ] 成功載入 <code>cgmh_ty.yaml</code> 的logic_constraints<br />
+- [ ] 語法錯誤時拋出E350並提供明確錯誤位置<br />
 - [ ] 與Optimization使用相同的Pydantic模型（無轉換誤差）</p>
 <p><strong>Step 0.2: EquipmentStateResolver實作</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># src/validation/equipment_state.py</span>
+<pre><code class="language-python"># src/validation/equipment_state.py
 
-<span class="k">class</span><span class="w"> </span><span class="nc">EquipmentState</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
-    <span class="n">ON</span> <span class="o">=</span> <span class="s2">&quot;on&quot;</span>
-    <span class="n">OFF</span> <span class="o">=</span> <span class="s2">&quot;off&quot;</span>
-    <span class="n">UNKNOWN</span> <span class="o">=</span> <span class="s2">&quot;unknown&quot;</span>
-    <span class="n">TRANSITION</span> <span class="o">=</span> <span class="s2">&quot;transition&quot;</span>  <span class="c1"># 過渡狀態（閾值區間內）</span>
+class EquipmentState(Enum):
+    ON = &quot;on&quot;
+    OFF = &quot;off&quot;
+    UNKNOWN = &quot;unknown&quot;
+    TRANSITION = &quot;transition&quot;  # 過渡狀態（閾值區間內）
 
-<span class="k">class</span><span class="w"> </span><span class="nc">EquipmentStateResolver</span><span class="p">:</span>
-    <span class="c1"># ... （見3.2節）...</span>
+class EquipmentStateResolver:
+    # ... （見3.2節）...
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">validate_thresholds_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;驗證閾值配置合理性（避免on_threshold &lt; off_threshold）&quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">eq_type</span><span class="p">,</span> <span class="n">thresholds</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">thresholds</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="s2">&quot;on_threshold_kw&quot;</span> <span class="ow">in</span> <span class="n">thresholds</span> <span class="ow">and</span> <span class="s2">&quot;off_threshold_kw&quot;</span> <span class="ow">in</span> <span class="n">thresholds</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">thresholds</span><span class="p">[</span><span class="s2">&quot;on_threshold_kw&quot;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">thresholds</span><span class="p">[</span><span class="s2">&quot;off_threshold_kw&quot;</span><span class="p">]:</span>
-                    <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;設備類型 </span><span class="si">{</span><span class="n">eq_type</span><span class="si">}</span><span class="s2"> 的on_threshold必須大於off_threshold&quot;</span>
-                    <span class="p">)</span>
-        <span class="k">return</span> <span class="kc">True</span>
-</code></pre></div>
-
-<p><strong>驗收標準</strong>:
-- [ ] 正確解析chiller狀態（用電&gt;10kW為ON，&lt;2kW為OFF）
-- [ ] 正確解析pump狀態（頻率&gt;35Hz為ON，&lt;5kW為OFF）
+    def validate_thresholds_config(self) -&gt; bool:
+        &quot;&quot;&quot;驗證閾值配置合理性（避免on_threshold &lt; off_threshold）&quot;&quot;&quot;
+        for eq_type, thresholds in self.thresholds.items():
+            if &quot;on_threshold_kw&quot; in thresholds and &quot;off_threshold_kw&quot; in thresholds:
+                if thresholds[&quot;on_threshold_kw&quot;] &lt;= thresholds[&quot;off_threshold_kw&quot;]:
+                    raise ConfigurationError(
+                        f&quot;設備類型 {eq_type} 的on_threshold必須大於off_threshold&quot;
+                    )
+        return True
+</code></pre>
+<p><strong>驗收標準</strong>:<br />
+- [ ] 正確解析chiller狀態（用電&gt;10kW為ON，&lt;2kW為OFF）<br />
+- [ ] 正確解析pump狀態（頻率&gt;35Hz為ON，&lt;5kW為OFF）<br />
 - [ ] 數值為Null時返回UNKNOWN</p>
 <h3 id="phase-1-cleaner-day-2">Phase 1: Cleaner整合與逐行驗證 (Day 2)</h3>
 <p><strong>Step 1.1: Cleaner擴充（整合EquipmentValidator）</strong></p>
 <p>修改 <code>src/etl/cleaner.py</code> (v2.2+):</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">DataCleaner</span><span class="p">:</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">CleanerConfig</span><span class="p">,</span> 
-                 <span class="n">annotation_manager</span><span class="p">:</span> <span class="n">FeatureAnnotationManager</span><span class="p">,</span>
-                 <span class="n">constraint_manager</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ConstraintSyncManager</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>  <span class="c1"># 新增</span>
-        <span class="c1"># ... 原有初始化 ...</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">constraint_manager</span> <span class="o">=</span> <span class="n">constraint_manager</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">equipment_validator</span> <span class="o">=</span> <span class="kc">None</span>
+<pre><code class="language-python">class DataCleaner:
+    def __init__(self, config: CleanerConfig, 
+                 annotation_manager: FeatureAnnotationManager,
+                 constraint_manager: Optional[ConstraintSyncManager] = None):  # 新增
+        # ... 原有初始化 ...
+        self.constraint_manager = constraint_manager
+        self.equipment_validator = None
 
-        <span class="k">if</span> <span class="n">constraint_manager</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">equipment_validator</span> <span class="o">=</span> <span class="n">ConstraintValidationEngine</span><span class="p">(</span>
-                <span class="n">constraint_set</span><span class="o">=</span><span class="n">constraint_manager</span><span class="o">.</span><span class="n">get_constraints</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">site_id</span><span class="p">),</span>
-                <span class="n">state_resolver</span><span class="o">=</span><span class="n">EquipmentStateResolver</span><span class="p">(</span><span class="n">annotation_manager</span><span class="p">)</span>
-            <span class="p">)</span>
+        if constraint_manager:
+            self.equipment_validator = ConstraintValidationEngine(
+                constraint_set=constraint_manager.get_constraints(config.site_id),
+                state_resolver=EquipmentStateResolver(annotation_manager)
+            )
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_semantic_aware_cleaning</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        擴充v2.2的語意感知清洗，加入設備依賴驗證</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># ... 原有邏輯（凍結檢測、零值檢查）...</span>
+    def _semantic_aware_cleaning(self, df: pl.DataFrame) -&gt; pl.DataFrame:
+        &quot;&quot;&quot;
+        擴充v2.2的語意感知清洗，加入設備依賴驗證
+        &quot;&quot;&quot;
+        # ... 原有邏輯（凍結檢測、零值檢查）...
 
-        <span class="c1"># 新增：設備依賴驗證（逐行）</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">equipment_validator</span><span class="p">:</span>
-            <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_equipment_dependencies</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+        # 新增：設備依賴驗證（逐行）
+        if self.equipment_validator:
+            df = self._validate_equipment_dependencies(df)
 
-        <span class="k">return</span> <span class="n">df</span>
+        return df
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_equipment_dependencies</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        逐行驗證設備依賴關係（requires, mutex）</span>
-<span class="sd">        將違反標記為quality_flags</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">violations_list</span> <span class="o">=</span> <span class="p">[]</span>
+    def _validate_equipment_dependencies(self, df: pl.DataFrame) -&gt; pl.DataFrame:
+        &quot;&quot;&quot;
+        逐行驗證設備依賴關係（requires, mutex）
+        將違反標記為quality_flags
+        &quot;&quot;&quot;
+        violations_list = []
 
-        <span class="k">for</span> <span class="n">row_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)):</span>
-            <span class="n">row</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">row_idx</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
-            <span class="n">timestamp</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">]</span>
+        for row_idx in range(len(df)):
+            row = df[row_idx].to_dict()
+            timestamp = row[&quot;timestamp&quot;]
 
-            <span class="c1"># 執行驗證</span>
-            <span class="n">violations</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">equipment_validator</span><span class="o">.</span><span class="n">validate_row</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">)</span>
+            # 執行驗證
+            violations = self.equipment_validator.validate_row(row, timestamp)
 
-            <span class="k">if</span> <span class="n">violations</span><span class="p">:</span>
-                <span class="c1"># 收集所有違反的flags</span>
-                <span class="n">flags_to_add</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span><span class="o">.</span><span class="n">error_code</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="s2">&quot;FLAG_&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">violations</span><span class="p">]</span>
-                <span class="n">flags_to_add</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;LOGIC_CONSTRAINT_VIOLATION&quot;</span><span class="p">)</span>
+            if violations:
+                # 收集所有違反的flags
+                flags_to_add = [v.error_code.replace(&quot;E&quot;, &quot;FLAG_&quot;) for v in violations]
+                flags_to_add.append(&quot;LOGIC_CONSTRAINT_VIOLATION&quot;)
 
-                <span class="c1"># 標記該行（使用Polars的with_row_count輔助）</span>
-                <span class="n">violations_list</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">row_idx</span><span class="p">,</span> <span class="n">flags_to_add</span><span class="p">))</span>
+                # 標記該行（使用Polars的with_row_count輔助）
+                violations_list.append((row_idx, flags_to_add))
 
-        <span class="c1"># 批量更新quality_flags（避免逐行更新效能問題）</span>
-        <span class="k">if</span> <span class="n">violations_list</span><span class="p">:</span>
-            <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_violation_flags</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">violations_list</span><span class="p">)</span>
+        # 批量更新quality_flags（避免逐行更新效能問題）
+        if violations_list:
+            df = self._apply_violation_flags(df, violations_list)
 
-            <span class="c1"># 記錄統計</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;設備依賴驗證：發現 </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">violations_list</span><span class="p">)</span><span class="si">}</span><span class="s2"> 行違反，&quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;類型分布: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_summarize_violations</span><span class="p">(</span><span class="n">violations</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span>
+            # 記錄統計
+            self.logger.warning(
+                f&quot;設備依賴驗證：發現 {len(violations_list)} 行違反，&quot;
+                f&quot;類型分布: {self._summarize_violations(violations)}&quot;
+            )
 
-        <span class="k">return</span> <span class="n">df</span>
+        return df
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_violation_flags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> 
-                                <span class="n">violations</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]])</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        將違反標記應用到DataFrame（使用Polars高效操作）</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># 建立flags列的更新映射</span>
-        <span class="n">flag_updates</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">row_idx</span><span class="p">,</span> <span class="n">flags</span> <span class="ow">in</span> <span class="n">violations</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">flag</span> <span class="ow">in</span> <span class="n">flags</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">flag</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">flag_updates</span><span class="p">:</span>
-                    <span class="n">flag_updates</span><span class="p">[</span><span class="n">flag</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-                <span class="n">flag_updates</span><span class="p">[</span><span class="n">flag</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row_idx</span><span class="p">)</span>
+    def _apply_violation_flags(self, df: pl.DataFrame, 
+                                violations: List[Tuple[int, List[str]]]) -&gt; pl.DataFrame:
+        &quot;&quot;&quot;
+        將違反標記應用到DataFrame（使用Polars高效操作）
+        &quot;&quot;&quot;
+        # 建立flags列的更新映射
+        flag_updates = {}
+        for row_idx, flags in violations:
+            for flag in flags:
+                if flag not in flag_updates:
+                    flag_updates[flag] = []
+                flag_updates[flag].append(row_idx)
 
-        <span class="c1"># 使用Polars的when-then鏈更新（或先轉為Pandas處理後轉回，取決於效能）</span>
-        <span class="c1"># 這裡簡化展示邏輯，實作時應使用Polars原生語法</span>
-        <span class="k">for</span> <span class="n">flag</span><span class="p">,</span> <span class="n">rows</span> <span class="ow">in</span> <span class="n">flag_updates</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">mask</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">Series</span><span class="p">([</span><span class="n">i</span> <span class="ow">in</span> <span class="n">rows</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">))])</span>
-            <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span>
-                <span class="n">pl</span><span class="o">.</span><span class="n">when</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span>
-                    <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;quality_flags&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">list</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">lit</span><span class="p">([</span><span class="n">flag</span><span class="p">]))</span>
-                <span class="p">)</span><span class="o">.</span><span class="n">otherwise</span><span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;quality_flags&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;quality_flags&quot;</span><span class="p">)</span>
-            <span class="p">)</span>
+        # 使用Polars的when-then鏈更新（或先轉為Pandas處理後轉回，取決於效能）
+        # 這裡簡化展示邏輯，實作時應使用Polars原生語法
+        for flag, rows in flag_updates.items():
+            mask = pl.Series([i in rows for i in range(len(df))])
+            df = df.with_columns(
+                pl.when(mask).then(
+                    pl.col(&quot;quality_flags&quot;).list.concat(pl.lit([flag]))
+                ).otherwise(pl.col(&quot;quality_flags&quot;)).alias(&quot;quality_flags&quot;)
+            )
 
-        <span class="k">return</span> <span class="n">df</span>
-</code></pre></div>
-
-<p><strong>驗收標準</strong>:
-- [ ] requires約束違反正確標記（E351 → FLAG_REQUIRES_VIOLATION）
-- [ ] mutex約束違反正確標記（E352 → FLAG_MUTEX_VIOLATION）
+        return df
+</code></pre>
+<p><strong>驗收標準</strong>:<br />
+- [ ] requires約束違反正確標記（E351 → FLAG_REQUIRES_VIOLATION）<br />
+- [ ] mutex約束違反正確標記（E352 → FLAG_MUTEX_VIOLATION）<br />
 - [ ] 效能：處理10萬行資料耗時&lt;5秒（使用Polars向量化操作）</p>
 <h3 id="phase-2-batchprocessor-day-3">Phase 2: BatchProcessor整合與批次驗證 (Day 3)</h3>
 <p><strong>Step 2.1: BatchProcessor擴充（時序約束驗證）</strong></p>
 <p>修改 <code>src/etl/batch_processor.py</code> (v1.3+):</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">BatchOrchestrator</span><span class="p">:</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span>
-        <span class="c1"># ... 原有初始化 ...</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">equipment_validator</span> <span class="o">=</span> <span class="n">ConstraintValidationEngine</span><span class="p">(</span>
-            <span class="n">constraint_set</span><span class="o">=</span><span class="n">constraint_manager</span><span class="o">.</span><span class="n">get_constraints</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">site_id</span><span class="p">),</span>
-            <span class="n">state_resolver</span><span class="o">=</span><span class="n">EquipmentStateResolver</span><span class="p">(</span><span class="n">annotation_manager</span><span class="p">)</span>
-        <span class="p">)</span>
+<pre><code class="language-python">class BatchOrchestrator:
+    def __init__(self, ...):
+        # ... 原有初始化 ...
+        self.equipment_validator = ConstraintValidationEngine(
+            constraint_set=constraint_manager.get_constraints(config.site_id),
+            state_resolver=EquipmentStateResolver(annotation_manager)
+        )
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">process_single_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BatchResult</span><span class="p">:</span>
-        <span class="c1"># ... 原有流程（解析、清洗）...</span>
+    def process_single_file(self, file_path: Path) -&gt; BatchResult:
+        # ... 原有流程（解析、清洗）...
 
-        <span class="c1"># 新增：批次設備依賴驗證（時序相關）</span>
-        <span class="n">validation_report</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">equipment_validator</span><span class="o">.</span><span class="n">validate_batch</span><span class="p">(</span><span class="n">clean_df</span><span class="p">)</span>
+        # 新增：批次設備依賴驗證（時序相關）
+        validation_report = self.equipment_validator.validate_batch(clean_df)
 
-        <span class="c1"># 將驗證報告寫入Manifest</span>
-        <span class="n">manifest</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_manifest</span><span class="p">(</span>
-            <span class="n">clean_df</span><span class="p">,</span>
-            <span class="n">column_metadata</span><span class="o">=</span><span class="n">column_metadata</span><span class="p">,</span>
-            <span class="n">validation_report</span><span class="o">=</span><span class="n">validation_report</span>  <span class="c1"># 新增參數</span>
-        <span class="p">)</span>
+        # 將驗證報告寫入Manifest
+        manifest = self._generate_manifest(
+            clean_df,
+            column_metadata=column_metadata,
+            validation_report=validation_report  # 新增參數
+        )
 
-        <span class="k">return</span> <span class="n">BatchResult</span><span class="p">(</span>
-            <span class="c1"># ... 原有欄位 ...</span>
-            <span class="n">validation_summary</span><span class="o">=</span><span class="n">validation_report</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>  <span class="c1"># 新增</span>
-        <span class="p">)</span>
+        return BatchResult(
+            # ... 原有欄位 ...
+            validation_summary=validation_report.to_dict()  # 新增
+        )
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_manifest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">,</span> <span class="n">column_metadata</span><span class="p">,</span> <span class="n">validation_report</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span>
-        <span class="c1"># ... 原有Manifest生成邏輯 ...</span>
+    def _generate_manifest(self, df, column_metadata, validation_report, ...):
+        # ... 原有Manifest生成邏輯 ...
 
-        <span class="c1"># 新增equipment_validation_summary</span>
-        <span class="n">manifest</span><span class="o">.</span><span class="n">equipment_validation_summary</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;constraint_set_version&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_constraint_checksum</span><span class="p">(),</span>
-            <span class="s2">&quot;validation_timestamp&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
-            <span class="s2">&quot;row_level_stats&quot;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="s2">&quot;total_rows_checked&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">),</span>
-                <span class="s2">&quot;logic_violation_rows&quot;</span><span class="p">:</span> <span class="n">validation_report</span><span class="o">.</span><span class="n">total_violations</span><span class="p">,</span>
-                <span class="s2">&quot;violation_rate_percent&quot;</span><span class="p">:</span> <span class="nb">round</span><span class="p">(</span>
-                    <span class="n">validation_report</span><span class="o">.</span><span class="n">total_violations</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">2</span>
-                <span class="p">)</span>
-            <span class="p">},</span>
-            <span class="s2">&quot;constraint_breakdown&quot;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="s2">&quot;requires_violations&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">validation_report</span><span class="o">.</span><span class="n">requires_violations</span><span class="p">),</span>
-                <span class="s2">&quot;mutex_violations&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">validation_report</span><span class="o">.</span><span class="n">mutex_violations</span><span class="p">),</span>
-                <span class="s2">&quot;sequence_violations&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">validation_report</span><span class="o">.</span><span class="n">sequence_violations</span><span class="p">),</span>
-                <span class="s2">&quot;min_runtime_violations&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">validation_report</span><span class="o">.</span><span class="n">runtime_violations</span><span class="p">),</span>
-                <span class="s2">&quot;min_downtime_violations&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">validation_report</span><span class="o">.</span><span class="n">downtime_violations</span><span class="p">)</span>
-            <span class="p">},</span>
-            <span class="s2">&quot;equipment_specific_stats&quot;</span><span class="p">:</span> <span class="n">validation_report</span><span class="o">.</span><span class="n">get_equipment_stats</span><span class="p">(),</span>
-            <span class="s2">&quot;severity_assessment&quot;</span><span class="p">:</span> <span class="n">validation_report</span><span class="o">.</span><span class="n">assess_severity</span><span class="p">(),</span>
-            <span class="s2">&quot;recommendation&quot;</span><span class="p">:</span> <span class="n">validation_report</span><span class="o">.</span><span class="n">generate_recommendation</span><span class="p">()</span>
-        <span class="p">}</span>
+        # 新增equipment_validation_summary
+        manifest.equipment_validation_summary = {
+            &quot;constraint_set_version&quot;: self._get_constraint_checksum(),
+            &quot;validation_timestamp&quot;: datetime.now(timezone.utc).isoformat(),
+            &quot;row_level_stats&quot;: {
+                &quot;total_rows_checked&quot;: len(df),
+                &quot;logic_violation_rows&quot;: validation_report.total_violations,
+                &quot;violation_rate_percent&quot;: round(
+                    validation_report.total_violations / len(df) * 100, 2
+                )
+            },
+            &quot;constraint_breakdown&quot;: {
+                &quot;requires_violations&quot;: len(validation_report.requires_violations),
+                &quot;mutex_violations&quot;: len(validation_report.mutex_violations),
+                &quot;sequence_violations&quot;: len(validation_report.sequence_violations),
+                &quot;min_runtime_violations&quot;: len(validation_report.runtime_violations),
+                &quot;min_downtime_violations&quot;: len(validation_report.downtime_violations)
+            },
+            &quot;equipment_specific_stats&quot;: validation_report.get_equipment_stats(),
+            &quot;severity_assessment&quot;: validation_report.assess_severity(),
+            &quot;recommendation&quot;: validation_report.generate_recommendation()
+        }
 
-        <span class="k">return</span> <span class="n">manifest</span>
-</code></pre></div>
-
-<p><strong>驗收標準</strong>:
-- [ ] sequence約束正確檢測（開機順序錯誤時段）
-- [ ] min_runtime正確計算（運行&lt;30分鐘的異常短運行）
-- [ ] min_downtime正確計算（停機&lt;15分鐘的頻繁啟停）
+        return manifest
+</code></pre>
+<p><strong>驗收標準</strong>:<br />
+- [ ] sequence約束正確檢測（開機順序錯誤時段）<br />
+- [ ] min_runtime正確計算（運行&lt;30分鐘的異常短運行）<br />
+- [ ] min_downtime正確計算（停機&lt;15分鐘的頻繁啟停）<br />
 - [ ] Manifest正確寫入validation_summary</p>
 <h3 id="phase-3-day-4">Phase 3: 錯誤代碼與日誌整合 (Day 4)</h3>
 <p><strong>Step 3.1: 錯誤代碼實作（E350-E399）</strong></p>
 <p>擴充 <code>src/etl/config_models.py</code>:</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># 設備依賴驗證錯誤代碼（Interface Contract v1.0定義E350-E399區間）</span>
-<span class="n">EQUIPMENT_DEPENDENCY_ERROR_CODES</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;E350&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;CONSTRAINT_CONFIG_ERROR&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;無法載入Optimization約束配置或語法錯誤&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="s2">&quot;Container初始化&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;severity&quot;</span><span class="p">:</span> <span class="s2">&quot;Critical&quot;</span>
-    <span class="p">},</span>
-    <span class="s2">&quot;E351&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;REQUIRES_VIOLATION&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;設備依賴約束違反（如主機開但水泵關）&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="s2">&quot;Cleaner逐行驗證&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;severity&quot;</span><span class="p">:</span> <span class="s2">&quot;High&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;example&quot;</span><span class="p">:</span> <span class="s2">&quot;chiller_1_on=True but chw_pump_1_on=False&quot;</span>
-    <span class="p">},</span>
-    <span class="s2">&quot;E352&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;MUTEX_VIOLATION&quot;</span><span class="p">,</span> 
-        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;互斥設備同時開啟&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="s2">&quot;Cleaner逐行驗證&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;severity&quot;</span><span class="p">:</span> <span class="s2">&quot;High&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;example&quot;</span><span class="p">:</span> <span class="s2">&quot;chiller_1_on=True and chiller_2_on=True (mutex group)&quot;</span>
-    <span class="p">},</span>
-    <span class="s2">&quot;E353&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;SEQUENCE_VIOLATION&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;開關機順序違反（歷史資料時序分析）&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="s2">&quot;BatchProcessor批次驗證&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;severity&quot;</span><span class="p">:</span> <span class="s2">&quot;Medium&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;example&quot;</span><span class="p">:</span> <span class="s2">&quot;chiller_1 started before ct_1&quot;</span>
-    <span class="p">},</span>
-    <span class="s2">&quot;E354&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;MIN_RUNTIME_VIOLATION&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;設備運行時間低於最小要求（異常短運行）&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="s2">&quot;BatchProcessor時長統計&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;severity&quot;</span><span class="p">:</span> <span class="s2">&quot;Medium&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;example&quot;</span><span class="p">:</span> <span class="s2">&quot;chiller_1 runtime=15min, required=30min&quot;</span>
-    <span class="p">},</span>
-    <span class="s2">&quot;E355&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;MIN_DOWNTIME_VIOLATION&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;設備停機時間低於最小要求（頻繁啟停）&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="s2">&quot;BatchProcessor時長統計&quot;</span><span class="p">,</span> 
-        <span class="s2">&quot;severity&quot;</span><span class="p">:</span> <span class="s2">&quot;Medium&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;example&quot;</span><span class="p">:</span> <span class="s2">&quot;chiller_1 downtime=5min, required=15min&quot;</span>
-    <span class="p">},</span>
-    <span class="s2">&quot;E356&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;EQUIPMENT_STATE_AMBIGUOUS&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;設備狀態無法判定（數值在閾值過渡區間）&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="s2">&quot;Cleaner狀態解析&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;severity&quot;</span><span class="p">:</span> <span class="s2">&quot;Low&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;example&quot;</span><span class="p">:</span> <span class="s2">&quot;chiller_1_kw=5.0 (between off=2 and on=10)&quot;</span>
-    <span class="p">},</span>
-    <span class="s2">&quot;E357&quot;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;CONSTRAINT_VALIDATION_FAILED&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;批次驗證執行失敗（內部錯誤）&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="s2">&quot;BatchProcessor&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;severity&quot;</span><span class="p">:</span> <span class="s2">&quot;High&quot;</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div>
-
+<pre><code class="language-python"># 設備依賴驗證錯誤代碼（Interface Contract v1.0定義E350-E399區間）
+EQUIPMENT_DEPENDENCY_ERROR_CODES = {
+    &quot;E350&quot;: {
+        &quot;name&quot;: &quot;CONSTRAINT_CONFIG_ERROR&quot;,
+        &quot;description&quot;: &quot;無法載入Optimization約束配置或語法錯誤&quot;,
+        &quot;stage&quot;: &quot;Container初始化&quot;,
+        &quot;severity&quot;: &quot;Critical&quot;
+    },
+    &quot;E351&quot;: {
+        &quot;name&quot;: &quot;REQUIRES_VIOLATION&quot;,
+        &quot;description&quot;: &quot;設備依賴約束違反（如主機開但水泵關）&quot;,
+        &quot;stage&quot;: &quot;Cleaner逐行驗證&quot;,
+        &quot;severity&quot;: &quot;High&quot;,
+        &quot;example&quot;: &quot;chiller_1_on=True but chw_pump_1_on=False&quot;
+    },
+    &quot;E352&quot;: {
+        &quot;name&quot;: &quot;MUTEX_VIOLATION&quot;, 
+        &quot;description&quot;: &quot;互斥設備同時開啟&quot;,
+        &quot;stage&quot;: &quot;Cleaner逐行驗證&quot;,
+        &quot;severity&quot;: &quot;High&quot;,
+        &quot;example&quot;: &quot;chiller_1_on=True and chiller_2_on=True (mutex group)&quot;
+    },
+    &quot;E353&quot;: {
+        &quot;name&quot;: &quot;SEQUENCE_VIOLATION&quot;,
+        &quot;description&quot;: &quot;開關機順序違反（歷史資料時序分析）&quot;,
+        &quot;stage&quot;: &quot;BatchProcessor批次驗證&quot;,
+        &quot;severity&quot;: &quot;Medium&quot;,
+        &quot;example&quot;: &quot;chiller_1 started before ct_1&quot;
+    },
+    &quot;E354&quot;: {
+        &quot;name&quot;: &quot;MIN_RUNTIME_VIOLATION&quot;,
+        &quot;description&quot;: &quot;設備運行時間低於最小要求（異常短運行）&quot;,
+        &quot;stage&quot;: &quot;BatchProcessor時長統計&quot;,
+        &quot;severity&quot;: &quot;Medium&quot;,
+        &quot;example&quot;: &quot;chiller_1 runtime=15min, required=30min&quot;
+    },
+    &quot;E355&quot;: {
+        &quot;name&quot;: &quot;MIN_DOWNTIME_VIOLATION&quot;,
+        &quot;description&quot;: &quot;設備停機時間低於最小要求（頻繁啟停）&quot;,
+        &quot;stage&quot;: &quot;BatchProcessor時長統計&quot;, 
+        &quot;severity&quot;: &quot;Medium&quot;,
+        &quot;example&quot;: &quot;chiller_1 downtime=5min, required=15min&quot;
+    },
+    &quot;E356&quot;: {
+        &quot;name&quot;: &quot;EQUIPMENT_STATE_AMBIGUOUS&quot;,
+        &quot;description&quot;: &quot;設備狀態無法判定（數值在閾值過渡區間）&quot;,
+        &quot;stage&quot;: &quot;Cleaner狀態解析&quot;,
+        &quot;severity&quot;: &quot;Low&quot;,
+        &quot;example&quot;: &quot;chiller_1_kw=5.0 (between off=2 and on=10)&quot;
+    },
+    &quot;E357&quot;: {
+        &quot;name&quot;: &quot;CONSTRAINT_VALIDATION_FAILED&quot;,
+        &quot;description&quot;: &quot;批次驗證執行失敗（內部錯誤）&quot;,
+        &quot;stage&quot;: &quot;BatchProcessor&quot;,
+        &quot;severity&quot;: &quot;High&quot;
+    }
+}
+</code></pre>
 <p><strong>Step 3.2: 日誌與監控告警</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># 在ConstraintValidationEngine中整合</span>
+<pre><code class="language-python"># 在ConstraintValidationEngine中整合
 
-<span class="k">class</span><span class="w"> </span><span class="nc">ConstraintValidationEngine</span><span class="p">:</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">log_violation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">violation</span><span class="p">:</span> <span class="n">ConstraintViolation</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        結構化日誌記錄，供ELK/Plumbr等系統收集</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">log_entry</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="n">violation</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
-            <span class="s2">&quot;error_code&quot;</span><span class="p">:</span> <span class="n">violation</span><span class="o">.</span><span class="n">error_code</span><span class="p">,</span>
-            <span class="s2">&quot;constraint_type&quot;</span><span class="p">:</span> <span class="n">violation</span><span class="o">.</span><span class="n">constraint_type</span><span class="p">,</span>
-            <span class="s2">&quot;equipment_id&quot;</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">violation</span><span class="p">,</span> <span class="s1">&#39;equipment&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-            <span class="s2">&quot;details&quot;</span><span class="p">:</span> <span class="n">violation</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(),</span>
-            <span class="s2">&quot;severity&quot;</span><span class="p">:</span> <span class="n">EQUIPMENT_DEPENDENCY_ERROR_CODES</span><span class="p">[</span><span class="n">violation</span><span class="o">.</span><span class="n">error_code</span><span class="p">][</span><span class="s2">&quot;severity&quot;</span><span class="p">]</span>
-        <span class="p">}</span>
+class ConstraintValidationEngine:
+    def log_violation(self, violation: ConstraintViolation):
+        &quot;&quot;&quot;
+        結構化日誌記錄，供ELK/Plumbr等系統收集
+        &quot;&quot;&quot;
+        log_entry = {
+            &quot;timestamp&quot;: violation.timestamp.isoformat(),
+            &quot;error_code&quot;: violation.error_code,
+            &quot;constraint_type&quot;: violation.constraint_type,
+            &quot;equipment_id&quot;: getattr(violation, 'equipment', None),
+            &quot;details&quot;: violation.to_dict(),
+            &quot;severity&quot;: EQUIPMENT_DEPENDENCY_ERROR_CODES[violation.error_code][&quot;severity&quot;]
+        }
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;設備依賴違反: </span><span class="si">{</span><span class="n">log_entry</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        self.logger.warning(f&quot;設備依賴違反: {log_entry}&quot;)
 
-        <span class="c1"># 高嚴重度即時告警（可整合PagerDuty/Slack）</span>
-        <span class="k">if</span> <span class="n">log_entry</span><span class="p">[</span><span class="s2">&quot;severity&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;High&quot;</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_send_alert</span><span class="p">(</span><span class="n">log_entry</span><span class="p">)</span>
-</code></pre></div>
-
+        # 高嚴重度即時告警（可整合PagerDuty/Slack）
+        if log_entry[&quot;severity&quot;] == &quot;High&quot;:
+            self._send_alert(log_entry)
+</code></pre>
 <hr />
 <h2 id="5-test-plan">5. 測試與驗證計畫 (Test Plan)</h2>
 <h3 id="51-unit-tests">5.1 單元測試 (Unit Tests)</h3>
@@ -1128,11 +1114,11 @@
 </tbody>
 </table>
 <h3 id="53-acceptance-tests">5.3 驗收測試 (Acceptance Tests)</h3>
-<p><strong>場景1：長庚醫院案場實料驗證</strong>
-- 輸入：cgmh_ty_202501.csv（含已知的chiller_1與chw_pump_1同步問題時段）
+<p><strong>場景1：長庚醫院案場實料驗證</strong><br />
+- 輸入：cgmh_ty_202501.csv（含已知的chiller_1與chw_pump_1同步問題時段）<br />
 - 預期：正確標記2025-01-15 08:30-09:15的REQUIRES_VIOLATION（該時段主機開但水泵關）</p>
-<p><strong>場景2：頻繁啟停檢測</strong>
-- 輸入：模擬chiller_1在1小時內開關3次的資料
+<p><strong>場景2：頻繁啟停檢測</strong><br />
+- 輸入：模擬chiller_1在1小時內開關3次的資料<br />
 - 預期：標記2次MIN_DOWNTIME_VIOLATION（停機時間不足15分鐘）</p>
 <hr />
 <h2 id="6-risk-assessment">6. 風險評估與緩解 (Risk Assessment)</h2>
@@ -1244,17 +1230,17 @@
 <li><code>src/etl/batch_processor.py</code> (更新) - 整合批次驗證與Manifest輸出</li>
 </ol>
 <h3 id="82">8.2 配置文件</h3>
-<ol>
+<ol start="7">
 <li><code>config/validation/equipment_thresholds.yaml</code> - 設備狀態閾值預設值（可依案場覆寫）</li>
 </ol>
 <h3 id="83">8.3 測試檔案</h3>
-<ol>
+<ol start="8">
 <li><code>tests/test_equipment_dependency.py</code> - 單元測試（覆蓋E350-E356）</li>
 <li><code>tests/test_equipment_dependency_integration.py</code> - 整合測試（含效能測試）</li>
 <li><code>tests/fixtures/sample_constraints.yaml</code> - 測試用約束配置</li>
 </ol>
 <h3 id="84">8.4 文件檔案</h3>
-<ol>
+<ol start="11">
 <li><code>docs/validation/PRD_Equipment_Dependency_Validation_v1.0.md</code> - 本文件</li>
 <li><code>docs/validation/CONSTRAINT_SYNC_GUIDE.md</code> - 約束同步操作手冊（供維運人員）</li>
 <li><code>docs/validation/TROUBLESHOOTING.md</code> - 常見錯誤排查（E351-E356處理指引）</li>
@@ -1335,18 +1321,12 @@
 </tbody>
 </table>
 <hr />
-<p><strong>關鍵設計確認</strong>:
-1. <strong>零Gap保證</strong>：ETL階段標記的<code>PHYSICAL_IMPOSSIBLE</code>與Optimization階段的約束違反定義完全一致
-2. <strong>SSOT維護</strong>：約束定義唯一位於Optimization Config，ETL唯讀引用，不複製
-3. <strong>職責分離</strong>：EquipmentValidator不處理<code>device_role</code>（這是Feature Annotation的職責），僅處理<code>logic_constraints</code>
-4. <strong>向量化效能</strong>：使用Polars進行批次處理，避免Python迴圈效能瓶頸
-5. <strong>可追溯性</strong>：所有約束違反記錄時間戳、設備ID、違反類型，寫入Manifest供訓練階段參考
+<p><strong>關鍵設計確認</strong>:<br />
+1. <strong>零Gap保證</strong>：ETL階段標記的<code>PHYSICAL_IMPOSSIBLE</code>與Optimization階段的約束違反定義完全一致<br />
+2. <strong>SSOT維護</strong>：約束定義唯一位於Optimization Config，ETL唯讀引用，不複製<br />
+3. <strong>職責分離</strong>：EquipmentValidator不處理<code>device_role</code>（這是Feature Annotation的職責），僅處理<code>logic_constraints</code><br />
+4. <strong>向量化效能</strong>：使用Polars進行批次處理，避免Python迴圈效能瓶頸<br />
+5. <strong>可追溯性</strong>：所有約束違反記錄時間戳、設備ID、違反類型，寫入Manifest供訓練階段參考<br />
 ```</p>
-    
-<script type="module">
-    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-    mermaid.initialize({ startOnLoad: true });
-</script>
-
 </body>
 </html>

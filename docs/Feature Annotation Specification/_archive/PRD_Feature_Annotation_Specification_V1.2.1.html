@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_Feature_Annotation_Specification_V1.2.1</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<p>以下是基于 <strong>PRD_Feature_Annotation_Specification_V1.2</strong> 的完整更新文档，专门针对您的 HVAC 系统设备与测点规格进行扩充：</p>
+<hr />
+<pre><code class="language-markdown"># PRD v1.2.1-HVAC: 特徵標註系統規範 (HVAC 擴充版)
+# 設備分類、物理類型擴充與冰水主機房專用約束
+
+**文件版本:** v1.2.1-HVAC (Extension for Chiller Plant &amp; AHU Systems)  
+**基礎版本:** v1.2-Contract-Aligned  
+**日期:** 2026-02-14  
+**負責人:** [您的姓名]  
+**適用案場:** 冰水主機房(BAS)、空調箱系統(AHU)、變頻設備監控  
+**更新範圍:** 
+- 新增 11 個 Physical Types（含效率、閥門、電力品質等）
+- 定義 6 大設備類別的標準化命名規則
+- 建立 HVAC 專用 Equipment Constraints（互鎖、啟停序列）
+- 擴充 Group Policies（依設備類型自動套用 Lag 策略）
+
+---
+
+## 1. 設備分類架構 (Equipment Taxonomy)
+
+### 1.1 設備類別對照表 (Device Category Mapping)
+
+為統一欄位命名與 Group Policy 自動匹配，建立以下設備前綴規範：
+
+| 設備中文名 | 英文代碼 | 欄位前綴範例 | Device Role 建議 |
+|-----------|---------|-------------|-----------------|
+| **冰水主機** | CH (Chiller) | `chiller_01_`, `ch_1_` | primary/backup |
+| **冰水一次泵** | CHW-P (Primary) | `chw_pri_pump_01_`, `chwp1_` | primary |
+| **冰水區域泵** | CHW-S (Secondary) | `chw_sec_pump_01_`, `chws1_` | primary |
+| **冷卻水一次泵** | CW-P (Pump) | `cw_pump_01_`, `cwp1_` | primary |
+| **冷卻水塔** | CT (Cooling Tower) | `ct_01_`, `cooling_tower_1_` | primary/backup |
+| **空調箱** | AHU | `ahu_01_`, `ahu_north_` | primary |
+
+### 1.2 元件類型對照表 (Component Type Mapping)
+
+| 元件中文名 | 英文代碼 | 測點類型 | Physical Type 建議 | 單位 |
+|-----------|---------|---------|-------------------|------|
+| **冰水進水溫度** | CHWRT | 溫度計 | `temperature` | °C |
+| **冰水回水溫度** | CHWST | 溫度計 | `temperature` | °C |
+| **冷卻水進水溫度** | CWRT | 溫度計 | `temperature` | °C |
+| **冷卻水回水溫度** | CWST | 溫度計 | `temperature` | °C |
+| **冰水閥** | CHWV | 閥門 | `valve_position` | % |
+| **變頻器** | VFD | 控制器 | `frequency` | Hz |
+| **壓力計** | P | 壓力 | `pressure` | kPa |
+| **壓差計** | DP | 壓差 | `pressure_differential` | kPa |
+
+---
+
+## 2. 擴充 Physical Types 定義 (SSOT 層更新)
+
+於 `config/features/physical_types.yaml` 新增以下類型（保留原有類型，新增至檔案後段）：
+
+```yaml
+# ==========================================
+# HVAC 擴充物理類型 (v1.2.1 新增)
+# ==========================================
+
+cooling_capacity:
+  description: &quot;冷凍能力/冷凍噸 (Refrigeration Tonnage)&quot;
+  unit: &quot;RT&quot;
+  si_unit: &quot;ton_of_refrigeration&quot;
+  valid_range: [0.0, 2000.0]        # 依案場主機容量調整
+  agg_method: &quot;sum&quot;                 # 多台主機可相加
+  distribution_check:
+    expected_mean_range: [100, 800]
+    max_std_threshold: 500
+    zero_ratio_warning: 0.2         # 部分負載運轉時允許較高零值
+
+efficiency:
+  description: &quot;效率指標 (COP, kW/RT, 或綜合效率)&quot;
+  unit: &quot;COP&quot;                       # 或 kW/RT，建議統一使用 COP 或註記於 description
+  si_unit: &quot;coefficient_of_performance&quot;
+  valid_range: [0.0, 10.0]          # COP 通常 3-6，異常值 &gt;10 或 &lt;0 視為錯誤
+  agg_method: &quot;mean&quot;                # 效率通常取平均
+  distribution_check:
+    expected_mean_range: [3.0, 6.0]
+    max_std_threshold: 2.0
+    zero_ratio_warning: 0.1
+
+energy:
+  description: &quot;累積電能/用電量 (電表讀數，需單調遞增)&quot;
+  unit: &quot;kWh&quot;
+  si_unit: &quot;kilowatt_hour&quot;
+  valid_range: [0.0, 999999999.0]   # 累積值，定期歸零時需處理
+  agg_method: &quot;last&quot;                # 關鍵：取時段最末值，非平均
+  distribution_check:
+    check_monotonic: true           # 強制檢查單調遞增（防電表倒轉）
+    max_reverse_delta: 0.01         # 允許 1% 回退（電表重置或精度誤差）
+    expected_mean_range: null       # 累積值無固定範圍
+    zero_ratio_warning: 0.0         # 累積值不應有零（除非重置）
+
+valve_position:
+  description: &quot;閥門開度/閥位反饋&quot;
+  unit: &quot;%&quot;
+  si_unit: &quot;percent&quot;
+  valid_range: [0.0, 100.0]
+  agg_method: &quot;mean&quot;
+  distribution_check:
+    expected_mean_range: [10, 90]   # 長期 0% 或 100% 可能表示閥門故障或選型錯誤
+    max_std_threshold: 50
+    zero_ratio_warning: 0.3         # 二通閥可能長期全關
+
+frequency:
+  description: &quot;頻率/轉速控制信號（變頻器輸出）&quot;
+  unit: &quot;Hz&quot;
+  si_unit: &quot;hertz&quot;
+  valid_range: [0.0, 60.0]          # 台灣電網 60Hz，部分設備 50Hz
+  agg_method: &quot;mean&quot;
+  distribution_check:
+    expected_mean_range: [30, 60]   # 正常運轉頻率範圍
+    max_std_threshold: 20
+    zero_ratio_warning: 0.5         # 設備停機時為 0Hz，允許高零值
+
+rotational_speed:
+  description: &quot;實際轉速回授（RPM）&quot;
+  unit: &quot;RPM&quot;
+  si_unit: &quot;revolutions_per_minute&quot;
+  valid_range: [0.0, 3000.0]        # 依泵浦/風扇類型調整
+  agg_method: &quot;mean&quot;
+  distribution_check:
+    expected_mean_range: [500, 1800]
+    max_std_threshold: 1000
+
+current:
+  description: &quot;電流（三相平均或單相）&quot;
+  unit: &quot;A&quot;
+  si_unit: &quot;ampere&quot;
+  valid_range: [0.0, 1000.0]        # 依斷路器容量調整
+  agg_method: &quot;mean&quot;
+  distribution_check:
+    expected_mean_range: [10, 500]
+    max_std_threshold: 300
+    zero_ratio_warning: 0.4         # 備用設備可能長期 0A
+
+voltage:
+  description: &quot;電壓（線電壓或相電壓）&quot;
+  unit: &quot;V&quot;
+  si_unit: &quot;volt&quot;
+  valid_range: [0.0, 500.0]         # 380V/220V/110V 系統
+  agg_method: &quot;mean&quot;
+  distribution_check:
+    expected_mean_range: [200, 400] # 依電壓等級調整
+    max_std_threshold: 50
+    zero_ratio_warning: 0.1         # 停電時應觸發警告而非視為正常
+
+power_factor:
+  description: &quot;功率因數（PF）&quot;
+  unit: &quot;PF&quot;
+  si_unit: &quot;dimensionless&quot;
+  valid_range: [0.0, 1.0]
+  agg_method: &quot;mean&quot;
+  distribution_check:
+    expected_mean_range: [0.7, 1.0] # 功率因數過低需補償
+    max_std_threshold: 0.3
+
+pressure_differential:
+  description: &quot;壓差（過濾器、熱交換器兩端）&quot;
+  unit: &quot;kPa&quot;
+  si_unit: &quot;kilopascal&quot;
+  valid_range: [0.0, 500.0]
+  agg_method: &quot;mean&quot;
+  distribution_check:
+    expected_mean_range: [10, 100]
+    max_std_threshold: 100
+
+operating_status:
+  description: &quot;運轉狀態（布林或 0/1）&quot;
+  unit: &quot;status&quot;
+  si_unit: &quot;boolean&quot;
+  valid_range: [0, 1]
+  agg_method: &quot;max&quot;                 # 時段內只要曾運轉即視為運轉
+  distribution_check:
+    expected_mean_range: [0, 1]     # 無特定範圍
+    max_std_threshold: 1
+    zero_ratio_warning: null        # 由 device_role 控制（backup 允許長期 0）
+</code></pre>
+<hr />
+<h2 id="3-excel-columns-sheet">3. Excel 範本更新規格 (Columns Sheet)</h2>
+<h3 id="31-physical-type">3.1 Physical Type 下拉選單擴充</h3>
+<p><strong>Sheet: Columns</strong> 的 B 欄（Physical Type）下拉選項更新為：</p>
+<pre><code>temperature, pressure, flow_rate, power, chiller_load, status, gauge,
+cooling_capacity, efficiency, energy, valve_position, frequency, 
+rotational_speed, current, voltage, power_factor, pressure_differential, 
+operating_status
+</code></pre>
+<h3 id="32-unit-column">3.2 單位選項擴充 (Unit Column)</h3>
+<p><strong>Sheet: Columns</strong> 的 C 欄（Unit）靜態選單依物理類型分群：</p>
+<table>
+<thead>
+<tr>
+<th>物理類型</th>
+<th>可選單位</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>cooling_capacity</td>
+<td>RT, kW (冷凍噸或千瓦冷量)</td>
+</tr>
+<tr>
+<td>efficiency</td>
+<td>COP, kW/RT</td>
+</tr>
+<tr>
+<td>energy</td>
+<td>kWh</td>
+</tr>
+<tr>
+<td>valve_position</td>
+<td>%</td>
+</tr>
+<tr>
+<td>frequency</td>
+<td>Hz</td>
+</tr>
+<tr>
+<td>rotational_speed</td>
+<td>RPM</td>
+</tr>
+<tr>
+<td>current</td>
+<td>A</td>
+</tr>
+<tr>
+<td>voltage</td>
+<td>V</td>
+</tr>
+<tr>
+<td>power_factor</td>
+<td>PF (無單位，顯示為 PF)</td>
+</tr>
+<tr>
+<td>pressure_differential</td>
+<td>kPa, Pa, bar</td>
+</tr>
+<tr>
+<td>operating_status</td>
+<td>- (無單位)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="33-excel">3.3 完整標註範例 (Excel 實際填寫內容)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">欄位名稱 (A)</th>
+<th style="text-align: center;">物理類型 (B)</th>
+<th style="text-align: center;">單位 (C)</th>
+<th style="text-align: center;">設備角色 (D)</th>
+<th style="text-align: center;">是否目標 (E)</th>
+<th style="text-align: center;">啟用 Lag (F)</th>
+<th style="text-align: center;">Lag 間隔 (G)</th>
+<th style="text-align: center;">忽略警告 (H)</th>
+<th style="text-align: center;">描述 (I)</th>
+<th style="text-align: center;">狀態 (J)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">chiller_01_chwst</td>
+<td style="text-align: center;">temperature</td>
+<td style="text-align: center;">°C</td>
+<td style="text-align: center;">primary</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">TRUE</td>
+<td style="text-align: center;">1,4,96</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">一號機冰水回水溫度</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+<tr>
+<td style="text-align: center;">chiller_01_chwrt</td>
+<td style="text-align: center;">temperature</td>
+<td style="text-align: center;">°C</td>
+<td style="text-align: center;">primary</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">TRUE</td>
+<td style="text-align: center;">1,4,96</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">一號機冰水進水溫度</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+<tr>
+<td style="text-align: center;">chiller_01_cwst</td>
+<td style="text-align: center;">temperature</td>
+<td style="text-align: center;">°C</td>
+<td style="text-align: center;">primary</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">TRUE</td>
+<td style="text-align: center;">1,4</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">一號機冷卻水回水溫度</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+<tr>
+<td style="text-align: center;">chiller_01_cwrt</td>
+<td style="text-align: center;">temperature</td>
+<td style="text-align: center;">°C</td>
+<td style="text-align: center;">primary</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">TRUE</td>
+<td style="text-align: center;">1,4</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">一號機冷卻水進水溫度</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+<tr>
+<td style="text-align: center;">chiller_01_status</td>
+<td style="text-align: center;">operating_status</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">primary</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">一號機運轉狀態</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+<tr>
+<td style="text-align: center;">chiller_01_kw</td>
+<td style="text-align: center;">power</td>
+<td style="text-align: center;">kW</td>
+<td style="text-align: center;">primary</td>
+<td style="text-align: center;">TRUE</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">一號機功率（目標變數）</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+<tr>
+<td style="text-align: center;">chiller_01_kwh</td>
+<td style="text-align: center;">energy</td>
+<td style="text-align: center;">kWh</td>
+<td style="text-align: center;">primary</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">一號機累積用電</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+<tr>
+<td style="text-align: center;">chiller_01_cop</td>
+<td style="text-align: center;">efficiency</td>
+<td style="text-align: center;">COP</td>
+<td style="text-align: center;">primary</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">TRUE</td>
+<td style="text-align: center;">4,96</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">一號機即時效率</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+<tr>
+<td style="text-align: center;">chiller_01_rt</td>
+<td style="text-align: center;">cooling_capacity</td>
+<td style="text-align: center;">RT</td>
+<td style="text-align: center;">primary</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">TRUE</td>
+<td style="text-align: center;">1,4</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">一號機冷凍噸數</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+<tr>
+<td style="text-align: center;">chw_pri_pump_01_hz</td>
+<td style="text-align: center;">frequency</td>
+<td style="text-align: center;">Hz</td>
+<td style="text-align: center;">primary</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">TRUE</td>
+<td style="text-align: center;">1,4</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">冰水泵 01 頻率</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+<tr>
+<td style="text-align: center;">chw_pri_pump_01_a</td>
+<td style="text-align: center;">current</td>
+<td style="text-align: center;">A</td>
+<td style="text-align: center;">primary</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">TRUE</td>
+<td style="text-align: center;">1,4</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">冰水泵 01 電流</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+<tr>
+<td style="text-align: center;">ct_01_fan_hz</td>
+<td style="text-align: center;">frequency</td>
+<td style="text-align: center;">Hz</td>
+<td style="text-align: center;">primary</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">TRUE</td>
+<td style="text-align: center;">1,4</td>
+<td style="text-align: center;">W403</td>
+<td style="text-align: center;">冷卻水塔 01 風扇頻率（備援季節性允許零值）</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+<tr>
+<td style="text-align: center;">ahu_01_chwv</td>
+<td style="text-align: center;">valve_position</td>
+<td style="text-align: center;">%</td>
+<td style="text-align: center;">primary</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">TRUE</td>
+<td style="text-align: center;">1,4,96</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">空調箱 01 冰水閥開度</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+<tr>
+<td style="text-align: center;">ahu_01_dp</td>
+<td style="text-align: center;">pressure_differential</td>
+<td style="text-align: center;">kPa</td>
+<td style="text-align: center;">primary</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">TRUE</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">空調箱 01 過濾器壓差</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+<tr>
+<td style="text-align: center;">ahu_01_pf</td>
+<td style="text-align: center;">power_factor</td>
+<td style="text-align: center;">PF</td>
+<td style="text-align: center;">primary</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">TRUE</td>
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">空調箱 01 功率因數</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="4-group-policies-hvac">4. Group Policies 擴充 (HVAC 專用策略)</h2>
+<p>於 <code>Sheet: Group Policies</code> 新增以下策略，針對不同設備類型自動套用特徵工程規則：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">策略名稱</th>
+<th style="text-align: center;">匹配類型</th>
+<th style="text-align: center;">匹配值</th>
+<th style="text-align: center;">物理類型</th>
+<th style="text-align: center;">預設樣板</th>
+<th style="text-align: center;">自定義 Lag</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">chillers</td>
+<td style="text-align: center;">prefix</td>
+<td style="text-align: center;">chiller_</td>
+<td style="text-align: center;">temperature</td>
+<td style="text-align: center;">Standard_Chiller</td>
+<td style="text-align: center;">1,4,96</td>
+</tr>
+<tr>
+<td style="text-align: center;">chillers_power</td>
+<td style="text-align: center;">prefix</td>
+<td style="text-align: center;">chiller_</td>
+<td style="text-align: center;">power</td>
+<td style="text-align: center;">Power_High_Freq</td>
+<td style="text-align: center;">1,4</td>
+</tr>
+<tr>
+<td style="text-align: center;">chillers_efficiency</td>
+<td style="text-align: center;">prefix</td>
+<td style="text-align: center;">chiller_</td>
+<td style="text-align: center;">efficiency</td>
+<td style="text-align: center;">Efficiency_Smooth</td>
+<td style="text-align: center;">4,96</td>
+</tr>
+<tr>
+<td style="text-align: center;">pumps_flow</td>
+<td style="text-align: center;">prefix</td>
+<td style="text-align: center;">pump_</td>
+<td style="text-align: center;">frequency</td>
+<td style="text-align: center;">VFD_Control</td>
+<td style="text-align: center;">1,4</td>
+</tr>
+<tr>
+<td style="text-align: center;">pumps_elec</td>
+<td style="text-align: center;">prefix</td>
+<td style="text-align: center;">pump_</td>
+<td style="text-align: center;">current</td>
+<td style="text-align: center;">Electrical_Monitor</td>
+<td style="text-align: center;">1,4</td>
+</tr>
+<tr>
+<td style="text-align: center;">cooling_towers</td>
+<td style="text-align: center;">prefix</td>
+<td style="text-align: center;">ct_</td>
+<td style="text-align: center;">frequency</td>
+<td style="text-align: center;">CT_Fan_Control</td>
+<td style="text-align: center;">1,4</td>
+</tr>
+<tr>
+<td style="text-align: center;">ahu_valves</td>
+<td style="text-align: center;">prefix</td>
+<td style="text-align: center;">ahu_</td>
+<td style="text-align: center;">valve_position</td>
+<td style="text-align: center;">Valve_Position</td>
+<td style="text-align: center;">1,96</td>
+</tr>
+<tr>
+<td style="text-align: center;">ahu_pressure</td>
+<td style="text-align: center;">prefix</td>
+<td style="text-align: center;">ahu_</td>
+<td style="text-align: center;">pressure_differential</td>
+<td style="text-align: center;">Filter_DP</td>
+<td style="text-align: center;">1</td>
+</tr>
+</tbody>
+</table>
+<h3 id="41-template-definitions">4.1 樣板定義 (Template Definitions)</h3>
+<p>於 YAML 中定義樣板細節：</p>
+<pre><code class="language-yaml">group_policies:
+  Standard_Chiller:
+    description: &quot;冰水主機溫度測點標準策略&quot;
+    rules:
+      lag_intervals: [1, 4, 96]      # 15分鐘、1小時、24小時延遲
+      rolling_windows: [4, 96]       # 1小時、24小時滾動統計
+      enable_rolling_stats: [&quot;mean&quot;, &quot;std&quot;, &quot;min&quot;, &quot;max&quot;]
+
+  Power_High_Freq:
+    description: &quot;功率監測高頻策略&quot;
+    rules:
+      lag_intervals: [1, 4]          # 功率變化快，縮短延遲
+      rolling_windows: [4, 12]       # 1小時、3小時統計
+
+  Efficiency_Smooth:
+    description: &quot;效率計算平滑策略&quot;
+    rules:
+      lag_intervals: [4, 96]         # 效率變化慢，減少高頻雜訊
+      rolling_windows: [96]          # 僅日統計
+      outlier_clip: [0, 10]          # COP 異常值剪裁
+
+  VFD_Control:
+    description: &quot;變頻器控制策略&quot;
+    rules:
+      lag_intervals: [1, 4]
+      rolling_windows: [4]
+      zero_handling: &quot;interpolate&quot;   # 停機零值不納入統計
+
+  CT_Fan_Control:
+    description: &quot;冷卻水塔風扇策略（備援設備適用）&quot;
+    rules:
+      lag_intervals: [1, 4]
+      rolling_windows: [4, 96]
+      backup_device_adjustment:      # 設備角色為 backup 時啟用
+        extend_window: true          # 窗口放大
+        ignore_zero_warnings: true   # 忽略 W403
+</code></pre>
+<hr />
+<h2 id="5-equipment-constraints-hvac">5. Equipment Constraints 擴充 (HVAC 互鎖邏輯)</h2>
+<p>於 YAML 新增 <code>equipment_constraints</code> 區段，定義冰水主機房專用邏輯：</p>
+<pre><code class="language-yaml">equipment_constraints:
+  # ==========================================
+  # 冰水主機系統互鎖 (Chiller Interlocks)
+  # ==========================================
+
+  chiller_pump_interlock:
+    description: &quot;冰水主機開啟時必須有對應冰水泵運轉&quot;
+    check_type: &quot;requires&quot;
+    check_phase: &quot;precheck&quot;
+    trigger_status: [&quot;chiller_01_status&quot;, &quot;chiller_02_status&quot;]
+    required_status: [&quot;chw_pri_pump_01_status&quot;, &quot;chw_pri_pump_02_status&quot;]
+    severity: &quot;critical&quot;
+    applicable_roles: [&quot;primary&quot;, &quot;backup&quot;]
+    error_code: &quot;E350&quot;
+
+  chiller_cw_pump_interlock:
+    description: &quot;冰水主機開啟時必須有對應冷卻水泵運轉&quot;
+    check_type: &quot;requires&quot;
+    check_phase: &quot;precheck&quot;
+    trigger_status: [&quot;chiller_01_status&quot;]
+    required_status: [&quot;cw_pump_01_status&quot;, &quot;cw_pump_02_status&quot;]
+    severity: &quot;critical&quot;
+    applicable_roles: [&quot;primary&quot;, &quot;backup&quot;]
+
+  chiller_ct_interlock:
+    description: &quot;冰水主機開啟時必須有對應冷卻水塔運轉&quot;
+    check_type: &quot;requires&quot;
+    check_phase: &quot;precheck&quot;
+    trigger_status: [&quot;chiller_01_status&quot;]
+    required_status: [&quot;ct_01_status&quot;, &quot;ct_02_status&quot;]
+    severity: &quot;critical&quot;
+
+  chiller_temperature_protection:
+    description: &quot;冰水出水溫度過低保護（防凍）&quot;
+    check_type: &quot;range_check&quot;
+    check_phase: &quot;precheck&quot;
+    target_column: &quot;chiller_01_chwst&quot;
+    min_value: 4.0                    # °C，低於 4 度視為異常
+    max_value: 15.0
+    severity: &quot;critical&quot;
+    applicable_roles: [&quot;primary&quot;, &quot;backup&quot;]
+
+  # ==========================================
+  # 運轉時間限制 (Runtime Constraints)
+  # ==========================================
+
+  chiller_min_runtime:
+    description: &quot;主機開啟後最少運轉 15 分鐘（防止頻繁啟停）&quot;
+    check_type: &quot;min_duration&quot;
+    check_phase: &quot;optimization&quot;
+    applies_to: [&quot;chiller_01_status&quot;, &quot;chiller_02_status&quot;]
+    min_duration_minutes: 15
+    severity: &quot;warning&quot;
+
+  chiller_min_downtime:
+    description: &quot;主機關閉後最少停機 10 分鐘（壓縮機保護）&quot;
+    check_type: &quot;min_downtime&quot;
+    check_phase: &quot;optimization&quot;
+    applies_to: [&quot;chiller_01_status&quot;, &quot;chiller_02_status&quot;]
+    min_duration_minutes: 10
+    severity: &quot;warning&quot;
+
+  # ==========================================
+  # 容量與負載限制 (Capacity Constraints)
+  # ==========================================
+
+  chiller_load_min_limit:
+    description: &quot;主機低載保護（低於 20% 建議停機）&quot;
+    check_type: &quot;threshold&quot;
+    check_phase: &quot;optimization&quot;
+    target_column: &quot;chiller_01_rt&quot;
+    reference_column: &quot;chiller_01_rated_rt&quot;  # 額定容量
+    min_ratio: 0.2                           # 20%
+    severity: &quot;warning&quot;
+    suggestion: &quot;建議關閉此主機，改由其他主機承載&quot;
+
+  # ==========================================
+  # 空調箱互鎖 (AHU Interlocks)
+  # ==========================================
+
+  ahu_valve_flow_interlock:
+    description: &quot;空調箱風機運轉時才允許開啟冰水閥&quot;
+    check_type: &quot;requires&quot;
+    check_phase: &quot;precheck&quot;
+    trigger_status: [&quot;ahu_01_chwv&quot;]
+    trigger_threshold: 5                    # 閥位 &gt; 5%
+    required_status: [&quot;ahu_01_status&quot;]      # 風機必須運轉
+    severity: &quot;warning&quot;
+
+  ahu_filter_dp_alarm:
+    description: &quot;過濾器壓差過高警告（需更換）&quot;
+    check_type: &quot;threshold&quot;
+    check_phase: &quot;precheck&quot;
+    target_column: &quot;ahu_01_dp&quot;
+    max_value: 0.5                          # 0.5 kPa 或依設計
+    severity: &quot;warning&quot;
+    maintenance_trigger: true               # 觸發維護工單標記
+</code></pre>
+<hr />
+<h2 id="6-featureannotationmanager-api">6. FeatureAnnotationManager API 擴充</h2>
+<p>為支援新類型，API 新增以下方法（保留原有方法，新增查詢介面）：</p>
+<pre><code class="language-python">class FeatureAnnotationManager:
+    # ... 原有方法 ...
+
+    def get_columns_by_physical_type(self, physical_type: str) -&gt; List[str]:
+        &quot;&quot;&quot;
+        依物理類型取得所有欄位（如取得所有 frequency 測點）
+
+        Usage:
+            # 取得所有變頻器頻率測點進行統計
+            freq_columns = manager.get_columns_by_physical_type(&quot;frequency&quot;)
+        &quot;&quot;&quot;
+        return [
+            name for name, anno in self._annotations.items()
+            if anno.physical_type == physical_type
+        ]
+
+    def get_electrical_columns(self) -&gt; Dict[str, List[str]]:
+        &quot;&quot;&quot;
+        取得所有電力相關欄位分類（電流、電壓、功率、功率因數）
+
+        Returns:
+            {
+                &quot;power&quot;: [&quot;chiller_01_kw&quot;, ...],
+                &quot;current&quot;: [&quot;chiller_01_a&quot;, ...],
+                &quot;voltage&quot;: [&quot;chiller_01_v&quot;, ...],
+                &quot;pf&quot;: [&quot;chiller_01_pf&quot;, ...],
+                &quot;energy&quot;: [&quot;chiller_01_kwh&quot;, ...]
+            }
+        &quot;&quot;&quot;
+        electrical_types = [&quot;power&quot;, &quot;current&quot;, &quot;voltage&quot;, &quot;power_factor&quot;, &quot;energy&quot;]
+        return {
+            ptype: self.get_columns_by_physical_type(ptype)
+            for ptype in electrical_types
+        }
+
+    def validate_monotonic_energy(self, df: pl.DataFrame) -&gt; List[str]:
+        &quot;&quot;&quot;
+        驗證累積用電量（kWh）是否單調遞增（E351 錯誤碼）
+
+        Returns:
+            違反單調性的欄位列表
+        &quot;&quot;&quot;
+        violations = []
+        energy_cols = self.get_columns_by_physical_type(&quot;energy&quot;)
+
+        for col in energy_cols:
+            if col in df.columns:
+                # 檢查是否有遞減（排除重置點的小幅回退）
+                diff = df[col].diff()
+                significant_drop = (diff &lt; -0.01).sum()  # 允許 1% 精度誤差
+
+                if significant_drop &gt; 0:
+                    violations.append({
+                        &quot;column&quot;: col,
+                        &quot;drops_count&quot;: int(significant_drop),
+                        &quot;error_code&quot;: &quot;E351&quot;,
+                        &quot;message&quot;: f&quot;累積用電量 {col} 發生非預期遞減，可能電表故障或重置&quot;
+                    })
+
+        return violations
+
+    def get_efficiency_baseline(self, chiller_id: str) -&gt; Dict[str, float]:
+        &quot;&quot;&quot;
+        取得特定主機的效率基準範圍（供 Cleaner 異常檢測使用）
+
+        Returns:
+            {&quot;cop_min&quot;: 3.0, &quot;cop_max&quot;: 6.0, &quot;kw_per_rt_max&quot;: 1.2}
+        &quot;&quot;&quot;
+        # 從 physical_types.efficiency.distribution_check 讀取
+        ptype_config = self._cache.get(&quot;physical_types&quot;, {}).get(&quot;efficiency&quot;, {})
+        mean_range = ptype_config.get(&quot;distribution_check&quot;, {}).get(&quot;expected_mean_range&quot;, [3.0, 6.0])
+
+        return {
+            &quot;cop_min&quot;: mean_range[0],
+            &quot;cop_max&quot;: mean_range[1],
+            &quot;kw_per_rt_max&quot;: 3.517 / mean_range[0]  # COP = 3.517 / (kW/RT) 換算
+        }
+</code></pre>
+<hr />
+<h2 id="7-hvac">7. 錯誤代碼擴充表 (HVAC 專用)</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">代碼</th>
+<th style="text-align: left;">名稱</th>
+<th style="text-align: center;">層級</th>
+<th style="text-align: left;">觸發條件</th>
+<th style="text-align: left;">處理方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><strong>E350</strong></td>
+<td style="text-align: left;"><code>CHILLER_PUMP_INTERLOCK_VIOLATION</code></td>
+<td style="text-align: center;">Error</td>
+<td style="text-align: left;">主機開但無對應水泵運轉</td>
+<td style="text-align: left;">標記資料品質旗標，觸發設備檢查</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E351</strong></td>
+<td style="text-align: left;"><code>ENERGY_MONOTONICITY_VIOLATION</code></td>
+<td style="text-align: center;">Error</td>
+<td style="text-align: left;">kWh 電表讀數遞減</td>
+<td style="text-align: left;">檢查電表重置或故障，分段處理</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E352</strong></td>
+<td style="text-align: left;"><code>EFFICIENCE_OUT_OF_RANGE</code></td>
+<td style="text-align: center;">Warning</td>
+<td style="text-align: left;">COP &lt; 2 或 &gt; 8（物理異常）</td>
+<td style="text-align: left;">標記異常，建議檢查溫度/流量感測器</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E353</strong></td>
+<td style="text-align: left;"><code>LOW_DELTA_T_SYNDROME</code></td>
+<td style="text-align: center;">Warning</td>
+<td style="text-align: left;">冰水進回水溫差 &lt; 1°C（低溫差症候群）</td>
+<td style="text-align: left;">建議清洗熱交換器或檢查流量</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E354</strong></td>
+<td style="text-align: left;"><code>VALVE_POSITION_STUCK</code></td>
+<td style="text-align: center;">Warning</td>
+<td style="text-align: left;">閥位連續 4 小時無變化（卡閥）</td>
+<td style="text-align: left;">建議檢查閥門執行器</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>W406</strong></td>
+<td style="text-align: left;"><code>FREQUENCY_ZERO_WHILE_RUNNING</code></td>
+<td style="text-align: center;">Warning</td>
+<td style="text-align: left;">運轉狀態=1 但頻率=0（變頻器異常）</td>
+<td style="text-align: left;">檢查 VFD 回授信號</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>W407</strong></td>
+<td style="text-align: left;"><code>POWER_FACTOR_LOW</code></td>
+<td style="text-align: center;">Warning</td>
+<td style="text-align: left;">PF &lt; 0.8 持續超過 1 小時</td>
+<td style="text-align: left;">建議檢查電容器或馬達狀態</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-v121-hvac-update">8. 交付物清單 (v1.2.1-HVAC Update)</h2>
+<h3 id="81">8.1 配置文件更新</h3>
+<ol>
+<li><code>config/features/physical_types.yaml</code> - 新增 11 個 HVAC 物理類型（第 2 章內容）</li>
+<li><code>config/features/sites/{site_id}.yaml</code> - 案場標註（依第 3 章 Excel 範例生成）</li>
+<li><code>.gitignore</code> - 不變（仍排除 .xlsx）</li>
+</ol>
+<h3 id="82-excel">8.2 Excel 工具鏈更新</h3>
+<ol start="4">
+<li><code>tools/features/templates/Feature_Template_v1.2.1.xlsx</code> - 更新下拉選單（新增 frequency, energy 等）</li>
+<li><code>tools/features/excel_to_yaml.py</code> - 新增單調性檢查（kWh）、效率範圍檢查</li>
+<li><code>tools/features/migrate_excel.py</code> - 支援 v1.2 → v1.2.1 遷移（新增欄位自動補預設值）</li>
+</ol>
+<h3 id="83-python-api">8.3 Python API 更新</h3>
+<ol start="7">
+<li><code>src/features/annotation_manager.py</code> - 新增第 6 章方法（get_electrical_columns, validate_monotonic_energy 等）</li>
+<li><code>src/features/hvac_validator.py</code> - <strong>新增</strong>：HVAC 專用驗證器（實作 E350-E354 檢查邏輯）</li>
+</ol>
+<h3 id="84">8.4 文件更新</h3>
+<ol start="9">
+<li><code>docs/features/FEATURE_ANNOTATION_v1.2.1-HVAC.md</code> - <strong>本文件</strong></li>
+<li><code>docs/features/HVAC_TUTORIAL.md</code> - 空調技師操作手冊（如何標註冰水主機、如何設定互鎖）</li>
+</ol>
+<hr />
+<h2 id="9">9. 實作建議順序</h2>
+<ol>
+<li><strong>Day 1</strong>: 更新 <code>physical_types.yaml</code>（第 2 章內容）與 Excel 範本（第 3 章）</li>
+<li><strong>Day 2</strong>: 更新 <code>annotation_manager.py</code> API（第 6 章）</li>
+<li><strong>Day 3</strong>: 實作 <code>hvac_validator.py</code> 與互鎖檢查（第 5 章、第 7 章錯誤碼）</li>
+<li><strong>Day 4</strong>: 測試與驗證（使用您的實際案場資料驗證 E350-E354）</li>
+</ol>
+<hr />
+<p><strong>文件結束</strong><br />
+```</p>
+<p>這份更新文件完整涵蓋了您提到的所有設備類型、測點類型與單位，並針對 HVAC 系統的特性（如主機-水泵互鎖、累積電量單調性、效率計算等）擴充了對應的邏輯與錯誤碼。建議直接以此作為 v1.2.1 版本的實作依據。</p>
+</body>
+</html>

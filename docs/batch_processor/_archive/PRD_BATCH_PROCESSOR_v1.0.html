@@ -1,76 +1,109 @@
-
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Batch Processor Implementation Guide v1.0</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            background-color: #f8f9fa;
-        }
-        .container {
-            background-color: #fff;
-            padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        h1, h2, h3 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-        h2 { margin-top: 2em; }
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 20px 0;
-        }
-        th, td {
-            border: 1px solid #dfe2e5;
-            padding: 12px;
-            text-align: left;
-        }
-        th { background-color: #f6f8fa; font-weight: bold; }
-        tr:nth-child(even) { background-color: #fdfdfd; }
-        code {
-            background-color: #f3f3f3;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 85%;
-        }
-        pre {
-            background-color: #f6f8fa;
-            padding: 16px;
-            overflow: auto;
-            border-radius: 6px;
-        }
-        blockquote {
-            margin: 0;
-            padding: 0 1em;
-            color: #6a737d;
-            border-left: 0.25em solid #dfe2e5;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_BATCH_PROCESSOR_v1.0</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
 </head>
 <body>
-    <div class="container">
-        <h1 id="prd-v10-batchprocessor-implementation-guide">PRD v1.0: 批次處理器重構指南 (BatchProcessor Implementation Guide)</h1>
-<p><strong>文件版本:</strong> v1.0 (Pipeline Architecture)
-<strong>日期:</strong> 2026-02-12
-<strong>負責人:</strong> Oscar Chang
-<strong>目標模組:</strong> <code>src/etl/batch_processor_v2.py</code>
+<h1 id="prd-v10-batchprocessor-implementation-guide">PRD v1.0: 批次處理器重構指南 (BatchProcessor Implementation Guide)</h1>
+<p><strong>文件版本:</strong> v1.0 (Pipeline Architecture)<br />
+<strong>日期:</strong> 2026-02-12<br />
+<strong>負責人:</strong> Oscar Chang<br />
+<strong>目標模組:</strong> <code>src/etl/batch_processor_v2.py</code><br />
 <strong>相依模組:</strong> <code>src/etl/cleaner_v2.py</code>, <code>src/etl/parser.py</code>, <code>src/etl/config_models.py</code></p>
 <hr />
 <h2 id="1">1. 執行總綱與設計哲學</h2>
 <p>目前的 <code>batch_processor.py</code> 存在記憶體堆積與契約破壞的致命傷。本 PRD 定義了 <strong>V2.0 Pipeline 架構</strong>，將其從「資料囤積者」轉型為「高效指揮官」。</p>
-<p><strong>核心設計原則:</strong>
-1.  <strong>串流優先 (Streaming First)</strong>：嚴格禁止將多個檔案的 DataFrame 同時載入記憶體。處理完一個，立即釋放。
-2.  <strong>管線化 (Pipelined)</strong>：<code>Read -&gt; Parse -&gt; Clean -&gt; Validate -&gt; Write</code> 為不可分割原子操作。
-3.  <strong>契約守護 (Contract Guardian)</strong>：負責驗證 Cleaner 的輸出是否符合 Output Contract，在此攔截異常。
+<p><strong>核心設計原則:</strong><br />
+1.  <strong>串流優先 (Streaming First)</strong>：嚴格禁止將多個檔案的 DataFrame 同時載入記憶體。處理完一個，立即釋放。<br />
+2.  <strong>管線化 (Pipelined)</strong>：<code>Read -&gt; Parse -&gt; Clean -&gt; Validate -&gt; Write</code> 為不可分割原子操作。<br />
+3.  <strong>契約守護 (Contract Guardian)</strong>：負責驗證 Cleaner 的輸出是否符合 Output Contract，在此攔截異常。<br />
 4.  <strong>容錯韌性 (Resilience)</strong>：單一檔案失敗不應導致整個批次作業中斷（Circuit Breaker 除外）。</p>
 <hr />
 <h2 id="2-pipeline">2. 系統架構：Pipeline 模式</h2>
@@ -163,8 +196,8 @@
         return BatchResult(status=&quot;failed&quot;, error=str(e))
 </code></pre>
 <h4 id="step-22-parquet-sink">Step 2.2: 實作 Parquet Sink (寫入器)</h4>
-<p><strong>重點</strong>: 支援 Append 模式。對於 Parquet，通常建議寫入 partition 或多個檔案，最後由 Feature Engineer 透過 glob 讀取。
-- <strong>策略</strong>: 每個輸入 CSV 對應一個輸出 Parquet 檔案（一對一），保持源頭追溯性。
+<p><strong>重點</strong>: 支援 Append 模式。對於 Parquet，通常建議寫入 partition 或多個檔案，最後由 Feature Engineer 透過 glob 讀取。<br />
+- <strong>策略</strong>: 每個輸入 CSV 對應一個輸出 Parquet 檔案（一對一），保持源頭追溯性。<br />
 - <strong>好處</strong>: 避免並發寫入鎖定問題，且天然支援增量更新。</p>
 <pre><code class="language-python">def _write_to_sink(self, df: pl.DataFrame, source_name: str):
     target_path = self.output_dir / f&quot;{source_name}.parquet&quot;
@@ -212,11 +245,10 @@
 </ol>
 <hr />
 <h2 id="6">6. 下一步指令</h2>
-<p>此文件確認後，我們將按順序執行：
-1.  <strong>Cleaner v2.1 Phase 1-2</strong> (先有 Cleaner 才能被呼叫)
-2.  <strong>BatchProcessor v1.0 Phase 1-2</strong> (建立管線)
+<p>此文件確認後，我們將按順序執行：<br />
+1.  <strong>Cleaner v2.1 Phase 1-2</strong> (先有 Cleaner 才能被呼叫)<br />
+2.  <strong>BatchProcessor v1.0 Phase 1-2</strong> (建立管線)<br />
 3.  <strong>整合測試</strong></p>
 <p>請問是否同意此執行路徑？</p>
-    </div>
 </body>
 </html>

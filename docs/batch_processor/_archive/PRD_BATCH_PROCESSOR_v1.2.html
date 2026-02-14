@@ -1,64 +1,97 @@
-
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Batch Processor Implementation Guide v1.2</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            background-color: #f8f9fa;
-        }
-        .container {
-            background-color: #fff;
-            padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        h1, h2, h3 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-        h2 { margin-top: 2em; }
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 20px 0;
-        }
-        th, td {
-            border: 1px solid #dfe2e5;
-            padding: 12px;
-            text-align: left;
-        }
-        th { background-color: #f6f8fa; font-weight: bold; }
-        tr:nth-child(even) { background-color: #fdfdfd; }
-        code {
-            background-color: #f3f3f3;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 85%;
-        }
-        pre {
-            background-color: #f6f8fa;
-            padding: 16px;
-            overflow: auto;
-            border-radius: 6px;
-        }
-        blockquote {
-            margin: 0;
-            padding: 0 1em;
-            color: #6a737d;
-            border-left: 0.25em solid #dfe2e5;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_BATCH_PROCESSOR_v1.2</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
 </head>
 <body>
-    <div class="container">
-        <h1 id="prd-v12-batchprocessor-implementation-guide">PRD v1.2: 批次处理器强健性重构指南 (BatchProcessor Implementation Guide)</h1>
+<h1 id="prd-v12-batchprocessor-implementation-guide">PRD v1.2: 批次处理器强健性重构指南 (BatchProcessor Implementation Guide)</h1>
 <p><strong>文件版本:</strong> v1.2 (含 Single Source of Truth 与 CI/CD 治理)<br />
 <strong>日期:</strong> 2026-02-12<br />
 <strong>负责人:</strong> Oscar Chang<br />
@@ -68,11 +101,11 @@
 <hr />
 <h2 id="1">1. 执行总纲与设计哲学</h2>
 <p>目前的 <code>batch_processor.py</code> 存在<strong>内存堆积</strong>、<strong>契约破坏</strong>与<strong>配置不一致</strong>的致命伤。本 PRD 定义 <strong>V2.0 Pipeline 架构</strong>，并透过 <strong>Single Source of Truth (SSOT)</strong> 确保与 Cleaner、Feature Engineer 的品质标记完全对齐。</p>
-<p><strong>核心设计原则:</strong>
-1.  <strong>Single Source of Truth (SSOT)</strong>：<code>quality_flags</code> 与 <code>Parquet 格式规范</code> 统一定义于 <code>config_models.py</code>，三模组共用，禁止硬编码。
-2.  <strong>INT64 时间戳强制规范</strong>：明确禁止 INT96，强制使用 nanoseconds + UTC，确保 Polars 原生兼容性。
-3.  <strong>CI/CD 治理保护</strong>：建立自动检查脚本，防止「只改定义不改测试」的覆盖缺口。
-4.  <strong>串流优先 (Streaming First)</strong>：严禁将多档案 DataFrame 同时载入内存。
+<p><strong>核心设计原则:</strong><br />
+1.  <strong>Single Source of Truth (SSOT)</strong>：<code>quality_flags</code> 与 <code>Parquet 格式规范</code> 统一定义于 <code>config_models.py</code>，三模组共用，禁止硬编码。<br />
+2.  <strong>INT64 时间戳强制规范</strong>：明确禁止 INT96，强制使用 nanoseconds + UTC，确保 Polars 原生兼容性。<br />
+3.  <strong>CI/CD 治理保护</strong>：建立自动检查脚本，防止「只改定义不改测试」的覆盖缺口。<br />
+4.  <strong>串流优先 (Streaming First)</strong>：严禁将多档案 DataFrame 同时载入内存。<br />
 5.  <strong>事务性输出 (Transactional)</strong>：Staging + Atomic Move，支持幂等重跑。</p>
 <hr />
 <h2 id="2-single-source-of-truth-ssot">2. 统一配置与 Single Source of Truth (SSOT)</h2>
@@ -459,17 +492,16 @@ jobs:
           fi
 </code></pre>
 <h3 id="93-pr-checklist">9.3 PR Checklist（模板）</h3>
-<p>建立 Pull Request 模板，强制勾选：
-- [ ] 若修改 <code>VALID_QUALITY_FLAGS</code>，已同步更新 <code>tests/test_cleaner.py</code>
+<p>建立 Pull Request 模板，强制勾选：<br />
+- [ ] 若修改 <code>VALID_QUALITY_FLAGS</code>，已同步更新 <code>tests/test_cleaner.py</code><br />
 - [ ] 若修改 <code>VALID_QUALITY_FLAGS</code>，已同步更新 <code>tests/test_batch_processor.py</code><br />
-- [ ] 若修改 <code>VALID_QUALITY_FLAGS</code>，已同步更新 <code>tests/test_feature_engineer.py</code>
+- [ ] 若修改 <code>VALID_QUALITY_FLAGS</code>，已同步更新 <code>tests/test_feature_engineer.py</code><br />
 - [ ] 已执行 <code>python scripts/ci_verify_ssot.py</code> 且通过</p>
 <hr />
-<p><strong>关键修正总结</strong>：
-1. <strong>SSOT</strong>: <code>VALID_QUALITY_FLAGS</code> 统一于 <code>config_models.py</code>，三模组共用。
-2. <strong>INT64 强制</strong>: 明确禁止 INT96，使用 Polars 原生写入器，写入后验证 Schema。
-3. <strong>CI/CD 保护</strong>: 建立自动检查脚本，防止 SSOT 变更时测试覆盖缺口。
+<p><strong>关键修正总结</strong>：<br />
+1. <strong>SSOT</strong>: <code>VALID_QUALITY_FLAGS</code> 统一于 <code>config_models.py</code>，三模组共用。<br />
+2. <strong>INT64 强制</strong>: 明确禁止 INT96，使用 Polars 原生写入器，写入后验证 Schema。<br />
+3. <strong>CI/CD 保护</strong>: 建立自动检查脚本，防止 SSOT 变更时测试覆盖缺口。<br />
 ```</p>
-    </div>
 </body>
 </html>

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>review_restructuring_proposal</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="_1">同事重構建議審閱與優化分析</h1>
+<h2 id="_2">📋 總評</h2>
+<p>你同事的建議<strong>方向正確</strong>，核心觀點「提供乾淨的黑盒子給後端工程師」是對的。但基於你目前的<strong>實際程式碼現況</strong>，有些建議需要調整、有些已經部分存在但同事可能沒看到，還有一些重要的點被遺漏了。</p>
+<p>以下逐條分析：</p>
+<hr />
+<h2 id="_3">✅ 完全同意的建議</h2>
+<h3 id="1-interfacepy">1. 建立 <code>interface.py</code>（對接層）— 最高優先級</h3>
+<blockquote>
+<p>[!IMPORTANT]<br />
+這是最關鍵的缺失，你的 <code>main.py</code> 目前是 384 行的 CLI 類別 (<code>HVACAnalyticsCLI</code>)，用 Python Fire 驅動。後端工程師無法直接 <code>import</code> 使用。</p>
+</blockquote>
+<p>你的程式碼其實已經有很好的 class 封裝（<code>ChillerEnergyModel</code>、<code>ChillerOptimizer</code>），但缺少一個<strong>統一的 Facade</strong>。建議建立 <code>src/interface.py</code>，內部組合這些類別：</p>
+<pre><code class="language-python"># src/interface.py
+class HVACService:
+    def load_model(self, path: str) -&gt; None: ...
+    def predict_energy(self, sensor_data: dict) -&gt; float: ...
+    def optimize(self, context: dict, constraints: dict = None) -&gt; dict: ...
+    def parse_and_clean(self, file_path: str, options: dict = None) -&gt; dict: ...
+</code></pre>
+<h3 id="2">2. 清理版本檔案 — 同意</h3>
+<p>你的 <code>src/config/</code> 目前有：<br />
+- <code>feature_mapping.py</code> (17KB)<br />
+- <code>feature_mapping_v1_backup.py</code> (13KB)<br />
+- <code>feature_mapping_v2.py</code> (32KB)<br />
+- <code>mapping_editor.py</code> (12KB)</p>
+<p><strong>共 4 個檔案、75KB</strong>，而且 <code>energy_model.py</code> 裡面 import 的是 <code>feature_mapping_v2</code>。這確實是版控災難。</p>
+<h3 id="3-schemaspypydantic">3. 定義 <code>schemas.py</code>（Pydantic）— 同意</h3>
+<p>你的 <code>optimizer.py</code> 已經用 <code>@dataclass</code> 定義了 <code>OptimizationConstraints</code>、<code>OptimizationContext</code>、<code>OptimizationResult</code>，這些非常適合轉為 Pydantic <code>BaseModel</code>，一方面給後端使用，一方面自帶資料驗證。</p>
+<hr />
+<h2 id="_4">⚠️ 需要調整的建議</h2>
+<h3 id="4-yaml">4. 配置抽為 YAML — 需要更細緻的策略</h3>
+<p>同事建議把 <code>feature_mapping.py</code> 改為 YAML，但你的 feature mapping <strong>不只是設定值</strong>，它包含 Python 邏輯（<code>FeatureMapping</code> 類別有方法）。</p>
+<p><strong>建議做法：</strong><br />
+- <strong>靜態對應表</strong>（欄位 alias → 標準名稱）→ 抽成 YAML/JSON（放 <code>configs/sites/</code>）<br />
+- <strong>映射邏輯</strong>（驗證、轉換方法）→ 保留 Python 類別，但只留一個檔案</p>
+<pre><code>configs/
+├── base.yaml              # 系統通用參數（已存在於 config/settings.yaml）
+└── sites/
+    ├── cgmh_ty.yaml        # 長庚桃園案場欄位對應
+    └── farglory.yaml       # 遠雄案場欄位對應
+</code></pre>
+<h3 id="5-model-artifacts-models">5. Model Artifacts 目錄 — 你已有 <code>models/</code></h3>
+<p>同事建議新增 <code>artifacts/</code>，但你的專案<strong>已經有 <code>models/</code> 目錄</strong>（雖然目前是空的），而且 <code>.gitignore</code> 已經設定 <code>models/*.pkl</code> 和 <code>models/*.joblib</code>。</p>
+<p><strong>建議：</strong> 不需要另建 <code>artifacts/</code>，沿用 <code>models/</code> 即可，避免遷移成本。但可以加上子目錄區分：</p>
+<pre><code>models/
+├── trained/              # 訓練好的模型檔
+│   └── energy_model.joblib
+└── metadata/             # 模型元資料（版本、metrics、訓練參數）
+    └── energy_model_meta.json
+</code></pre>
+<h3 id="6-dockerfile-critical">6. Dockerfile — 優先級中等，非「CRITICAL」</h3>
+<blockquote>
+<p>[!NOTE]<br />
+Dockerfile 重要，但不是第一步。如果後端團隊有自己的容器化流程，他們可能更希望你提供乾淨的 <code>pyproject.toml</code> + 鎖定依賴版本，而不是你寫一個他們無法客製的 Dockerfile。</p>
+</blockquote>
+<p><strong>建議順序：</strong><br />
+1. 先把 <code>requirements.txt</code> 升級為 <code>pyproject.toml</code>（標準化）<br />
+2. 鎖定版本（<code>pip freeze</code> 或 <code>uv lock</code>）<br />
+3. <em>再</em> 提供 Dockerfile 作為參考</p>
+<hr />
+<h2 id="_5">🔴 同事遺漏的重要建議</h2>
+<h3 id="7-__init__py">7. 缺少 <code>__init__.py</code> — 模組匯入會爆炸</h3>
+<p>你的 <code>src/etl/</code> 和 <code>src/config/</code> 目錄<strong>沒有 <code>__init__.py</code></strong>（只有 <code>src/models/</code> 和 <code>src/optimization/</code> 有）。這會導致後端做 <code>from src.etl import parser</code> 時失敗。</p>
+<blockquote>
+<p>[!CAUTION]<br />
+這是最容易被忽略但會直接導致整合失敗的問題。每個 <code>src/</code> 的子目錄都需要 <code>__init__.py</code>。</p>
+</blockquote>
+<h3 id="8">8. 缺少錯誤處理契約</h3>
+<p><code>interface.py</code> 不只要定義「成功回什麼」，更要定義「失敗時丟什麼 Exception」。建議新增自定義例外：</p>
+<pre><code class="language-python"># src/exceptions.py
+class HVACError(Exception): &quot;&quot;&quot;Base exception&quot;&quot;&quot;
+class DataValidationError(HVACError): &quot;&quot;&quot;輸入資料格式錯誤&quot;&quot;&quot;
+class ModelNotTrainedError(HVACError): &quot;&quot;&quot;模型尚未訓練&quot;&quot;&quot;
+class OptimizationFailedError(HVACError): &quot;&quot;&quot;最佳化未收斂&quot;&quot;&quot;
+</code></pre>
+<h3 id="9">9. 日誌規範化</h3>
+<p>同事提到 <code>logs/</code> 目錄但沒深入。你目前每個模組都用 <code>logging.basicConfig()</code> 自己設定，會導致多次初始化衝突。建議統一成一個 <code>src/utils/logger.py</code>，所有模組只做 <code>logger = logging.getLogger(__name__)</code>。</p>
+<h3 id="10">10. 根目錄有雜散檔案</h3>
+<ul>
+<li><code>md_to_html.py</code> (3KB)、<code>md_to_pdf.py</code> (6KB) — 這些是工具腳本，不是核心功能</li>
+<li><code>hvac_feature_classification.json</code> (31KB) — 應該歸入 <code>configs/</code></li>
+<li><code>_backup_20260203/</code> — 應該刪除（已有 Git）</li>
+</ul>
+<hr />
+<h2 id="_6">📐 建議的最終結構</h2>
+<pre><code>HVAC_Analytics/
+├── configs/                    # [RESTRUCTURE] 統一配置
+│   ├── base.yaml               # 通用系統參數 (從 config/settings.yaml 搬入)
+│   └── sites/                  # 各案場欄位映射 (從 feature_mapping 抽出)
+│       └── cgmh_ty.yaml
+├── models/                     # [KEEP] 模型產物（已在 .gitignore）
+│   ├── trained/
+│   └── metadata/
+├── src/
+│   ├── __init__.py             # [NEW] 必要
+│   ├── interface.py            # [NEW] ★ Facade — 後端唯一入口
+│   ├── schemas.py              # [NEW] Pydantic I/O 定義
+│   ├── exceptions.py           # [NEW] 自定義例外
+│   ├── etl/
+│   │   ├── __init__.py         # [NEW] 必要
+│   │   ├── parser.py
+│   │   ├── cleaner.py
+│   │   └── batch_processor.py
+│   ├── models/
+│   │   ├── __init__.py         # [KEEP]
+│   │   └── energy_model.py
+│   ├── optimization/
+│   │   ├── __init__.py         # [KEEP]
+│   │   ├── optimizer.py
+│   │   └── history_tracker.py
+│   ├── config/
+│   │   ├── __init__.py         # [NEW] 必要
+│   │   ├── feature_mapping.py  # [KEEP] 僅保留最新版，刪除 v1/v2
+│   │   └── mapping_editor.py
+│   └── utils/                  # [NEW]
+│       ├── __init__.py
+│       ├── config_loader.py    # 讀取 YAML
+│       └── logger.py           # 統一日誌
+├── tests/
+├── scripts/                    # [NEW] 搬入 md_to_html.py、md_to_pdf.py
+├── docs/
+├── main.py                     # CLI 入口（保留給你自己測試用）
+├── pyproject.toml              # [NEW] 取代 requirements.txt
+├── Dockerfile                  # [LATER] 視後端團隊需求再加
+└── .gitignore
+</code></pre>
+<hr />
+<h2 id="_7">🎯 執行優先級</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">優先級</th>
+<th>項目</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><strong>P0</strong></td>
+<td>新增所有 <code>__init__.py</code></td>
+<td>不做就無法 import</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>P0</strong></td>
+<td>建立 <code>interface.py</code></td>
+<td>後端整合的唯一入口</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>P1</strong></td>
+<td>建立 <code>schemas.py</code></td>
+<td>定義 I/O 契約</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>P1</strong></td>
+<td>建立 <code>exceptions.py</code></td>
+<td>錯誤處理標準化</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>P1</strong></td>
+<td>清理 feature_mapping 版本檔</td>
+<td>減少混亂</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>P2</strong></td>
+<td>配置檔重整（YAML 化靜態對應）</td>
+<td>支援多案場</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>P2</strong></td>
+<td>統一日誌、清理根目錄雜散檔案</td>
+<td>乾淨度</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>P3</strong></td>
+<td><code>pyproject.toml</code> + Dockerfile</td>
+<td>環境封裝</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>

@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_Feature_Annotation_Specification_V1.1</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="prd-v11-feature-annotation-specification">PRD v1.1: 特徵標註系統規範 (Feature Annotation Specification)</h1>
+<p><strong>文件版本:</strong> v1.1 (Human-Configurable Feature Metadata with Excel Interface)<br />
+<strong>日期:</strong> 2026-02-13<br />
+<strong>負責人:</strong> Oscar Chang<br />
+<strong>目標:</strong> 建立非工程師可維護的特徵定義系統，透過 Excel/YAML 雙軌制平衡易用性與嚴謹性<br />
+<strong>相依模組:</strong> Cleaner v2.2+, BatchProcessor v1.3+, Feature Engineer v1.3+<br />
+<strong>預估工時:</strong> 5 ~ 6 個工程天（含 Excel 轉換器、Wizard CLI、統計驗證）</p>
+<hr />
+<h2 id="1">1. 執行總綱與設計哲學</h2>
+<h3 id="11">1.1 核心目標</h3>
+<ol>
+<li><strong>人機分離</strong>: 設備工程師透過 <strong>Excel 介面</strong> 定義特徵，無需理解 YAML 語法或 Regex</li>
+<li><strong>雙軌制編輯</strong>: Excel 為「編輯器」，YAML 為「唯一真相源 (SSOT)」，透過轉換腳本橋接</li>
+<li><strong>多案場管理</strong>: 支援「基礎定義 + 案場覆蓋」的繼承架構，避免重複維護</li>
+<li><strong>三層防護</strong>: Excel 即時防呆 → 轉換語意驗證 → CI/CD 契約驗證</li>
+<li><strong>統計驗證</strong>: 透過數據分佈檢查抓出「物理意義誤植」（如壓力誤標為溫度）</li>
+</ol>
+<h3 id="12">1.2 設計原則與雙軌制架構</h3>
+<pre><code class="language-mermaid">graph TB
+    subgraph &quot;編輯層 (Human-Friendly)&quot;
+        A[Excel Template&lt;br/&gt;.xlsx] --&gt;|編輯| B[設備工程師&lt;br/&gt;空調技師]
+        C[Wizard CLI&lt;br/&gt;交互式] --&gt;|引導| B
+    end
+
+    subgraph &quot;轉換層 (Validation)&quot;
+        B --&gt;|匯出| D[excel_to_yaml.py&lt;br/&gt;轉換腳本]
+        D --&gt;|語意驗證| E[警告/錯誤提示&lt;br/&gt;W401, E402]
+        E --&gt;|修正| A
+    end
+
+    subgraph &quot;真相源層 (Machine-Readable)&quot;
+        E --&gt;|生成| F[YAML 檔案&lt;br/&gt;config/features/]
+        F --&gt;|Git PR| G[Git Repo&lt;br/&gt;SSOT]
+        G --&gt;|CI/CD| H[部署至&lt;br/&gt;Config Server]
+    end
+
+    style F fill:#f9f,stroke:#333,stroke-width:4px
+    style G fill:#bbf,stroke:#333,stroke-width:2px
+</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">原則</th>
+<th style="text-align: left;">說明</th>
+<th style="text-align: left;">實現方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>SSOT 唯一性</strong></td>
+<td style="text-align: left;">YAML 是唯一部署真相源，Excel 僅為輸入法</td>
+<td style="text-align: left;">禁止直接修改 YAML，所有變更透過 Excel → PR → Merge</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>顯式優於隱式</strong></td>
+<td style="text-align: left;">禁止自動推斷，所有欄位顯式定義</td>
+<td style="text-align: left;">嚴格模式下未定義欄位觸發 <code>E402_UNANNOTATED_COLUMN</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>防呆設計</strong></td>
+<td style="text-align: left;">三層防護機制防止人為錯誤</td>
+<td style="text-align: left;">Excel Data Validation → 轉換語意檢查 → CI/CD Schema 驗證</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>繼承可視化</strong></td>
+<td style="text-align: left;">提供工具查看繼承後的最終設定</td>
+<td style="text-align: left;"><code>features inspect</code> 命令顯示覆蓋鏈</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>統計驗證</strong></td>
+<td style="text-align: left;">用數據分佈驗證標註正確性</td>
+<td style="text-align: left;">比對 <code>valid_range</code> 與實際數據分佈 (W401)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2">2. 文件架構與雙軌制格式</h2>
+<h3 id="21">2.1 目錄結構</h3>
+<pre><code>config/features/                    # 特徵標註根目錄 (SSOT)
+├── schema.json                     # JSON Schema 驗證規則
+├── base.yaml                       # 基礎定義（所有案場共用）
+├── physical_types.yaml             # 物理類型規範
+└── sites/                          # 案場特定定義（僅 YAML）
+    ├── cgmh_ty.yaml
+    └── kmuh.yaml
+
+tools/features/                     # 編輯工具（轉換器）
+├── Feature_Definition_Template.xlsx # Excel 範本
+├── excel_to_yaml.py                # 轉換腳本
+└── validation_rules.json           # Excel Data Validation 規則
+
+docs/features/examples/             # 範例與教學
+└── cgmh_ty_example.xlsx            # 長庚醫院填寫範例
+</code></pre>
+<h3 id="22-excel-feature_definition_templatexlsx">2.2 Excel 範本結構 (Feature_Definition_Template.xlsx)</h3>
+<p><strong>設計原則</strong>：利用 Excel 的「資料驗證 (Data Validation)」與「下拉選單」防呆，同時透過固定欄位名稱對應 YAML 結構。</p>
+<h4 id="sheet-1-columns">Sheet 1: Columns（主要編輯區）</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">欄位名稱 (A)</th>
+<th style="text-align: center;">物理類型 (B)</th>
+<th style="text-align: center;">單位 (C)</th>
+<th style="text-align: center;">是否目標 (D)</th>
+<th style="text-align: center;">啟用 Lag (E)</th>
+<th style="text-align: center;">Lag 間隔 (F)</th>
+<th style="text-align: center;">描述 (G)</th>
+<th style="text-align: center;">標籤 (H)</th>
+<th style="text-align: center;">狀態 (I)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">chiller_1_temp</td>
+<td style="text-align: center;">temperature</td>
+<td style="text-align: center;">°C</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">TRUE</td>
+<td style="text-align: center;">1,4,96</td>
+<td style="text-align: center;">一號冰機溫度</td>
+<td style="text-align: center;">critical,chiller1</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+<tr>
+<td style="text-align: center;">total_power_kw</td>
+<td style="text-align: center;">power</td>
+<td style="text-align: center;">kW</td>
+<td style="text-align: center;">TRUE</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">總耗電</td>
+<td style="text-align: center;">target</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+<tr>
+<td style="text-align: center;">chiller_1_status</td>
+<td style="text-align: center;">status</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">狀態指示</td>
+<td style="text-align: center;">status</td>
+<td style="text-align: center;">pending_review</td>
+</tr>
+</tbody>
+</table>
+<p><strong>防呆機制 (Data Validation)</strong>：<br />
+- <strong>欄位 B (物理類型)</strong>: 下拉選單，值來自 <code>physical_types.yaml</code> 的 keys<br />
+- <strong>欄位 C (單位)</strong>: 動態下拉，根據 B 欄選擇限制（如選 temperature 只能選 °C/°F/K）<br />
+- <strong>欄位 D (是否目標)</strong>: 勾選框 (TRUE/FALSE)<br />
+- <strong>欄位 E (啟用 Lag)</strong>: 若 D=TRUE，自動灰化並設為 FALSE（防止 Data Leakage）<br />
+- <strong>欄位 F (Lag 間隔)</strong>: 僅在 E=TRUE 時啟用，格式驗證為「數字,數字」（如 <code>1,4,96</code>）<br />
+- <strong>欄位 I (狀態)</strong>: 下拉選單 (pending_review, confirmed, deprecated)</p>
+<h4 id="sheet-2-group-policies">Sheet 2: Group Policies（群組策略）</h4>
+<p>簡化語法，無需 Regex：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">策略名稱</th>
+<th style="text-align: center;">匹配類型</th>
+<th style="text-align: center;">匹配值</th>
+<th style="text-align: center;">物理類型</th>
+<th style="text-align: center;">Lag 間隔</th>
+<th style="text-align: center;">Rolling 窗口</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">chillers</td>
+<td style="text-align: center;">prefix</td>
+<td style="text-align: center;">chiller_</td>
+<td style="text-align: center;">chiller_load</td>
+<td style="text-align: center;">1,4</td>
+<td style="text-align: center;">4,96</td>
+</tr>
+<tr>
+<td style="text-align: center;">towers</td>
+<td style="text-align: center;">prefix</td>
+<td style="text-align: center;">ct_</td>
+<td style="text-align: center;">temperature</td>
+<td style="text-align: center;">1,4</td>
+<td style="text-align: center;">4,96</td>
+</tr>
+<tr>
+<td style="text-align: center;">pumps</td>
+<td style="text-align: center;">contains</td>
+<td style="text-align: center;">pump</td>
+<td style="text-align: center;">flow_rate</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">4</td>
+</tr>
+</tbody>
+</table>
+<p><strong>匹配類型選項</strong>：<code>prefix</code> | <code>suffix</code> | <code>contains</code> | <code>regex</code>（預設 prefix，降低門檻）</p>
+<h4 id="sheet-3-metadata">Sheet 3: Metadata（文件資訊）</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">欄位</th>
+<th style="text-align: left;">值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">schema_version</td>
+<td style="text-align: left;">1.0</td>
+</tr>
+<tr>
+<td style="text-align: left;">site_id</td>
+<td style="text-align: left;">cgmh_ty</td>
+</tr>
+<tr>
+<td style="text-align: left;">inherit</td>
+<td style="text-align: left;">base</td>
+</tr>
+<tr>
+<td style="text-align: left;">description</td>
+<td style="text-align: left;">長庚醫院桃園院區</td>
+</tr>
+<tr>
+<td style="text-align: left;">editor</td>
+<td style="text-align: left;">王工程師</td>
+</tr>
+<tr>
+<td style="text-align: left;">last_updated</td>
+<td style="text-align: left;">2026-02-13</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-yaml-schema-ssot">3. YAML Schema 詳細規範（SSOT 層）</h2>
+<h3 id="31-root-schema">3.1 頂層結構 (Root Schema)</h3>
+<pre><code class="language-yaml">schema_version: &quot;1.0&quot;              # 必須，用於版本相容性檢查
+description: &quot;長庚醫院特徵定義&quot;     # 選填
+inherit: &quot;base&quot;                    # 選填，繼承目標
+meta:                              # 【新增】文件元資料
+  editor: &quot;王工程師&quot;
+  last_updated: &quot;2026-02-13&quot;
+  source_excel: &quot;cgmh_ty_v2.xlsx&quot;  # 追溯來源 Excel
+
+physical_types:                    # 可覆蓋或擴充 SSOT
+  [physical_type_id]: PhysicalTypeDefinition
+
+columns:
+  [column_name]: ColumnAnnotation
+
+group_policies:
+  [policy_name]: GroupPolicyRule   # 支援簡化語法
+
+validation:
+  strict_mode: true
+  allow_unannotated: false
+  enable_distribution_check: true  # 【新增】啟用統計分佈驗證
+</code></pre>
+<h3 id="32-physical-type">3.2 Physical Type 定義（含統計驗證參數）</h3>
+<pre><code class="language-yaml">physical_types:
+  temperature:
+    description: &quot;溫度感測器&quot;
+    unit: &quot;°C&quot;
+    si_unit: &quot;celsius&quot;
+    valid_range: [-40.0, 100.0]
+    agg_method: &quot;mean&quot;
+    default_tags: [&quot;sensor&quot;, &quot;hvac&quot;]
+    # 【新增】統計驗證參數
+    distribution_check:
+      expected_mean_range: [10, 35]      # 期望值範圍（抓單位錯誤）
+      max_std_threshold: 50              # 標準差上限（抓凍結資料）
+      zero_ratio_warning: 0.1            # 零值比例警告（抓離線感測器）
+
+  chiller_load:
+    description: &quot;冰機負載&quot;
+    unit: &quot;RT&quot;
+    si_unit: &quot;kw&quot;
+    valid_range: [0.0, 2000.0]
+    distribution_check:
+      expected_mean_range: [100, 800]
+      zero_ratio_warning: 0.05           # 負載不應長期為零
+</code></pre>
+<h3 id="33-column-annotation">3.3 Column Annotation 定義</h3>
+<pre><code class="language-yaml">columns:
+  chiller_1_temp:
+    column_name: &quot;chiller_1_temp&quot;
+    physical_type: &quot;temperature&quot;
+    description: &quot;一號冰機出水溫度&quot;
+    is_target: false
+    enable_lag: true
+    enable_rolling: true
+    lag_intervals: [1, 4, 96]
+    rolling_windows: [4, 96]
+    tags: [&quot;critical&quot;, &quot;chiller_1&quot;]
+    status: &quot;confirmed&quot;                 # 【新增】追蹤狀態
+
+  total_power_kw:
+    column_name: &quot;total_power_kw&quot;
+    physical_type: &quot;power&quot;
+    is_target: true
+    # enable_lag/rolling 強制為 false（Pydantic 自動設定）
+</code></pre>
+<h3 id="34-group-policy-excel">3.4 Group Policy 簡化語法（支援 Excel 轉換）</h3>
+<pre><code class="language-yaml">group_policies:
+  chillers:
+    description: &quot;所有冰機相關欄位&quot;
+    # 【簡化語法】無需寫 Regex，支援四種匹配模式
+    match_rule:
+      type: &quot;prefix&quot;           # prefix | suffix | contains | regex
+      value: &quot;chiller_&quot;        # 簡單字串，無需 ^...$
+    physical_type: &quot;chiller_load&quot;
+    rules:
+      lag_intervals: [1, 4]
+      rolling_windows: [4, 96, 288]
+      aggregations: [&quot;mean&quot;, &quot;std&quot;]
+
+  cooling_tower_assets:
+    match_rule:
+      type: &quot;regex&quot;            # 進階使用者仍可用 Regex
+      value: &quot;^ct_[0-9]+_(temp|flow)$&quot;
+</code></pre>
+<hr />
+<h2 id="4">4. 三層防護與驗證機制</h2>
+<h3 id="41-excel-data-validation">4.1 第一層：Excel 即時防呆 (Data Validation)</h3>
+<p><strong>實作方式</strong>：透過 <code>validation_rules.json</code> 生成 Excel 的 Data Validation 規則。</p>
+<pre><code class="language-python"># tools/features/generate_excel_template.py
+def generate_excel_validation(physical_types: dict):
+    &quot;&quot;&quot;
+    生成 Excel 的資料驗證規則
+    &quot;&quot;&quot;
+    rules = {
+        &quot;physical_type&quot;: {
+            &quot;type&quot;: &quot;list&quot;,
+            &quot;source&quot;: list(physical_types.keys()),
+            &quot;error_msg&quot;: &quot;請選擇有效的物理類型&quot;
+        },
+        &quot;unit&quot;: {
+            &quot;type&quot;: &quot;dynamic_list&quot;,  # 根據 physical_type 動態變更
+            &quot;mapping&quot;: {
+                &quot;temperature&quot;: [&quot;°C&quot;, &quot;°F&quot;, &quot;K&quot;],
+                &quot;pressure&quot;: [&quot;bar&quot;, &quot;psi&quot;, &quot;kPa&quot;],
+                &quot;power&quot;: [&quot;kW&quot;, &quot;W&quot;, &quot;RT&quot;]
+            }
+        },
+        &quot;is_target&quot;: {
+            &quot;type&quot;: &quot;checkbox&quot;,
+            &quot;trigger&quot;: {
+                &quot;if_true&quot;: {
+                    &quot;enable_lag&quot;: {&quot;value&quot;: False, &quot;locked&quot;: True},
+                    &quot;enable_rolling&quot;: {&quot;value&quot;: False, &quot;locked&quot;: True}
+                }
+            }
+        }
+    }
+    return rules
+</code></pre>
+<p><strong>防呆效果</strong>：<br />
+- [x] 無法輸入錯誤的 physical_type（下拉選單）<br />
+- [x] 標記為目標變數後，Lag 選項自動鎖定為 FALSE<br />
+- [x] 單位選擇與物理類型綁定（避免溫度選了 Bar）</p>
+<h3 id="42-excel_to_yamlpy">4.2 第二層：轉換時語意驗證 (excel_to_yaml.py)</h3>
+<p><strong>驗證邏輯</strong>：</p>
+<pre><code class="language-python">def validate_semantics(excel_df: pd.DataFrame, sample_csv: Optional[Path]) -&gt; List[Warning]:
+    &quot;&quot;&quot;
+    Excel 轉 YAML 時的語意驗證
+    &quot;&quot;&quot;
+    warnings = []
+
+    # 檢查 1: 單位一致性（Temperature 欄位出現 Bar 單位）
+    for _, row in excel_df.iterrows():
+        ptype = row['physical_type']
+        unit = row['unit']
+        valid_units = PHYSICAL_TYPES[ptype].get('units', [])
+
+        if unit not in valid_units:
+            warnings.append(
+                f&quot;⚠️  {row['column_name']}: {ptype} 不應使用單位 {unit}，&quot;
+                f&quot;建議: {valid_units}&quot;
+            )
+
+    # 檢查 2: 統計分佈驗證（W401-W404）
+    if sample_csv:
+        df = pl.read_csv(sample_csv, n_rows=5000)
+
+        for _, row in excel_df.iterrows():
+            col = row['column_name']
+            if col not in df.columns:
+                continue
+
+            ptype = row['physical_type']
+            dist_config = PHYSICAL_TYPES[ptype].get('distribution_check', {})
+
+            stats = df[col].describe()
+
+            # W401: 平均值超出期望值範圍（可能單位錯誤，如華氏誤為攝氏）
+            if 'expected_mean_range' in dist_config:
+                mean_val = stats['mean']
+                min_exp, max_exp = dist_config['expected_mean_range']
+                if not (min_exp &lt;= mean_val &lt;= max_exp):
+                    warnings.append(
+                        f&quot;⚠️  W401: {col} 平均值為 {mean_val:.1f}，&quot;
+                        f&quot;超出期望值範圍 [{min_exp}, {max_exp}]，&quot;
+                        f&quot;請確認單位或標註正確性&quot;
+                    )
+
+            # W402: 標準差為零或過小（凍結資料）
+            if stats['std'] &lt; 0.01:
+                warnings.append(
+                    f&quot;⚠️  W402: {col} 標準差接近零 ({stats['std']:.4f})，&quot;
+                    f&quot;可能是凍結資料，但標註未啟用 FROZEN 檢測&quot;
+                )
+
+            # W403: 零值比例過高（感測器離線）
+            zero_ratio = (df[col] == 0).mean()
+            if zero_ratio &gt; dist_config.get('zero_ratio_warning', 0.1):
+                warnings.append(
+                    f&quot;⚠️  W403: {col} 零值比例 {zero_ratio:.1%} 過高，&quot;
+                    f&quot;可能是感測器離線或標註錯誤&quot;
+                )
+
+    return warnings
+</code></pre>
+<p><strong>錯誤處理策略</strong>：<br />
+- <strong>Error (阻擋)</strong>：語法錯誤、必填欄位缺失、型別不匹配 → 禁止生成 YAML<br />
+- <strong>Warning (提醒)</strong>：統計異常 (W401-W403)、單位不建議 → 生成 YAML 但標記 <code>status: pending_review</code></p>
+<h3 id="43-cicd">4.3 第三層：CI/CD 契約驗證</h3>
+<p><strong>GitHub Actions Workflow</strong>：</p>
+<pre><code class="language-yaml"># .github/workflows/feature-annotation.yml
+name: Feature Annotation Validation
+
+on:
+  push:
+    paths:
+      - 'config/features/**'
+      - 'tools/features/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Schema Validation
+        run: |
+          python -m src.features.validate \
+            --schema config/features/schema.json \
+            --files config/features/sites/*.yaml
+
+      - name: Sample Data Consistency Check
+        run: |
+          # 下載最新的 sample CSV（從 S3 或測試資料夾）
+          python -m src.features.validate_distribution \
+            --annotation config/features/sites/cgmh_ty.yaml \
+            --sample data/samples/cgmh_ty_latest.csv \
+            --strict  # 將 Warning 視為 Error
+
+      - name: Inheritance Check
+        run: |
+          python -m src.features.inspect cgmh_ty --validate-only
+</code></pre>
+<h3 id="44">4.4 繼承視覺化與除錯工具</h3>
+<p><strong>新增 CLI 命令</strong>：<code>features inspect</code></p>
+<pre><code class="language-bash"># 查看特定欄位的繼承鏈
+python main.py features inspect cgmh_ty --column chiller_1_temp
+</code></pre>
+<p><strong>輸出範例</strong>：</p>
+<pre><code>Column: chiller_1_temp
+================================
+最終配置 (Effective Config):
+  physical_type: temperature
+  enable_lag: false              [OVERRIDDEN]
+  unit: °C
+  description: &quot;一號機溫度（客製）&quot; [OVERRIDDEN]
+
+繼承鏈 (Inheritance Chain):
+1. base.yaml
+   ├─ physical_type: temperature
+   ├─ enable_lag: true           [被覆蓋]
+   └─ unit: °C
+
+2. sites/cgmh_ty.yaml
+   ├─ enable_lag: false         [覆蓋來源]
+   └─ description: &quot;一號機溫度（客製）&quot; [新增]
+
+驗證狀態: ✅ 通過
+來源 Excel: cgmh_ty_v2.xlsx (SHA256: abc123...)
+</code></pre>
+<hr />
+<h2 id="5-wizard-cli">5. Wizard 交互式 CLI 模式</h2>
+<h3 id="51">5.1 命令規格</h3>
+<pre><code class="language-bash"># 啟動交互式精靈（推薦給初次使用者）
+python main.py features wizard --site cgmh_ty --from-csv data.csv
+
+# 增量更新（僅處理新欄位）
+python main.py features wizard --site cgmh_ty --from-csv data.csv --incremental
+</code></pre>
+<h3 id="52">5.2 交互流程設計</h3>
+<p><strong>設計原則</strong>：防呆設計，避免「確認偏誤」(Confirmation Bias) 直接按 Y</p>
+<pre><code>$ python main.py features wizard --site cgmh_ty --from-csv data.csv
+
+🔍 發現 3 個未定義欄位：
+
+[1/3] 欄位: chiller_1_kwh
+  系統推測: physical_type=power, unit=kW (基於欄位名稱 'kwh')
+  歷史相似: chiller_2_kwh (已確認為 power)
+  數據預覽:
+    平均值: 245.3
+    範圍: [0, 520]
+    分布: ████████░░ 正常
+
+  請選擇:
+    [Y] 確認 (確認為 power/kW)
+    [N] 修改 (進入詳細設定)
+    [S] 跳過 (暫不標註，標記為 pending)
+    [?] 查看數據分佈圖 (開啟 matplotlib)
+    [Q] 退出
+  &gt; 
+
+[2/3] 欄位: unusual_sensor_01
+  ⚠️  系統無法推測類型
+  數據預覽:
+    平均值: 1500.0  ❗ 異常高值
+    範圍: [0, 9999]
+
+  請選擇:
+    [1] temperature (°C) - 可能是 °F 誤標？
+    [2] pressure (bar) - 可能是 kPa？
+    [3] custom_type (手動輸入)
+    [S] 跳過
+  &gt; 1
+
+  ⚠️  警告: 若為 temperature，平均值 1500 超出正常範圍 (-40~100)
+  是否確認？ (建議檢查單位)
+    [Y] 確認 (標記為 temperature，但加入 pending_review)
+    [N] 重新選擇
+  &gt; 
+
+✅ 完成！已更新 config/features/sites/cgmh_ty.yaml
+   新增欄位: 2 個 (1 confirmed, 1 pending_review)
+   請執行 `git diff` 查看變更並提交 PR
+</code></pre>
+<h3 id="53">5.3 防呆設計細節</h3>
+<ul>
+<li><strong>數據分佈預覽</strong>：顯示直方圖 ASCII  art 或開啟圖形介面，讓使用者直觀判斷</li>
+<li><strong>異常值提醒</strong>：當數值超出 physical_type 定義的 <code>expected_mean_range</code> 時，強制二次確認</li>
+<li><strong>相似欄位推薦</strong>：若 <code>chiller_1_temp</code> 已定義，自動推薦 <code>chiller_2_temp</code> 使用相同設定</li>
+<li><strong>批次確認模式</strong>：對於大量相似欄位（如 10 台冰機），支援「套用至所有相似欄位」</li>
+</ul>
+<hr />
+<h2 id="6-excel-to-yaml">6. Excel-to-YAML 轉換規格</h2>
+<h3 id="61-excel_to_yamlpy">6.1 轉換腳本 (excel_to_yaml.py)</h3>
+<p><strong>處理「阻抗不匹配」問題</strong>：</p>
+<pre><code class="language-python">import pandas as pd
+import yaml
+from pathlib import Path
+
+def convert_excel_to_yaml(excel_path: Path, output_path: Path) -&gt; dict:
+    &quot;&quot;&quot;
+    將 Excel 範本轉換為 YAML，處理嵌套結構問題
+    &quot;&quot;&quot;
+    # 讀取各 Sheet
+    df_cols = pd.read_excel(excel_path, sheet_name=&quot;Columns&quot;)
+    df_policies = pd.read_excel(excel_path, sheet_name=&quot;Group Policies&quot;)
+    df_meta = pd.read_excel(excel_path, sheet_name=&quot;Metadata&quot;, header=None, index_col=0)
+
+    # 構建 YAML 結構
+    yaml_data = {
+        &quot;schema_version&quot;: str(df_meta.loc[&quot;schema_version&quot;, 1]),
+        &quot;description&quot;: str(df_meta.loc[&quot;description&quot;, 1]),
+        &quot;inherit&quot;: str(df_meta.loc[&quot;inherit&quot;, 1]) if pd.notna(df_meta.loc[&quot;inherit&quot;, 1]) else None,
+        &quot;meta&quot;: {
+            &quot;editor&quot;: str(df_meta.loc[&quot;editor&quot;, 1]),
+            &quot;last_updated&quot;: str(df_meta.loc[&quot;last_updated&quot;, 1]),
+            &quot;source_excel&quot;: excel_path.name
+        },
+        &quot;columns&quot;: {},
+        &quot;group_policies&quot;: {}
+    }
+
+    # 轉換 Columns（處理列表字串）
+    for _, row in df_cols.iterrows():
+        if row[&quot;狀態&quot;] == &quot;deprecated&quot;:
+            continue
+
+        col_def = {
+            &quot;column_name&quot;: row[&quot;欄位名稱&quot;],
+            &quot;physical_type&quot;: row[&quot;物理類型&quot;],
+            &quot;description&quot;: row[&quot;描述&quot;] if pd.notna(row[&quot;描述&quot;]) else None,
+            &quot;is_target&quot;: row[&quot;是否目標&quot;],
+            &quot;enable_lag&quot;: row[&quot;啟用 Lag&quot;],
+            &quot;enable_rolling&quot;: row[&quot;啟用 Rolling&quot;] if pd.notna(row[&quot;啟用 Rolling&quot;]) else True,
+        }
+
+        # 處理列表字串（如 &quot;1,4,96&quot; → [1,4,96]）
+        if pd.notna(row[&quot;Lag 間隔&quot;]):
+            lag_str = str(row[&quot;Lag 間隔&quot;])
+            col_def[&quot;lag_intervals&quot;] = [int(x.strip()) for x in lag_str.split(&quot;,&quot;)]
+
+        # 處理標籤（逗號分隔）
+        if pd.notna(row[&quot;標籤&quot;]):
+            col_def[&quot;tags&quot;] = [t.strip() for t in str(row[&quot;標籤&quot;]).split(&quot;,&quot;)]
+
+        yaml_data[&quot;columns&quot;][row[&quot;欄位名稱&quot;]] = col_def
+
+    # 轉換 Group Policies
+    for _, row in df_policies.iterrows():
+        policy_def = {
+            &quot;match_rule&quot;: {
+                &quot;type&quot;: row[&quot;匹配類型&quot;],
+                &quot;value&quot;: row[&quot;匹配值&quot;]
+            },
+            &quot;physical_type&quot;: row[&quot;物理類型&quot;],
+            &quot;rules&quot;: {
+                &quot;lag_intervals&quot;: [int(x) for x in str(row[&quot;Lag 間隔&quot;]).split(&quot;,&quot;)],
+                &quot;rolling_windows&quot;: [int(x) for x in str(row[&quot;Rolling 窗口&quot;]).split(&quot;,&quot;)]
+            }
+        }
+        yaml_data[&quot;group_policies&quot;][row[&quot;策略名稱&quot;]] = policy_def
+
+    # 驗證與寫入
+    validate_yaml_structure(yaml_data)  # 使用 Pydantic
+    output_path.write_text(
+        yaml.dump(yaml_data, sort_keys=False, allow_unicode=True, default_flow_style=False),
+        encoding='utf-8'
+    )
+
+    return {&quot;status&quot;: &quot;success&quot;, &quot;warnings&quot;: []}
+</code></pre>
+<h3 id="62-yaml-to-excel">6.2 逆向轉換（YAML to Excel）</h3>
+<p>支援工程師將現有 YAML 轉為 Excel 供領域專家修改：</p>
+<pre><code class="language-bash">python tools/features/yaml_to_excel.py \
+  --yaml config/features/sites/cgmh_ty.yaml \
+  --output cgmh_ty_editable.xlsx
+</code></pre>
+<hr />
+<h2 id="7-etl-pipeline">7. 與 ETL Pipeline 的整合點（更新）</h2>
+<h3 id="71-cleaner-v22">7.1 Cleaner v2.2 整合（關鍵修改）</h3>
+<pre><code class="language-python">def _build_column_metadata(self, df: pl.DataFrame) -&gt; Dict[str, FeatureMetadata]:
+    &quot;&quot;&quot;
+    【更新】從 Feature Annotation 讀取，取代自動推斷
+    &quot;&quot;&quot;
+    # 由 Container 注入，來源可能是 YAML 或 Excel 轉換後的 YAML
+    annotation = self.config.feature_annotation
+
+    metadata = {}
+    for col_name in df.columns:
+        if col_name == &quot;timestamp&quot;:
+            continue
+
+        if col_name not in annotation.columns:
+            if annotation.validation.get('strict_mode', True):
+                raise ConfigurationError(
+                    f&quot;E402: 欄位 '{col_name}' 未在 Feature Annotation 中定義。&quot;
+                    f&quot;請在 Excel 範本中定義並重新匯出，或設定 allow_unannotated: true&quot;
+                )
+            # 非嚴格模式：使用保守預設，但標記警告
+            metadata[col_name] = FeatureMetadata(
+                column_name=col_name,
+                physical_type=&quot;gauge&quot;,
+                status=&quot;auto_inferred&quot;
+            )
+            self.logger.warning(f&quot;W404: 欄位 {col_name} 使用自動推斷，建議補上標註&quot;)
+            continue
+
+        col_ann = annotation.columns[col_name]
+
+        # 【新增】統計分佈驗證（W401-W403）
+        if hasattr(col_ann, 'distribution_check'):
+            self._validate_distribution(df[col_name], col_ann, col_name)
+
+        metadata[col_name] = FeatureMetadata(
+            column_name=col_name,
+            physical_type=col_ann.physical_type,
+            unit=col_ann.unit,
+            is_target=col_ann.is_target,
+            enable_lag=col_ann.enable_lag,
+            enable_rolling=col_ann.enable_rolling
+        )
+
+    return metadata
+</code></pre>
+<hr />
+<h2 id="8">8. 錯誤與警告代碼對照表（更新）</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">代碼</th>
+<th style="text-align: left;">名稱</th>
+<th style="text-align: center;">層級</th>
+<th style="text-align: left;">說明</th>
+<th style="text-align: left;">處理方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><strong>E400</strong></td>
+<td style="text-align: left;">SCHEMA_VALIDATION_FAILED</td>
+<td style="text-align: center;">Error</td>
+<td style="text-align: left;">YAML 語法錯誤</td>
+<td style="text-align: left;">阻擋合併，修正後重新 PR</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E401</strong></td>
+<td style="text-align: left;">ORPHAN_COLUMN</td>
+<td style="text-align: center;">Warning</td>
+<td style="text-align: left;">標註檔案中有欄位不存在於資料</td>
+<td style="text-align: left;">允許執行，但記錄日誌</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E402</strong></td>
+<td style="text-align: left;">UNANNOTATED_COLUMN</td>
+<td style="text-align: center;">Error/Warning</td>
+<td style="text-align: left;">資料中有欄位未定義（嚴格模式）</td>
+<td style="text-align: left;">Error: 阻擋執行；Warning: 使用保守預設</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E403</strong></td>
+<td style="text-align: left;">TYPE_MISMATCH</td>
+<td style="text-align: center;">Error</td>
+<td style="text-align: left;">欄位型別與 physical_type 預期不符</td>
+<td style="text-align: left;">阻擋執行</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E405</strong></td>
+<td style="text-align: left;">TARGET_LEAKAGE_RISK</td>
+<td style="text-align: center;">Error</td>
+<td style="text-align: left;">is_target=true 但 enable_lag=true</td>
+<td style="text-align: left;">阻擋轉換（Pydantic 自動攔截）</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E406</strong></td>
+<td style="text-align: left;">INHERITANCE_ERROR</td>
+<td style="text-align: center;">Error</td>
+<td style="text-align: left;">繼承鏈錯誤或循環依賴</td>
+<td style="text-align: left;">阻擋載入</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>W401</strong></td>
+<td style="text-align: left;">MEAN_OUT_OF_RANGE</td>
+<td style="text-align: center;">Warning</td>
+<td style="text-align: left;">平均值超出物理類型預期範圍</td>
+<td style="text-align: left;">標記 pending_review，發送告警</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>W402</strong></td>
+<td style="text-align: left;">LOW_VARIANCE_WARNING</td>
+<td style="text-align: center;">Warning</td>
+<td style="text-align: left;">標準差接近零（可能凍結）</td>
+<td style="text-align: left;">建議檢查感測器狀態</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>W403</strong></td>
+<td style="text-align: left;">HIGH_ZERO_RATIO</td>
+<td style="text-align: center;">Warning</td>
+<td style="text-align: left;">零值比例過高</td>
+<td style="text-align: left;">建議檢查感測器離線或單位錯誤</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>W404</strong></td>
+<td style="text-align: left;">AUTO_INFERRED_WARNING</td>
+<td style="text-align: center;">Warning</td>
+<td style="text-align: left;">使用自動推斷而非明確標註</td>
+<td style="text-align: left;">建議補上標註</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9">9. 交付物清單（更新）</h2>
+<h3 id="91">9.1 配置文件</h3>
+<ol>
+<li><code>config/features/schema.json</code> - JSON Schema 驗證</li>
+<li><code>config/features/base.yaml</code> - 基礎定義</li>
+<li><code>config/features/sites/*.yaml</code> - 案場定義（僅供部署）</li>
+</ol>
+<h3 id="92-excel">9.2 Excel 工具鏈</h3>
+<ol start="4">
+<li><code>tools/features/Feature_Definition_Template.xlsx</code> - Excel 範本（含 Data Validation）</li>
+<li><code>tools/features/excel_to_yaml.py</code> - 轉換腳本（含統計驗證）</li>
+<li><code>tools/features/yaml_to_excel.py</code> - 逆向轉換腳本</li>
+<li><code>tools/features/validation_rules.json</code> - Excel 驗證規則生成器</li>
+</ol>
+<h3 id="93-cli">9.3 CLI 工具（更新）</h3>
+<ol start="8">
+<li><code>src/cli/features_cli.py</code> - 新增 <code>wizard</code>, <code>inspect</code>, <code>validate-distribution</code> 命令</li>
+</ol>
+<h3 id="94">9.4 文件（更新）</h3>
+<ol start="9">
+<li><code>docs/features/FEATURE_ANNOTATION_v1.1.md</code> - 本文件</li>
+<li><code>docs/features/EXCEL_TUTORIAL.md</code> - Excel 填寫教學（給空調技師）</li>
+<li><code>docs/features/TROUBLESHOOTING.md</code> - 常見錯誤排解（W401-W404 處理指南）</li>
+</ol>
+<hr />
+<h2 id="10">10. 驗收簽核（更新）</h2>
+<ul>
+<li>[ ] <strong>Excel 範本</strong>：Data Validation 正常運作（下拉選單、自動鎖定 Lag）</li>
+<li>[ ] <strong>轉換腳本</strong>：<code>excel_to_yaml.py</code> 正確處理嵌套結構與列表字串</li>
+<li>[ ] <strong>統計驗證</strong>：W401 能正確抓出單位錯誤（如平均值 1500 的溫度欄位）</li>
+<li>[ ] <strong>Wizard 模式</strong>：交互式流程能引導完成新欄位標註</li>
+<li>[ ] <strong>繼承可視化</strong>：<code>features inspect</code> 正確顯示覆蓋鏈</li>
+<li>[ ] <strong>三層防護</strong>：Excel 防呆 → 轉換驗證 → CI/CD 驗證皆運作正常</li>
+<li>[ ] <strong>整合測試</strong>：Excel 修改 → YAML 生成 → Cleaner 讀取 → Group Policy 套用 全鏈路暢通</li>
+</ul>
+<hr />
+</body>
+</html>

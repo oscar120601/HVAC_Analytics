@@ -1,94 +1,97 @@
-
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Execution_Report</title>
-    
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Execution_Report</title>
+
 <style>
-    body { 
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
-        line-height: 1.6; 
-        max-width: 900px; 
-        margin: 0 auto; 
-        padding: 40px 20px; 
-        color: #24292e; 
-        background-color: #ffffff;
-    }
-    h1, h2, h3, h4, h5, h6 { 
-        margin-top: 24px; 
-        margin-bottom: 16px; 
-        font-weight: 600; 
-        color: #24292e;
-    }
-    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-    h3 { font-size: 1.25em; }
-    p { margin-top: 0; margin-bottom: 16px; }
-    a { color: #0366d6; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    table { 
-        display: block; 
-        width: 100%; 
-        overflow: auto; 
-        border-spacing: 0; 
-        border-collapse: collapse; 
-        margin-bottom: 16px; 
-    }
-    table th, table td { 
-        padding: 6px 13px; 
-        border: 1px solid #dfe2e5; 
-    }
-    table th { 
-        font-weight: 600; 
-        background-color: #f6f8fa; 
-    }
-    table tr:nth-child(2n) { 
-        background-color: #f6f8fa; 
-    }
-    code { 
-        font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; 
-        background-color: #f6f8fa; 
-        padding: 0.2em 0.4em; 
-        border-radius: 3px; 
-        font-size: 85%; 
-    }
-    pre { 
-        background-color: #f6f8fa; 
-        padding: 16px; 
-        overflow: auto; 
-        border-radius: 3px; 
-        line-height: 1.45; 
-    }
-    pre code { 
-        background-color: transparent; 
-        padding: 0; 
-        border-radius: 0; 
-    }
-    blockquote { 
-        border-left: 0.25em solid #dfe2e5; 
-        color: #6a737d; 
-        padding: 0 1em; 
-        margin: 0 0 16px 0; 
-    }
-    hr {
-        height: 0.25em;
-        padding: 0;
-        margin: 24px 0;
-        background-color: #e1e4e8;
-        border: 0;
-    }
-    .mermaid {
-        display: flex;
-        justify-content: center;
-        margin: 20px 0;
-    }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
 </style>
 
 </head>
 <body>
-    <h1 id="hvac-analytics-system-execution-report">HVAC Analytics 系統全方位執行報告 (System Execution Report)</h1>
+<h1 id="hvac-analytics-system-execution-report">HVAC Analytics 系統全方位執行報告 (System Execution Report)</h1>
 <p>本報告基於 <code>docs/</code> 目錄下所有核心 PRD (v1.0 ~ v2.2) 進行綜合分析，旨在為開發團隊提供一套嚴謹、無縫銜接的實作藍圖。</p>
 <hr />
 <h2 id="1-executive-summary">1. 執行摘要 (Executive Summary)</h2>
@@ -215,24 +218,24 @@
 <hr />
 <h2 id="3-critical-implementation-details">3. 關鍵實作細節導讀 (Critical Implementation Details)</h2>
 <h3 id="31-wizard-technical-blockade">3.1 為什麼需要 Wizard Technical Blockade?</h3>
-<p>在之前的設計中，我們發現開發者或使用者可能會為了方便，直接去改 <code>server/config/features/sites/*.yaml</code>，導致 Excel (UI端) 與 YAML (系統端) 不同步。
-<strong>解決方案</strong>: 
-- <code>src/security/import_guard.py</code>: 讓 Python 程式碼無法匯入 <code>yaml</code> 函式庫，物理上斷絕寫入能力。
-- <code>chattr +i</code>: 在 Linux 層級鎖死檔案。
+<p>在之前的設計中，我們發現開發者或使用者可能會為了方便，直接去改 <code>server/config/features/sites/*.yaml</code>，導致 Excel (UI端) 與 YAML (系統端) 不同步。<br />
+<strong>解決方案</strong>: <br />
+- <code>src/security/import_guard.py</code>: 讓 Python 程式碼無法匯入 <code>yaml</code> 函式庫，物理上斷絕寫入能力。<br />
+- <code>chattr +i</code>: 在 Linux 層級鎖死檔案。<br />
 這迫使所有變更<strong>必須</strong>回到 Excel 進行，確保 SSOT。</p>
 <h3 id="32-pipelinecontext">3.2 什麼是 PipelineContext 與時間基準？</h3>
-<p>過去各模組各自呼叫 <code>datetime.now()</code>，導致：
-- Parser 認為 10:00:00 是現在。
-- 到 BatchProcessor 時，時間變成了 10:00:05，結果 10:00:02 的數據被誤判為「過去」，或邊界數據被誤判為「未來」。
-<strong>解決方案</strong>: 
-- System Integration v1.2 引入 <code>PipelineContext</code>。
-- 在 Pipeline 啟動瞬間鎖定 <code>pipeline_timestamp</code>。
+<p>過去各模組各自呼叫 <code>datetime.now()</code>，導致：<br />
+- Parser 認為 10:00:00 是現在。<br />
+- 到 BatchProcessor 時，時間變成了 10:00:05，結果 10:00:02 的數據被誤判為「過去」，或邊界數據被誤判為「未來」。<br />
+<strong>解決方案</strong>: <br />
+- System Integration v1.2 引入 <code>PipelineContext</code>。<br />
+- 在 Pipeline 啟動瞬間鎖定 <code>pipeline_timestamp</code>。<br />
 - 所有模組的 <code>is_future_data()</code> 檢查都基於這個單一時間點。</p>
 <h3 id="33-equipment-dependency">3.3 設備依賴驗證 (Equipment Dependency) 的反向同步</h3>
-<p>Optimization 階段定義了「主機開啟時，冷卻水泵必須開啟」。如果歷史數據中有一天主機開了但水泵沒開（可能是感測器壞了），這筆數據若是進入訓練，會讓模型學到錯誤的物理規律。
-<strong>解決方案</strong>:
-- <code>ConstraintSyncManager</code> 在 ETL 階段讀取 Optimization 的規則。
-- <strong>Cleaner</strong> 逐行掃描：發現違規 -&gt; 標記 <code>FLAG_REQUIRES_VIOLATION</code>。
+<p>Optimization 階段定義了「主機開啟時，冷卻水泵必須開啟」。如果歷史數據中有一天主機開了但水泵沒開（可能是感測器壞了），這筆數據若是進入訓練，會讓模型學到錯誤的物理規律。<br />
+<strong>解決方案</strong>:<br />
+- <code>ConstraintSyncManager</code> 在 ETL 階段讀取 Optimization 的規則。<br />
+- <strong>Cleaner</strong> 逐行掃描：發現違規 -&gt; 標記 <code>FLAG_REQUIRES_VIOLATION</code>。<br />
 - <strong>Feature Engineer</strong>: 看到此 Flag -&gt; 將該時段數據視為無效或進行特殊處理，不讓模型學壞。</p>
 <hr />
 <h2 id="4-phased-execution-plan">4. 建議執行順序 (Phased Execution Plan)</h2>
@@ -279,11 +282,5 @@
 <li><strong>提交代碼前</strong>：檢查是否通過了該 PRD 定義的 <code>Contract Checkpoints</code> (例如檢查點 #5 Excel/YAML 同步)。</li>
 </ol>
 <p>這份報告匯總了所有文件精華，確保您在開發核心功能時，能精準命中需求，避免「做完了才發現架構不對」的風險。</p>
-    
-<script type="module">
-    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-    mermaid.initialize({ startOnLoad: true });
-</script>
-
 </body>
 </html>

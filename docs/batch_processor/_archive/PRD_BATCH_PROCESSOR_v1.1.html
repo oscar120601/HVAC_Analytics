@@ -1,64 +1,97 @@
-
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Batch Processor Implementation Guide v1.1</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            background-color: #f8f9fa;
-        }
-        .container {
-            background-color: #fff;
-            padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        h1, h2, h3 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-        h2 { margin-top: 2em; }
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 20px 0;
-        }
-        th, td {
-            border: 1px solid #dfe2e5;
-            padding: 12px;
-            text-align: left;
-        }
-        th { background-color: #f6f8fa; font-weight: bold; }
-        tr:nth-child(even) { background-color: #fdfdfd; }
-        code {
-            background-color: #f3f3f3;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 85%;
-        }
-        pre {
-            background-color: #f6f8fa;
-            padding: 16px;
-            overflow: auto;
-            border-radius: 6px;
-        }
-        blockquote {
-            margin: 0;
-            padding: 0 1em;
-            color: #6a737d;
-            border-left: 0.25em solid #dfe2e5;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_BATCH_PROCESSOR_v1.1</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
 </head>
 <body>
-    <div class="container">
-        <h1 id="prd-v11-batchprocessor-implementation-guide">PRD v1.1: 批次處理器強健性重構指南 (BatchProcessor Implementation Guide)</h1>
+<h1 id="prd-v11-batchprocessor-implementation-guide">PRD v1.1: 批次處理器強健性重構指南 (BatchProcessor Implementation Guide)</h1>
 <p><strong>文件版本:</strong> v1.1 (含 Manifest 機制與 Schema 契約驗證)<br />
 <strong>日期:</strong> 2026-02-12<br />
 <strong>負責人:</strong> Oscar Chang<br />
@@ -68,11 +101,11 @@
 <hr />
 <h2 id="1">1. 執行總綱與設計哲學</h2>
 <p>目前的 <code>batch_processor.py</code> 存在<strong>記憶體堆積</strong>與<strong>契約破壞</strong>的致命傷。本 PRD 定義 <strong>V2.0 Pipeline 架構</strong>，將其從「資料囤積者」轉型為「高效指揮官」，並作為 Cleaner 與 Feature Engineer 間的<strong>契約守門員</strong>。</p>
-<p><strong>核心設計原則:</strong>
-1.  <strong>串流優先 (Streaming First)</strong>：嚴禁將多檔案 DataFrame 同時載入記憶體。處理完一個，立即釋放。
-2.  <strong>時間分區聚合 (Time-Partitioned)</strong>：避免一對一 CSV 轉 Parquet 導致小文件爆炸，改用列數/時間閾值合併寫入。
-3.  <strong>契約守護 (Contract Guardian)</strong>：驗證 Cleaner 輸出是否符合 <code>Output Contract</code>，攔截型別錯誤（如 <code>quality_flags</code> 被誤轉為 Float64）。
-4.  <strong>事務性輸出 (Transactional Output)</strong>：Staging + Atomic Move，批次失敗時自動回滾，不污染下游。
+<p><strong>核心設計原則:</strong><br />
+1.  <strong>串流優先 (Streaming First)</strong>：嚴禁將多檔案 DataFrame 同時載入記憶體。處理完一個，立即釋放。<br />
+2.  <strong>時間分區聚合 (Time-Partitioned)</strong>：避免一對一 CSV 轉 Parquet 導致小文件爆炸，改用列數/時間閾值合併寫入。<br />
+3.  <strong>契約守護 (Contract Guardian)</strong>：驗證 Cleaner 輸出是否符合 <code>Output Contract</code>，攔截型別錯誤（如 <code>quality_flags</code> 被誤轉為 Float64）。<br />
+4.  <strong>事務性輸出 (Transactional Output)</strong>：Staging + Atomic Move，批次失敗時自動回滾，不污染下游。<br />
 5.  <strong>可追溯性 (Traceability)</strong>：透過 <strong>Manifest（清單）機制</strong>記錄批次血緣，供 Feature Engineer 精準讀取。</p>
 <hr />
 <h2 id="2-pipeline-manifest">2. 系統架構：Pipeline 模式（含 Manifest）</h2>
@@ -193,9 +226,9 @@ data/processed/
 └── manifests/
     └── manifest-{batch_id}-{timestamp}.json
 </code></pre>
-<p><strong>Parquet Schema 規範</strong>：
-- <code>timestamp</code>: <code>INT64 (nanoseconds)</code> + UTC 時區資訊（或 <code>INT96</code>）
-- <code>quality_flags</code>: Parquet Logical Type <code>LIST&lt;STRING&gt;</code>，對應 Polars <code>List[Utf8]</code>
+<p><strong>Parquet Schema 規範</strong>：<br />
+- <code>timestamp</code>: <code>INT64 (nanoseconds)</code> + UTC 時區資訊（或 <code>INT96</code>）<br />
+- <code>quality_flags</code>: Parquet Logical Type <code>LIST&lt;STRING&gt;</code>，對應 Polars <code>List[Utf8]</code><br />
 - 其他欄位: <code>FLOAT64</code></p>
 <p><strong>Manifest 檔案格式</strong>：</p>
 <pre><code class="language-json">{
@@ -623,10 +656,10 @@ def validate_schema(df: pl.LazyFrame, expected_manifest: dict):
 <li><code>src/etl/contract_validator.py</code>: Schema 契約驗證器（防 quality_flags 型別錯誤）</li>
 <li><code>src/etl/config_models.py</code>: 更新 <code>BatchConfig</code>, <code>ETLConfig</code>（統一驗證）</li>
 <li><code>src/etl/manifest.py</code>: Manifest 資料模型與管理</li>
-<li><code>tests/test_batch_processor_v2.py</code>: </li>
-<li>記憶體穩定性測試（1000 檔案迴圈）</li>
-<li>Schema 契約驗證測試（防 Float64 轉型）</li>
-<li>事務性測試（Staging → Atomic Move → Rollback）</li>
+<li><code>tests/test_batch_processor_v2.py</code>: <br />
+   - 記憶體穩定性測試（1000 檔案迴圈）<br />
+   - Schema 契約驗證測試（防 Float64 轉型）<br />
+   - 事務性測試（Staging → Atomic Move → Rollback）</li>
 <li><code>tests/integration/test_cleaner_to_batch.py</code>: Cleaner 輸出 → Batch 輸入整合測試</li>
 <li><code>docs/batch_to_feature_engineer_interface.md</code>: 給 Feature Engineer 團隊的讀取範例（含 Manifest 使用）</li>
 <li><code>scripts/run_batch_pipeline.py</code>: CLI 入口腳本（含 argparse）</li>
@@ -654,13 +687,12 @@ def validate_schema(df: pl.LazyFrame, expected_manifest: dict):
 <li>[ ] 是否需要整合 Prometheus/Grafana 監控（輸出 <code>batch_rows_processed</code> 等指標）？</li>
 </ul>
 <hr />
-<p><strong>關鍵修改總結</strong>：
-1. <strong>Schema 契約驗證</strong>：攔截 <code>quality_flags</code> 被誤轉為 Float64 的風險（Critical）
-2. <strong>時間分區合併</strong>：避免 50 萬小文件問題（Critical）
-3. <strong>Staging + Atomic Move</strong>：事務性輸出，支援冪等重跑（High）
-4. <strong>Manifest 機制</strong>：替代 glob，提供血緣追蹤與精準讀取（High）
-5. <strong>統一 ETLConfig</strong>：確保 Cleaner 與 BatchProcessor 配置相容（Medium）
+<p><strong>關鍵修改總結</strong>：<br />
+1. <strong>Schema 契約驗證</strong>：攔截 <code>quality_flags</code> 被誤轉為 Float64 的風險（Critical）<br />
+2. <strong>時間分區合併</strong>：避免 50 萬小文件問題（Critical）<br />
+3. <strong>Staging + Atomic Move</strong>：事務性輸出，支援冪等重跑（High）<br />
+4. <strong>Manifest 機制</strong>：替代 glob，提供血緣追蹤與精準讀取（High）<br />
+5. <strong>統一 ETLConfig</strong>：確保 Cleaner 與 BatchProcessor 配置相容（Medium）<br />
 ```</p>
-    </div>
 </body>
 </html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_Review_V1.2_Final_Report</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="prd-v12">特徵標註 PRD (v1.2) 審查與最終確認報告</h1>
+<p><strong>審查對象</strong>: <code>PRD_Feature_Annotation_Specification_V1.2.md</code><br />
+<strong>審查重點</strong>: Excel 編輯流程的封閉性、版本控制機制的穩健性<br />
+<strong>文件版本</strong>: Final Review v1.2<br />
+<strong>日期</strong>: 2026-02-13</p>
+<hr />
+<h2 id="1-general-assessment">1. 總體評價 (General Assessment)</h2>
+<p><strong>V1.2 版本是非常成熟且可執行的狀態。</strong></p>
+<p>該版本已完美解決了前次審查中提出的「Wizard 與 Excel 競態條件」問題，並策略性地放棄了脆弱的 Excel 動態驗證，轉而依賴穩健的 Python 轉換層驗證。整體設計體現了「簡單前端 (Excel) + 嚴謹後端 (Python Check)」的設計哲學，極大降低了人為錯誤的機率。</p>
+<p>特別是在版本控制上，引入了 <code>schema_hash</code> 與 <code>template_version</code>，這解決了長期維護中最棘手的「範本過期」與「手動篡改 YAML」問題。</p>
+<hr />
+<h2 id="2-strengths">2. 優點摘要 (Strengths)</h2>
+<ol>
+<li><strong>解決競態條件 (Critical Fix)</strong>: <ul>
+<li>明確定義 Wizard <strong>只更新 Excel</strong>，YAML 只能透過 <code>excel_to_yaml.py</code> 生成。這建立了唯一的資料流向：<code>Wizard -&gt; Excel -&gt; YAML -&gt; Git</code>，從根本上消除了同步衝突。</li>
+</ul>
+</li>
+<li><strong>務實的 Excel 設計</strong>: <ul>
+<li>放棄 <code>INDIRECT()</code> 動態下拉選單是一個非常明智的決定。這避免了因複製貼上導致的 Excel 參照錯誤，將複雜邏輯移至 Python 層處理更易於維護與擴展。</li>
+</ul>
+</li>
+<li><strong>設備角色 (Device Role)</strong>: <ul>
+<li>新增 <code>device_role: backup/seasonal</code> 解決了因設備停機導致的 "False Positive" 警告，提升了統計驗證的實用性，避免「狼來了」效應。</li>
+</ul>
+</li>
+<li><strong>完整的版本防護</strong>: <ul>
+<li>透過 Hidden Sheet 儲存 <code>template_version</code> 與 <code>schema_hash</code>，配合 CI/CD 的同步檢查，形成了一個閉環的防篡改機制。</li>
+</ul>
+</li>
+</ol>
+<hr />
+<h2 id="3-final-recommendations">3. 最後的微調建議 (Final Recommendations)</h2>
+<p>雖然架構已無大礙，但有幾個<strong>實作細節</strong>建議在開發階段注意：</p>
+<h3 id="31-yaml_to_excelpy-safety-guard">3.1 關於 <code>yaml_to_excel.py</code> 的安全性 (Safety Guard)</h3>
+<p>PRD 7. 允許使用 <code>yaml_to_excel</code> 進行初始化。<br />
+*   <strong>建議</strong>: 為了防止誤覆蓋，該腳本應預設<strong>拒絕覆蓋已存在的 Excel 檔案</strong>。<br />
+*   <strong>實作</strong>: 必須加上 <code>--force</code> 參數才能覆蓋現有檔案，並在執行前顯示警告：「警告：這將覆蓋現有 Excel 中的公式與註解，確定執行？」</p>
+<h3 id="32-ignore_warnings">3.2 針對 <code>ignore_warnings</code> 的語法</h3>
+<p>PRD 3.1 Sheet 1 定義了 H 欄為 <code>ignore_warnings</code>。<br />
+*   <strong>建議</strong>: Excel 中建議支援更友善的輸入方式。例如，如果使用者輸入「全部」或「ALL」，程式應能理解為忽略所有警告，而不僅限於代碼 <code>W401,W403</code>。這對現場人員更直覺。</p>
+<h3 id="33-log-audit-trail">3.3 關於 Log 記錄 (Audit Trail)</h3>
+<p>PRD 6.2 Wizard 流程。<br />
+*   <strong>建議</strong>: 每次 Wizard 更新 Excel 時，除了更新 Sheet 內容，建議在一個新的 Sheet (如 <code>History</code>) 寫入一行 Log (Timestamp, User, Action, Affected Columns)。這對於多人協作的案場（如長庚醫院有數十台冰機）非常有幫助，能追溯「是誰加了這個欄位」。</p>
+<hr />
+<h2 id="4-next-steps">4. 執行下一步 (Next Steps)</h2>
+<p>此 PRD 已無 Blockers，建議<strong>立即進入開發階段</strong>。</p>
+<p>建議的開發順序：<br />
+1.  <strong>Tools</strong>: 優先實作 <code>data_model.py</code> (Pydantic) 與 <code>excel_to_yaml.py</code> (核心轉換邏輯)。<br />
+2.  <strong>Template</strong>: 製作 <code>Feature_Template_v1.2.xlsx</code> 並鎖定 Hidden Sheet。<br />
+3.  <strong>Wizard</strong>: 開發 CLI，確保它能正確讀寫 Excel (使用 <code>openpyxl</code> 需注意保留原有樣式)。<br />
+4.  <strong>CI/CD</strong>: 配置 GitHub Actions 的同步檢查。</p>
+<hr />
+<p><strong>結論</strong>: 可以 Approvel (簽核通過)。</p>
+</body>
+</html>

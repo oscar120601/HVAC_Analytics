@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project_Assessment_Report</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="hvac-1">HVAC-1 專案評估報告</h1>
+<p><strong>專案可行性分析與架構評估</strong></p>
+<p><strong>文件版本:</strong> 1.0<br />
+<strong>日期:</strong> 2026-02-14<br />
+<strong>分析師:</strong> Oscar Chang<br />
+<strong>審閱 PRD 模組:</strong> 8 個核心模組<br />
+<strong>評估基礎:</strong> Interface Contract v1.1 + Foundation First Policy (基礎優先策略)</p>
+<hr />
+<h2 id="executive-summary">執行摘要 (Executive Summary)</h2>
+<h3 id="_1">評估結果: <strong>✅ 可行 (須注意關鍵依賴)</strong></h3>
+<p>HVAC-1 專案展現了<strong>生產就緒的架構</strong>，特別著重於資料一致性、時間正確性和模組化設計。根據對 8 個核心 PRD 文件的全面審閱，該專案在<strong>技術上是可行的</strong>，但必須嚴格遵守「基礎優先策略 (Foundation First Policy)」進行<strong>順序性開發</strong>，以避免依賴死鎖。</p>
+<h3 id="_2">主要優勢</h3>
+<ol>
+<li><strong>Interface Contract v1.1</strong>: 統一的錯誤代碼體系 (E000-E904)，設有 7 個關鍵檢查點，確保零誤差整合。</li>
+<li><strong>時間基準隔離 (Temporal Baseline Isolation)</strong>: 系統級 <code>pipeline_origin_timestamp</code>，防止跨模組的未來數據漂移。</li>
+<li><strong>Excel 為核心的 SSOT</strong>: Feature Annotation v1.2 強制執行唯讀 YAML 策略，防止配置衝突。</li>
+<li><strong>資源管理</strong>: 完整的 Kubernetes/Docker 資源限制，具備 OOM (記憶體溢出) 預防與檢查點恢復功能 (v1.3)。</li>
+<li><strong>多層級降級機制 (Fallback)</strong>: Optimization Engine v1.2 具備三層降級策略，確保系統穩健性。</li>
+</ol>
+<h3 id="_3">關鍵風險</h3>
+<ol>
+<li><strong>依賴死鎖 (Dependency Deadlock)</strong> (優先級 1): Feature Annotation Manager 必須在 Cleaner v2.2 之前實作，否則會導致初始化競爭條件。</li>
+<li><strong>設備角色洩漏 (Device Role Leakage)</strong> (E500): 需要嚴格的關注點分離 - <code>device_role</code> 僅供內部使用，絕不可寫入輸出。</li>
+<li><strong>註釋同步強制 (Annotation Sync)</strong> (E406): Pipeline 執行前必須強制檢查 Excel-YAML 的一致性。</li>
+<li><strong>資源估算</strong>: Model Training v1.3 的動態記憶體估算對於防止 K8s Pod 被驅逐至關重要。</li>
+</ol>
+<h3 id="sprint">建議 Sprint 順序</h3>
+<p><strong>Sprint 1 (基礎建設 - 6-7 天):</strong> Feature Annotation v1.2 + System Integration v1.2<br />
+<strong>Sprint 2 (核心 ETL - 15-17 天):</strong> Parser v2.1 → Cleaner v2.2 → Batch Processor v1.3<br />
+<strong>Sprint 3 (ML 流程 - 20-22 天):</strong> Feature Engineer v1.3 → Model Training v1.3<br />
+<strong>Sprint 4 (最佳化 - 8-9 天):</strong> Optimization Engine v1.2</p>
+<p><strong>總預估工期:</strong> 49-55 個開發日 (含緩衝約 10-11 週)</p>
+<hr />
+<h2 id="1-architecture-overview">1. 架構總覽 (Architecture Overview)</h2>
+<h3 id="11">1.1 系統級設計理念</h3>
+<p>HVAC-1 專案採用<strong>契約驅動、時間一致、資源感知</strong>的架構，核心原則如下：</p>
+<pre><code class="language-mermaid">graph TB
+    subgraph &quot;基礎層 (Sprint 1)&quot;
+        FA[Feature Annotation v1.2&lt;br/&gt;Excel 核心 SSOT]
+        SI[System Integration v1.2&lt;br/&gt;PipelineContext + DI Container]
+    end
+
+    subgraph &quot;ETL 流程 (Sprint 2)&quot;
+        Parser[Parser v2.1&lt;br/&gt;UTC 強制]
+        Cleaner[Cleaner v2.2&lt;br/&gt;語意感知清洗]
+        Batch[Batch Processor v1.3&lt;br/&gt;Manifest + 稽核軌跡]
+    end
+
+    subgraph &quot;特徵工程 (Sprint 3)&quot;
+        FE[Feature Engineer v1.3&lt;br/&gt;群組策略 + 滯後特徵]
+        MT[Model Training v1.3&lt;br/&gt;資源感知訓練]
+    end
+
+    subgraph &quot;最佳化 (Sprint 4)&quot;
+        OPT[Optimization Engine v1.2&lt;br/&gt;Fallback + 混合 MIP]
+    end
+
+    FA --&gt;|SSOT| SI
+    SI --&gt;|時間基準| Parser
+    Parser --&gt;|檢查點 #1| Cleaner
+    Cleaner --&gt;|檢查點 #2| Batch
+    Batch --&gt;|檢查點 #3| FE
+    FE --&gt;|檢查點 #4| MT
+    MT --&gt;|模型註冊表| OPT
+</code></pre>
+<h3 id="12-interface-contract-v11">1.2 Interface Contract v1.1 合規性</h3>
+<p>所有 8 個模組均嚴格遵守 Interface Contract v1.1，定義如下：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">檢查點</th>
+<th style="text-align: left;">來源 → 目標</th>
+<th style="text-align: left;">驗證項目</th>
+<th style="text-align: center;">錯誤代碼</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><strong>#1</strong></td>
+<td style="text-align: left;">Parser → Cleaner</td>
+<td style="text-align: left;">UTC 時區、標頭標準化、BOM 處理</td>
+<td style="text-align: center;">E101-E105</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>#2</strong></td>
+<td style="text-align: left;">Cleaner → Batch</td>
+<td style="text-align: left;">設備驗證稽核、時間基準合規性</td>
+<td style="text-align: center;">E201-E206, E350-E355</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>#3</strong></td>
+<td style="text-align: left;">Batch → Feature Engineer</td>
+<td style="text-align: left;">Parquet schema INT64/UTC、無 device_role (E500)</td>
+<td style="text-align: center;">E301-E305</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>#4</strong></td>
+<td style="text-align: left;">FE → Model Training</td>
+<td style="text-align: left;">特徵順序清單、縮放參數、註釋版本</td>
+<td style="text-align: center;">E601-E604</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>#5</strong></td>
+<td style="text-align: left;">Excel → YAML</td>
+<td style="text-align: left;">樣板版本、Schema 雜湊、同步時間戳記</td>
+<td style="text-align: center;">E406</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>#6</strong></td>
+<td style="text-align: left;">YAML → Manager</td>
+<td style="text-align: left;">Schema 版本相容性、繼承解析</td>
+<td style="text-align: center;">E400, E407</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>#7</strong></td>
+<td style="text-align: left;">Training → Registry</td>
+<td style="text-align: left;">特徵對齊、設備限制雜湊</td>
+<td style="text-align: center;">E901-E904</td>
+</tr>
+</tbody>
+</table>
+<h3 id="13-ssot">1.3 SSOT (單一真理來源) 層級</h3>
+<pre><code class="language-yaml"># SSOT 架構 (嚴格分層)
+第一層 (程式碼 SSOT):
+  - src/etl/config_models.py::VALID_QUALITY_FLAGS (6 個標記)
+  - src/etl/config_models.py::TIMESTAMP_CONFIG (UTC/INT64)
+  - src/etl/config_models.py::ERROR_CODE_REGISTRY (E000-E904)
+
+第二層 (特徵 SSOT):
+  - config/features/base.yaml (所有案場繼承)
+  - config/features/physical_types.yaml (單位定義)
+  - config/features/sites/{site_id}.yaml (由 Excel 產生)
+
+第三層 (執行時 SSOT):
+  - ETLConfig 實例 (由 Container 注入)
+  - PipelineContext (時間基準 + site_id)
+  - FeatureAnnotationManager (合併後的繼承鏈)
+
+禁止事項:
+  - 直接寫入 YAML (E501: 由 Import Guard 阻擋)
+  - 硬編碼 device_role 預設值 (E500: 只能使用 Annotation)
+  - 模組中使用 `datetime.now()` (必須使用 context.pipeline_timestamp)
+</code></pre>
+<hr />
+<h2 id="2-module-by-module-analysis">2. 模組分析 (Module-by-Module Analysis)</h2>
+<h3 id="21-parser-v21">2.1 Parser v2.1 (穩健性重構)</h3>
+<p><strong>狀態:</strong> ✅ 定義明確 | <strong>預估工時:</strong> 4 天 | <strong>優先級:</strong> Sprint 2</p>
+<h4 id="_4">關鍵功能</h4>
+<ul>
+<li><strong>編碼偵測:</strong> UTF-8 BOM 處理 + Big5/UTF-16 備援機制</li>
+<li><strong>智慧標頭搜尋:</strong> 多行掃描 (500 行) 與關鍵字匹配</li>
+<li><strong>時區標準化:</strong> <strong>強制 UTC 輸出</strong> (E102 執行)</li>
+<li><strong>契約驗證:</strong> 在交接給 Cleaner 前執行 <code>_validate_output_contract()</code></li>
+</ul>
+<h4 id="_5">設計優勢</h4>
+<p>✅ 明確的時區轉換，防止下游時間漂移<br />
+✅ BOM 處理決常了見的 BAS 導出問題<br />
+✅ 空值標準化 (8 種模式: "", "NA", "---", "Error" 等)</p>
+<h4 id="_6">實作風險</h4>
+<p>⚠️ <strong>Unicode 邊緣案例:</strong> 罕見編碼 (GB2312, Shift-JIS) 未顯式處理<br />
+⚠️ <strong>標頭歧義:</strong> 多語言標頭 (中英混合) 可能需要手動對應</p>
+<hr />
+<h3 id="22-cleaner-v22">2.2 Cleaner v2.2 (語意感知 + 設備驗證)</h3>
+<p><strong>狀態:</strong> ✅ 定義明確 | <strong>預估工時:</strong> 6-7 天 | <strong>優先級:</strong> Sprint 2</p>
+<h4 id="v21">v2.1 的關鍵更新</h4>
+<ul>
+<li><strong>設備邏輯預檢查</strong> (E350): 在資料進入前驗證 <code>chiller_pump_mutex</code> (互斥邏輯)</li>
+<li><strong>時間基準強制:</strong> 使用 <code>pipeline_origin_timestamp</code> 而非 <code>datetime.now()</code></li>
+<li><strong>設備角色感知:</strong> 根據角色調整閥值 (備用設備抑制 W403 警告) <strong>但不寫入輸出</strong></li>
+<li><strong>嚴格關注點分離:</strong> 從 Annotation 讀取 <code>device_role</code>，但 <strong>E500 阻擋其輸出洩漏</strong></li>
+</ul>
+<h4 id="ssot">SSOT 整合</h4>
+<pre><code class="language-python"># Cleaner v2.2 從 FeatureAnnotationManager 讀取 device_role:
+col_config = self.annotation_manager.get_column_config(&quot;chiller_2_temp&quot;)
+if col_config.device_role == &quot;backup&quot;:
+    # 針對備用設備抑制 W403 (長期閒置零值)
+    self._suppress_warning(&quot;W403&quot;, reason=&quot;Backup equipment long-term idle&quot;)
+
+# 輸出驗證 (守門員原則):
+if &quot;device_role&quot; in clean_df.columns:
+    raise DataLeakageError(&quot;E500: device_role must not pass to BatchProcessor&quot;)
+</code></pre>
+<h4 id="_7">設計優勢</h4>
+<p>✅ <strong>守門員機制:</strong> 在入口處阻擋錯誤資料 (預檢查) vs 後期清洗<br />
+✅ <strong>設備驗證稽核:</strong> 記錄違規事項供 BatchProcessor Manifest 使用<br />
+✅ <strong>Metadata 淨化:</strong> 強制執行 <code>ALLOWED_METADATA_KEYS</code> 防止屬性膨脹</p>
+<h4 id="_8">關鍵依賴</h4>
+<p>🔴 <strong>依賴死鎖風險:</strong> 需要 FeatureAnnotationManager v1.2 <strong>在 Cleaner 實例化之前初始化</strong><br />
+🟡 <strong>註釋版本檢查:</strong> Schema 不匹配觸發 E400 (需要 <code>migrate-excel</code> 工具)</p>
+<hr />
+<h3 id="23-feature-engineer-v13-fa">2.3 Feature Engineer v1.3-FA (特徵註釋消費)</h3>
+<p><strong>狀態:</strong> ✅ 定義明確 | <strong>預估工時:</strong> 5-6 天 | <strong>優先級:</strong> Sprint 3</p>
+<h4 id="_9">關鍵創新</h4>
+<ul>
+<li><strong>Metadata 分層:</strong> 物理屬性來自 Manifest，角色/警告來自 Annotation</li>
+<li><strong>直接註釋查詢:</strong> 繞過中間快取，直接獲取最新 <code>device_role</code>/<code>ignore_warnings</code></li>
+<li><strong>語意群組策略:</strong> 根據 <code>device_role</code> 調整滯後/滾動策略 (例如：備用設備使用較簡單的策略)</li>
+<li><strong>嚴格資料洩漏預防:</strong> 強制執行 <code>strict_past_only</code> 時間切割</li>
+</ul>
+<h4 id="_10">實作模式</h4>
+<pre><code class="language-python"># Step 3.1: 動態查詢 device_role (非來自 Manifest)
+col_config = self.annotation_manager.get_column_config(&quot;chiller_1_load&quot;)
+device_role = col_config.device_role  # &quot;primary&quot; | &quot;backup&quot; | &quot;seasonal&quot;
+
+# Step 3.2: 調整群組策略
+if device_role == &quot;backup&quot; and policy.name == &quot;High_Freq&quot;:
+    # 備用設備不需要高頻採樣
+    policy.lag_intervals = [1, 4]  # 從 [1, 4, 15, 96] 減少
+</code></pre>
+<hr />
+<h3 id="24-batch-processor-v13">2.4 Batch Processor v1.3 (契約對齊 + 註釋稽核)</h3>
+<p><strong>狀態:</strong> ✅ 定義明確 | <strong>預估工時:</strong> 6-7 天 | <strong>優先級:</strong> Sprint 2</p>
+<h4 id="interface-contract-v11">Interface Contract v1.1 關鍵對齊</h4>
+<ul>
+<li><strong>檢查點 #3 執行:</strong> 驗證 Cleaner 輸出包含 <code>equipment_validation_audit</code></li>
+<li><strong>時間基準傳遞:</strong> 將 <code>context.pipeline_timestamp</code> 寫入 Manifest 供下游使用</li>
+<li><strong>E408 SSOT 驗證:</strong> 比對程式碼 <code>VALID_QUALITY_FLAGS</code> 與 Manifest 版本</li>
+<li><strong>E500 最終檢查:</strong> 若偵測到 <code>device_role</code> 欄位，阻擋 Parquet 寫入</li>
+</ul>
+<h4 id="manifest-v13">Manifest 結構 (v1.3 更新)</h4>
+<pre><code class="language-json">{
+  &quot;version&quot;: &quot;2.0-ALIGN&quot;,
+  &quot;pipeline_origin_timestamp&quot;: &quot;2026-02-14T10:25:00Z&quot;,  // 來自 PipelineContext
+  &quot;equipment_validation_audit&quot;: {  // 來自 Cleaner v2.2
+    &quot;violations&quot;: [
+      {
+        &quot;constraint_id&quot;: &quot;chiller_pump_mutex&quot;,
+        &quot;severity&quot;: &quot;critical&quot;,
+        &quot;marked_as&quot;: &quot;PHYSICAL_IMPOSSIBLE&quot;
+      }
+    ]
+  },
+  &quot;temporal_baseline&quot;: {  // E000 強制執行
+    &quot;future_data_check&quot;: {
+      &quot;enabled&quot;: true,
+      &quot;violations_found&quot;: false
+    }
+  }
+}
+</code></pre>
+<hr />
+<h3 id="25-model-training-v13">2.5 Model Training v1.3 (資源感知 + 生產就緒)</h3>
+<p><strong>狀態:</strong> ✅ 定義明確 | <strong>預估工時:</strong> 10-12 天 | <strong>優先級:</strong> Sprint 3</p>
+<h4 id="v12">v1.2 重大增強</h4>
+<ol>
+<li><strong>資源管理系統:</strong> 訓練前記憶體估算 + 監控 + OOM 預防</li>
+<li><strong>Kubernetes 整合:</strong> 資源請求/限制，preStop hook 用於緊急檢查點</li>
+<li><strong>Docker 資源限制:</strong> 參數化 --memory, --cpus, --shm-size</li>
+<li><strong>檢查點管理器:</strong> 記憶體壓力過大 (&gt;85%) 時自動儲存</li>
+<li><strong>混合一致性檢查:</strong> 系統 vs 組件模型差異偵測 (E710 &gt;15%, W702 &gt;5%)</li>
+</ol>
+<h4 id="_11">資源估算公式</h4>
+<pre><code class="language-python">def estimate_resource_requirements(n_samples, n_features, model_types):
+    base_memory_gb = 2.0  # Python runtime
+    # ... 計算數據記憶體 ...
+    # ... 根據模型類型 (XGBoost/LightGBM/RF) 乘上係數 ...
+    # 安全邊際: 20%
+    return estimated_memory_gb * 1.2
+</code></pre>
+<hr />
+<h3 id="26-optimization-engine-v12-fallback">2.6 Optimization Engine v1.2 (穩健 + Fallback)</h3>
+<p><strong>狀態:</strong> ✅ 定義明確 | <strong>預估工時:</strong> 8-9 天 | <strong>優先級:</strong> Sprint 4</p>
+<h4 id="_12">防禦性最佳化哲學</h4>
+<p><strong>「寧可接受次佳的可行解，也不要系統崩潰」</strong></p>
+<p>三層級 Fallback 策略：</p>
+<pre><code>Level 0 (標準): differential_evolution + 完整約束
+  ↓ [無解/超時]
+Level 1 (放寬): 移除軟約束 (互斥放寬 10%)
+  ↓ [仍無解]
+Level 2 (啟發式): GreedyHeuristicOptimizer (依效率排序選擇設備)
+  ↓ [仍無解]
+Level 3 (當前配置): 回傳當前配置並附帶診斷報告
+</code></pre>
+<h4 id="_13">混合模型一致性檢查</h4>
+<pre><code class="language-python"># E806 警告 (5-15% 差異)
+# E810 嚴重錯誤 (&gt;15% 差異)
+
+if discrepancy_pct &gt; 15:
+    raise HybridInconsistencyError(f&quot;E810: 模型差異 {discrepancy_pct:.1f}% &gt; 15%. 需要重新訓練。&quot;)
+</code></pre>
+<hr />
+<h3 id="27-feature-annotation-v12-excel-ssot">2.7 Feature Annotation v1.2 (Excel 核心 SSOT)</h3>
+<p><strong>狀態:</strong> ✅ 定義明確 | <strong>預估工時:</strong> 6-7 天 | <strong>優先級:</strong> Sprint 1 (基礎)</p>
+<h4 id="excel-uiyaml">設計哲學: <strong>「Excel 作為 UI，YAML 作為資料庫」</strong></h4>
+<p><strong>關鍵工作流:</strong></p>
+<pre><code>人員編輯 (Excel) → 驗證 (excel_to_yaml.py) → YAML SSOT → Git PR → Container 部署
+         ↑                                                                 ↓
+         └───────────── 災難恢復 (yaml_to_excel.py) ───────────────────────┘
+</code></pre>
+<h4 id="yaml">防止直接修改 YAML 的三層保護</h4>
+<ol>
+<li><strong>檔案系統保護:</strong> 部署時設置唯讀與不可變更屬性</li>
+<li><strong>Import Guard (執行時):</strong> <code>yaml_write_guard.py</code> 攔截寫入操作</li>
+<li><strong>Manager API 限制:</strong> 僅提供唯讀介面</li>
+</ol>
+<hr />
+<h3 id="28-system-integration-v12">2.8 System Integration v1.2 (有序初始化 + 時間一致性)</h3>
+<p><strong>狀態:</strong> ✅ 定義明確 | <strong>預估工時:</strong> 6-7 天 | <strong>優先級:</strong> Sprint 1 (基礎)</p>
+<h4 id="pipelinecontext">PipelineContext: 時間基準載體</h4>
+<p><strong>設計目的:</strong> 消除各模組中的 <code>datetime.now()</code> 呼叫</p>
+<pre><code class="language-python">@dataclass
+class PipelineContext:
+    pipeline_timestamp: datetime  # 全域統一時間
+
+    def is_future_timestamp(self, timestamp):
+        # 統一的未來數據檢查邏輯
+        pass
+</code></pre>
+<h4 id="etlcontainer">嚴格初始化順序 (ETLContainer)</h4>
+<p><strong>優點:</strong><br />
+1. <strong>防止競爭條件:</strong> Cleaner 在 AnnotationManager 之前無法初始化<br />
+2. <strong>檔案鎖整合:</strong> 在 Container 初始化時檢測 Excel-YAML 衝突<br />
+3. <strong>時間一致性:</strong> 所有模組使用相同的 <code>pipeline_timestamp</code></p>
+<hr />
+<h2 id="3">3. 關鍵依賴分析</h2>
+<h3 id="31">3.1 依賴圖 (基礎優先策略)</h3>
+<pre><code class="language-mermaid">graph TD
+    subgraph &quot;Sprint 1: 基礎建設 (必要先決條件)&quot;
+        FA[Feature Annotation v1.2&lt;br/&gt;6-7 天]
+        SI[System Integration v1.2&lt;br/&gt;6-7 天]
+        FA --&gt; SI
+    end
+
+    subgraph &quot;Sprint 2: ETL 流程&quot;
+        Parser[Parser v2.1&lt;br/&gt;4 天]
+        Cleaner[Cleaner v2.2&lt;br/&gt;6-7 天]
+        Batch[Batch Processor v1.3&lt;br/&gt;6-7 天]
+
+        SI --&gt; Parser
+        SI --&gt; Cleaner
+        FA --&gt; Cleaner
+        Parser --&gt; Cleaner
+        Cleaner --&gt; Batch
+    end
+
+    subgraph &quot;Sprint 3: ML 流程&quot;
+        FE[Feature Engineer v1.3&lt;br/&gt;5-6 天]
+        MT[Model Training v1.3&lt;br/&gt;10-12 天]
+
+        FA --&gt; FE
+        Batch --&gt; FE
+        FE --&gt; MT
+    end
+
+    subgraph &quot;Sprint 4: 最佳化&quot;
+        OPT[Optimization Engine v1.2&lt;br/&gt;8-9 天]
+
+        MT --&gt; OPT
+        FA --&gt; OPT
+    end
+
+    style FA fill:#f00,stroke:#333,color:#fff,stroke-width:4px
+    style SI fill:#f00,stroke:#333,color:#fff,stroke-width:4px
+</code></pre>
+<h3 id="32">3.2 阻擋性依賴 (必須在編碼前解決)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">阻擋 ID</th>
+<th style="text-align: left;">模組</th>
+<th style="text-align: left;">依賴項目</th>
+<th style="text-align: left;">違規影響</th>
+<th style="text-align: left;">解決方案</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><strong>BD-001</strong></td>
+<td style="text-align: left;">Cleaner v2.2</td>
+<td style="text-align: left;">FeatureAnnotationManager 已初始化</td>
+<td style="text-align: left;">E901 執行時錯誤 (初始化順序違規)</td>
+<td style="text-align: left;"><strong>優先</strong>實作 Feature Annotation v1.2</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>BD-002</strong></td>
+<td style="text-align: left;">Batch Processor v1.3</td>
+<td style="text-align: left;">Context 之時間基準</td>
+<td style="text-align: left;">未來數據檢查不一致</td>
+<td style="text-align: left;"><strong>優先</strong>實作 System Integration v1.2</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>BD-003</strong></td>
+<td style="text-align: left;">Feature Engineer v1.3</td>
+<td style="text-align: left;">Annotation <code>device_role</code></td>
+<td style="text-align: left;">群組策略邏輯失敗</td>
+<td style="text-align: left;">等待 Feature Annotation v1.2</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>BD-004</strong></td>
+<td style="text-align: left;">Model Training v1.3</td>
+<td style="text-align: left;">特徵順序 Manifest + 縮放參數</td>
+<td style="text-align: left;">E901 特徵對齊錯誤</td>
+<td style="text-align: left;">確保 FE v1.3 輸出 <code>feature_order_manifest</code></td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>BD-005</strong></td>
+<td style="text-align: left;">Optimization v1.2</td>
+<td style="text-align: left;">含特徵 Manifest 的 Model Registry</td>
+<td style="text-align: left;">E901/E903/E904 驗證失敗</td>
+<td style="text-align: left;">等待 Model Training v1.3</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="4">4. 風險評估與緩解</h2>
+<h3 id="41">4.1 技術風險 (按優先級排序)</h3>
+<h4 id="t1">風險 T1: 依賴死鎖 (嚴重)</h4>
+<p><strong>機率:</strong> 高 (80%) | <strong>影響:</strong> 專案停滯<br />
+<strong>緩解:</strong><br />
+1. ✅ 強制 Sprint 1 完成後才開始 Sprint 2<br />
+2. ✅ 加入 CI 檢查: <code>pytest tests/integration/test_init_order.py</code><br />
+3. ✅ 使用 DI Container 模式</p>
+<h4 id="t2-e500">風險 T2: 設備角色洩漏 (E500) (高)</h4>
+<p><strong>機率:</strong> 中 (60%) | <strong>影響:</strong> 資料完整性違規<br />
+<strong>緩解:</strong><br />
+1. ✅ Cleaner 輸出契約: <code>assert "device_role" not in clean_df.columns</code><br />
+2. ✅ Batch Processor 預檢查與 Model Training 輸入驗證</p>
+<h4 id="t3-e406">風險 T3: 註釋同步漂移 (E406) (高)</h4>
+<p><strong>機率:</strong> 中 (50%) | <strong>影響:</strong> 配置不一致<br />
+<strong>緩解:</strong><br />
+1. ✅ 嚴格同步檢查: <code>fa_config.strict_sync_check = True</code><br />
+2. ✅ CI Hook: 驗證 Excel 修改時間 &lt; YAML 修改時間</p>
+<hr />
+<h2 id="5">5. 可行性評估</h2>
+<h3 id="51">5.1 技術可行性: ✅ <strong>確認可行</strong></h3>
+<p><strong>優勢:</strong> 定義明確的契約、成熟的技術堆疊、深度防禦驗證、生產級模式。</p>
+<h3 id="52">5.2 資源可行性: ⚠️ <strong>可行但有限制</strong></h3>
+<p><strong>需求:</strong> 1 位資深後端、1 位 ML 工程師、1 位資料工程師、0.5 位 DevOps。<br />
+<strong>硬體:</strong> 生產環境 K8s 需至少 2 節點 (各 16GB RAM)。</p>
+<h3 id="53-10-11">5.3 時程可行性: ✅ <strong>10-11 週內可達成</strong></h3>
+<p><strong>總預估:</strong> 49-55 天。關鍵路徑因依賴關係呈現嚴格的順序性。</p>
+<hr />
+<h2 id="6">6. 建議</h2>
+<h3 id="61">6.1 立即行動 (編碼開始前)</h3>
+<h4 id="1-ci">行動 1: 實作依賴驗證 CI 檢查 (優先級: 🔴 嚴重)</h4>
+<p>確保初始化順序符合規定。</p>
+<h4 id="2-contributingmd-excel">行動 2: 在 CONTRIBUTING.md 記錄 Excel 工作流 (優先級: 🟡 高)</h4>
+<p>明確規範 Excel 是唯一編輯介面，禁止直接修改 YAML。</p>
+<h4 id="3-sprint-1">行動 3: 建立 Sprint 1 基礎檢核表 (優先級: 🟡 高)</h4>
+<p>包含 Feature Annotation 與 System Integration 的每日細項任務。</p>
+<hr />
+<h2 id="7">7. 結論</h2>
+<h3 id="71">7.1 最終結論</h3>
+<p>HVAC-1 專案<strong>架構健全且已準備好開發</strong>，前提是：<br />
+1. ✅ <strong>可以開始開發</strong>：若嚴格執行「基礎優先策略」(Sprint 1 在 Sprint 2 之前完成)。<br />
+2. ⚠️ <strong>暫緩開發</strong>：若關鍵基礎建設 (K8s, 資深人員) 尚未到位。</p>
+<p><strong>文件產生日期:</strong> 2026-02-14<br />
+<strong>下次審閱:</strong> Sprint 1 完成後</p>
+</body>
+</html>

@@ -1,0 +1,1713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_System_Integration_v1.1</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="prd-v11-revised-system-integration-architecture">PRD v1.1-REVISED: 系統整合架構 (System Integration Architecture)</h1>
+<h1 id="feature-annotation-v12">整合 Feature Annotation v1.2 規範（已採納審查修正）</h1>
+<p><strong>文件版本:</strong> v1.1-REVISED (Zero-Gap Pipeline with Feature Annotation v1.2)<br />
+<strong>日期:</strong> 2026-02-13<br />
+<strong>負責人:</strong> Oscar Chang<br />
+<strong>目標模組:</strong> <code>src/container.py</code>, <code>src/main.py</code>, <code>src/utils/config_loader.py</code>, <code>src/features/annotation_manager.py</code><br />
+<strong>相依模組:</strong> <br />
+- Parser v2.1+, Cleaner v2.2+, BatchProcessor v1.3+, Feature Engineer v1.3+<br />
+- <strong>Feature Annotation v1.2</strong> (Excel-Centric SSOT)<br />
+<strong>預估工時:</strong> 5 ~ 6 個工程天（含 Feature Annotation 整合與全鏈路測試）</p>
+<hr />
+<h2 id="1">1. 執行總綱與設計哲學</h2>
+<h3 id="11">1.1 核心目標</h3>
+<p>建立<strong>零間隙對接</strong>的完整 ETL Pipeline，並整合 Feature Annotation v1.2 的<strong>單向編輯流</strong>：</p>
+<ol>
+<li><strong>配置單一真相源 (SSOT)</strong>: <br />
+   - 運行時配置：<code>ETLConfig</code> 實例<br />
+   - 特徵定義：<strong>Excel 唯一編輯</strong> → YAML SSOT → Pipeline 消費</li>
+<li><strong>依賴注入 (DI)</strong>: 透過 <code>Container</code> 管理模組生命周期，包含 <code>FeatureAnnotationManager</code></li>
+<li><strong>契約檢查點</strong>: 6 個關鍵檢查點（新增 Annotation 同步檢查 #5, #6）</li>
+<li><strong>錯誤傳播鏈</strong>: 明確定義錯誤如何在模組間傳播（新增 E400 系列錯誤）</li>
+<li><strong>單向流保證</strong>: 禁止 Pipeline 直接寫入 YAML，禁止 Wizard 繞過 Excel</li>
+</ol>
+<h3 id="12">1.2 架構概覽（更新）</h3>
+<pre><code class="language-mermaid">graph TB
+    subgraph &quot;Feature Annotation Layer (v1.2)&quot;
+        FA1[Excel Template&lt;br/&gt;*.xlsx] --&gt;|編輯| FA2[空調技師/工程師]
+        FA2 --&gt;|手動觸發| FA3[excel_to_yaml.py]
+        FA3 --&gt;|驗證| FA4{檢查點 #5&lt;br/&gt;Annotation Valid}
+        FA4 --&gt;|生成| FA5[config/features/sites/*.yaml&lt;br/&gt;SSOT]
+        FA5 --&gt;|Git PR| FA6[Config Server]
+    end
+
+    subgraph &quot;Configuration Layer&quot;
+        A[settings.yaml] --&gt; B[ConfigLoader]
+        B --&gt; C[ETLConfig SSOT]
+        FA6 --&gt;|載入| C
+    end
+
+    subgraph &quot;Dependency Injection Container&quot;
+        C --&gt; D[ETLContainer]
+        D --&gt; E[ReportParser v2.1]
+        D --&gt; F[DataCleaner v2.2]
+        D --&gt; G[BatchOrchestrator v1.3]
+        D --&gt; H[FeatureEngineer v1.3]
+        D --&gt; I[FeatureAnnotationManager&lt;br/&gt;v1.2]
+    end
+
+    subgraph &quot;Pipeline Execution&quot;
+        E --&gt;|Raw DF UTC| F
+        F --&gt;|Clean DF&lt;br/&gt;語意感知清洗| G
+        G --&gt;|Parquet + Manifest&lt;br/&gt;含 annotation_checksum| H
+        H --&gt;|Feature Matrix&lt;br/&gt;套用 device_role &amp; Group Policy| J[Model Training]
+    end
+
+    subgraph &quot;Contract Checkpoints&quot;
+        CP1{檢查點 #1&lt;br/&gt;Parser Output}
+        CP2{檢查點 #2&lt;br/&gt;Cleaner Output}
+        CP3{檢查點 #3&lt;br/&gt;BatchProcessor Output}
+        CP4{檢查點 #4&lt;br/&gt;FE Input Schema}
+        CP5{檢查點 #5&lt;br/&gt;Excel/YAML Sync}
+        CP6{檢查點 #6&lt;br/&gt;Annotation Version}
+    end
+
+    E -.-&gt; CP1 -.-&gt; F
+    F -.-&gt; CP2 -.-&gt; G
+    G -.-&gt; CP3 -.-&gt; H
+    H -.-&gt; CP4 -.-&gt; J
+    FA1 -.-&gt; CP5 -.-&gt; FA3
+    FA5 -.-&gt; CP6 -.-&gt; I
+
+    style C fill:#f9f,stroke:#333,stroke-width:4px
+    style D fill:#bbf,stroke:#333,stroke-width:4px
+    style FA1 fill:#f9f,stroke:#f00,stroke-width:2px
+    style FA5 fill:#bbf,stroke:#00f,stroke-width:2px
+</code></pre>
+<hr />
+<h2 id="2-ssot-configuration-system">2. SSOT 配置系統 (Configuration System)</h2>
+<h3 id="21-feature-annotation">2.1 統一配置結構（整合 Feature Annotation）</h3>
+<p><strong>檔案</strong>: <code>src/etl/config_models.py</code> (核心 SSOT)</p>
+<p><strong>關鍵更新</strong>:<br />
+- 新增 <code>FeatureAnnotationConfig</code> 設定 Annotation 路徑與版本檢查<br />
+- <code>ETLConfig</code> 新增 <code>feature_annotation</code> 欄位<br />
+- <strong>移除 <code>CleanerConfig.default_device_role</code>（審查修正：避免隱性預設值）</strong><br />
+- <strong>新增 <code>CleanerConfig.unannotated_column_policy</code>（審查修正：未定義欄位處理策略）</strong></p>
+<pre><code class="language-python">from typing import Final, List, Dict, Optional, Literal
+from pydantic import BaseModel, validator, Field
+
+# SSOT 1: Quality Flags (6個標準值，全域唯一)
+VALID_QUALITY_FLAGS: Final[List[str]] = [
+    &quot;FROZEN&quot;,           # 數據凍結（連續3個區間值相同）
+    &quot;HEAT_IMBALANCE&quot;,   # 熱平衡偏差 &gt; 5%
+    &quot;AFFINITY_VIOLATION&quot;, # 違反親和律 &gt; 15%
+    &quot;OUTLIER&quot;,          # 統計離群值（IQR法）
+    &quot;INSUFFICIENT_DATA&quot;, # 時間空缺補全標記
+    &quot;SENSOR_OFFLINE&quot;    # 感測器離線（新增）
+]
+
+# SSOT 2: 時間戳規範 (所有模組必須遵守)
+TIMESTAMP_CONFIG: Final[Dict] = {
+    &quot;dtype&quot;: &quot;Datetime&quot;,
+    &quot;time_unit&quot;: &quot;nanoseconds&quot;,  # ns
+    &quot;time_zone&quot;: &quot;UTC&quot;,          # 強制UTC
+    &quot;parquet_physical_type&quot;: &quot;INT64&quot;  # 禁止INT96
+}
+
+# SSOT 3: Feature Annotation 相關常數（新增）
+FEATURE_ANNOTATION_CONSTANTS: Final[Dict] = {
+    &quot;current_template_version&quot;: &quot;1.2&quot;,
+    &quot;expected_schema_version&quot;: &quot;1.2&quot;,
+    &quot;checksum_algorithm&quot;: &quot;sha256&quot;
+}
+
+# SSOT 4: Feature Metadata Schema（更新：支援 device_role）
+class FeatureMetadata(BaseModel):
+    column_name: str
+    physical_type: Literal[
+        &quot;temperature&quot;, &quot;flow_rate&quot;, &quot;power&quot;, &quot;status&quot;, 
+        &quot;humidity&quot;, &quot;gauge&quot;, &quot;chiller_load&quot;, &quot;cooling_tower_load&quot;
+    ]
+    unit: Optional[str] = None           # &quot;LPM&quot;, &quot;kW&quot;, &quot;°C&quot;, &quot;%&quot;
+    device_role: Literal[&quot;primary&quot;, &quot;backup&quot;, &quot;seasonal&quot;] = &quot;primary&quot;  # 新增
+    is_target: bool = False              
+    enable_lag: bool = True
+    enable_rolling: bool = True
+    agg_method: Literal[&quot;mean&quot;, &quot;sum&quot;, &quot;last&quot;, &quot;first&quot;] = &quot;mean&quot;
+    ignore_warnings: List[str] = Field(default_factory=list)  # 新增：[&quot;W401&quot;, &quot;W403&quot;]
+
+    @validator('enable_lag')
+    def validate_target_no_lag(cls, v, values):
+        &quot;&quot;&quot;E405: Target 變數不可啟用 Lag&quot;&quot;&quot;
+        if values.get('is_target') and v:
+            raise ValueError(&quot;E405: is_target=True 時 enable_lag 必須為 False&quot;)
+        return v
+
+# Parser 配置
+class ParserConfig(BaseModel):
+    encoding: str = &quot;auto&quot;               
+    header_scan_rows: int = 500
+    assumed_timezone: str = &quot;Asia/Taipei&quot;  
+    null_values: List[str] = Field(default_factory=lambda: [
+        &quot;&quot;, &quot;NA&quot;, &quot;null&quot;, &quot;---&quot;, &quot;Error&quot;, &quot;N/A&quot;, &quot;OFF&quot;, &quot;OFFLINE&quot;, &quot;#VALUE!&quot;
+    ])
+
+# Cleaner 配置（審查修正：移除 default_device_role，避免隱性預設值）
+class CleanerConfig(BaseModel):
+    unit_system: Literal[&quot;METRIC&quot;, &quot;IMPERIAL&quot;] = &quot;METRIC&quot;
+    resample_interval: str = &quot;15m&quot;       
+    heat_balance_threshold: float = 0.05  
+    frozen_data_intervals: int = 3
+    enforce_output_contract: bool = True
+    # 審查修正：移除 default_device_role，所有 device_role 必須來自 Annotation
+    use_device_role_from_annotation: bool = True
+    # 審查修正：新增未定義欄位處理策略（strict_mode 下應為 error）
+    unannotated_column_policy: Literal[&quot;error&quot;, &quot;skip&quot;, &quot;warn&quot;] = &quot;error&quot;
+
+# BatchProcessor 配置（更新：Annotation 版本寫入 Manifest）
+class BatchConfig(BaseModel):
+    output_base_dir: str = &quot;data/processed&quot;
+    staging_dir: str = &quot;data/.staging&quot;
+    max_rows_per_file: int = 100_000
+    compression: Literal[&quot;snappy&quot;, &quot;zstd&quot;] = &quot;snappy&quot;
+    use_pyarrow: bool = False            
+    future_data_tolerance_minutes: int = 5
+    # 新增：強制檢查 Annotation 同步
+    enforce_annotation_sync: bool = True
+
+# Feature Engineer 配置（更新：使用 Group Policy）
+class FeatureEngineeringConfig(BaseModel):
+    execution_mode: Literal[&quot;in_memory&quot;] = &quot;in_memory&quot;
+    cutoff_timestamp: Optional[str] = None  
+    group_policies: List[Dict] = Field(default_factory=list)
+    physics_features: bool = True
+    time_features: bool = True
+    # 新增：消費 device_role 與 ignore_warnings
+    respect_device_role: bool = True       # 抑制備用設備統計誤報
+    respect_ignore_warnings: bool = True   # 抑制特定警告
+
+# Feature Annotation 配置（新增）
+class FeatureAnnotationConfig(BaseModel):
+    &quot;&quot;&quot;Feature Annotation v1.2 設定&quot;&quot;&quot;
+    enabled: bool = True
+    excel_base_dir: str = &quot;data/features&quot;           # 使用者編輯區
+    yaml_base_dir: str = &quot;config/features/sites&quot;    # SSOT 輸出
+    template_dir: str = &quot;tools/features/templates&quot;
+    current_template_version: str = &quot;1.2&quot;
+    # 自動同步檢查
+    auto_sync_check: bool = True
+    # 嚴格模式：Excel/YAML 不同步時阻擋 Pipeline
+    strict_sync_check: bool = True
+
+# 統一配置根（更新）
+class ETLConfig(BaseModel):
+    &quot;&quot;&quot;ETL Pipeline 統一配置 (SSOT 中心)&quot;&quot;&quot;
+    version: str = &quot;1.0&quot;
+    site_id: str = &quot;default&quot;
+
+    parser: ParserConfig = ParserConfig()
+    cleaner: CleanerConfig = CleanerConfig()
+    batch: BatchConfig = BatchConfig()
+    feature: FeatureEngineeringConfig = FeatureEngineeringConfig()
+    feature_annotation: FeatureAnnotationConfig = FeatureAnnotationConfig()  # 新增
+
+    # 全域設定
+    log_level: str = &quot;INFO&quot;
+    strict_mode: bool = True             
+
+    @validator('version')
+    def validate_version(cls, v):
+        if v != &quot;1.0&quot;:
+            raise ValueError(&quot;Config version must be 1.0&quot;)
+        return v
+
+    @validator('feature_annotation')
+    def validate_annotation_paths(cls, v):
+        &quot;&quot;&quot;確保 Annotation 目錄存在&quot;&quot;&quot;
+        from pathlib import Path
+        for path_attr in ['excel_base_dir', 'yaml_base_dir']:
+            path = Path(getattr(v, path_attr))
+            path.mkdir(parents=True, exist_ok=True)
+        return v
+</code></pre>
+<h3 id="22-configloader-feature-annotation">2.2 配置載入器 (ConfigLoader) - 整合 Feature Annotation</h3>
+<p><strong>檔案</strong>: <code>src/utils/config_loader.py</code></p>
+<p><strong>關鍵更新</strong>:<br />
+- 新增 <code>load_feature_annotation()</code> 方法載入 YAML SSOT（注意：僅載入，不處理繼承，繼承邏輯在 Manager 處理）<br />
+- 新增 <code>validate_annotation_sync()</code> 檢查 Excel/YAML 同步狀態</p>
+<pre><code class="language-python">import yaml
+import hashlib
+from pathlib import Path
+from typing import Union, Dict, Optional
+from src.etl.config_models import ETLConfig, VALID_QUALITY_FLAGS, FEATURE_ANNOTATION_CONSTANTS
+
+class ConfigurationError(Exception):
+    &quot;&quot;&quot;配置錯誤&quot;&quot;&quot;
+    pass
+
+class AnnotationSyncError(ConfigurationError):
+    &quot;&quot;&quot;E406: Excel 與 YAML 不同步&quot;&quot;&quot;
+    pass
+
+class ConfigLoader:
+    &quot;&quot;&quot;統一配置載入，確保所有模組引用相同 SSOT&quot;&quot;&quot;
+
+    @staticmethod
+    def load(config_path: Union[str, Path] = &quot;config/settings.yaml&quot;) -&gt; ETLConfig:
+        &quot;&quot;&quot;載入並驗證 ETL 主配置&quot;&quot;&quot;
+        config_path = Path(config_path)
+
+        if not config_path.exists():
+            raise ConfigurationError(f&quot;配置文件不存在: {config_path}&quot;)
+
+        with open(config_path, 'r', encoding='utf-8') as f:
+            try:
+                data = yaml.safe_load(f)
+            except yaml.YAMLError as e:
+                raise ConfigurationError(f&quot;YAML 解析錯誤: {e}&quot;)
+
+        # 驗證 SSOT 一致性
+        code_flags = set(VALID_QUALITY_FLAGS)
+        config_flags = set(data.get(&quot;custom_quality_flags&quot;, []))
+
+        if config_flags and config_flags != code_flags:
+            missing_base = code_flags - config_flags
+            if missing_base:
+                raise ConfigurationError(
+                    f&quot;settings.yaml 中的 flags 缺少 SSOT 基礎標記: {missing_base}. &quot;
+                    f&quot;程式碼定義: {code_flags}&quot;
+                )
+
+        # 驗證目錄存在性或自動建立
+        for dir_key in [&quot;output_base_dir&quot;, &quot;staging_dir&quot;]:
+            if dir_key in data.get(&quot;batch&quot;, {}):
+                Path(data[&quot;batch&quot;][dir_key]).mkdir(parents=True, exist_ok=True)
+
+        try:
+            return ETLConfig(**data)
+        except Exception as e:
+            raise ConfigurationError(f&quot;配置驗證失敗: {e}&quot;)
+
+    @staticmethod
+    def load_feature_annotation(site_id: str, yaml_base_dir: str = &quot;config/features/sites&quot;) -&gt; Dict:
+        &quot;&quot;&quot;
+        載入特定案場的 Feature Annotation YAML (原始內容，未合併繼承)
+        注意：繼承合併邏輯由 FeatureAnnotationManager 處理
+
+        檢查項目:
+        1. 檔案存在性
+        2. schema_version 相容性（僅檢查，不合併）
+        &quot;&quot;&quot;
+        yaml_path = Path(yaml_base_dir) / f&quot;{site_id}.yaml&quot;
+
+        if not yaml_path.exists():
+            raise ConfigurationError(f&quot;E402: Feature Annotation 未定義: {yaml_path}&quot;)
+
+        with open(yaml_path, 'r', encoding='utf-8') as f:
+            annotation = yaml.safe_load(f)
+
+        # 檢查 Schema 版本（檢查點 #6）
+        schema_ver = annotation.get('schema_version', 'unknown')
+        expected_ver = FEATURE_ANNOTATION_CONSTANTS['expected_schema_version']
+        if schema_ver != expected_ver:
+            raise ConfigurationError(
+                f&quot;E400: Annotation Schema 版本不符。期望: {expected_ver}, 實際: {schema_ver}. &quot;
+                f&quot;請執行 migrate_excel.py 升級&quot;
+            )
+
+        return annotation
+
+    @staticmethod
+    def validate_annotation_sync(site_id: str, excel_base_dir: str, yaml_base_dir: str) -&gt; dict:
+        &quot;&quot;&quot;
+        E406: 檢查 Excel 與 YAML 是否同步
+
+        Returns:
+            {
+                'synced': bool,
+                'excel_mtime': float,
+                'yaml_mtime': float,
+                'excel_checksum': str,
+                'yaml_checksum': str,
+                'reason': str
+            }
+        &quot;&quot;&quot;
+        excel_path = Path(excel_base_dir) / site_id / f&quot;{site_id}.xlsx&quot;
+        yaml_path = Path(yaml_base_dir) / f&quot;{site_id}.yaml&quot;
+
+        if not excel_path.exists():
+            return {'synced': False, 'reason': f'Excel 不存在: {excel_path}'}
+        if not yaml_path.exists():
+            return {'synced': False, 'reason': f'YAML 不存在: {yaml_path}'}
+
+        # 時間戳比較
+        excel_mtime = excel_path.stat().st_mtime
+        yaml_mtime = yaml_path.stat().st_mtime
+
+        if excel_mtime &gt; yaml_mtime:
+            return {
+                'synced': False,
+                'excel_mtime': excel_mtime,
+                'yaml_mtime': yaml_mtime,
+                'reason': f'E406: Excel ({excel_path.name}) 較新，請重新執行 excel_to_yaml.py'
+            }
+
+        # Checksum 比對（若 YAML 中有記錄）
+        with open(yaml_path, 'r', encoding='utf-8') as f:
+            yaml_content = yaml.safe_load(f)
+
+        stored_checksum = yaml_content.get('meta', {}).get('excel_checksum', '')
+        if stored_checksum:
+            actual_checksum = ConfigLoader._compute_file_hash(excel_path)
+            if stored_checksum != actual_checksum:
+                return {
+                    'synced': False,
+                    'excel_checksum': actual_checksum,
+                    'yaml_checksum': stored_checksum,
+                    'reason': 'E406: Checksum 不符，Excel 可能已修改但未重新生成 YAML'
+                }
+
+        return {'synced': True, 'reason': '同步'}
+
+    @staticmethod
+    def _compute_file_hash(file_path: Path) -&gt; str:
+        &quot;&quot;&quot;計算檔案 SHA256&quot;&quot;&quot;
+        sha256_hash = hashlib.sha256()
+        with open(file_path, &quot;rb&quot;) as f:
+            for byte_block in iter(lambda: f.read(4096), b&quot;&quot;):
+                sha256_hash.update(byte_block)
+        return f&quot;sha256:{sha256_hash.hexdigest()}&quot;
+
+    @staticmethod
+    def get_annotation_metadata(site_id: str, yaml_base_dir: str) -&gt; Dict:
+        &quot;&quot;&quot;取得 Annotation 元資料（供 Manifest 寫入）&quot;&quot;&quot;
+        # 注意：此處僅讀取原始檔案的 meta，不觸發繼承合併
+        annotation = ConfigLoader.load_feature_annotation(site_id, yaml_base_dir)
+        return {
+            'schema_version': annotation.get('schema_version'),
+            'template_version': annotation.get('meta', {}).get('template_version'),
+            'last_updated': annotation.get('meta', {}).get('last_updated'),
+            'editor': annotation.get('meta', {}).get('editor'),
+            'yaml_checksum': annotation.get('meta', {}).get('excel_checksum', '')
+        }
+</code></pre>
+<hr />
+<h2 id="3-di-container-featureannotationmanager">3. 依賴注入容器 (DI Container) - 整合 FeatureAnnotationManager</h2>
+<h3 id="31-etlcontainer-cleaner">3.1 ETLContainer 實作（審查修正：Cleaner 職責釐清）</h3>
+<p><strong>檔案</strong>: <code>src/container.py</code></p>
+<p><strong>關鍵修正</strong>:<br />
+- <strong>Cleaner 不寫入 DataFrame metadata</strong>：改為傳入 <code>FeatureAnnotationManager</code> 引用，供 Cleaner 在清洗時查詢 device_role 調整策略<br />
+- <strong>Cleaner 僅讀取 device_role 用於語意感知清洗</strong>：例如備用設備放寬凍結資料檢測閾值，但不將 device_role 寫入輸出 DataFrame 的物理儲存（避免耦合）</p>
+<pre><code class="language-python">from typing import Optional, List, Dict
+from pathlib import Path
+import polars as pl
+
+from src.etl.config_models import ETLConfig
+from src.etl.parser import ReportParser
+from src.etl.cleaner import DataCleaner
+from src.etl.batch_processor import BatchOrchestrator, BatchResult
+from src.etl.feature_engineer import FeatureEngineer
+from src.features.annotation_manager import FeatureAnnotationManager  # 新增
+from src.utils.config_loader import ConfigLoader, AnnotationSyncError
+from src.utils.logger import get_logger
+
+class ETLContainer:
+    &quot;&quot;&quot;
+    依賴注入容器 (Dependency Injection Container) - v1.1-REVISED
+
+    管理所有 ETL 模組的生命周期與配置傳遞，確保:
+    1. 單例模式 (Singleton) 
+    2. 配置一致性 
+    3. Feature Annotation 正確流向各模組（Excel → YAML → Manager → Modules）
+    4. 零間隙銜接 
+    &quot;&quot;&quot;
+
+    def __init__(self, config: ETLConfig):
+        self.config = config
+        self.logger = get_logger(&quot;ETLContainer&quot;)
+
+        # 快取實例 (Singleton)
+        self._parser: Optional[ReportParser] = None
+        self._cleaner: Optional[DataCleaner] = None
+        self._batch_processor: Optional[BatchOrchestrator] = None
+        self._feature_engineer: Optional[FeatureEngineer] = None
+        self._annotation_manager: Optional[FeatureAnnotationManager] = None  # 新增
+
+        # 預先載入 Annotation（若啟用）
+        if self.config.feature_annotation.enabled:
+            self._load_annotation()
+
+    def _load_annotation(self):
+        &quot;&quot;&quot;預先載入 Feature Annotation 並驗證同步狀態（含繼承合併）&quot;&quot;&quot;
+        fa_config = self.config.feature_annotation
+
+        # 嚴格模式：檢查 Excel/YAML 同步（檢查點 #5）
+        if fa_config.auto_sync_check:
+            sync_status = ConfigLoader.validate_annotation_sync(
+                self.config.site_id,
+                fa_config.excel_base_dir,
+                fa_config.yaml_base_dir
+            )
+
+            if not sync_status['synced'] and fa_config.strict_sync_check:
+                raise AnnotationSyncError(sync_status['reason'])
+            elif not sync_status['synced']:
+                self.logger.warning(f&quot;⚠️ Annotation 同步警告: {sync_status['reason']}&quot;)
+
+        # 初始化 Manager（內部處理繼承合併）
+        self._annotation_manager = FeatureAnnotationManager(
+            site_id=self.config.site_id,
+            yaml_base_dir=fa_config.yaml_base_dir
+        )
+
+        self.logger.info(
+            f&quot;📋 Feature Annotation 載入成功 &quot;
+            f&quot;(Schema: {self._annotation_manager.schema_version}, &quot;
+            f&quot;Columns: {len(self._annotation_manager.columns)}, &quot;
+            f&quot;Inherited: {self._annotation_manager.inheritance_chain})&quot;
+        )
+
+    def get_annotation_manager(self) -&gt; FeatureAnnotationManager:
+        &quot;&quot;&quot;取得 FeatureAnnotationManager（檢查點 #6）&quot;&quot;&quot;
+        if self._annotation_manager is None:
+            raise RuntimeError(&quot;FeatureAnnotationManager 未初始化，請確認配置 enabled=True&quot;)
+        return self._annotation_manager
+
+    def get_parser(self) -&gt; ReportParser:
+        &quot;&quot;&quot;取得 Parser 實例&quot;&quot;&quot;
+        if self._parser is None:
+            self._parser = ReportParser(
+                site_id=self.config.site_id,
+                config=self.config.parser
+            )
+        return self._parser
+
+    def get_cleaner(self) -&gt; DataCleaner:
+        &quot;&quot;&quot;
+        取得 Cleaner 實例（審查修正：注入 Manager 引用，不寫入 metadata）
+
+        Cleaner v2.2+ 會:
+        1. 持有 AnnotationManager 引用，用於查詢 device_role（不寫入 DataFrame）
+        2. 根據 device_role 調整清洗策略（如 backup 設備放寬凍結檢測）
+        3. 對於 unannotated 欄位，依據 unannotated_column_policy 處理（E402）
+
+        注意：device_role 不會被寫入 Parquet metadata，僅用於 runtime 邏輯判斷
+        &quot;&quot;&quot;
+        if self._cleaner is None:
+            # 審查修正：傳入 Manager 引用，而非僅傳入 columns dict
+            # 使 Cleaner 可動態查詢，但不承擔 metadata 寫入職責
+            self._cleaner = DataCleaner(
+                config=self.config.cleaner,
+                annotation_manager=self._annotation_manager if self.config.cleaner.use_device_role_from_annotation else None
+            )
+            self.logger.debug(&quot;初始化 DataCleaner (含 AnnotationManager 引用，不寫入 metadata)&quot;)
+        return self._cleaner
+
+    def get_batch_processor(self) -&gt; BatchOrchestrator:
+        &quot;&quot;&quot;
+        取得 BatchProcessor 實例（更新：注入 Annotation Metadata）
+
+        BatchProcessor v1.3+ 會:
+        1. 接收來自 Cleaner 的資料（不含 device_role metadata）
+        2. 將 Annotation Metadata（version, checksum）寫入 Manifest（供稽核）
+        3. 執行 E406 檢查（若 enforce_annotation_sync=True）
+        &quot;&quot;&quot;
+        if self._batch_processor is None:
+            annotation_meta = {}
+            if self._annotation_manager:
+                annotation_meta = self._annotation_manager.get_metadata()
+
+            self._batch_processor = BatchOrchestrator(
+                config=self.config,
+                parser=self.get_parser(),
+                cleaner=self.get_cleaner(),
+                annotation_metadata=annotation_meta  # 注入
+            )
+            self.logger.debug(&quot;初始化 BatchOrchestrator (含 Annotation Metadata)&quot;)
+        return self._batch_processor
+
+    def get_feature_engineer(self) -&gt; FeatureEngineer:
+        &quot;&quot;&quot;
+        取得 FeatureEngineer 實例（更新：注入 Group Policy 與 device_role）
+
+        Feature Engineer v1.3+ 會:
+        1. 讀取 Annotation 中的 group_policies
+        2. 根據 device_role 決定是否抑制 W403（備用設備高零值正常）
+        3. 根據 ignore_warnings 過濾統計警告
+        &quot;&quot;&quot;
+        if self._feature_engineer is None:
+            group_policies = []
+            column_configs = {}
+
+            if self._annotation_manager:
+                group_policies = self._annotation_manager.get_group_policies()
+                column_configs = self._annotation_manager.get_column_configs()
+
+            # 合併配置：Annotation 優先於程式碼配置
+            merged_config = self.config.feature.copy()
+            merged_config.group_policies = group_policies or merged_config.group_policies
+
+            self._feature_engineer = FeatureEngineer(
+                config=merged_config,
+                annotation_columns=column_configs  # 注入
+            )
+            self.logger.debug(&quot;初始化 FeatureEngineer (含 Group Policy)&quot;)
+        return self._feature_engineer
+
+    def run_full_pipeline(self, input_files: List[Path]) -&gt; pl.DataFrame:
+        &quot;&quot;&quot;
+        執行完整 ETL 流程（更新：含 Annotation 檢查點）
+
+        流程:
+        1. 檢查 Annotation 同步狀態（檢查點 #5）
+        2. BatchProcessor (Parser → Cleaner → Parquet + Manifest)
+        3. Feature Engineer (Manifest → Feature Matrix，套用 device_role)
+
+        錯誤處理:
+        - AnnotationSyncError (E406): 終止流程
+        - ContractViolationError: 終止流程
+        - FutureDataError: 單檔案跳過
+        &quot;&quot;&quot;
+        self.logger.info(f&quot;🚀 啟動完整 ETL Pipeline，處理 {len(input_files)} 個檔案&quot;)
+
+        # 檢查點 #5: Annotation 同步
+        if self.config.feature_annotation.enabled:
+            self.logger.info(&quot;🔍 檢查點 #5: Feature Annotation 同步狀態 - 通過&quot;)
+
+        # Step 1: Batch Processing
+        bp = self.get_batch_processor()
+        manifests = []
+
+        for file_path in input_files:
+            try:
+                result = bp.process_single_file(file_path)
+
+                if result.status == &quot;success&quot;:
+                    manifests.append(result.manifest_path)
+                    self.logger.info(f&quot;✅ 處理成功: {file_path.name}&quot;)
+                elif result.status == &quot;future_data_rejected&quot;:
+                    self.logger.warning(f&quot;⚠️  未來資料拒絕: {file_path.name} - {result.error}&quot;)
+                else:
+                    self.logger.error(f&quot;❌ 處理失敗: {file_path.name} - {result.error}&quot;)
+
+            except ContractViolationError as e:
+                self.logger.error(f&quot;❌ 檢查點 #2/#3 契約違反: {file_path.name} - {e}&quot;)
+                if self.config.strict_mode:
+                    raise
+
+        if not manifests:
+            raise DataValidationError(&quot;沒有成功處理的檔案，無法繼續特徵工程&quot;)
+
+        # Step 2: Feature Engineering
+        fe = self.get_feature_engineer()
+        manifest_path = manifests[-1]
+
+        self.logger.info(f&quot;🔧 開始特徵工程: {manifest_path}&quot;)
+
+        # 檢查點 #6: Annotation Schema 版本相容
+        self.logger.info(&quot;🔍 檢查點 #6: Annotation Schema 版本 - 通過&quot;)
+
+        # 讀取 Manifest 與資料
+        df, metadata = fe.load_from_manifest(manifest_path)
+
+        # 檢查點 #4: FE Input Schema 驗證
+        self.logger.info(&quot;🔍 檢查點 #4: FE Input Schema - 驗證中&quot;)
+
+        # 轉換（含 device_role 與 ignore_warnings 處理）
+        feature_df = fe.transform(
+            df,
+            manifest_metadata=metadata,
+            cutoff_timestamp=self.config.feature.cutoff_timestamp
+        )
+
+        self.logger.info(f&quot;✅ ETL Pipeline 完成，輸出維度: {feature_df.shape}&quot;)
+        return feature_df
+
+    def reset(self):
+        &quot;&quot;&quot;重置所有快取實例&quot;&quot;&quot;
+        self._parser = None
+        self._cleaner = None
+        self._batch_processor = None
+        self._feature_engineer = None
+        self._annotation_manager = None
+        self.logger.debug(&quot;重置所有模組實例&quot;)
+</code></pre>
+<h3 id="32-featureannotationmanager-yaml">3.2 FeatureAnnotationManager（審查修正：新增 YAML 繼承合併）</h3>
+<p><strong>檔案</strong>: <code>src/features/annotation_manager.py</code></p>
+<p><strong>審查修正重點</strong>:<br />
+- <strong>實作 <code>_load_with_inheritance()</code></strong>：支援 <code>inherit: base</code> 的遞迴載入與合併<br />
+- <strong>實作 <code>_deep_merge()</code></strong>：深度合併字典，子設定覆蓋父設定<br />
+- <strong>循環繼承檢測</strong>：防止 <code>inherit</code> 循環引用<br />
+- <strong>繼承鏈追蹤</strong>：記錄繼承路徑供除錯</p>
+<pre><code class="language-python">from pathlib import Path
+from typing import Dict, List, Optional, Any, Set
+import yaml
+from dataclasses import dataclass
+
+@dataclass
+class ColumnAnnotation:
+    &quot;&quot;&quot;Column 標註資料結構&quot;&quot;&quot;
+    column_name: str
+    physical_type: str
+    unit: Optional[str]
+    device_role: str = &quot;primary&quot;
+    is_target: bool = False
+    enable_lag: bool = True
+    enable_rolling: bool = True
+    lag_intervals: List[int] = None
+    ignore_warnings: List[str] = None
+    status: str = &quot;confirmed&quot;
+
+    def __post_init__(self):
+        if self.lag_intervals is None:
+            self.lag_intervals = []
+        if self.ignore_warnings is None:
+            self.ignore_warnings = []
+
+class FeatureAnnotationManager:
+    &quot;&quot;&quot;
+    Feature Annotation v1.2 管理器（審查修正：支援繼承合併）
+
+    負責:
+    1. 遞迴載入與合併 YAML SSOT（支援 inherit 欄位）
+    2. 提供 column 查詢（含 device_role, ignore_warnings）
+    3. 提供 Group Policy 查詢（已合併父設定）
+    4. 提供 Metadata（供 Manifest 寫入）
+    &quot;&quot;&quot;
+
+    def __init__(self, site_id: str, yaml_base_dir: str):
+        self.site_id = site_id
+        self.yaml_base_dir = Path(yaml_base_dir)
+        self.yaml_path = self.yaml_base_dir / f&quot;{site_id}.yaml&quot;
+        self._data: Dict = None
+        self._columns: Dict[str, ColumnAnnotation] = {}
+        self._inheritance_chain: List[str] = []  # 記錄繼承鏈
+        self._load()
+
+    def _load(self):
+        &quot;&quot;&quot;載入 YAML 並處理繼承合併（審查修正：核心邏輯）&quot;&quot;&quot;
+        self._data = self._load_with_inheritance(
+            self.yaml_path, 
+            visited=set()  # 防止循環繼承
+        )
+
+        # 解析合併後的 columns
+        for col_name, col_data in self._data.get('columns', {}).items():
+            self._columns[col_name] = ColumnAnnotation(
+                column_name=col_name,
+                physical_type=col_data.get('physical_type'),
+                unit=col_data.get('unit'),
+                device_role=col_data.get('device_role', 'primary'),
+                is_target=col_data.get('is_target', False),
+                enable_lag=col_data.get('enable_lag', True),
+                enable_rolling=col_data.get('enable_rolling', True),
+                lag_intervals=col_data.get('lag_intervals', []),
+                ignore_warnings=col_data.get('ignore_warnings', []),
+                status=col_data.get('status', 'confirmed')
+            )
+
+    def _load_with_inheritance(self, yaml_path: Path, visited: Set[Path]) -&gt; Dict:
+        &quot;&quot;&quot;
+        遞迴載入 YAML 並合併繼承（審查修正：支援 inherit: base）
+
+        Args:
+            yaml_path: 當前 YAML 檔案路徑
+            visited: 已訪問路徑集合（防止循環繼承）
+
+        Returns:
+            合併後的字典（子設定覆蓋父設定）
+
+        Raises:
+            ConfigurationError: 循環繼承或父檔案不存在
+        &quot;&quot;&quot;
+        yaml_path = Path(yaml_path)
+
+        # 循環繼承檢測
+        if yaml_path in visited:
+            chain = &quot; -&gt; &quot;.join([p.name for p in visited] + [yaml_path.name])
+            raise ConfigurationError(f&quot;E400: 循環繼承檢測: {chain}&quot;)
+
+        if not yaml_path.exists():
+            raise ConfigurationError(f&quot;E402: Annotation 檔案不存在: {yaml_path}&quot;)
+
+        visited.add(yaml_path)
+
+        # 讀取當前 YAML
+        with open(yaml_path, 'r', encoding='utf-8') as f:
+            current = yaml.safe_load(f) or {}
+
+        # 記錄繼承鏈（僅記錄 site 名稱）
+        self._inheritance_chain.append(yaml_path.stem)
+
+        # 處理繼承
+        parent_name = current.get('inherit')
+        if parent_name and parent_name != &quot;none&quot;:
+            # 支援相對路徑或絕對路徑（預設同目錄）
+            parent_path = self.yaml_base_dir / f&quot;{parent_name}.yaml&quot;
+
+            if not parent_path.exists():
+                raise ConfigurationError(
+                    f&quot;E402: 繼承的父檔案不存在: {parent_name} &quot;
+                    f&quot;(參考自: {yaml_path.name})&quot;
+                )
+
+            # 遞迴載入父設定
+            parent = self._load_with_inheritance(parent_path, visited.copy())
+
+            # 深度合併：子設定覆蓋父設定
+            current = self._deep_merge(parent, current)
+
+        return current
+
+    def _deep_merge(self, base: Dict, override: Dict) -&gt; Dict:
+        &quot;&quot;&quot;
+        深度合併字典（審查修正：遞迴合併邏輯）
+
+        規則:
+        - override 優先於 base
+        - 若同為 dict，遞迴合併
+        - 若為 list（如 group_policies），override 完全替換（不 append）
+        - inherit 欄位不傳遞（僅用於當前檔案）
+
+        Args:
+            base: 父設定
+            override: 子設定（優先）
+
+        Returns:
+            合併後的字典
+        &quot;&quot;&quot;
+        result = base.copy()
+
+        for key, value in override.items():
+            # inherit 欄位不傳遞到合併結果（避免孫檔案繼承錯誤的父鍊）
+            if key == 'inherit':
+                continue
+
+            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+                # 遞迴合併（如 columns, physical_types）
+                result[key] = self._deep_merge(result[key], value)
+            else:
+                # 直接覆蓋（包含 list, scalar）
+                result[key] = value
+
+        return result
+
+    @property
+    def schema_version(self) -&gt; str:
+        return self._data.get('schema_version', 'unknown')
+
+    @property
+    def inheritance_chain(self) -&gt; str:
+        &quot;&quot;&quot;返回繼承鏈描述（如 'base -&gt; cgmh_ty'）&quot;&quot;&quot;
+        return &quot; -&gt; &quot;.join(self._inheritance_chain)
+
+    def get_column_configs(self) -&gt; Dict[str, ColumnAnnotation]:
+        &quot;&quot;&quot;取得所有 column 設定（已合併繼承）&quot;&quot;&quot;
+        return self._columns
+
+    def get_column_config(self, column_name: str) -&gt; Optional[ColumnAnnotation]:
+        &quot;&quot;&quot;取得特定 column 設定&quot;&quot;&quot;
+        return self._columns.get(column_name)
+
+    def get_group_policies(self) -&gt; List[Dict]:
+        &quot;&quot;&quot;取得 Group Policies（已合併繼承）&quot;&quot;&quot;
+        return self._data.get('group_policies', {})
+
+    def get_physical_types(self) -&gt; Dict:
+        &quot;&quot;&quot;取得 Physical Types 定義（已合併繼承）&quot;&quot;&quot;
+        return self._data.get('physical_types', {})
+
+    def get_metadata(self) -&gt; Dict[str, Any]:
+        &quot;&quot;&quot;取得 Metadata（供 BatchProcessor 寫入 Manifest）&quot;&quot;&quot;
+        return {
+            'schema_version': self.schema_version,
+            'template_version': self._data.get('meta', {}).get('template_version'),
+            'last_updated': self._data.get('meta', {}).get('last_updated'),
+            'editor': self._data.get('meta', {}).get('editor'),
+            'yaml_checksum': self._data.get('meta', {}).get('excel_checksum', ''),
+            'inheritance_chain': self.inheritance_chain  # 新增：記錄繼承鏈
+        }
+
+    def should_ignore_warning(self, column_name: str, warning_code: str) -&gt; bool:
+        &quot;&quot;&quot;檢查特定欄位是否應忽略特定警告（device_role 感知）&quot;&quot;&quot;
+        col = self._columns.get(column_name)
+        if not col:
+            return False
+
+        # 檢查明確標記的忽略
+        if warning_code in (col.ignore_warnings or []):
+            return True
+
+        # 設備角色預設行為（審查確認：backup/seasonal 允許高零值）
+        if warning_code == 'W403' and col.device_role in ['backup', 'seasonal']:
+            return True
+
+        return False
+
+    def is_column_annotated(self, column_name: str) -&gt; bool:
+        &quot;&quot;&quot;檢查欄位是否已定義（用於 Cleaner 的 E402 檢查）&quot;&quot;&quot;
+        return column_name in self._columns
+</code></pre>
+<hr />
+<h2 id="4-cli-entry-point-feature-annotation">4. CLI 入口點 (Entry Point) - 整合 Feature Annotation 指令</h2>
+<h3 id="41-hvaccli">4.1 HVACCLI 實作（更新）</h3>
+<p><strong>檔案</strong>: <code>src/main.py</code></p>
+<p><strong>關鍵更新</strong>:<br />
+- 新增 <code>features</code> 子命令群組<br />
+- 新增 <code>wizard</code> 指令（僅更新 Excel，不直寫 YAML）<br />
+- 新增 <code>validate-annotation</code> 指令（執行 E400-E406 檢查，含繼承驗證）<br />
+- 新增 <code>sync-check</code> 指令（檢查 Excel/YAML 同步）<br />
+- 新增 <code>migrate-excel</code> 指令（v1.1→v1.2 升級）<br />
+- <code>run_etl</code> 指令自動檢查 Annotation 同步（E406）</p>
+<pre><code class="language-python">#!/usr/bin/env python3
+import sys
+from pathlib import Path
+from typing import List, Optional
+import fire
+
+from src.container import ETLContainer
+from src.utils.config_loader import ConfigLoader, ConfigurationError, AnnotationSyncError
+from src.etl.exceptions import ContractViolationError, FutureDataError, DataValidationError
+
+class HVACCLI:
+    &quot;&quot;&quot;
+    HVAC Analytics CLI 介面 - v1.1-REVISED
+
+    提供統一的命令列入口，整合 ETL、建模與 Feature Annotation 管理。
+    &quot;&quot;&quot;
+
+    def __init__(self, config_path: str = &quot;config/settings.yaml&quot;):
+        try:
+            self.config = ConfigLoader.load(config_path)
+            # 初始化 Container（會自動檢查 Annotation 同步與繼承）
+            self.container = ETLContainer(self.config)
+        except ConfigurationError as e:
+            print(f&quot;❌ 配置錯誤: {e}&quot;)
+            sys.exit(1)
+        except AnnotationSyncError as e:
+            print(f&quot;❌ E406 同步錯誤: {e}&quot;)
+            print(&quot;💡 請執行: python main.py features validate-annotation&quot;)
+            sys.exit(6)
+
+    def run_etl(self, input_dir: str, output_dir: Optional[str] = None, pattern: str = &quot;*.csv&quot;):
+        &quot;&quot;&quot;
+        執行完整 ETL 流程（含 Annotation 同步與繼承自動檢查）
+
+        Args:
+            input_dir: 輸入 CSV 檔案目錄
+            output_dir: 輸出目錄 (可選)
+            pattern: 檔案匹配模式
+        &quot;&quot;&quot;
+        input_path = Path(input_dir)
+        if not input_path.exists():
+            print(f&quot;❌ 輸入目錄不存在: {input_dir}&quot;)
+            return
+
+        files = list(input_path.glob(pattern))
+        if not files:
+            print(f&quot;⚠️  未找到匹配檔案: {pattern}&quot;)
+            return
+
+        print(f&quot;🚀 啟動 ETL Pipeline，處理 {len(files)} 個檔案...&quot;)
+
+        # 顯示 Annotation 資訊（含繼承鏈）
+        manager = self.container.get_annotation_manager()
+        print(f&quot;📋 Feature Annotation: Schema v{manager.schema_version}&quot;)
+        print(f&quot;   繼承鏈: {manager.inheritance_chain}&quot;)
+
+        try:
+            result_df = self.container.run_full_pipeline(files)
+
+            if output_dir:
+                output_path = Path(output_dir)
+                output_path.mkdir(parents=True, exist_ok=True)
+                output_file = output_path / &quot;feature_matrix.parquet&quot;
+                result_df.write_parquet(output_file)
+                print(f&quot;💾 特徵矩陣已儲存: {output_file}&quot;)
+
+            print(f&quot;✅ ETL 完成，輸出維度: {result_df.shape}&quot;)
+
+        except AnnotationSyncError as e:
+            print(f&quot;❌ E406 Annotation 同步錯誤: {e}&quot;)
+            print(&quot;請先執行: python main.py features validate-annotation&quot;)
+            sys.exit(6)
+
+        except ContractViolationError as e:
+            print(f&quot;❌ 契約違反錯誤: {e}&quot;)
+            sys.exit(2)
+
+        except FutureDataError as e:
+            print(f&quot;⚠️  未來資料錯誤: {e}&quot;)
+            sys.exit(3)
+
+        except Exception as e:
+            print(f&quot;❌ 未預期錯誤: {e}&quot;)
+            import traceback
+            traceback.print_exc()
+            sys.exit(99)
+
+    # ==================== Feature Annotation 子命令群組 ====================
+
+    class FeaturesCLI:
+        &quot;&quot;&quot;Feature Annotation v1.2 管理指令&quot;&quot;&quot;
+
+        def __init__(self, parent):
+            self.parent = parent
+            self.config = parent.config.feature_annotation
+
+        def wizard(self, site: Optional[str] = None, from_csv: Optional[str] = None):
+            &quot;&quot;&quot;
+            啟動互動式標註 Wizard（僅更新 Excel，不直寫 YAML）
+
+            Usage:
+                python main.py features wizard --site cgmh_ty --from-csv data/raw.csv
+
+            流程:
+            1. 偵測 CSV 新欄位
+            2. 互動式確認物理類型/單位
+            3. 寫入 Excel（標記 pending_review）
+            4. 提示使用者手動執行 excel_to_yaml.py
+            &quot;&quot;&quot;
+            site = site or self.parent.config.site_id
+            csv_path = Path(from_csv) if from_csv else None
+
+            print(f&quot;🔧 啟動 Feature Annotation Wizard (v1.2)&quot;)
+            print(f&quot;📍 Site: {site}&quot;)
+            print(f&quot;⚠️  注意：Wizard 僅更新 Excel，不直接修改 YAML&quot;)
+
+            from src.features.wizard import FeatureWizard
+
+            wizard = FeatureWizard(
+                site_id=site,
+                excel_base_dir=self.config.excel_base_dir,
+                template_version=self.config.current_template_version
+            )
+
+            try:
+                excel_path = wizard.run(csv_path=csv_path)
+                print(f&quot;\n✅ Excel 已更新: {excel_path}&quot;)
+                print(&quot;⚠️  重要：請開啟 Excel 確認標註，確認後執行：&quot;)
+                print(f&quot;   python tools/features/excel_to_yaml.py --input {excel_path} --output config/features/sites/{site}.yaml&quot;)
+                print(f&quot;\n   或執行: python main.py features validate-annotation --site {site}&quot;)
+            except Exception as e:
+                print(f&quot;❌ Wizard 失敗: {e}&quot;)
+                sys.exit(1)
+
+        def validate_annotation(self, site: Optional[str] = None, strict: bool = False):
+            &quot;&quot;&quot;
+            驗證 Annotation 並生成 YAML（執行 E400-E406 檢查，含繼承驗證）
+
+            Checks:
+            - E400: Template 版本相容性、循環繼承檢測
+            - E401: 孤兒欄位（標註存在但 CSV 不存在）
+            - E402: 未定義欄位（CSV 存在但標註不存在）
+            - E403: 單位與物理類型不匹配
+            - E404: Lag 格式錯誤
+            - E405: Target Leakage Risk
+            - E406: Excel/YAML 不同步
+            &quot;&quot;&quot;
+            site = site or self.parent.config.site_id
+            excel_path = Path(self.config.excel_base_dir) / site / f&quot;{site}.xlsx&quot;
+            yaml_path = Path(self.config.yaml_base_dir) / f&quot;{site}.yaml&quot;
+
+            print(f&quot;🔍 驗證 Feature Annotation: {site}&quot;)
+            print(f&quot;   Excel: {excel_path}&quot;)
+            print(f&quot;   YAML:  {yaml_path}&quot;)
+
+            # 檢查 E406 同步狀態
+            sync_status = ConfigLoader.validate_annotation_sync(
+                site, self.config.excel_base_dir, self.config.yaml_base_dir
+            )
+
+            if not sync_status['synced']:
+                print(f&quot;⚠️  {sync_status['reason']}&quot;)
+                if strict:
+                    sys.exit(6)
+            else:
+                print(&quot;✅ E406: Excel/YAML 同步檢查 - 通過&quot;)
+
+            # 執行轉換與驗證（含繼承合併測試）
+            try:
+                from tools.features.excel_to_yaml import convert_excel_to_yaml
+                result = convert_excel_to_yaml(
+                    excel_path=excel_path,
+                    output_path=yaml_path,
+                    validate_only=False
+                )
+
+                # 測試繼承載入
+                from src.features.annotation_manager import FeatureAnnotationManager
+                test_manager = FeatureAnnotationManager(
+                    site_id=site,
+                    yaml_base_dir=self.config.yaml_base_dir
+                )
+
+                print(f&quot;\n✅ 驗證通過，YAML 已生成: {yaml_path}&quot;)
+                print(f&quot;   Schema Version: {result.get('schema_version')}&quot;)
+                print(f&quot;   繼承鏈: {test_manager.inheritance_chain}&quot;)
+                print(f&quot;   Columns: {len(test_manager.get_column_configs())}&quot;)
+                print(f&quot;   Warnings: {len(result.get('warnings', []))}&quot;)
+
+                for w in result.get('warnings', []):
+                    print(f&quot;   ⚠️  {w}&quot;)
+
+            except Exception as e:
+                print(f&quot;❌ 驗證失敗: {e}&quot;)
+                sys.exit(1)
+
+        def sync_check(self, site: Optional[str] = None):
+            &quot;&quot;&quot;檢查 Excel 與 YAML 同步狀態（E406 診斷）&quot;&quot;&quot;
+            site = site or self.parent.config.site_id
+            status = ConfigLoader.validate_annotation_sync(
+                site, self.config.excel_base_dir, self.config.yaml_base_dir
+            )
+
+            print(f&quot;📊 同步狀態檢查: {site}&quot;)
+            print(f&quot;   同步狀態: {'✅ 同步' if status['synced'] else '❌ 不同步'}&quot;)
+            print(f&quot;   詳情: {status['reason']}&quot;)
+
+            if 'excel_mtime' in status:
+                from datetime import datetime
+                excel_time = datetime.fromtimestamp(status['excel_mtime'])
+                yaml_time = datetime.fromtimestamp(status['yaml_mtime'])
+                print(f&quot;   Excel 修改時間: {excel_time}&quot;)
+                print(f&quot;   YAML 修改時間:  {yaml_time}&quot;)
+
+        def migrate_excel(self, site: str, from_version: str = &quot;1.1&quot;, to_version: str = &quot;1.2&quot;):
+            &quot;&quot;&quot;
+            升級 Excel 範本版本（v1.1 → v1.2）
+
+            處理：
+            - 新增 device_role 欄位（預設 primary）
+            - 新增 ignore_warnings 欄位
+            - 更新 System sheet 版本號
+            &quot;&quot;&quot;
+            excel_path = Path(self.config.excel_base_dir) / site / f&quot;{site}.xlsx&quot;
+
+            print(f&quot;🔄 升級 Excel 範本: {site}&quot;)
+            print(f&quot;   路徑: {excel_path}&quot;)
+            print(f&quot;   版本: {from_version} → {to_version}&quot;)
+
+            from src.features.migrate_tool import ExcelMigrator
+            migrator = ExcelMigrator()
+
+            try:
+                migrator.migrate(
+                    excel_path=excel_path,
+                    from_version=from_version,
+                    to_version=to_version
+                )
+                print(f&quot;✅ 升級完成，請確認後執行 validate-annotation&quot;)
+            except Exception as e:
+                print(f&quot;❌ 升級失敗: {e}&quot;)
+                sys.exit(1)
+
+        def show_annotation(self, site: Optional[str] = None):
+            &quot;&quot;&quot;顯示當前 Annotation 摘要（含繼承資訊）&quot;&quot;&quot;
+            site = site or self.parent.config.site_id
+
+            # 強制重新載入以顯示最新狀態
+            from src.features.annotation_manager import FeatureAnnotationManager
+            manager = FeatureAnnotationManager(
+                site_id=site,
+                yaml_base_dir=self.config.yaml_base_dir
+            )
+
+            print(f&quot;📋 Feature Annotation 摘要: {site}&quot;)
+            print(f&quot;   Schema Version: {manager.schema_version}&quot;)
+            print(f&quot;   繼承鏈: {manager.inheritance_chain}&quot;)
+            print(f&quot;\n   Columns ({len(manager._columns)}):&quot;)
+
+            for name, col in manager._columns.items():
+                role_tag = f&quot;[{col.device_role.upper()}]&quot; if col.device_role != &quot;primary&quot; else &quot;&quot;
+                target_tag = &quot;[TARGET]&quot; if col.is_target else &quot;&quot;
+                inherit_mark = &quot;&quot;
+                print(f&quot;   - {name:20} {col.physical_type:12} {role_tag} {target_tag} {inherit_mark}&quot;)
+                if col.ignore_warnings:
+                    print(f&quot;                        忽略警告: {', '.join(col.ignore_warnings)}&quot;)
+
+    def features(self):
+        &quot;&quot;&quot;Feature Annotation 管理指令群組&quot;&quot;&quot;
+        return self.FeaturesCLI(self)
+
+    # ==================== 原有指令 ====================
+
+    def validate_config(self):
+        &quot;&quot;&quot;驗證當前配置（含 Feature Annotation 與繼承）&quot;&quot;&quot;
+        print(&quot;✅ 配置載入成功&quot;)
+        print(f&quot;   Site ID: {self.config.site_id}&quot;)
+        print(f&quot;   Flags: {VALID_QUALITY_FLAGS}&quot;)
+        print(f&quot;   Strict Mode: {self.config.strict_mode}&quot;)
+
+        if self.config.feature_annotation.enabled:
+            from src.features.annotation_manager import FeatureAnnotationManager
+            manager = FeatureAnnotationManager(
+                site_id=self.config.site_id,
+                yaml_base_dir=self.config.feature_annotation.yaml_base_dir
+            )
+            print(f&quot;\n📋 Feature Annotation:&quot;)
+            print(f&quot;   Enabled: True&quot;)
+            print(f&quot;   Schema Version: {manager.schema_version}&quot;)
+            print(f&quot;   繼承鏈: {manager.inheritance_chain}&quot;)
+            print(f&quot;   Template Version: {self.config.feature_annotation.current_template_version}&quot;)
+            print(f&quot;   Columns Defined: {len(manager.get_column_configs())}&quot;)
+
+    def version(self):
+        &quot;&quot;&quot;顯示版本資訊&quot;&quot;&quot;
+        print(&quot;HVAC Analytics Pipeline v1.1-REVISED&quot;)
+        print(&quot;相容模組版本:&quot;)
+        print(&quot;  - Parser: v2.1+&quot;)
+        print(&quot;  - Cleaner: v2.2+ (device_role 感知，不寫入 metadata)&quot;)
+        print(&quot;  - BatchProcessor: v1.3+ (Annotation checksum)&quot;)
+        print(&quot;  - FeatureEngineer: v1.3+ (Group Policy 支援)&quot;)
+        print(&quot;  - FeatureAnnotation: v1.2 (Excel-Centric + 繼承合併)&quot;)
+
+def main():
+    &quot;&quot;&quot;Entry point&quot;&quot;&quot;
+    fire.Fire(HVACCLI)
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<hr />
+<h2 id="5-error-handling-">5. 錯誤處理與傳播 (Error Handling) - 更新</h2>
+<h3 id="51-feature-annotation-v12">5.1 錯誤傳播策略（整合 Feature Annotation v1.2）</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">錯誤類型</th>
+<th style="text-align: center;">代碼</th>
+<th style="text-align: left;">發生模組</th>
+<th style="text-align: center;">傳播策略</th>
+<th style="text-align: left;">下游影響</th>
+<th style="text-align: left;">使用者訊息</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>EncodingError</code></td>
+<td style="text-align: center;">E001</td>
+<td style="text-align: left;">Parser</td>
+<td style="text-align: center;"><strong>終止</strong></td>
+<td style="text-align: left;">整批失敗</td>
+<td style="text-align: left;">"檔案編碼錯誤"</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>ContractViolationError</code></td>
+<td style="text-align: center;">E002-E003</td>
+<td style="text-align: left;">Parser/Cleaner/BP/FE</td>
+<td style="text-align: center;"><strong>終止</strong></td>
+<td style="text-align: left;">依 strict_mode</td>
+<td style="text-align: left;">"模組間介面契約違反"</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>FutureDataError</code></td>
+<td style="text-align: center;">E005</td>
+<td style="text-align: left;">BatchProcessor</td>
+<td style="text-align: center;"><strong>單檔跳過</strong></td>
+<td style="text-align: left;">該檔案不入庫</td>
+<td style="text-align: left;">"檔案含未來資料"</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>TEMPLATE_VERSION_MISMATCH</strong></td>
+<td style="text-align: center;"><strong>E400</strong></td>
+<td style="text-align: left;">ConfigLoader/FE</td>
+<td style="text-align: center;"><strong>終止</strong></td>
+<td style="text-align: left;">需升級 Excel</td>
+<td style="text-align: left;">"範本版本過舊，請執行 migrate_excel.py"</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>ORPHAN_COLUMN</strong></td>
+<td style="text-align: center;"><strong>E401</strong></td>
+<td style="text-align: left;">excel_to_yaml</td>
+<td style="text-align: center;">Warning</td>
+<td style="text-align: left;">記錄日誌</td>
+<td style="text-align: left;">"標註欄位不存在於資料"</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>UNANNOTATED_COLUMN</strong></td>
+<td style="text-align: center;"><strong>E402</strong></td>
+<td style="text-align: left;">ConfigLoader/Cleaner</td>
+<td style="text-align: center;"><strong>終止/警告</strong></td>
+<td style="text-align: left;">依 unannotated_column_policy</td>
+<td style="text-align: left;">"資料欄位未定義，請執行 features wizard"</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>UNIT_INCOMPATIBLE</strong></td>
+<td style="text-align: center;"><strong>E403</strong></td>
+<td style="text-align: left;">excel_to_yaml</td>
+<td style="text-align: center;"><strong>終止</strong></td>
+<td style="text-align: left;">返回 Excel 修正</td>
+<td style="text-align: left;">"單位與物理類型不匹配"</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>LAG_FORMAT_INVALID</strong></td>
+<td style="text-align: center;"><strong>E404</strong></td>
+<td style="text-align: left;">excel_to_yaml</td>
+<td style="text-align: center;"><strong>終止</strong></td>
+<td style="text-align: left;">返回修正</td>
+<td style="text-align: left;">"Lag 間隔格式錯誤"</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>TARGET_LEAKAGE_RISK</strong></td>
+<td style="text-align: center;"><strong>E405</strong></td>
+<td style="text-align: left;">Pydantic Validation</td>
+<td style="text-align: center;"><strong>終止</strong></td>
+<td style="text-align: left;">自動攔截</td>
+<td style="text-align: left;">"is_target=True 但 enable_lag=True"</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>EXCEL_YAML_OUT_OF_SYNC</strong></td>
+<td style="text-align: center;"><strong>E406</strong></td>
+<td style="text-align: left;">ConfigLoader/Container</td>
+<td style="text-align: center;"><strong>終止</strong></td>
+<td style="text-align: left;">執行 validate-annotation</td>
+<td style="text-align: left;">"Excel 較新，請重新生成 YAML"</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>CIRCULAR_INHERITANCE</strong></td>
+<td style="text-align: center;"><strong>E407</strong></td>
+<td style="text-align: left;">FeatureAnnotationManager</td>
+<td style="text-align: center;"><strong>終止</strong></td>
+<td style="text-align: left;">修正 inherit 欄位</td>
+<td style="text-align: left;">"循環繼承檢測"</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>MetadataLossWarning</code></td>
+<td style="text-align: center;">E203/E304</td>
+<td style="text-align: left;">BatchProcessor/FE</td>
+<td style="text-align: center;"><strong>Warning</strong></td>
+<td style="text-align: left;">使用保守預設</td>
+<td style="text-align: left;">"缺少 metadata"</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>MEAN_OUT_OF_RANGE</strong></td>
+<td style="text-align: center;"><strong>W401</strong></td>
+<td style="text-align: left;">excel_to_yaml</td>
+<td style="text-align: center;">Warning</td>
+<td style="text-align: left;">標記 pending_review</td>
+<td style="text-align: left;">"平均值超出預期範圍"</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>LOW_VARIANCE</strong></td>
+<td style="text-align: center;"><strong>W402</strong></td>
+<td style="text-align: left;">excel_to_yaml</td>
+<td style="text-align: center;">Warning</td>
+<td style="text-align: left;">檢查凍結資料</td>
+<td style="text-align: left;">"標準差接近零"</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>HIGH_ZERO_RATIO</strong></td>
+<td style="text-align: center;"><strong>W403</strong></td>
+<td style="text-align: left;">excel_to_yaml</td>
+<td style="text-align: center;">Warning/忽略</td>
+<td style="text-align: left;">備用設備自動抑制</td>
+<td style="text-align: left;">"零值比例過高"</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52">5.2 全域錯誤處理器（更新）</h3>
+<pre><code class="language-python"># src/exceptions.py
+
+class HVACError(Exception):
+    &quot;&quot;&quot;基礎錯誤類別&quot;&quot;&quot;
+    def __init__(self, message: str, error_code: Optional[str] = None):
+        super().__init__(message)
+        self.error_code = error_code
+        self.timestamp = datetime.now(timezone.utc)
+
+class ContractViolationError(HVACError):
+    &quot;&quot;&quot;E002/E003: 違反模組間介面契約&quot;&quot;&quot;
+    pass
+
+class FutureDataError(HVACError):
+    &quot;&quot;&quot;E005: 檢測到未來資料&quot;&quot;&quot;
+    pass
+
+class ConfigurationError(HVACError):
+    &quot;&quot;&quot;E001/E400-E407: 配置錯誤&quot;&quot;&quot;
+    pass
+
+class AnnotationSyncError(ConfigurationError):
+    &quot;&quot;&quot;E406: Excel 與 YAML 不同步&quot;&quot;&quot;
+    pass
+
+class InheritanceError(ConfigurationError):
+    &quot;&quot;&quot;E407: YAML 繼承鏈錯誤（循環或遺失）&quot;&quot;&quot;
+    pass
+
+class ValidationError(ConfigurationError):
+    &quot;&quot;&quot;E403-E405: Feature Annotation 驗證失敗&quot;&quot;&quot;
+    pass
+</code></pre>
+<hr />
+<h2 id="6-version-compatibility-matrix-">6. 版本相容性矩陣 (Version Compatibility Matrix) - 更新</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Parser</th>
+<th style="text-align: center;">Cleaner</th>
+<th style="text-align: center;">BatchProcessor</th>
+<th style="text-align: center;">Feature Engineer</th>
+<th style="text-align: center;"><strong>Feature Annotation</strong></th>
+<th style="text-align: center;">相容性</th>
+<th style="text-align: left;">說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">v2.1</td>
+<td style="text-align: center;">v2.2</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;"><strong>v1.2</strong></td>
+<td style="text-align: center;">✅ <strong>完全相容</strong></td>
+<td style="text-align: left;">推薦配置，支援繼承與 device_role</td>
+</tr>
+<tr>
+<td style="text-align: center;">v2.1</td>
+<td style="text-align: center;">v2.2</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;"><strong>v1.1</strong></td>
+<td style="text-align: center;">⚠️ <strong>降級相容</strong></td>
+<td style="text-align: left;">缺少繼承與 device_role，備用設備可能誤報 W403</td>
+</tr>
+<tr>
+<td style="text-align: center;">v2.1</td>
+<td style="text-align: center;">v2.1</td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;">⚠️ <strong>部分相容</strong></td>
+<td style="text-align: left;">Cleaner 無法讀取 device_role（因移除預設值），可能拋 E402</td>
+</tr>
+<tr>
+<td style="text-align: center;">任意</td>
+<td style="text-align: center;">v2.2+</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;">❌ <strong>不相容</strong></td>
+<td style="text-align: left;">FE v1.2 無法處理 device_role，可能忽略備用設備標記</td>
+</tr>
+<tr>
+<td style="text-align: center;">任意</td>
+<td style="text-align: center;">任意</td>
+<td style="text-align: center;">任意</td>
+<td style="text-align: center;">任意</td>
+<td style="text-align: center;"><strong>v1.0</strong></td>
+<td style="text-align: center;">❌ <strong>不相容</strong></td>
+<td style="text-align: left;">缺少 schema_version 與繼承支援</td>
+</tr>
+</tbody>
+</table>
+<p><strong>升級路徑</strong>: <br />
+1. System Integration（建立 Annotation SSOT 基礎設施與繼承機制）<br />
+2. Cleaner（讀取 device_role，不寫入 metadata，移除預設值）<br />
+3. BatchProcessor（寫入 Annotation checksum 至 Manifest）<br />
+4. Feature Engineer（消費 device_role 與 ignore_warnings）</p>
+<hr />
+<h2 id="7-integration-test-plan-">7. 測試與驗證計畫 (Integration Test Plan) - 更新</h2>
+<h3 id="71">7.1 全鏈路整合測試（新增繼承與職責分離測試）</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">測試案例 ID</th>
+<th style="text-align: left;">描述</th>
+<th style="text-align: left;">輸入</th>
+<th style="text-align: left;">預期結果</th>
+<th style="text-align: left;">驗證目標</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">INT-SYS-001</td>
+<td style="text-align: left;">成功流程</td>
+<td style="text-align: left;">標準 CSV + v1.2 Annotation</td>
+<td style="text-align: left;">輸出 Feature Matrix，無錯誤</td>
+<td style="text-align: left;">全鏈路無縫銜接</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-SYS-002</td>
+<td style="text-align: left;">編碼自適應</td>
+<td style="text-align: left;">Big5 編碼 CSV</td>
+<td style="text-align: left;">正確解析</td>
+<td style="text-align: left;">Parser v2.1</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-SYS-003</td>
+<td style="text-align: left;">時區一致性</td>
+<td style="text-align: left;">Asia/Taipei 輸入</td>
+<td style="text-align: left;">轉換為 UTC</td>
+<td style="text-align: left;">時區容錯</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-SYS-004</td>
+<td style="text-align: left;">未來資料攔截</td>
+<td style="text-align: left;">明天時間戳</td>
+<td style="text-align: left;">單檔拒絕 (E205)</td>
+<td style="text-align: left;">Data Leakage 防護</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-SYS-005</td>
+<td style="text-align: left;">契約違反</td>
+<td style="text-align: left;">缺少 timestamp</td>
+<td style="text-align: left;">ContractViolationError</td>
+<td style="text-align: left;">檢查點 #1</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-SYS-006</td>
+<td style="text-align: left;">SSOT 同步</td>
+<td style="text-align: left;">SENSOR_OFFLINE flag</td>
+<td style="text-align: left;">One-hot 自動包含</td>
+<td style="text-align: left;">SSOT 一致性</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>INT-SYS-007R</strong></td>
+<td style="text-align: left;"><strong>繼承合併</strong></td>
+<td style="text-align: left;">cgmh_ty 繼承 base</td>
+<td style="text-align: left;">正確合併 base 的 physical_types</td>
+<td style="text-align: left;">繼承機制驗證</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>INT-SYS-008R</strong></td>
+<td style="text-align: left;"><strong>循環繼承防護</strong></td>
+<td style="text-align: left;">A inherit B, B inherit A</td>
+<td style="text-align: left;">拋出 E407</td>
+<td style="text-align: left;">循環檢測驗證</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>INT-SYS-009</strong></td>
+<td style="text-align: left;"><strong>E406 同步檢查</strong></td>
+<td style="text-align: left;">修改 Excel 但未生成 YAML</td>
+<td style="text-align: left;">Pipeline 啟動時拒絕 (E406)</td>
+<td style="text-align: left;">檢查點 #5</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>INT-SYS-010R</strong></td>
+<td style="text-align: left;"><strong>Cleaner 職責分離</strong></td>
+<td style="text-align: left;">backup 設備執行清洗</td>
+<td style="text-align: left;">Cleaner 讀取 role 但不寫入 metadata</td>
+<td style="text-align: left;">職責邊界驗證</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>INT-SYS-011</strong></td>
+<td style="text-align: left;"><strong>device_role 傳遞</strong></td>
+<td style="text-align: left;">backup 設備 80% 零值</td>
+<td style="text-align: left;">FE 抑制 W403 警告</td>
+<td style="text-align: left;">device_role 感知</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>INT-SYS-012</strong></td>
+<td style="text-align: left;"><strong>Group Policy 執行</strong></td>
+<td style="text-align: left;">chillers_* 欄位</td>
+<td style="text-align: left;">正確套用 Standard_Chiller 模板</td>
+<td style="text-align: left;">Group Policy 整合</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>INT-SYS-013</strong></td>
+<td style="text-align: left;"><strong>ignore_warnings 生效</strong></td>
+<td style="text-align: left;">標記 W401 忽略</td>
+<td style="text-align: left;">該欄位不觸發均值異常警告</td>
+<td style="text-align: left;">警告抑制機制</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>INT-SYS-014</strong></td>
+<td style="text-align: left;"><strong>未定義欄位處理</strong></td>
+<td style="text-align: left;">CSV 含未標註欄位</td>
+<td style="text-align: left;">依 unannotated_column_policy 處理</td>
+<td style="text-align: left;">E402 驗證</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>INT-SYS-015</strong></td>
+<td style="text-align: left;"><strong>Template 版本相容</strong></td>
+<td style="text-align: left;">v1.1 Excel 執行轉換</td>
+<td style="text-align: left;">報錯 E400，提示 migrate</td>
+<td style="text-align: left;">版本控制</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-deliverables-">8. 交付物清單 (Deliverables) - 更新</h2>
+<h3 id="81">8.1 程式碼檔案（更新）</h3>
+<ol>
+<li><code>src/etl/config_models.py</code> - <strong>審查修正</strong>：移除 <code>default_device_role</code>，新增 <code>unannotated_column_policy</code></li>
+<li><code>src/utils/config_loader.py</code> - 更新：繼承相關邏輯移至 Manager</li>
+<li><code>src/container.py</code> - <strong>審查修正</strong>：Cleaner 注入 Manager 引用，不寫入 metadata</li>
+<li><code>src/main.py</code> - 更新：新增繼承鏈顯示</li>
+<li><code>src/features/annotation_manager.py</code> - <strong>審查修正</strong>：新增 <code>_load_with_inheritance()</code> 與 <code>_deep_merge()</code></li>
+<li><code>src/features/wizard.py</code> - <strong>新增</strong>：互動式標註 Wizard（僅寫 Excel）</li>
+<li><code>src/features/migrate_tool.py</code> - <strong>新增</strong>：Excel v1.1→v1.2 升級工具</li>
+<li><code>src/exceptions.py</code> - 更新：新增 <code>InheritanceError</code> (E407)</li>
+</ol>
+<h3 id="82">8.2 配置檔案（更新）</h3>
+<ol start="9">
+<li><code>config/settings.yaml</code> - 更新：新增 feature_annotation 區段</li>
+<li><code>config/features/schema.json</code> - <strong>新增</strong>：JSON Schema v1.2（支援 inherit）</li>
+<li><code>config/features/base.yaml</code> - <strong>新增</strong>：基礎繼承範本</li>
+<li><code>config/features/physical_types.yaml</code> - <strong>新增</strong>：物理類型定義</li>
+</ol>
+<h3 id="83">8.3 測試檔案（更新）</h3>
+<ol start="13">
+<li><code>tests/test_integration_full_pipeline.py</code> - 更新：新增 INT-SYS-007R~015</li>
+<li><code>tests/test_annotation_inheritance.py</code> - <strong>新增</strong>：繼承合併與循環檢測測試</li>
+<li><code>tests/test_cleaner_annotation.py</code> - <strong>新增</strong>：Cleaner 職責分離測試（驗證不寫入 metadata）</li>
+</ol>
+<h3 id="84">8.4 文件檔案（更新）</h3>
+<ol start="16">
+<li><code>docs/integration/PRD_SYSTEM_INTEGRATION_v1.1-REVISED.md</code> - 本文件</li>
+<li><code>docs/integration/INHERITANCE_GUIDE.md</code> - <strong>新增</strong>：YAML 繼承使用說明</li>
+<li><code>README.md</code> - 更新：新增 Feature Annotation 工作流程與繼承範例</li>
+</ol>
+<hr />
+<h2 id="9-action-items-">9. 執行檢查清單 (Action Items) - 依審查修正後順序</h2>
+<h3 id="phase-1-ssot-day-1">Phase 1: SSOT 基礎設施與繼承（Day 1）</h3>
+<ul>
+<li>[ ] <strong>審查修正</strong>：更新 <code>src/etl/config_models.py</code>：移除 <code>default_device_role</code>，新增 <code>unannotated_column_policy</code></li>
+<li>[ ] <strong>審查修正</strong>：實作 <code>FeatureAnnotationManager._load_with_inheritance()</code> 與 <code>_deep_merge()</code></li>
+<li>[ ] 建立 <code>config/features/base.yaml</code> 作為繼承基礎範本</li>
+<li>[ ] 驗證：循環繼承正確拋出 E407，深度合併正確覆蓋父設定</li>
+</ul>
+<h3 id="phase-2-cleaner-day-2">Phase 2: Cleaner 職責釐清（Day 2）</h3>
+<ul>
+<li>[ ] <strong>審查修正</strong>：更新 <code>DataCleaner</code>：接收 <code>annotation_manager</code> 引用（非 dict）</li>
+<li>[ ] <strong>審查修正</strong>：實作「讀取 device_role 調整清洗策略（backup 放寬凍結檢測），但不寫入 DataFrame metadata」</li>
+<li>[ ] 實作 <code>unannotated_column_policy</code> 邏輯（E402 處理）</li>
+<li>[ ] 驗證：輸出 Parquet 不含 device_role 欄位 metadata</li>
+</ul>
+<h3 id="phase-3-batchprocessor-day-3">Phase 3: BatchProcessor 整合（Day 3）</h3>
+<ul>
+<li>[ ] 更新 <code>BatchOrchestrator</code>：接收 <code>annotation_metadata</code>（含繼承鏈），寫入 Manifest</li>
+<li>[ ] Manifest 新增欄位：<code>annotation_schema_version</code>, <code>annotation_checksum</code>, <code>inheritance_chain</code></li>
+<li>[ ] 驗證：Manifest 正確記錄繼承鏈資訊</li>
+</ul>
+<h3 id="phase-4-feature-engineer-day-4">Phase 4: Feature Engineer 整合（Day 4）</h3>
+<ul>
+<li>[ ] 更新 <code>FeatureEngineer</code>：從 Annotation 讀取 device_role（因 Cleaner 未寫入）</li>
+<li>[ ] 實作 <code>ignore_warnings</code> 過濾與 device_role 感知警告抑制</li>
+<li>[ ] 驗證：Group Policy 正確執行，backup 設備不觸發 W403</li>
+</ul>
+<h3 id="phase-5-cli-day-5">Phase 5: CLI 與工具鏈（Day 5）</h3>
+<ul>
+<li>[ ] 實作 <code>FeatureWizard</code>：<strong>僅寫入 Excel</strong>，不直寫 YAML</li>
+<li>[ ] 實作 <code>ExcelMigrator</code>：v1.1→v1.2 升級（新增 device_role/ignore_warnings 欄位）</li>
+<li>[ ] 更新 <code>HVACCLI</code>：顯示繼承鏈資訊</li>
+<li>[ ] 驗證：Wizard 流程符合單向流</li>
+</ul>
+<h3 id="phase-6-day-6">Phase 6: 整合測試（Day 6）</h3>
+<ul>
+<li>[ ] 執行 INT-SYS-007R（繼承合併）、008R（循環檢測）</li>
+<li>[ ] 執行 INT-SYS-010R（Cleaner 職責分離驗證）</li>
+<li>[ ] 執行 INT-SYS-014（未定義欄位處理）</li>
+<li>[ ] 執行既有測試 INT-SYS-001~006, 009, 011~013, 015</li>
+</ul>
+<hr />
+<h2 id="10-sign-off-checklist-">10. 驗收簽核 (Sign-off Checklist) - 審查修正後</h2>
+<ul>
+<li>[ ] <strong>SSOT 一致性</strong>: Excel 為 Annotation 唯一編輯入口，無全域預設值</li>
+<li>[ ] <strong>單向流驗證</strong>: Wizard 無法直接寫入 YAML，必須透過 Excel → excel_to_yaml.py</li>
+<li>[ ] <strong>繼承機制</strong>: </li>
+<li>[ ] <code>inherit: base</code> 正確合併父設定（深度合併）</li>
+<li>[ ] 循環繼承正確檢測並拋出 E407</li>
+<li>[ ] 子設定正確覆蓋父設定（非 append）</li>
+<li>[ ] <strong>Cleaner 職責分離</strong>:</li>
+<li>[ ] <strong>審查項目</strong>：Cleaner 讀取 device_role 僅用於調整清洗閾值（不寫入 metadata）</li>
+<li>[ ] <strong>審查項目</strong>：輸出 DataFrame/Parquet 不含 device_role 物理欄位</li>
+<li>[ ] 移除 <code>default_device_role</code>，未定義欄位依 <code>unannotated_column_policy</code> 處理（E402）</li>
+<li>[ ] <strong>同步檢查 (E406)</strong>: Excel 修改時間晚於 YAML 時，Pipeline 正確阻擋</li>
+<li>[ ] <strong>device_role 傳遞</strong>: </li>
+<li>[ ] FE 正確從 Annotation（非 Cleaner metadata）讀取 device_role</li>
+<li>[ ] backup/seasonal 設備正確抑制 W403 警告</li>
+<li>[ ] <strong>Group Policy 執行</strong>: 合併後的 Group Policies 正確執行（含繼承自 base 的規則）</li>
+<li>[ ] <strong>CLI 功能</strong>: </li>
+<li>[ ] <code>python main.py features wizard</code> 僅寫入 Excel</li>
+<li>[ ] <code>python main.py features validate-annotation</code> 顯示繼承鏈</li>
+<li>[ ] <code>python main.py features migrate-excel</code> 成功升級 v1.1→v1.2</li>
+</ul>
+<hr />
+</body>
+</html>

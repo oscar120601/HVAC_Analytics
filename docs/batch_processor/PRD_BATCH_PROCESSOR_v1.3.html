@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_BATCH_PROCESSOR_v1.3</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="prd-v13-contract-aligned-batchprocessor-implementation-guide">PRD v1.3-Contract-Aligned: 批次处理器强健性重构指南 (BatchProcessor Implementation Guide)</h1>
+<h1 id="feature-annotation-v12equipment-validation-sync-interface-contract-v11">整合 Feature Annotation v1.2、Equipment Validation Sync 与 Interface Contract v1.1</h1>
+<p><strong>文件版本:</strong> v1.3-Contract-Aligned (Interface Contract v1.1 Compliance &amp; Temporal Consistency)<br />
+<strong>日期:</strong> 2026-02-14<br />
+<strong>负责人:</strong> Oscar Chang<br />
+<strong>目标模块:</strong> <code>src/etl/batch_processor.py</code> (v1.3+)<br />
+<strong>上游契约:</strong> <code>src/etl/cleaner.py</code> (v2.2+, 检查点 #2)<br />
+<strong>下游契约:</strong> <code>src/etl/feature_engineer.py</code> (v1.3+, 检查点 #3)<br />
+<strong>关键相依:</strong> <br />
+- <code>src/features/annotation_manager.py</code> (v1.2+, 提供继承链与版本信息)<br />
+- <code>src/core/temporal_baseline.py</code> (PipelineContext, 时间基准)<br />
+- <code>src/equipment/equipment_validator.py</code> (Equipment Validation Audit 传递)<br />
+<strong>预估工时:</strong> 5 ~ 6 个工程天（含 Annotation 稽核轨迹、Equipment Validation Sync、Temporal Baseline 整合）</p>
+<hr />
+<h2 id="1">1. 执行总纲与设计哲学</h2>
+<h3 id="11-v12-v13-contract-aligned">1.1 版本变更总览 (v1.2 → v1.3-Contract-Aligned)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">变更类别</th>
+<th style="text-align: left;">v1.2 状态</th>
+<th style="text-align: left;">v1.3-Contract-Aligned 修正</th>
+<th style="text-align: center;">影响层级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Interface Contract 对齐</strong></td>
+<td style="text-align: left;">基础契约检查</td>
+<td style="text-align: left;"><strong>完全对齐 v1.1 检查点 #3</strong>：新增设备逻辑稽核轨迹传递、时间基准强制同步</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Equipment Validation Sync</strong></td>
+<td style="text-align: left;">无</td>
+<td style="text-align: left;"><strong>新增设备逻辑稽核轨迹</strong>（E351），与 Cleaner v2.2 和 Optimization 限制条件保持一致</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Temporal Baseline</strong></td>
+<td style="text-align: left;">提及但未强制</td>
+<td style="text-align: left;"><strong>强制使用</strong> <code>pipeline_origin_timestamp</code> 进行未来数据检查（E205），并传递至下游</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Header Standardization</strong></td>
+<td style="text-align: left;">无</td>
+<td style="text-align: left;"><strong>对接 Parser v2.1</strong>：接收已正规化标头，验证与 Annotation 匹配（E409）</td>
+<td style="text-align: center;">🟡 Medium</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>SSOT 版本检查</strong></td>
+<td style="text-align: left;">无</td>
+<td style="text-align: left;"><strong>新增 E408</strong>：检查 Manifest 中的 <code>quality_flags_schema</code> 与代码 SSOT 一致性</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E406 处理流程</strong></td>
+<td style="text-align: left;">基础检查</td>
+<td style="text-align: left;"><strong>强化</strong>：详细说明同步检查失败处理、文件锁整合、恢复指引</td>
+<td style="text-align: center;">🟡 Medium</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Foundation First Policy</strong></td>
+<td style="text-align: left;">无</td>
+<td style="text-align: left;"><strong>新增</strong>：明确声明基础模块实施优先顺序，防止 Dependency Deadlock</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+</tbody>
+</table>
+<h3 id="12-contract-aligned">1.2 核心设计原则（Contract-Aligned 版）</h3>
+<ol>
+<li><strong>Metadata 零遗失，职责清晰</strong>：接收 Cleaner 传递的 <code>column_metadata</code>（仅含 physical_type/unit，不含 device_role），完整写入 Manifest；同时接收并传递 <code>equipment_validation_audit</code> 供下游 Optimization 使用</li>
+<li><strong>Temporal Baseline 强制传递</strong>：所有时间相关验证必须使用上游传入的 <code>pipeline_origin_timestamp</code>，禁止在模块内调用 <code>datetime.now()</code>，防止长时间执行流程中的时间漂移</li>
+<li><strong>SSOT 严格引用</strong>：所有验证逻辑引用 <code>src/etl/config_models.py</code> 中的 <code>VALID_QUALITY_FLAGS</code>、<code>TIMESTAMP_CONFIG</code>、<code>FEATURE_ANNOTATION_CONSTANTS</code></li>
+<li><strong>设备逻辑稽核轨迹传递</strong>：作为 Cleaner 与 Optimization 之间的中介，必须准确传递设备逻辑预检结果（Equipment Validation Audit）</li>
+<li><strong>Foundation First Policy</strong>：本模块为 <strong>Sprint 2 实施项目</strong>，必须在 <code>FeatureAnnotationManager</code>、<code>TemporalContext</code>、<code>DataCleaner v2.2</code> 就绪后才能实施，以避免 Dependency Deadlock</li>
+</ol>
+<h3 id="13-foundation-first-policy">1.3 Foundation First Policy（基础实施优先声明）</h3>
+<blockquote>
+<p>⚠️ <strong>基础设施优先声明（Foundation First Policy）</strong><br />
+根据项目执行评估报告（Project Execution Evaluation Report）与 Interface Contract v1.1，本模块为 <strong>Sprint 2 实施项目（Integration Sprint）</strong>。<br />
+在以下基础模块未就绪前，禁止开发 BatchProcessor v1.3 的业务逻辑，以避免 <strong>Dependency Deadlock</strong> 与 <strong>Temporal Inconsistency</strong> 风险：</p>
+<p><strong>强制前置依赖（Hard Dependencies）：</strong><br />
+1. <code>FeatureAnnotationManager v1.2</code>（检查点 #5、#6 验证）<br />
+2. <code>TemporalContext / PipelineContext v1.2</code>（时间基准传递）<br />
+3. <code>DataCleaner v2.2-Contract-Aligned</code>（上游契约，含 Equipment Validation Precheck）</p>
+<p><strong>初始化顺序（Container Initialization Order）：</strong><br />
+<code>Step 1: PipelineContext (时间基准锁定)
+Step 2: E406 同步验证与文件锁取得
+Step 3: FeatureAnnotationManager (加载并合并继承链)
+Step 4: DataCleaner v2.2 (初始化)
+Step 5: BatchProcessor v1.3 (本模块)</code></p>
+<p>违反上述顺序将触发 <strong>E901（INIT_ORDER_VIOLATION）</strong> 错误。</p>
+</blockquote>
+<hr />
+<h2 id="2-interface-contracts">2. 接口契约规范 (Interface Contracts)</h2>
+<h3 id="21-input-contract-from-cleaner-v22">2.1 输入契约 (Input Contract from Cleaner v2.2)</h3>
+<p><strong>检查点 #2: Cleaner → BatchProcessor (Clean Data Contract)</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">检查项</th>
+<th style="text-align: left;">规格</th>
+<th style="text-align: left;">容错处理</th>
+<th style="text-align: center;">错误代码</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>timestamp</code></td>
+<td style="text-align: left;"><code>Datetime(time_unit='ns', time_zone='UTC')</code></td>
+<td style="text-align: left;">若不符，尝试转换或拒绝</td>
+<td style="text-align: center;">E201</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>pipeline_origin_timestamp</code></td>
+<td style="text-align: left;"><strong>必须存在于 metadata</strong> (ISO 8601 UTC)</td>
+<td style="text-align: left;">遗失则抛出 E000</td>
+<td style="text-align: center;"><strong>E000</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>quality_flags</code></td>
+<td style="text-align: left;"><code>List(Utf8)</code>，值 ⊆ <code>VALID_QUALITY_FLAGS</code></td>
+<td style="text-align: left;">拒绝写入，提示更新 SSOT</td>
+<td style="text-align: center;">E202</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>column_metadata</code></td>
+<td style="text-align: left;"><code>Dict[str, ColumnMeta]</code> (物理属性)</td>
+<td style="text-align: left;">若缺失，使用保守预设</td>
+<td style="text-align: center;">E203 (Warning)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>device_role 字段</strong></td>
+<td style="text-align: left;"><strong>禁止存在于 DataFrame</strong></td>
+<td style="text-align: left;">若发现，抛出 E500 (契约违反)</td>
+<td style="text-align: center;"><strong>E500</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>equipment_validation_audit</strong></td>
+<td style="text-align: left;"><code>Dict</code> (设备逻辑稽核轨迹)</td>
+<td style="text-align: left;">若启用同步但未提供，记录 E351 Warning</td>
+<td style="text-align: center;"><strong>E351</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;">时间连续性</td>
+<td style="text-align: left;"><code>temporal_continuity</code> 标记</td>
+<td style="text-align: left;">记录于 Manifest，不阻断处理</td>
+<td style="text-align: center;">-</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>标头正规化</strong></td>
+<td style="text-align: left;">字段名称必须为 snake_case (Parser 处理)</td>
+<td style="text-align: left;">若收到非正规化标头，记录警告</td>
+<td style="text-align: center;"><strong>E105-W</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>关键时间基准检查</strong>:<br />
+- <strong>E000 (TEMPORAL_BASELINE_MISSING)</strong>: 若输入 metadata 不含 <code>pipeline_origin_timestamp</code>，立即终止流程<br />
+- <strong>时间一致性</strong>: 使用传入的 <code>pipeline_origin_timestamp</code> 进行所有未来数据检查，<strong>禁止</strong>调用 <code>datetime.now()</code></p>
+<h3 id="22-output-contract-to-feature-engineer-v13">2.2 输出契约 (Output Contract to Feature Engineer v1.3)</h3>
+<p><strong>检查点 #3: BatchProcessor → Feature Engineer (Storage Contract)</strong></p>
+<p><strong>Manifest 结构 (v1.3-Contract-Aligned 关键扩充)</strong>:</p>
+<pre><code class="language-python">class Manifest(BaseModel):
+    &quot;&quot;&quot;BatchProcessor v1.3-Contract-Aligned Manifest 结构 (Interface Contract v1.1 #3)&quot;&quot;&quot;
+
+    # 基础信息
+    manifest_version: str = &quot;1.3-CA&quot;  # Contract-Aligned
+    batch_id: str                    # UUID v4
+    site_id: str                     # 案场识别 (如 &quot;cgmh_ty&quot;)
+    created_at: datetime             # ISO 8601 UTC
+
+    # 【关键】时间基准传递 (新增强制要求)
+    temporal_baseline: Dict = {
+        &quot;pipeline_origin_timestamp&quot;: str,  # ISO 8601 UTC，与输入相同
+        &quot;timezone&quot;: &quot;UTC&quot;,
+        &quot;baseline_version&quot;: &quot;1.0&quot;
+    }
+
+    # 【关键】Feature Metadata 传递 (来自 Cleaner，不含 device_role)
+    feature_metadata: Dict[str, FeatureMetadata]
+    # 示例: {&quot;chiller_1_load&quot;: {&quot;physical_type&quot;: &quot;chiller_load&quot;, &quot;unit&quot;: &quot;RT&quot;}}
+    # ❌ 禁止包含: device_role, ignore_warnings (这些由 FE 直接读取 Annotation)
+
+    # 【新增】Annotation 稽核轨迹 (供回溯与版本验证)
+    annotation_audit_trail: Dict = {
+        &quot;schema_version&quot;: &quot;1.2&quot;,
+        &quot;template_version&quot;: &quot;1.2&quot;,
+        &quot;yaml_checksum&quot;: &quot;sha256:abc123...&quot;,      # Excel 来源文件杂凑
+        &quot;inheritance_chain&quot;: &quot;base -&gt; cgmh_ty&quot;,   # 继承链信息
+        &quot;last_updated&quot;: &quot;2026-02-13T10:00:00&quot;,
+        &quot;editor&quot;: &quot;王工程师&quot;
+    }
+
+    # 【新增】设备逻辑稽核轨迹 (Equipment Validation Sync)
+    equipment_validation_audit: Dict = {
+        &quot;validation_enabled&quot;: bool,               # 是否启用预检
+        &quot;constraints_applied&quot;: List[str],         # 套用的限制条件 ID 列表
+        &quot;violations_detected&quot;: int,               # 违规笔数
+        &quot;violation_details&quot;: List[Dict],          # 违规详情（时间点、设备、限制类型）
+        &quot;precheck_timestamp&quot;: str                 # 预检执行时间戳
+    }
+
+    # SSOT 快照 (版本兼容性检查)
+    quality_flags_schema: List[str]    # 当下使用的 VALID_QUALITY_FLAGS 副本
+    timestamp_schema: Dict = {          # 时间戳规格快照
+        &quot;format&quot;: &quot;INT64&quot;,
+        &quot;unit&quot;: &quot;nanoseconds&quot;, 
+        &quot;timezone&quot;: &quot;UTC&quot;
+    }
+
+    # 输出文件信息
+    output_files: List[str]            # 相对路径列表
+    output_format: str = &quot;parquet&quot;
+    compression: str = &quot;snappy&quot;
+
+    # 数据完整性验证
+    checksum: str                      # Manifest 本身 checksum (SHA256)
+    file_checksums: Dict[str, str]    # filename → SHA256
+</code></pre>
+<p><strong>Parquet 输出规范</strong>:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">字段</th>
+<th style="text-align: left;">物理型别</th>
+<th style="text-align: left;">逻辑型别</th>
+<th style="text-align: left;">限制</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>timestamp</code></td>
+<td style="text-align: left;"><code>INT64</code></td>
+<td style="text-align: left;"><code>Timestamp(nanoseconds, UTC)</code></td>
+<td style="text-align: left;">禁止 INT96</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>quality_flags</code></td>
+<td style="text-align: left;"><code>BYTE_ARRAY</code> (JSON)</td>
+<td style="text-align: left;"><code>List(Utf8)</code></td>
+<td style="text-align: left;">以 JSON string 存储，Polars 读取时解析</td>
+</tr>
+<tr>
+<td style="text-align: left;">数值字段</td>
+<td style="text-align: left;"><code>DOUBLE</code></td>
+<td style="text-align: left;"><code>Float64</code></td>
+<td style="text-align: left;">-</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>device_role</strong></td>
+<td style="text-align: left;"><strong>禁止存在</strong></td>
+<td style="text-align: left;">-</td>
+<td style="text-align: left;"><strong>不得写入 Parquet metadata 或 DataFrame</strong></td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">验证项目</th>
+<th style="text-align: left;">规格</th>
+<th style="text-align: center;">失败代码</th>
+<th style="text-align: center;">严重度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>时间基准传递</strong></td>
+<td style="text-align: left;">输出 metadata 必须包含 <code>pipeline_origin_timestamp</code></td>
+<td style="text-align: center;"><strong>E000</strong></td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>未來資料檢查</strong></td>
+<td style="text-align: left;">批次資料時間 ≤ <code>pipeline_origin_timestamp + 5min</code></td>
+<td style="text-align: center;"><strong>E205</strong></td>
+<td style="text-align: center;">High</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>设备逻辑稽核</strong></td>
+<td style="text-align: left;">若启用 <code>equipment_validation_sync</code>，必须包含稽核轨迹</td>
+<td style="text-align: center;"><strong>E351</strong></td>
+<td style="text-align: center;">High</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>device_role 不存在</strong></td>
+<td style="text-align: left;">DataFrame 与 metadata 皆不可含此字段</td>
+<td style="text-align: center;"><strong>E500</strong></td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Metadata 纯净性</strong></td>
+<td style="text-align: left;">仅允许 <code>physical_type</code>, <code>unit</code>, <code>description</code></td>
+<td style="text-align: center;"><strong>E500</strong></td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>SSOT 一致性</strong></td>
+<td style="text-align: left;"><code>quality_flags_schema</code> 必须与当前 SSOT 相容</td>
+<td style="text-align: center;"><strong>E408</strong></td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>标头对应检查</strong></td>
+<td style="text-align: left;">CSV 标头（正规化后）与 Annotation <code>column_name</code> 匹配</td>
+<td style="text-align: center;"><strong>E409</strong></td>
+<td style="text-align: center;">High</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-phase-based-implementation">3. 分阶段实施计划 (Phase-Based Implementation)</h2>
+<h3 id="phase-0-annotation-temporal-baseline-day-1">Phase 0: Annotation 稽核轨迹与 Temporal Baseline 基础建设 (Day 1, 新增/强化)</h3>
+<h4 id="step-01-ssot-temporal-context">Step 0.1: SSOT 严格引用与 Temporal Context 注入</h4>
+<p><strong>文件</strong>: <code>src/etl/batch_processor.py</code> (顶部)</p>
+<p><strong>实施内容</strong>:</p>
+<pre><code class="language-python">from typing import Final, Dict, List, Optional, Tuple
+from pathlib import Path
+import hashlib
+import json
+import shutil
+from datetime import datetime, timezone, timedelta
+
+import polars as pl
+import pyarrow.parquet as pq
+from pydantic import BaseModel, validator
+
+# 【关键】SSOT 严格引用
+from src.etl.config_models import (
+    VALID_QUALITY_FLAGS,      # SSOT: 6个标准品质标记
+    TIMESTAMP_CONFIG,         # SSOT: UTC, ns, INT64
+    FeatureMetadata,          # SSOT: 字段元数据结构 (已移除 device_role)
+    BatchConfig,             
+    ETLConfig,
+    FEATURE_ANNOTATION_CONSTANTS,  # SSOT: Annotation 常数
+    EQUIPMENT_VALIDATION_CONSTRAINTS  # 【新增】SSOT: 设备限制条件
+)
+
+# 【新增】Temporal Baseline 整合
+from src.core.temporal_baseline import TemporalContext, get_temporal_context
+
+# 【新增】Annotation 稽核轨迹
+from src.features.annotation_manager import FeatureAnnotationManager
+
+# 错误代码常数 (Interface Contract v1.1)
+ERROR_CODES: Final[Dict[str, str]] = {
+    &quot;E201&quot;: &quot;INPUT_SCHEMA_MISMATCH&quot;,
+    &quot;E202&quot;: &quot;UNKNOWN_QUALITY_FLAG&quot;, 
+    &quot;E203&quot;: &quot;METADATA_LOSS&quot;,
+    &quot;E205&quot;: &quot;FUTURE_DATA_IN_BATCH&quot;,      # 【新增】
+    &quot;E206&quot;: &quot;PARQUET_FORMAT_VIOLATION&quot;,  # 【新增】
+    &quot;E301&quot;: &quot;MANIFEST_INTEGRITY_FAILED&quot;,
+    &quot;E302&quot;: &quot;SCHEMA_MISMATCH&quot;,
+    &quot;E303&quot;: &quot;SSOT_QUALITY_FLAGS_MISMATCH&quot;,  # 【修正】原 E303，现对应 E408
+    &quot;E304&quot;: &quot;METADATA_MISSING&quot;,
+    &quot;E351&quot;: &quot;EQUIPMENT_VALIDATION_AUDIT_MISSING&quot;,  # 【新增】
+    &quot;E406&quot;: &quot;EXCEL_YAML_OUT_OF_SYNC&quot;,
+    &quot;E408&quot;: &quot;SSOT_QUALITY_FLAGS_MISMATCH&quot;,  # 【新增】Manifest flags 与代码 SSOT 不符
+    &quot;E409&quot;: &quot;HEADER_ANNOTATION_MISMATCH&quot;,   # 【新增】标头与 Annotation 不匹配
+    &quot;E500&quot;: &quot;DEVICE_ROLE_LEAKAGE&quot;
+}
+</code></pre>
+<h4 id="step-02-e406">Step 0.2: E406 同步验证与文件锁整合（强化版）</h4>
+<p><strong>文件</strong>: <code>src/etl/batch_processor.py</code> (<code>BatchOrchestrator.__init__</code>)</p>
+<p><strong>详细逻辑</strong>:</p>
+<pre><code class="language-python">class BatchOrchestrator:
+    &quot;&quot;&quot;
+    BatchProcessor v1.3-Contract-Aligned - 整合 Feature Annotation 稽核轨迹与 Temporal Baseline
+
+    核心职责：
+    1. 接收 Cleaner 输出（不含 device_role 的 DataFrame + column_metadata + equipment_validation_audit）
+    2. 将 Annotation 稽核信息（版本、checksum、继承链）写入 Manifest
+    3. 传递 Temporal Baseline 至下游（防止时间漂移）
+    4. 执行 E406 同步检查（若 enforce_annotation_sync=True）
+    5. 确保输出 Parquet 不含 device_role 字段或 metadata
+    &quot;&quot;&quot;
+
+    def __init__(
+        self,
+        config: ETLConfig,
+        parser: ReportParser,
+        cleaner: DataCleaner,
+        annotation_metadata: Optional[Dict] = None,  # 来自 Container 的 Annotation 信息
+        temporal_context: Optional[TemporalContext] = None  # 【新增】时间基准
+    ):
+        self.config = config
+        self.parser = parser
+        self.cleaner = cleaner
+        self.annotation_metadata = annotation_metadata or {}
+        self.logger = get_logger(&quot;BatchOrchestrator&quot;)
+        self.batch_id = str(uuid.uuid4())
+        self.site_id = config.site_id
+
+        # 【新增】时间基准强制检查
+        if temporal_context is None:
+            raise TemporalBaselineError(
+                &quot;E000: BatchProcessor 必须接收 TemporalContext，禁止自行产生时间戳。 &quot;
+                &quot;请确保 Container 正确传递 pipeline_origin_timestamp。&quot;
+            )
+        self.temporal_context = temporal_context
+        self.pipeline_origin_timestamp = temporal_context.get_baseline()
+
+        # 【强化】E406 检查：若启用严格同步，检查 Excel/YAML 状态并整合文件锁
+        if config.feature_annotation.enabled and config.batch.enforce_annotation_sync:
+            self._validate_annotation_sync_with_lock()
+
+    def _validate_annotation_sync_with_lock(self):
+        &quot;&quot;&quot;
+        E406 检查：确保使用的 YAML 与 Excel 同步（整合文件锁机制）
+
+        流程：
+        1. 尝试取得文件锁（防止 Wizard 并发修改）
+        2. 执行同步验证
+        3. 若不同步，提供详细恢复指引
+        &quot;&quot;&quot;
+        from src.utils.config_loader import ConfigLoader, FileLockError
+
+        fa_config = self.config.feature_annotation
+
+        try:
+            # 使用文件锁确保验证期间 YAML 不会被修改
+            with ConfigLoader.acquire_yaml_lock(
+                self.site_id, 
+                fa_config.lock_file_dir, 
+                fa_config.file_lock_timeout
+            ):
+                self.logger.info(&quot;🔍 检查点 #5: 验证 Excel/YAML 同步状态...&quot;)
+                sync_status = ConfigLoader.validate_annotation_sync(
+                    self.site_id,
+                    fa_config.excel_base_dir,
+                    fa_config.yaml_base_dir
+                )
+
+                if not sync_status['synced']:
+                    error_msg = (
+                        f&quot;E406: {sync_status['reason']}\n&quot;
+                        f&quot;Excel 修改时间: {datetime.fromtimestamp(sync_status.get('excel_mtime', 0))}\n&quot;
+                        f&quot;YAML 修改时间: {datetime.fromtimestamp(sync_status.get('yaml_mtime', 0))}\n\n&quot;
+                        f&quot;恢复步骤：\n&quot;
+                        f&quot;1. 确认 Excel 标注重量已完成并保存\n&quot;
+                        f&quot;2. 执行转换: python tools/features/excel_to_yaml.py &quot;
+                        f&quot;--input {fa_config.excel_base_dir}/{self.site_id}/{self.site_id}.xlsx &quot;
+                        f&quot;--output {fa_config.yaml_base_dir}/{self.site_id}.yaml\n&quot;
+                        f&quot;3. 重新执行 Pipeline&quot;
+                    )
+
+                    if fa_config.strict_sync_check:
+                        raise AnnotationSyncError(error_msg)
+                    else:
+                        self.logger.warning(f&quot;⚠️ Annotation 同步警告: {sync_status['reason']}&quot;)
+                else:
+                    self.logger.info(&quot;✅ 检查点 #5: Excel/YAML 同步 - 通过&quot;)
+
+        except FileLockError as e:
+            raise RuntimeError(f&quot;E003: 无法取得 Annotation 文件锁: {e}&quot;) from e
+</code></pre>
+<hr />
+<h3 id="phase-1-temporal-baseline-day-1-2">Phase 1: 输入契约验证与 Temporal Baseline 应用 (Day 1-2, 更新)</h3>
+<h4 id="step-11-device_role-e409">Step 1.1: 输入契约验证（含 device_role 泄漏检查与 E409）</h4>
+<p><strong>方法</strong>: <code>_validate_input_contract(df: pl.DataFrame, input_metadata: Dict) -&gt; None</code></p>
+<p><strong>详细逻辑</strong>:</p>
+<pre><code class="language-python">def _validate_input_contract(self, df: pl.DataFrame, input_metadata: Dict) -&gt; None:
+    &quot;&quot;&quot;
+    验证 Cleaner v2.2 输入契约 (Interface Contract #2)
+
+    验证项目:
+    1. quality_flags 型别与值域
+    2. pipeline_origin_timestamp 存在性 (E000)
+    3. 【关键】禁止 device_role 字段存在 (E500)
+    4. 【新增】设备逻辑稽核轨迹检查 (E351)
+    5. 【新增】标头正规化验证 (E409)
+    6. 未来数据检查 (E205) - 使用 Temporal Baseline
+    &quot;&quot;&quot;
+    errors = []
+
+    # 1. 时间基准检查 (E000)
+    if 'pipeline_origin_timestamp' not in input_metadata:
+        errors.append(&quot;E000: 输入 metadata 遗失 pipeline_origin_timestamp&quot;)
+    else:
+        # 验证时间戳格式
+        try:
+            baseline = datetime.fromisoformat(input_metadata['pipeline_origin_timestamp'])
+            self.logger.debug(f&quot;接收时间基准: {baseline.isoformat()}&quot;)
+        except ValueError:
+            errors.append(&quot;E000: pipeline_origin_timestamp 格式错误，必须为 ISO 8601&quot;)
+
+    # 2. quality_flags 验证 (E202)
+    if &quot;quality_flags&quot; in df.columns:
+        qf_dtype = df[&quot;quality_flags&quot;].dtype
+        if not isinstance(qf_dtype, pl.List):
+            errors.append(f&quot;quality_flags 必须为 List 型别，得到 {qf_dtype}&quot;)
+        else:
+            actual_flags = set()
+            for flags in df[&quot;quality_flags&quot;]:
+                if flags:
+                    actual_flags.update(flags)
+
+            invalid_flags = actual_flags - set(VALID_QUALITY_FLAGS)
+            if invalid_flags:
+                errors.append(f&quot;E202: 输入包含未定义的品质标记: {invalid_flags}&quot;)
+
+    # 3. 【关键】职责分离检查：禁止 device_role 字段 (E500)
+    forbidden_columns = [&quot;device_role&quot;, &quot;ignore_warnings&quot;, &quot;is_target&quot;, &quot;role&quot;, 
+                        &quot;device_type&quot;, &quot;annotation_role&quot;]
+    for col in forbidden_columns:
+        if col in df.columns:
+            errors.append(
+                f&quot;E500: 发现禁止字段 '{col}'。Cleaner v2.2 不应将 Annotation 元数据&quot;
+                f&quot;写入 DataFrame，这些资讯应由 Feature Engineer 直接读取 YAML SSOT。&quot;
+            )
+
+    # 4. 【新增】设备逻辑稽核轨迹检查 (E351)
+    if self.config.cleaner.enforce_equipment_validation_sync:
+        if 'equipment_validation_audit' not in input_metadata:
+            errors.append(
+                &quot;E351: 启用设备逻辑同步但未接收 equipment_validation_audit。 &quot;
+                &quot;请确认 Cleaner v2.2 已正确实施 Equipment Validation Precheck。&quot;
+            )
+        else:
+            audit = input_metadata['equipment_validation_audit']
+            if audit.get('validation_enabled') and not audit.get('constraints_applied'):
+                self.logger.warning(&quot;E351-Warning: 设备验证启用但未套用任何限制条件&quot;)
+
+    # 5. 【新增】标头正规化验证 (E409)
+    if self.annotation_metadata:
+        expected_cols = set(self.annotation_metadata.get('columns', {}).keys())
+        actual_cols = set(df.columns) - {'timestamp', 'quality_flags'}
+
+        # 检查是否有未正规化的字段（应已被 Parser 处理，此处为二次确认）
+        non_standardized = [c for c in actual_cols if not self._is_snake_case(c)]
+        if non_standardized:
+            self.logger.warning(f&quot;E409-Warning: 以下字段未使用 snake_case: {non_standardized}&quot;)
+
+        # 检查未标注字段（E402 前置检查）
+        unannotated = actual_cols - expected_cols
+        if unannotated:
+            self.logger.warning(f&quot;E409: 以下字段未在 Annotation 中定义: {unannotated}&quot;)
+
+    # 6. 未来数据检查 (E205) - 使用 Temporal Baseline 而非 now()
+    if hasattr(self, 'pipeline_origin_timestamp'):
+        self._check_future_data_with_baseline(df)
+
+    if errors:
+        raise ContractViolationError(f&quot;输入契约验证失败: {errors}&quot;)
+
+    self.logger.debug(&quot;输入契约验证通过：未发现 device_role 等禁止字段&quot;)
+
+def _is_snake_case(self, s: str) -&gt; bool:
+    &quot;&quot;&quot;检查字符串是否符合 snake_case 规范&quot;&quot;&quot;
+    import re
+    return bool(re.match(r'^[a-z][a-z0-9_]*$', s))
+
+def _check_future_data_with_baseline(self, df: pl.DataFrame) -&gt; None:
+    &quot;&quot;&quot;
+    未来数据检查 (E205) - 使用 Temporal Baseline
+    【关键】禁止使用 datetime.now()，必须使用 self.pipeline_origin_timestamp
+    &quot;&quot;&quot;
+    threshold = self.pipeline_origin_timestamp + timedelta(minutes=5)
+
+    future_mask = df[&quot;timestamp&quot;] &gt; threshold
+    future_count = future_mask.sum()
+
+    if future_count &gt; 0:
+        future_samples = df.filter(future_mask)[&quot;timestamp&quot;].head(3).to_list()
+        raise FutureDataError(
+            message=f&quot;E205: 检测到 {future_count} 笔未来资料（&gt;{threshold.isoformat()}）。&quot;,
+            detected_timestamp=future_samples[0] if future_samples else None,
+            pipeline_timestamp=self.pipeline_origin_timestamp,
+            file_path=None  # 可在上层补充
+        )
+
+    self.logger.debug(f&quot;未来数据检查通过（基准: {self.pipeline_origin_timestamp.isoformat()}）&quot;)
+</code></pre>
+<hr />
+<h3 id="phase-2-parquet-day-2-3">Phase 2: 事务性输出与 Parquet 写入 (Day 2-3)</h3>
+<h4 id="step-21-parquet-schema">Step 2.1: Parquet 写入与 Schema 验证（强化版）</h4>
+<p><strong>关键更新</strong>：在 <code>_verify_parquet_schema</code> 中新增对 <strong>temporal baseline</strong> 和 <strong>device_role</strong> 的检查</p>
+<pre><code class="language-python">def _verify_parquet_schema(self, file_path: Path) -&gt; None:
+    &quot;&quot;&quot;
+    验证 Parquet 文件符合 INT64/UTC 规范，且不含 device_role (E206/E500)
+    【新增】验证时间戳物理型别正确性
+    &quot;&quot;&quot;
+    pf = pq.ParquetFile(file_path)
+    schema = pf.schema
+
+    # 1. 验证 timestamp 字段 (INT64/UTC/NANOS)
+    ts_field = schema.field_by_name(&quot;timestamp&quot;)
+
+    if ts_field.physical_type == &quot;INT96&quot;:
+        file_path.unlink()
+        raise TypeError(f&quot;E206: Parquet 使用已弃用的 INT96 格式&quot;)
+
+    if ts_field.physical_type != &quot;INT64&quot;:
+        file_path.unlink()
+        raise TypeError(f&quot;E206: 时间戳物理型别必须为 INT64&quot;)
+
+    lt = ts_field.logical_type
+    if lt.type != &quot;TIMESTAMP&quot; or lt.unit != &quot;NANOS&quot; or not lt.is_adjusted_to_utc:
+        file_path.unlink()
+        raise TypeError(f&quot;E206: 时间戳必须为 UTC Nanoseconds&quot;)
+
+    # 2. 【新增】验证无 device_role 字段 (E500)
+    column_names = [schema.field(i).name for i in range(schema.num_columns)]
+    if &quot;device_role&quot; in column_names:
+        file_path.unlink()
+        raise ContractViolationError(
+            f&quot;E500: Parquet 文件包含禁止字段 'device_role'。 &quot;
+            f&quot;BatchProcessor 不应将 device_role 写入输出文件。&quot;
+        )
+
+    # 3. 【新增】验证 quality_flags 存储格式 (JSON string)
+    if &quot;quality_flags&quot; in column_names:
+        qf_field = schema.field_by_name(&quot;quality_flags&quot;)
+        if qf_field.physical_type != &quot;BYTE_ARRAY&quot;:
+            self.logger.warning(&quot;quality_flags 建议存储为 JSON string (BYTE_ARRAY)&quot;)
+
+    self.logger.info(f&quot;Schema 验证通过: INT64/UTC/NANOS，无 device_role&quot;)
+</code></pre>
+<hr />
+<h3 id="phase-3-manifest-audit-trail-day-3-4">Phase 3: Manifest 生成与 Audit Trail 完整性 (Day 3-4, 关键更新)</h3>
+<h4 id="step-31-manifest-temporal-baseline-equipment-validation-audit">Step 3.1: Manifest 生成（含 Temporal Baseline 与 Equipment Validation Audit）</h4>
+<p><strong>方法</strong>: <code>_generate_manifest(df: pl.DataFrame, column_metadata: Dict, equipment_audit: Dict, output_files: List[str]) -&gt; Manifest</code></p>
+<p><strong>详细逻辑</strong>:</p>
+<pre><code class="language-python">def _generate_manifest(
+    self, 
+    df: pl.DataFrame, 
+    column_metadata: Optional[Dict[str, FeatureMetadata]] = None,
+    equipment_audit: Optional[Dict] = None,  # 【新增】来自 Cleaner
+    output_files: List[str] = None
+) -&gt; Manifest:
+    &quot;&quot;&quot;
+    生成 Manifest (Interface Contract #3)
+
+    【关键】整合：
+    1. Annotation 稽核轨迹
+    2. Temporal Baseline 传递
+    3. Equipment Validation Audit 传递
+    4. SSOT 版本检查 (E408)
+    &quot;&quot;&quot;
+    # 若上游未提供 metadata，使用保守预设 (E203 Warning)
+    if not column_metadata:
+        self.logger.warning(
+            &quot;E203: 未接收到 column_metadata，使用保守预设 (physical_type='gauge')。 &quot;
+            &quot;建议升级至 Cleaner v2.2+ 以传递完整 metadata。&quot;
+        )
+        column_metadata = self._infer_metadata_conservative(df)
+
+    # 【关键】确保 column_metadata 不含 device_role（二次防护）
+    for col_name, meta in column_metadata.items():
+        if isinstance(meta, dict) and 'device_role' in meta:
+            raise ContractViolationError(
+                f&quot;E500: column_metadata 包含 device_role。 &quot;
+                f&quot;Cleaner 不应传递 device_role 至 BatchProcessor。&quot;
+            )
+        if hasattr(meta, 'device_role'):
+            raise ContractViolationError(f&quot;E500: column_metadata 对象包含 device_role 属性&quot;)
+
+    # 【新增】SSOT 版本检查 (E408)
+    current_flags = set(VALID_QUALITY_FLAGS)
+    # 记录当前使用的 flags 供下游检查
+    quality_flags_snapshot = list(VALID_QUALITY_FLAGS)
+
+    # 计算统计资讯
+    stats = {
+        &quot;total_rows&quot;: len(df),
+        &quot;total_cols&quot;: len(df.columns),
+        &quot;time_range&quot;: {
+            &quot;start&quot;: df[&quot;timestamp&quot;].min().isoformat(),
+            &quot;end&quot;: df[&quot;timestamp&quot;].max().isoformat()
+        },
+        &quot;null_percent&quot;: df.null_count().sum() / (len(df) * len(df.columns)),
+        &quot;files_count&quot;: len(output_files)
+    }
+
+    # 【新增】构建 Annotation 稽核轨迹
+    audit_trail = {}
+    if self.annotation_metadata:
+        audit_trail = {
+            &quot;schema_version&quot;: self.annotation_metadata.get('schema_version', 'unknown'),
+            &quot;template_version&quot;: self.annotation_metadata.get('template_version', 'unknown'),
+            &quot;yaml_checksum&quot;: self.annotation_metadata.get('yaml_checksum', ''),
+            &quot;inheritance_chain&quot;: self.annotation_metadata.get('inheritance_chain', 'none'),
+            &quot;last_updated&quot;: self.annotation_metadata.get('last_updated', ''),
+            &quot;editor&quot;: self.annotation_metadata.get('editor', 'unknown')
+        }
+    else:
+        self.logger.warning(&quot;未提供 Annotation Metadata，Manifest 将缺少稽核轨迹&quot;)
+
+    # 【新增】设备逻辑稽核轨迹（来自 Cleaner v2.2）
+    if equipment_audit is None:
+        equipment_audit = {
+            &quot;validation_enabled&quot;: False,
+            &quot;constraints_applied&quot;: [],
+            &quot;violations_detected&quot;: 0,
+            &quot;violation_details&quot;: []
+        }
+
+    # 【关键】构建 Temporal Baseline
+    temporal_baseline = {
+        &quot;pipeline_origin_timestamp&quot;: self.pipeline_origin_timestamp.isoformat(),
+        &quot;timezone&quot;: &quot;UTC&quot;,
+        &quot;baseline_version&quot;: &quot;1.0&quot;
+    }
+
+    # 建立 Manifest
+    manifest = Manifest(
+        batch_id=self.batch_id,
+        site_id=self.site_id,
+        created_at=datetime.now(timezone.utc),
+        temporal_baseline=temporal_baseline,  # 【新增】
+        feature_metadata=column_metadata,     # 仅含物理属性，不含 device_role
+        annotation_audit_trail=audit_trail,   # 【新增】稽核轨迹
+        equipment_validation_audit=equipment_audit,  # 【新增】设备稽核
+        quality_flags_schema=quality_flags_snapshot,  # SSOT 快照供 E408 检查
+        timestamp_schema={
+            &quot;format&quot;: &quot;INT64&quot;,
+            &quot;unit&quot;: &quot;nanoseconds&quot;,
+            &quot;timezone&quot;: &quot;UTC&quot;
+        },
+        output_files=output_files or [],
+        statistics=stats,
+        file_checksums=self._compute_file_checksums(output_files or [])
+    )
+
+    # 计算 Manifest 自身 checksum
+    manifest.checksum = manifest.compute_checksum()
+
+    self.logger.info(
+        f&quot;Manifest 生成完成: {self.batch_id}, &quot;
+        f&quot;Temporal Baseline: {temporal_baseline['pipeline_origin_timestamp']}, &quot;
+        f&quot;Annotation: {audit_trail.get('schema_version', 'N/A')}, &quot;
+        f&quot;Equipment Audit: {equipment_audit.get('violations_detected', 0)} violations, &quot;
+        f&quot;继承链: {audit_trail.get('inheritance_chain', 'N/A')}&quot;
+    )
+
+    return manifest
+</code></pre>
+<h4 id="step-32-feature-engineer">Step 3.2: 下游衔接规范（Feature Engineer 读取方式）</h4>
+<p><strong>文件规范</strong>: Feature Engineer 必须透过 Manifest 读取，并直接查询 Annotation SSOT 取得 device_role</p>
+<pre><code class="language-python"># Feature Engineer v1.3 的标准读取方式
+def load_from_batch_processor(manifest_path: Path) -&gt; Tuple[pl.LazyFrame, Dict, Dict, TemporalContext]:
+    &quot;&quot;&quot;
+    从 BatchProcessor v1.3-CA 输出读取资料、Metadata、稽核轨迹与时间基准
+
+    Returns:
+        df: LazyFrame (Parquet 资料，不含 device_role)
+        feature_metadata: Dict (物理属性)
+        annotation_audit_trail: Dict (版本与继承资讯)
+        temporal_context: TemporalContext (时间基准供未来数据检查)
+    &quot;&quot;&quot;
+    manifest = Manifest.parse_file(manifest_path)
+
+    # 1. 验证 Manifest 完整性
+    if not manifest.validate_checksum():
+        raise DataValidationError(&quot;E301: Manifest 损毁或遭篡改&quot;)
+
+    # 2. 【新增】验证时间基准存在性
+    if not hasattr(manifest, 'temporal_baseline') or not manifest.temporal_baseline:
+        raise ContractViolationError(&quot;E000: Manifest 遗失 temporal_baseline&quot;)
+
+    temporal_context = TemporalContext(
+        pipeline_timestamp=datetime.fromisoformat(manifest.temporal_baseline['pipeline_origin_timestamp']),
+        site_id=manifest.site_id
+    )
+
+    # 3. 【新增】验证 SSOT 版本相容性 (E408)
+    if set(manifest.quality_flags_schema) != set(VALID_QUALITY_FLAGS):
+        raise ConfigurationError(
+            f&quot;E408: Manifest 的 quality_flags_schema 与代码 SSOT 不符。 &quot;
+            f&quot;Manifest: {manifest.quality_flags_schema}, &quot;
+            f&quot;SSOT: {VALID_QUALITY_FLAGS}。 &quot;
+            f&quot;请重新执行 Pipeline 以确保版本一致。&quot;
+        )
+
+    # 4. 【新增】验证 Annotation 版本
+    audit = manifest.annotation_audit_trail
+    if audit:
+        expected_ver = FEATURE_ANNOTATION_CONSTANTS['expected_schema_version']
+        if audit.get('schema_version') != expected_ver:
+            raise ConfigurationError(
+                f&quot;E400: Manifest 的 Annotation 版本过旧 &quot;
+                f&quot;({audit.get('schema_version')} vs {expected_ver})&quot;
+            )
+
+    # 5. 读取资料
+    files = [manifest_path.parent / f for f in manifest.output_files]
+    df = pl.scan_parquet(files)
+
+    # 6. 【关键】Feature Engineer 直接读取 Annotation YAML 取得 device_role
+    # 而非从 manifest.feature_metadata（该处不含 device_role）
+    from src.features.annotation_manager import FeatureAnnotationManager
+    annotation_manager = FeatureAnnotationManager(
+        site_id=manifest.site_id,
+        yaml_base_dir=&quot;config/features/sites&quot;
+    )
+
+    # 7. 【新增】传递 Equipment Validation Audit 至 Optimization（如需要）
+    equipment_audit = manifest.equipment_validation_audit
+
+    return df, manifest.feature_metadata, audit, temporal_context, annotation_manager, equipment_audit
+</code></pre>
+<hr />
+<h3 id="phase-4-day-5">Phase 4: 批次处理流程整合 (Day 5)</h3>
+<h4 id="step-41">Step 4.1: 主处理流程（更新版）</h4>
+<p><strong>方法</strong>: <code>process_single_file(file_path: Path) -&gt; BatchResult</code></p>
+<p><strong>详细逻辑</strong>:</p>
+<pre><code class="language-python">@dataclass
+class BatchResult:
+    status: str  # &quot;success&quot;, &quot;failed&quot;, &quot;future_data_rejected&quot;, &quot;schema_invalid&quot;, &quot;sync_error&quot;
+    file_path: Optional[Path] = None
+    manifest_path: Optional[Path] = None
+    error: Optional[str] = None
+    annotation_audit_trail: Optional[Dict] = None  # 【新增】回传稽核资讯
+    temporal_baseline: Optional[Dict] = None       # 【新增】回传时间基准
+
+def process_single_file(self, file_path: Path) -&gt; BatchResult:
+    &quot;&quot;&quot;
+    处理单一文件的完整流程 (含 Annotation 稽核轨迹与 Temporal Baseline)
+    &quot;&quot;&quot;
+    try:
+        # 1. 解析 (Parser v2.1)
+        raw_df = self.parser.parse_file(str(file_path))
+
+        # 2. 清洗 (Cleaner v2.2) - 回传不含 device_role 的 metadata 与 equipment_audit
+        clean_df, column_metadata, equipment_audit = self.cleaner.clean(raw_df)
+        # 注意：cleaner.clean() 应回传 (df, metadata, equipment_validation_audit)
+
+        # 3. 输入契约验证（检查点 #2，含 E500 device_role 检查、E205 未来数据、E351 设备稽核）
+        input_metadata = {
+            'pipeline_origin_timestamp': self.pipeline_origin_timestamp.isoformat(),
+            'equipment_validation_audit': equipment_audit
+        }
+        self._validate_input_contract(clean_df, input_metadata)
+
+        # 4. Data Leakage 检查 (E205 - 已在 _validate_input_contract 中执行)
+
+        # 5. 设定 Staging
+        staging_path = self._setup_staging()
+
+        # 6. 写入 Parquet (强制 INT64/UTC，无 device_role)
+        parquet_file = self._write_parquet_atomic(clean_df, staging_path)
+
+        # 7. 生成 Manifest（含 annotation_audit_trail、temporal_baseline、equipment_validation_audit）
+        manifest = self._generate_manifest(
+            clean_df, 
+            column_metadata=column_metadata,
+            equipment_audit=equipment_audit,  # 【新增】传递设备稽核
+            output_files=[&quot;data.parquet&quot;]
+        )
+
+        # 8. 写入 Manifest
+        manifest_path = staging_path / &quot;manifest.json&quot;
+        manifest_path.write_text(manifest.json(indent=2))
+
+        # 9. 计算档案 checksums
+        manifest.file_checksums = {
+            &quot;data.parquet&quot;: self._compute_file_hash(parquet_file)
+        }
+        manifest_path.write_text(manifest.json(indent=2))
+
+        # 10. 原子移动至输出目录
+        final_path = self._atomic_move_to_output(staging_path)
+
+        return BatchResult(
+            status=&quot;success&quot;,
+            file_path=file_path,
+            manifest_path=final_path / &quot;manifest.json&quot;,
+            annotation_audit_trail=manifest.annotation_audit_trail,
+            temporal_baseline=manifest.temporal_baseline  # 【新增】
+        )
+
+    except AnnotationSyncError as e:  # 【新增】E406
+        return BatchResult(
+            status=&quot;sync_error&quot;,
+            file_path=file_path,
+            error=str(e)
+        )
+
+    except FutureDataError as e:
+        return BatchResult(
+            status=&quot;future_data_rejected&quot;,
+            file_path=file_path,
+            error=str(e),
+            temporal_baseline={&quot;pipeline_origin_timestamp&quot;: self.pipeline_origin_timestamp.isoformat()}
+        )
+
+    except ContractViolationError as e:  # E202, E206, E500, E408, E409
+        self.logger.error(f&quot;契约违反 {file_path}: {e}&quot;)
+        self._cleanup_staging()
+        return BatchResult(
+            status=&quot;schema_invalid&quot;,
+            file_path=file_path,
+            error=str(e)
+        )
+
+    except Exception as e:
+        self.logger.exception(f&quot;处理失败 {file_path}: {e}&quot;)
+        self._cleanup_staging()
+        return BatchResult(
+            status=&quot;failed&quot;,
+            file_path=file_path,
+            error=str(e)
+        )
+</code></pre>
+<hr />
+<h2 id="4-error-codes-updated">4. 错误代码对照表 (Error Codes - Updated)</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">错误代码</th>
+<th style="text-align: left;">名称</th>
+<th style="text-align: center;">发生阶段</th>
+<th style="text-align: left;">说明</th>
+<th style="text-align: left;">处理建议</th>
+<th style="text-align: center;">严重度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>E000</strong></td>
+<td style="text-align: left;"><code>TEMPORAL_BASELINE_MISSING</code></td>
+<td style="text-align: center;">Step 1.1</td>
+<td style="text-align: left;">未接收 pipeline_origin_timestamp</td>
+<td style="text-align: left;">检查 Container 传递逻辑</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E201</strong></td>
+<td style="text-align: left;"><code>INPUT_SCHEMA_MISMATCH</code></td>
+<td style="text-align: center;">Step 1.1</td>
+<td style="text-align: left;">输入 DataFrame Schema 不符</td>
+<td style="text-align: left;">检查 Cleaner 输出设定</td>
+<td style="text-align: center;">🟡 Medium</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E202</strong></td>
+<td style="text-align: left;"><code>UNKNOWN_QUALITY_FLAG</code></td>
+<td style="text-align: center;">Step 1.1</td>
+<td style="text-align: left;">输入含未定义的 quality_flags</td>
+<td style="text-align: left;">同步更新 SSOT</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E203</strong></td>
+<td style="text-align: left;"><code>METADATA_LOSS</code></td>
+<td style="text-align: center;">Step 3.1</td>
+<td style="text-align: left;">未接收到 column_metadata</td>
+<td style="text-align: left;">升级至 Cleaner v2.2+</td>
+<td style="text-align: center;">🟡 Medium</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E205</strong></td>
+<td style="text-align: left;"><code>FUTURE_DATA_IN_BATCH</code></td>
+<td style="text-align: center;">Step 1.1</td>
+<td style="text-align: left;">资料时间超过 pipeline_origin_timestamp + 5min</td>
+<td style="text-align: left;">检查资料来源时钟</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E206</strong></td>
+<td style="text-align: left;"><code>PARQUET_FORMAT_VIOLATION</code></td>
+<td style="text-align: center;">Step 2.1</td>
+<td style="text-align: left;">Parquet 格式非 INT64/UTC</td>
+<td style="text-align: left;">检查 use_pyarrow=False</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E301</strong></td>
+<td style="text-align: left;"><code>MANIFEST_INTEGRITY_FAILED</code></td>
+<td style="text-align: center;">Step 3.1</td>
+<td style="text-align: left;">Manifest checksum 验证失败</td>
+<td style="text-align: left;">重新执行 BatchProcessor</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E302</strong></td>
+<td style="text-align: left;"><code>SCHEMA_MISMATCH</code></td>
+<td style="text-align: center;">Step 3.2</td>
+<td style="text-align: left;">Timestamp 物理型别非 INT64</td>
+<td style="text-align: left;">检查 Parquet 写入逻辑</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E351</strong></td>
+<td style="text-align: left;"><code>EQUIPMENT_VALIDATION_AUDIT_MISSING</code></td>
+<td style="text-align: center;">Step 1.1</td>
+<td style="text-align: left;">启用设备逻辑同步但未接收稽核轨迹</td>
+<td style="text-align: left;">检查 Cleaner v2.2 设定</td>
+<td style="text-align: center;">🟡 Medium</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E406</strong></td>
+<td style="text-align: left;"><code>EXCEL_YAML_OUT_OF_SYNC</code></td>
+<td style="text-align: center;">Step 0.2</td>
+<td style="text-align: left;">Excel 与 YAML 不同步</td>
+<td style="text-align: left;">执行 validate-annotation</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E408</strong></td>
+<td style="text-align: left;"><code>SSOT_QUALITY_FLAGS_MISMATCH</code></td>
+<td style="text-align: center;">Step 3.1</td>
+<td style="text-align: left;">Manifest 中的 flags 与代码 SSOT 不符</td>
+<td style="text-align: left;">重新执行 Pipeline</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E409</strong></td>
+<td style="text-align: left;"><code>HEADER_ANNOTATION_MISMATCH</code></td>
+<td style="text-align: center;">Step 1.1</td>
+<td style="text-align: left;">CSV 标头（正规化后）与 Annotation 字段名称不匹配</td>
+<td style="text-align: left;">检查 Excel 标注或 Parser 设定</td>
+<td style="text-align: center;">🟡 Medium</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E500</strong></td>
+<td style="text-align: left;"><code>DEVICE_ROLE_LEAKAGE</code></td>
+<td style="text-align: center;">Step 1.1/2.1</td>
+<td style="text-align: left;">DataFrame 或 Metadata 含 device_role</td>
+<td style="text-align: left;">检查 Cleaner 职责分离逻辑</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-test-plan-updated">5. 测试与验证计划 (Test Plan - Updated)</h2>
+<h3 id="51-unit-tests">5.1 单元测试 (Unit Tests)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">测试案例 ID</th>
+<th style="text-align: left;">描述</th>
+<th style="text-align: left;">输入</th>
+<th style="text-align: left;">预期结果</th>
+<th style="text-align: center;">对应 Step</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">BP13-CA-01</td>
+<td style="text-align: left;">Temporal Baseline 遗失</td>
+<td style="text-align: left;">无 temporal_context</td>
+<td style="text-align: left;">抛出 E000</td>
+<td style="text-align: center;">0.2</td>
+</tr>
+<tr>
+<td style="text-align: left;">BP13-CA-02</td>
+<td style="text-align: left;">未来数据检查（使用基准）</td>
+<td style="text-align: left;">资料时间 &gt; 基准+5min</td>
+<td style="text-align: left;">抛出 E205</td>
+<td style="text-align: center;">1.1</td>
+</tr>
+<tr>
+<td style="text-align: left;">BP13-CA-03</td>
+<td style="text-align: left;">E408 SSOT 版本检查</td>
+<td style="text-align: left;">VALID_QUALITY_FLAGS 变更后</td>
+<td style="text-align: left;">Manifest 记录旧版本，触发 E408</td>
+<td style="text-align: center;">3.1</td>
+</tr>
+<tr>
+<td style="text-align: left;">BP13-CA-04</td>
+<td style="text-align: left;">Equipment Audit 传递</td>
+<td style="text-align: left;">Cleaner 回传 audit</td>
+<td style="text-align: left;">Manifest 正确包含 violations_detected</td>
+<td style="text-align: center;">3.1</td>
+</tr>
+<tr>
+<td style="text-align: left;">BP13-CA-05</td>
+<td style="text-align: left;">E409 标头检查</td>
+<td style="text-align: left;">非 snake_case 字段</td>
+<td style="text-align: left;">记录警告</td>
+<td style="text-align: center;">1.1</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>BP13-CA-06</strong></td>
+<td style="text-align: left;">长时间执行时间一致性</td>
+<td style="text-align: left;">Pipeline 执行 10 分钟后</td>
+<td style="text-align: left;">仍使用初始时间基准，不漂移</td>
+<td style="text-align: center;">1.1</td>
+</tr>
+<tr>
+<td style="text-align: left;">BP13-FA-01</td>
+<td style="text-align: left;">E406 同步检查</td>
+<td style="text-align: left;">Excel 较新</td>
+<td style="text-align: left;">抛出 AnnotationSyncError</td>
+<td style="text-align: center;">0.2</td>
+</tr>
+<tr>
+<td style="text-align: left;">BP13-FA-02</td>
+<td style="text-align: left;">device_role 拦截</td>
+<td style="text-align: left;">DataFrame 含 device_role 字段</td>
+<td style="text-align: left;">抛出 E500</td>
+<td style="text-align: center;">1.1</td>
+</tr>
+<tr>
+<td style="text-align: left;">BP13-FA-03</td>
+<td style="text-align: left;">Metadata 不含 device_role</td>
+<td style="text-align: left;">column_metadata 含 device_role</td>
+<td style="text-align: left;">抛出 E500</td>
+<td style="text-align: center;">3.1</td>
+</tr>
+<tr>
+<td style="text-align: left;">BP13-FA-04</td>
+<td style="text-align: left;">稽核轨迹完整性</td>
+<td style="text-align: left;">正常处理</td>
+<td style="text-align: left;">Manifest 含 inheritance_chain</td>
+<td style="text-align: center;">3.1</td>
+</tr>
+<tr>
+<td style="text-align: left;">BP13-001</td>
+<td style="text-align: left;">INT64 强制验证</td>
+<td style="text-align: left;">模拟 INT96 写入</td>
+<td style="text-align: left;">拦截并抛出 E206</td>
+<td style="text-align: center;">2.1</td>
+</tr>
+<tr>
+<td style="text-align: left;">BP13-002</td>
+<td style="text-align: left;">未来数据拦截</td>
+<td style="text-align: left;">时间戳为明天</td>
+<td style="text-align: left;">抛出 E205</td>
+<td style="text-align: center;">1.1</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-integration-tests">5.2 整合测试 (Integration Tests)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">测试案例 ID</th>
+<th style="text-align: left;">描述</th>
+<th style="text-align: center;">上游</th>
+<th style="text-align: center;">下游</th>
+<th style="text-align: left;">验证目标</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>INT-BP-CA-01</strong></td>
+<td style="text-align: left;">时间基准传递链</td>
+<td style="text-align: center;">Parser (带基准) → Cleaner → BP</td>
+<td style="text-align: center;">FE v1.3</td>
+<td style="text-align: left;">全程使用相同 pipeline_origin_timestamp</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>INT-BP-CA-02</strong></td>
+<td style="text-align: left;">Equipment Validation Sync</td>
+<td style="text-align: center;">Cleaner v2.2 (含预检) → BP</td>
+<td style="text-align: center;">Optimization v1.1</td>
+<td style="text-align: left;">Manifest 包含 equipment_validation_audit，与 Optimization 限制条件一致</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>INT-BP-CA-03</strong></td>
+<td style="text-align: left;">SSOT 版本检查</td>
+<td style="text-align: center;">BP v1.3 (旧 flags) → FE</td>
+<td style="text-align: center;">FE v1.3</td>
+<td style="text-align: left;">FE 正确抛出 E408</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-BP-FA-01</td>
+<td style="text-align: left;">E406 检查点</td>
+<td style="text-align: center;">Excel 修改未生成 YAML</td>
+<td style="text-align: center;">BP v1.3</td>
+<td style="text-align: left;">正确抛出 E406，阻挡处理</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-BP-FA-02</td>
+<td style="text-align: left;">Cleaner 职责分离</td>
+<td style="text-align: center;">Cleaner v2.2 (无 device_role)</td>
+<td style="text-align: center;">BP v1.3</td>
+<td style="text-align: left;">正确接收，Manifest 无 device_role</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-BP-FA-03</td>
+<td style="text-align: left;">稽核轨迹传递</td>
+<td style="text-align: center;">BP v1.3 (含 inheritance_chain)</td>
+<td style="text-align: center;">FE v1.3</td>
+<td style="text-align: left;">FE 正确读取版本与继承资讯</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-B01</td>
+<td style="text-align: left;">Cleaner v2.2 → BP v1.3</td>
+<td style="text-align: center;">Cleaner v2.2 (UTC, metadata)</td>
+<td style="text-align: center;">BP v1.3</td>
+<td style="text-align: left;">正确接收 metadata，无 E203</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-B02</td>
+<td style="text-align: left;">BP v1.3 → Feature Engineer v1.3</td>
+<td style="text-align: center;">BP v1.3 (Manifest)</td>
+<td style="text-align: center;">FE v1.3</td>
+<td style="text-align: left;">FE 正确读取 audit_trail 与 temporal_baseline</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-version-compatibility-matrix-updated">6. 版本兼容性矩阵 (Version Compatibility Matrix - Updated)</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Cleaner</th>
+<th style="text-align: center;">BatchProcessor</th>
+<th style="text-align: center;">Feature Engineer</th>
+<th style="text-align: center;">Feature Annotation</th>
+<th style="text-align: center;">Interface Contract</th>
+<th style="text-align: center;">兼容性</th>
+<th style="text-align: left;">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">v2.2 (无 device_role, 含 Equipment Audit)</td>
+<td style="text-align: center;"><strong>v1.3-CA</strong></td>
+<td style="text-align: center;">v1.3+</td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;">v1.1</td>
+<td style="text-align: center;">✅ <strong>完全相容</strong></td>
+<td style="text-align: left;">推荐配置，支援 Temporal Baseline 与 Equipment Validation Sync</td>
+</tr>
+<tr>
+<td style="text-align: center;">v2.2</td>
+<td style="text-align: center;"><strong>v1.3-CA</strong></td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;">v1.1</td>
+<td style="text-align: center;">⚠️ <strong>部分相容</strong></td>
+<td style="text-align: left;">FE v1.2 无法读取 temporal_baseline，但功能正常</td>
+</tr>
+<tr>
+<td style="text-align: center;">v2.1 (有 device_role)</td>
+<td style="text-align: center;"><strong>v1.3-CA</strong></td>
+<td style="text-align: center;">任意</td>
+<td style="text-align: center;">任意</td>
+<td style="text-align: center;">v1.1</td>
+<td style="text-align: center;">❌ <strong>不相容</strong></td>
+<td style="text-align: left;">触发 E500，需升级 Cleaner</td>
+</tr>
+<tr>
+<td style="text-align: center;">任意</td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;">任意</td>
+<td style="text-align: center;">任意</td>
+<td style="text-align: center;">v1.1</td>
+<td style="text-align: center;">❌ <strong>不相容</strong></td>
+<td style="text-align: left;">v1.2 无法传递 temporal_baseline 与 equipment_validation_audit</td>
+</tr>
+<tr>
+<td style="text-align: center;">v2.2</td>
+<td style="text-align: center;"><strong>v1.3-CA</strong></td>
+<td style="text-align: center;">v1.3+</td>
+<td style="text-align: center;">v1.1</td>
+<td style="text-align: center;">v1.1</td>
+<td style="text-align: center;">⚠️ <strong>降級相容</strong></td>
+<td style="text-align: left;">缺少部分 device_role 功能，但基础功能正常</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-risk-assessment-updated">7. 风险评估与缓解 (Risk Assessment - Updated)</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">风险</th>
+<th style="text-align: center;">严重度</th>
+<th style="text-align: center;">可能性</th>
+<th style="text-align: left;">缓解措施</th>
+<th style="text-align: center;">状态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>时间漂移</strong> (使用 now() 而非基准)</td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: left;">建构子强制检查 temporal_context，违反抛出 E000</td>
+<td style="text-align: center;">已强化</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>设备逻辑脱钩</strong> (清洗与优化不一致)</td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: left;">强制传递 equipment_validation_audit，共用 SSOT 限制条件</td>
+<td style="text-align: center;">已新增</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>SSOT 版本漂移</strong> (E408)</td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: left;">Manifest 记录 quality_flags_schema，下游强制检查</td>
+<td style="text-align: center;">已新增</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>职责边界混淆</strong></td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: left;">三层防护：白名单+Schema净化+CI Gate</td>
+<td style="text-align: center;">维持</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>标头不匹配</strong> (Parser-Cleaner-Annotation)</td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: left;">E409 检查，验证 snake_case 与 Annotation 匹配</td>
+<td style="text-align: center;">已新增</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>初始化顺序错误</strong></td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: center;">Low</td>
+<td style="text-align: left;">Foundation First Policy 明确声明依赖顺序</td>
+<td style="text-align: center;">已新增</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-deliverables-updated">8. 交付物清单 (Deliverables - Updated)</h2>
+<h3 id="81">8.1 代码文件</h3>
+<ol>
+<li><code>src/etl/batch_processor.py</code> - 主要实施 (v1.3-Contract-Aligned，含 E406/E500/E408 检查、Temporal Baseline、Equipment Validation Audit)</li>
+<li><code>src/etl/manifest.py</code> - Manifest 模型更新 (新增 temporal_baseline, equipment_validation_audit, annotation_audit_trail)</li>
+<li><code>src/etl/contract_validator.py</code> - 契约验证逻辑 (可复用模块)</li>
+</ol>
+<h3 id="82">8.2 测试文件</h3>
+<ol start="4">
+<li><code>tests/test_batch_processor_v13_contract_aligned.py</code> - v1.3-CA 专属测试（含 Temporal Baseline、E408、Equipment Audit 验证）</li>
+<li><code>tests/test_manifest_audit_trail.py</code> - 稽核轨迹完整性测试（含 Equipment Validation Audit）</li>
+<li><code>tests/test_integration_temporal_baseline.py</code> - 时间基准传递整合测试</li>
+<li><code>tests/test_integration_equipment_validation_sync.py</code> - 设备逻辑同步整合测试</li>
+</ol>
+<h3 id="83">8.3 文件文件</h3>
+<ol start="8">
+<li><code>docs/batch_processor/PRD_BATCH_PROCESSOR_v1.3-Contract-Aligned.md</code> - <strong>本文件</strong></li>
+<li><code>docs/batch_processor/MANIFEST_SPEC_v1.3-CA.md</code> - Manifest JSON Schema 规范 (供 Feature Engineer 与 Optimization 参考)</li>
+<li><code>docs/batch_processor/EQUIPMENT_VALIDATION_SYNC.md</code> - 设备逻辑同步实施指南</li>
+</ol>
+<hr />
+<h2 id="9-sign-off-checklist">9. 验收签核 (Sign-off Checklist)</h2>
+<ul>
+<li>[ ] <strong>Temporal Baseline 强制使用 (E000)</strong>：未接收 temporal_context 时正确抛出 E000</li>
+<li>[ ] <strong>未来数据检查 (E205)</strong>：使用 pipeline_origin_timestamp 而非 now()，长时间执行测试通过</li>
+<li>[ ] <strong>设备逻辑稽核传递 (E351)</strong>：正确接收并传递 equipment_validation_audit 至 Manifest</li>
+<li>[ ] <strong>SSOT 版本检查 (E408)</strong>：当 Manifest 中的 quality_flags_schema 与代码 SSOT 不符时正确抛出 E408</li>
+<li>[ ] <strong>标头对应 (E409)</strong>：验证 Parser 正规化后的标头与 Annotation 匹配</li>
+<li>[ ] <strong>E406 强化处理</strong>：提供详细的恢复步骤指引，整合文件锁机制</li>
+<li>[ ] <strong>职责分离 (E500)</strong>：输出绝对不含 device_role，三层防护机制运作正常</li>
+<li>[ ] <strong>时间基准传递</strong>：Manifest 正确包含 temporal_baseline，下游 Feature Engineer 可正确读取</li>
+<li>[ ] <strong>Interface Contract v1.1 对齐</strong>：检查点 #3 所有项目通过验证</li>
+<li>[ ] <strong>Foundation First Policy</strong>：确认实施顺序符合声明（AnnotationManager → TemporalContext → Cleaner → BatchProcessor）</li>
+</ul>
+<hr />
+<p><strong>关键设计确认</strong>：<br />
+1. BatchProcessor <strong>不处理</strong> device_role 逻辑（仅传递版本资讯）<br />
+2. Manifest 的 <code>feature_metadata</code> <strong>仅含</strong> physical_type/unit（来自 Cleaner）<br />
+3. Manifest 的 <code>equipment_validation_audit</code> <strong>必须传递</strong>至下游 Optimization（解决 Physics Logic Decoupling）<br />
+4. <code>temporal_baseline</code> <strong>必须传递</strong>至下游（解决 Spatio-Temporal Inconsistency）<br />
+5. <strong>E408 检查</strong>确保 SSOT 版本一致性，防止 Silent Failure<br />
+```</p>
+</body>
+</html>

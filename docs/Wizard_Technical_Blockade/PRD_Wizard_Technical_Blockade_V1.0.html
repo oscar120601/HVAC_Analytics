@@ -1,102 +1,105 @@
-
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PRD_Wizard_Technical_Blockade_V1.0</title>
-    
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_Wizard_Technical_Blockade_V1.0</title>
+
 <style>
-    body { 
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
-        line-height: 1.6; 
-        max-width: 900px; 
-        margin: 0 auto; 
-        padding: 40px 20px; 
-        color: #24292e; 
-        background-color: #ffffff;
-    }
-    h1, h2, h3, h4, h5, h6 { 
-        margin-top: 24px; 
-        margin-bottom: 16px; 
-        font-weight: 600; 
-        color: #24292e;
-    }
-    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-    h3 { font-size: 1.25em; }
-    p { margin-top: 0; margin-bottom: 16px; }
-    a { color: #0366d6; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    table { 
-        display: block; 
-        width: 100%; 
-        overflow: auto; 
-        border-spacing: 0; 
-        border-collapse: collapse; 
-        margin-bottom: 16px; 
-    }
-    table th, table td { 
-        padding: 6px 13px; 
-        border: 1px solid #dfe2e5; 
-    }
-    table th { 
-        font-weight: 600; 
-        background-color: #f6f8fa; 
-    }
-    table tr:nth-child(2n) { 
-        background-color: #f6f8fa; 
-    }
-    code { 
-        font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; 
-        background-color: #f6f8fa; 
-        padding: 0.2em 0.4em; 
-        border-radius: 3px; 
-        font-size: 85%; 
-    }
-    pre { 
-        background-color: #f6f8fa; 
-        padding: 16px; 
-        overflow: auto; 
-        border-radius: 3px; 
-        line-height: 1.45; 
-    }
-    pre code { 
-        background-color: transparent; 
-        padding: 0; 
-        border-radius: 0; 
-    }
-    blockquote { 
-        border-left: 0.25em solid #dfe2e5; 
-        color: #6a737d; 
-        padding: 0 1em; 
-        margin: 0 0 16px 0; 
-    }
-    hr {
-        height: 0.25em;
-        padding: 0;
-        margin: 24px 0;
-        background-color: #e1e4e8;
-        border: 0;
-    }
-    .mermaid {
-        display: flex;
-        justify-content: center;
-        margin: 20px 0;
-    }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
 </style>
 
 </head>
 <body>
-    <h1 id="prd-v10-wizard-wizard-technical-blockade">PRD v1.0: Wizard 技術阻擋機制 (Wizard Technical Blockade)</h1>
+<h1 id="prd-v10-wizard-wizard-technical-blockade">PRD v1.0: Wizard 技術阻擋機制 (Wizard Technical Blockade)</h1>
 <h1 id="excel-yaml">防止繞過 Excel 直接寫入 YAML 的三層防護架構</h1>
 <p><strong>文件版本:</strong> v1.0 (Technical Enforcement of SSOT)<br />
 <strong>日期:</strong> 2026-02-13<br />
 <strong>負責人:</strong> Oscar Chang<br />
 <strong>目標模組:</strong> <code>src/features/wizard.py</code>, <code>tools/features/excel_to_yaml.py</code>, <code>src/security/</code>, CI/CD Pipeline<br />
-<strong>相依文件:</strong> 
-- PRD_System_Integration_v1.2.md (檔案鎖與初始化順序)
-- PRD_Feature_Annotation_Specification_V1.2.md (Excel-Centric SSOT)
+<strong>相依文件:</strong> <br />
+- PRD_System_Integration_v1.2.md (檔案鎖與初始化順序)<br />
+- PRD_Feature_Annotation_Specification_V1.2.md (Excel-Centric SSOT)<br />
 - PRD_Interface_Contract_v1.1.md (錯誤代碼 E501)</p>
 <p><strong>預估工時:</strong> 3 ~ 4 個工程天（含 CI/CD 整合與權限測試）</p>
 <hr />
@@ -110,824 +113,815 @@
 <li><strong>職責分離強制執行</strong>: Wizard 僅能透過 <code>ExcelWriteContract</code> 介面輸出，無法取得 YAML 檔案路徑</li>
 </ol>
 <h3 id="12">1.2 架構概覽（三層防護）</h3>
-<div class="codehilite"><pre><span></span><code><span class="n">graph</span><span class="w"> </span><span class="n">TB</span>
-<span class="w">    </span><span class="n">subgraph</span><span class="w"> </span><span class="s">&quot;Layer 1: Runtime API Isolation&quot;</span>
-<span class="w">        </span><span class="n">W</span><span class="p">[</span><span class="n">Wizard</span><span class="w"> </span><span class="n">模組</span><span class="p">]</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">僅允許</span><span class="o">|</span><span class="w"> </span><span class="n">EW</span><span class="p">[</span><span class="n">ExcelWriteContract</span><span class="o">&lt;</span><span class="n">br</span><span class="o">/&gt;</span><span class="n">寫入</span><span class="w"> </span><span class="p">.</span><span class="n">xlsx</span><span class="p">]</span>
-<span class="w">        </span><span class="n">W</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">禁止導入</span><span class="o">|</span><span class="w"> </span><span class="n">Y</span><span class="p">[</span><span class="n">yaml</span><span class="w"> </span><span class="n">庫</span><span class="o">&lt;</span><span class="n">br</span><span class="o">/&gt;</span><span class="n">ImportError</span><span class="p">]</span>
-<span class="w">        </span><span class="n">W</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">禁止存取</span><span class="o">|</span><span class="w"> </span><span class="n">YP</span><span class="p">[</span><span class="n">YAML</span><span class="w"> </span><span class="n">Path</span><span class="o">&lt;</span><span class="n">br</span><span class="o">/&gt;</span><span class="n">AttributeError</span><span class="p">]</span>
-<span class="w">    </span><span class="n">end</span>
+<pre><code class="language-mermaid">graph TB
+    subgraph &quot;Layer 1: Runtime API Isolation&quot;
+        W[Wizard 模組] --&gt;|僅允許| EW[ExcelWriteContract&lt;br/&gt;寫入 .xlsx]
+        W --&gt;|禁止導入| Y[yaml 庫&lt;br/&gt;ImportError]
+        W --&gt;|禁止存取| YP[YAML Path&lt;br/&gt;AttributeError]
+    end
 
-<span class="w">    </span><span class="n">subgraph</span><span class="w"> </span><span class="s">&quot;Layer 2: Filesystem Protection&quot;</span>
-<span class="w">        </span><span class="n">YF</span><span class="p">[</span><span class="n">config</span><span class="o">/</span><span class="n">features</span><span class="o">/</span><span class="n">sites</span><span class="cm">/*.yaml] --&gt;|chmod 444&lt;br/&gt;或 chattr +i| RO[唯讀狀態]</span>
-<span class="cm">        ET[excel_to_yaml.py&lt;br/&gt;特權進程] --&gt;|sudo 或特殊權限| RW[短暫可寫&lt;br/&gt;轉換時]</span>
-<span class="cm">        W -.-&gt;|寫入嘗試| EP[E501 錯誤&lt;br/&gt;Permission Denied]</span>
-<span class="cm">    end</span>
+    subgraph &quot;Layer 2: Filesystem Protection&quot;
+        YF[config/features/sites/*.yaml] --&gt;|chmod 444&lt;br/&gt;或 chattr +i| RO[唯讀狀態]
+        ET[excel_to_yaml.py&lt;br/&gt;特權進程] --&gt;|sudo 或特殊權限| RW[短暫可寫&lt;br/&gt;轉換時]
+        W -.-&gt;|寫入嘗試| EP[E501 錯誤&lt;br/&gt;Permission Denied]
+    end
 
-<span class="cm">    subgraph &quot;Layer 3: CI/CD Enforcement&quot;</span>
-<span class="cm">        GIT[Git Commit] --&gt;|Pre-commit Hook| HC[檢查 YAML 變更]</span>
-<span class="cm">        HC --&gt;|檢測到| YC[YAML 直接修改] --&gt;|阻擋| BL[Blocked&lt;br/&gt;E501 Security Error]</span>
-<span class="cm">        PR[Pull Request] --&gt;|GitHub Action| GA[驗證 YAML 來源]</span>
-<span class="cm">        GA --&gt;|非 excel_to_yaml 生成| BL</span>
-<span class="cm">    end</span>
+    subgraph &quot;Layer 3: CI/CD Enforcement&quot;
+        GIT[Git Commit] --&gt;|Pre-commit Hook| HC[檢查 YAML 變更]
+        HC --&gt;|檢測到| YC[YAML 直接修改] --&gt;|阻擋| BL[Blocked&lt;br/&gt;E501 Security Error]
+        PR[Pull Request] --&gt;|GitHub Action| GA[驗證 YAML 來源]
+        GA --&gt;|非 excel_to_yaml 生成| BL
+    end
 
-<span class="cm">    subgraph &quot;Emergency Override&quot;</span>
-<span class="cm">        ADMIN[系統管理員] --&gt;|特殊憑證| EA[EmergencyAccess&lt;br/&gt;雙人驗證]</span>
-<span class="cm">        EA --&gt;|限時 30 分鐘| TEMP[暫時解除鎖定&lt;br/&gt;完整稽核日誌]</span>
-<span class="cm">    end</span>
+    subgraph &quot;Emergency Override&quot;
+        ADMIN[系統管理員] --&gt;|特殊憑證| EA[EmergencyAccess&lt;br/&gt;雙人驗證]
+        EA --&gt;|限時 30 分鐘| TEMP[暫時解除鎖定&lt;br/&gt;完整稽核日誌]
+    end
 
-<span class="cm">    style W fill:#f9f,stroke:#333,stroke-width:2px</span>
-<span class="cm">    style Y fill:#faa,stroke:#f00,stroke-width:2px</span>
-<span class="cm">    style RO fill:#afa,stroke:#0f0,stroke-width:2px</span>
-<span class="cm">    style BL fill:#faa,stroke:#f00,stroke-width:2px</span>
-</code></pre></div>
-
+    style W fill:#f9f,stroke:#333,stroke-width:2px
+    style Y fill:#faa,stroke:#f00,stroke-width:2px
+    style RO fill:#afa,stroke:#0f0,stroke-width:2px
+    style BL fill:#faa,stroke:#f00,stroke-width:2px
+</code></pre>
 <hr />
 <h2 id="2-layer-1-runtime-api">2. Layer 1: Runtime API 隔離（程式碼層級阻擋）</h2>
 <h3 id="21-wizard-yaml">2.1 Wizard 依賴限制（禁止導入 yaml）</h3>
 <p><strong>檔案</strong>: <code>src/security/import_guard.py</code> (新增)</p>
 <p><strong>機制</strong>: 在 Python Import System 層級攔截，確保 Wizard 及其子模組無法載入 yaml 相關庫。</p>
-<div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">importlib</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Set</span>
+<pre><code class="language-python">import sys
+import importlib
+from typing import Set
 
-<span class="c1"># Wizard 模組路徑前綴</span>
-<span class="n">WIZARD_MODULES</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s1">&#39;src.features.wizard&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;src.features.wizard_cli&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;tools.features.wizard_utils&#39;</span><span class="p">,</span>
-<span class="p">}</span>
+# Wizard 模組路徑前綴
+WIZARD_MODULES: Set[str] = {
+    'src.features.wizard',
+    'src.features.wizard_cli',
+    'tools.features.wizard_utils',
+}
 
-<span class="c1"># 禁止導入的庫（YAML 寫入相關）</span>
-<span class="n">BLOCKED_YAML_MODULES</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s1">&#39;yaml&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;ruamel.yaml&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;pyyaml&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;oyaml&#39;</span><span class="p">,</span>
-<span class="p">}</span>
+# 禁止導入的庫（YAML 寫入相關）
+BLOCKED_YAML_MODULES: Set[str] = {
+    'yaml',
+    'ruamel.yaml',
+    'pyyaml',
+    'oyaml',
+}
 
-<span class="k">class</span><span class="w"> </span><span class="nc">WizardImportGuard</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    監控 Wizard 模組的導入行為，禁止載入 YAML 處理庫。</span>
-<span class="sd">    此機制在 Runtime 層級強制執行「Wizard 不寫 YAML」政策。</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+class WizardImportGuard:
+    &quot;&quot;&quot;
+    監控 Wizard 模組的導入行為，禁止載入 YAML 處理庫。
+    此機制在 Runtime 層級強制執行「Wizard 不寫 YAML」政策。
+    &quot;&quot;&quot;
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_original_import</span> <span class="o">=</span> <span class="n">builtins</span><span class="o">.</span><span class="n">__import__</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_active</span> <span class="o">=</span> <span class="kc">False</span>
+    def __init__(self):
+        self._original_import = builtins.__import__
+        self._active = False
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">install</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;安裝導入攔截器&quot;&quot;&quot;</span>
-        <span class="n">builtins</span><span class="o">.</span><span class="n">__import__</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_guarded_import</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_active</span> <span class="o">=</span> <span class="kc">True</span>
+    def install(self):
+        &quot;&quot;&quot;安裝導入攔截器&quot;&quot;&quot;
+        builtins.__import__ = self._guarded_import
+        self._active = True
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">uninstall</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;移除導入攔截器（僅限測試使用）&quot;&quot;&quot;</span>
-        <span class="n">builtins</span><span class="o">.</span><span class="n">__import__</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_original_import</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_active</span> <span class="o">=</span> <span class="kc">False</span>
+    def uninstall(self):
+        &quot;&quot;&quot;移除導入攔截器（僅限測試使用）&quot;&quot;&quot;
+        builtins.__import__ = self._original_import
+        self._active = False
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_guarded_import</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;攔截導入請求&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_original_import</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    def _guarded_import(self, name, *args, **kwargs):
+        &quot;&quot;&quot;攔截導入請求&quot;&quot;&quot;
+        if not self._active:
+            return self._original_import(name, *args, **kwargs)
 
-        <span class="c1"># 檢查呼叫堆疊是否來自 Wizard 模組</span>
-        <span class="n">frame</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">_getframe</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">caller_module</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">f_globals</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;__name__&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+        # 檢查呼叫堆疊是否來自 Wizard 模組
+        frame = sys._getframe(1)
+        caller_module = frame.f_globals.get('__name__', '')
 
-        <span class="n">is_wizard_context</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span>
-            <span class="n">caller_module</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">wm</span><span class="p">)</span> <span class="k">for</span> <span class="n">wm</span> <span class="ow">in</span> <span class="n">WIZARD_MODULES</span>
-        <span class="p">)</span>
+        is_wizard_context = any(
+            caller_module.startswith(wm) for wm in WIZARD_MODULES
+        )
 
-        <span class="k">if</span> <span class="n">is_wizard_context</span><span class="p">:</span>
-            <span class="c1"># 檢查是否嘗試導入 YAML 庫</span>
-            <span class="n">base_module</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="k">if</span> <span class="n">base_module</span> <span class="ow">in</span> <span class="n">BLOCKED_YAML_MODULES</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;E501: Wizard 模組禁止導入 &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;。 &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;Wizard 僅允許寫入 Excel，禁止直接操作 YAML。 &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;請使用 tools/features/excel_to_yaml.py 進行轉換。&quot;</span>
-                <span class="p">)</span>
+        if is_wizard_context:
+            # 檢查是否嘗試導入 YAML 庫
+            base_module = name.split('.')[0]
+            if base_module in BLOCKED_YAML_MODULES:
+                raise ImportError(
+                    f&quot;E501: Wizard 模組禁止導入 '{name}'。 &quot;
+                    f&quot;Wizard 僅允許寫入 Excel，禁止直接操作 YAML。 &quot;
+                    f&quot;請使用 tools/features/excel_to_yaml.py 進行轉換。&quot;
+                )
 
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_original_import</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        return self._original_import(name, *args, **kwargs)
 
-<span class="c1"># 全域安裝（在 src/features/wizard.py 導入時自動觸發）</span>
-<span class="n">_import_guard</span> <span class="o">=</span> <span class="n">WizardImportGuard</span><span class="p">()</span>
-<span class="n">_import_guard</span><span class="o">.</span><span class="n">install</span><span class="p">()</span>
-</code></pre></div>
-
+# 全域安裝（在 src/features/wizard.py 導入時自動觸發）
+_import_guard = WizardImportGuard()
+_import_guard.install()
+</code></pre>
 <h3 id="22-wizard">2.2 Wizard 類別安全設計（依賴注入限制）</h3>
 <p><strong>檔案</strong>: <code>src/features/wizard.py</code> (安全強化版)</p>
-<p><strong>關鍵設計</strong>:
-- <strong>路徑隔離</strong>: Wizard 僅知道 <code>excel_base_dir</code>，完全無法取得 <code>yaml_base_dir</code>
-- <strong>介面限制</strong>: 僅透過 <code>ExcelWriteContract</code> 寫入，無檔案系統直接操作權限
+<p><strong>關鍵設計</strong>:<br />
+- <strong>路徑隔離</strong>: Wizard 僅知道 <code>excel_base_dir</code>，完全無法取得 <code>yaml_base_dir</code><br />
+- <strong>介面限制</strong>: 僅透過 <code>ExcelWriteContract</code> 寫入，無檔案系統直接操作權限<br />
 - <strong>屬性保護</strong>: 使用 <code>__slots__</code> 防止動態新增屬性繞過限制</p>
-<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<pre><code class="language-python">from pathlib import Path
+from typing import Optional, Dict, Any
+from dataclasses import dataclass
+from datetime import datetime
 
-<span class="c1"># 安全匯入：確保 yaml 庫無法被導入（受 import_guard 保護）</span>
-<span class="k">try</span><span class="p">:</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">yaml</span>
-    <span class="c1"># 若成功導入表示未正確安裝 guard（開發環境警告）</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
-    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Wizard 不應在安裝 ImportGuard 的環境中導入 yaml&quot;</span><span class="p">,</span> <span class="ne">RuntimeWarning</span><span class="p">)</span>
-<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-    <span class="k">pass</span>  <span class="c1"># 預期行為：yaml 被阻擋</span>
+# 安全匯入：確保 yaml 庫無法被導入（受 import_guard 保護）
+try:
+    import yaml
+    # 若成功導入表示未正確安裝 guard（開發環境警告）
+    import warnings
+    warnings.warn(&quot;Wizard 不應在安裝 ImportGuard 的環境中導入 yaml&quot;, RuntimeWarning)
+except ImportError:
+    pass  # 預期行為：yaml 被阻擋
 
-<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">ExcelWriteContract</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Wizard 唯一允許的輸出介面。</span>
-<span class="sd">    frozen=True 確保合約不可變，防止動態修改路徑。</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">excel_path</span><span class="p">:</span> <span class="n">Path</span>
-    <span class="n">template_version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;1.2&quot;</span>
-    <span class="c1"># 明確禁止 yaml 路徑</span>
-    <span class="n">yaml_path</span><span class="p">:</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># 型別提示為 None，防止誤用</span>
+@dataclass(frozen=True)
+class ExcelWriteContract:
+    &quot;&quot;&quot;
+    Wizard 唯一允許的輸出介面。
+    frozen=True 確保合約不可變，防止動態修改路徑。
+    &quot;&quot;&quot;
+    site_id: str
+    excel_path: Path
+    template_version: str = &quot;1.2&quot;
+    # 明確禁止 yaml 路徑
+    yaml_path: None = None  # 型別提示為 None，防止誤用
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="c1"># 驗證路徑必須是 .xlsx</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">excel_path</span><span class="o">.</span><span class="n">suffix</span> <span class="o">!=</span> <span class="s1">&#39;.xlsx&#39;</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;E501: Wizard 僅允許寫入 .xlsx 檔案，收到: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">excel_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    def __post_init__(self):
+        # 驗證路徑必須是 .xlsx
+        if self.excel_path.suffix != '.xlsx':
+            raise ValueError(f&quot;E501: Wizard 僅允許寫入 .xlsx 檔案，收到: {self.excel_path}&quot;)
 
-<span class="k">class</span><span class="w"> </span><span class="nc">SecureFeatureWizard</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    安全強化版 Feature Wizard。</span>
+class SecureFeatureWizard:
+    &quot;&quot;&quot;
+    安全強化版 Feature Wizard。
 
-<span class="sd">    安全特性:</span>
-<span class="sd">    1. __slots__ 防止動態屬性（無法動態添加 _yaml_path）</span>
-<span class="sd">    2. 建構子僅接受 excel_base_dir，無法取得 yaml 路徑</span>
-<span class="sd">    3. 所有寫入操作透過 ExcelWriteContract，受審核日誌記錄</span>
-<span class="sd">    4. 嘗試寫入非 .xlsx 路徑會觸發 E501 錯誤</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+    安全特性:
+    1. __slots__ 防止動態屬性（無法動態添加 _yaml_path）
+    2. 建構子僅接受 excel_base_dir，無法取得 yaml 路徑
+    3. 所有寫入操作透過 ExcelWriteContract，受審核日誌記錄
+    4. 嘗試寫入非 .xlsx 路徑會觸發 E501 錯誤
+    &quot;&quot;&quot;
 
-    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;_site_id&#39;</span><span class="p">,</span> <span class="s1">&#39;_excel_dir&#39;</span><span class="p">,</span> <span class="s1">&#39;_template_version&#39;</span><span class="p">,</span> <span class="s1">&#39;_audit_log&#39;</span><span class="p">)</span>
+    __slots__ = ('_site_id', '_excel_dir', '_template_version', '_audit_log')
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> 
-        <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
-        <span class="n">excel_base_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">template_version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;1.2&quot;</span><span class="p">,</span>
-        <span class="c1"># 刻意不提供 yaml_base_dir 參數</span>
-    <span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_site_id</span> <span class="o">=</span> <span class="n">site_id</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_excel_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">excel_base_dir</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_template_version</span> <span class="o">=</span> <span class="n">template_version</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_audit_log</span> <span class="o">=</span> <span class="p">[]</span>
+    def __init__(
+        self, 
+        site_id: str, 
+        excel_base_dir: str,
+        template_version: str = &quot;1.2&quot;,
+        # 刻意不提供 yaml_base_dir 參數
+    ):
+        self._site_id = site_id
+        self._excel_dir = Path(excel_base_dir)
+        self._template_version = template_version
+        self._audit_log = []
 
-        <span class="c1"># 驗證目錄存在</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_excel_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Excel 目錄不存在: </span><span class="si">{</span><span class="n">excel_base_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        # 驗證目錄存在
+        if not self._excel_dir.exists():
+            raise FileNotFoundError(f&quot;Excel 目錄不存在: {excel_base_dir}&quot;)
 
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">excel_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;唯讀屬性：Excel 檔案路徑&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_excel_dir</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_site_id</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_site_id</span><span class="si">}</span><span class="s2">.xlsx&quot;</span>
+    @property
+    def excel_path(self) -&gt; Path:
+        &quot;&quot;&quot;唯讀屬性：Excel 檔案路徑&quot;&quot;&quot;
+        return self._excel_dir / self._site_id / f&quot;{self._site_id}.xlsx&quot;
 
-    <span class="c1"># 刻意不提供 yaml_path 屬性</span>
-    <span class="c1"># 任何嘗試存取 yaml 路徑的程式碼會觸發 AttributeError</span>
+    # 刻意不提供 yaml_path 屬性
+    # 任何嘗試存取 yaml 路徑的程式碼會觸發 AttributeError
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">write_annotation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">ExcelWriteContract</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        寫入標註資料到 Excel（唯一合法輸出方式）。</span>
+    def write_annotation(self, data: Dict[str, Any]) -&gt; ExcelWriteContract:
+        &quot;&quot;&quot;
+        寫入標註資料到 Excel（唯一合法輸出方式）。
 
-<span class="sd">        Args:</span>
-<span class="sd">            data: 標註資料字典</span>
+        Args:
+            data: 標註資料字典
 
-<span class="sd">        Returns:</span>
-<span class="sd">            ExcelWriteContract: 寫入合約（供後續追蹤）</span>
+        Returns:
+            ExcelWriteContract: 寫入合約（供後續追蹤）
 
-<span class="sd">        Raises:</span>
-<span class="sd">            PermissionError: 若嘗試寫入非 Excel 路徑（E501）</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># 驗證輸出路徑</span>
-        <span class="n">output_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">excel_path</span>
+        Raises:
+            PermissionError: 若嘗試寫入非 Excel 路徑（E501）
+        &quot;&quot;&quot;
+        # 驗證輸出路徑
+        output_path = self.excel_path
 
-        <span class="c1"># 確保副檔名正確（最後一道防線）</span>
-        <span class="k">if</span> <span class="n">output_path</span><span class="o">.</span><span class="n">suffix</span> <span class="o">!=</span> <span class="s1">&#39;.xlsx&#39;</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">PermissionError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;E501: 嘗試寫入非 Excel 檔案: </span><span class="si">{</span><span class="n">output_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        # 確保副檔名正確（最後一道防線）
+        if output_path.suffix != '.xlsx':
+            raise PermissionError(f&quot;E501: 嘗試寫入非 Excel 檔案: {output_path}&quot;)
 
-        <span class="c1"># 執行寫入（使用 openpyxl 或 pandas，禁止 yaml）</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_write_to_excel</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        # 執行寫入（使用 openpyxl 或 pandas，禁止 yaml）
+        self._write_to_excel(output_path, data)
 
-        <span class="c1"># 審核日誌</span>
-        <span class="n">contract</span> <span class="o">=</span> <span class="n">ExcelWriteContract</span><span class="p">(</span>
-            <span class="n">site_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_site_id</span><span class="p">,</span>
-            <span class="n">excel_path</span><span class="o">=</span><span class="n">output_path</span><span class="p">,</span>
-            <span class="n">template_version</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_template_version</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_audit_log</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-            <span class="s1">&#39;timestamp&#39;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
-            <span class="s1">&#39;action&#39;</span><span class="p">:</span> <span class="s1">&#39;write_excel&#39;</span><span class="p">,</span>
-            <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">output_path</span><span class="p">),</span>
-            <span class="s1">&#39;contract&#39;</span><span class="p">:</span> <span class="n">contract</span>
-        <span class="p">})</span>
+        # 審核日誌
+        contract = ExcelWriteContract(
+            site_id=self._site_id,
+            excel_path=output_path,
+            template_version=self._template_version
+        )
+        self._audit_log.append({
+            'timestamp': datetime.now().isoformat(),
+            'action': 'write_excel',
+            'path': str(output_path),
+            'contract': contract
+        })
 
-        <span class="k">return</span> <span class="n">contract</span>
+        return contract
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_write_to_excel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;實際寫入 Excel（使用 pandas，禁止 yaml）&quot;&quot;&quot;</span>
-        <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
-        <span class="kn">import</span><span class="w"> </span><span class="nn">openpyxl</span>
+    def _write_to_excel(self, path: Path, data: Dict[str, Any]):
+        &quot;&quot;&quot;實際寫入 Excel（使用 pandas，禁止 yaml）&quot;&quot;&quot;
+        import pandas as pd
+        import openpyxl
 
-        <span class="c1"># 轉換資料為 DataFrame（與 v1.2 邏輯相同）</span>
-        <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_to_dataframe</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        # 轉換資料為 DataFrame（與 v1.2 邏輯相同）
+        df = self._convert_to_dataframe(data)
 
-        <span class="c1"># 寫入 Excel（使用 openpyxl engine）</span>
-        <span class="k">with</span> <span class="n">pd</span><span class="o">.</span><span class="n">ExcelWriter</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s1">&#39;openpyxl&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">writer</span><span class="p">:</span>
-            <span class="n">df</span><span class="o">.</span><span class="n">to_excel</span><span class="p">(</span><span class="n">writer</span><span class="p">,</span> <span class="n">sheet_name</span><span class="o">=</span><span class="s1">&#39;Features&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        # 寫入 Excel（使用 openpyxl engine）
+        with pd.ExcelWriter(path, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Features', index=False)
 
-            <span class="c1"># 寫入 System sheet（元資料）</span>
-            <span class="n">metadata_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">([</span>
-                <span class="p">[</span><span class="s1">&#39;schema_version&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_template_version</span><span class="p">],</span>
-                <span class="p">[</span><span class="s1">&#39;last_updated&#39;</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()],</span>
-                <span class="p">[</span><span class="s1">&#39;generator&#39;</span><span class="p">,</span> <span class="s1">&#39;SecureFeatureWizard&#39;</span><span class="p">],</span>
-                <span class="p">[</span><span class="s1">&#39;security_level&#39;</span><span class="p">,</span> <span class="s1">&#39;excel_only&#39;</span><span class="p">]</span>
-            <span class="p">],</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;key&#39;</span><span class="p">,</span> <span class="s1">&#39;value&#39;</span><span class="p">])</span>
-            <span class="n">metadata_df</span><span class="o">.</span><span class="n">to_excel</span><span class="p">(</span><span class="n">writer</span><span class="p">,</span> <span class="n">sheet_name</span><span class="o">=</span><span class="s1">&#39;System&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            # 寫入 System sheet（元資料）
+            metadata_df = pd.DataFrame([
+                ['schema_version', self._template_version],
+                ['last_updated', datetime.now().isoformat()],
+                ['generator', 'SecureFeatureWizard'],
+                ['security_level', 'excel_only']
+            ], columns=['key', 'value'])
+            metadata_df.to_excel(writer, sheet_name='System', index=False)
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_audit_log</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;取得審核日誌（用於合規檢查）&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_audit_log</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    def get_audit_log(self) -&gt; list:
+        &quot;&quot;&quot;取得審核日誌（用於合規檢查）&quot;&quot;&quot;
+        return self._audit_log.copy()
 
-    <span class="c1"># 明確禁止的方法（定義但拋出錯誤，防止誤用）</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">write_yaml</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;E501: 明確禁止寫入 YAML&quot;&quot;&quot;</span>
-        <span class="k">raise</span> <span class="ne">PermissionError</span><span class="p">(</span>
-            <span class="s2">&quot;E501: Wizard 禁止直接寫入 YAML。 &quot;</span>
-            <span class="s2">&quot;請使用: python tools/features/excel_to_yaml.py &quot;</span>
-            <span class="s2">&quot;將 Excel 轉換為 YAML。&quot;</span>
-        <span class="p">)</span>
+    # 明確禁止的方法（定義但拋出錯誤，防止誤用）
+    def write_yaml(self, *args, **kwargs):
+        &quot;&quot;&quot;E501: 明確禁止寫入 YAML&quot;&quot;&quot;
+        raise PermissionError(
+            &quot;E501: Wizard 禁止直接寫入 YAML。 &quot;
+            &quot;請使用: python tools/features/excel_to_yaml.py &quot;
+            &quot;將 Excel 轉換為 YAML。&quot;
+        )
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_save_yaml</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;內部方法同樣禁止（防止繞過）&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">write_yaml</span><span class="p">()</span>
-</code></pre></div>
-
+    def _save_yaml(self, *args, **kwargs):
+        &quot;&quot;&quot;內部方法同樣禁止（防止繞過）&quot;&quot;&quot;
+        self.write_yaml()
+</code></pre>
 <h3 id="23-runtime-verification">2.3 執行期驗證（Runtime Verification）</h3>
 <p><strong>檔案</strong>: <code>src/security/runtime_verifier.py</code></p>
-<div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<pre><code class="language-python">import inspect
+import sys
 
-<span class="k">class</span><span class="w"> </span><span class="nc">WizardRuntimeVerifier</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    在 Wizard 執行期間驗證安全性約束。</span>
-<span class="sd">    可透過反射檢查 Wizard 實例是否嘗試繞過限制。</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+class WizardRuntimeVerifier:
+    &quot;&quot;&quot;
+    在 Wizard 執行期間驗證安全性約束。
+    可透過反射檢查 Wizard 實例是否嘗試繞過限制。
+    &quot;&quot;&quot;
 
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">verify_wizard_instance</span><span class="p">(</span><span class="n">wizard_instance</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        驗證 Wizard 實例符合安全規範。</span>
+    @staticmethod
+    def verify_wizard_instance(wizard_instance) -&gt; bool:
+        &quot;&quot;&quot;
+        驗證 Wizard 實例符合安全規範。
 
-<span class="sd">        Returns:</span>
-<span class="sd">            bool: True 表示安全</span>
+        Returns:
+            bool: True 表示安全
 
-<span class="sd">        Raises:</span>
-<span class="sd">            SecurityError: 發現違規行為</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># 檢查是否有 yaml 相關屬性</span>
-        <span class="n">forbidden_attrs</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;_yaml_path&#39;</span><span class="p">,</span> <span class="s1">&#39;yaml_writer&#39;</span><span class="p">,</span> <span class="s1">&#39;yaml_config&#39;</span><span class="p">]</span>
-        <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">forbidden_attrs</span><span class="p">:</span>
-            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">wizard_instance</span><span class="p">,</span> <span class="n">attr</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="n">SecurityError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;E501: Wizard 實例包含禁止的屬性 &#39;</span><span class="si">{</span><span class="n">attr</span><span class="si">}</span><span class="s2">&#39;，&quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;可能嘗試繞過 Excel-Only 限制。&quot;</span>
-                <span class="p">)</span>
+        Raises:
+            SecurityError: 發現違規行為
+        &quot;&quot;&quot;
+        # 檢查是否有 yaml 相關屬性
+        forbidden_attrs = ['_yaml_path', 'yaml_writer', 'yaml_config']
+        for attr in forbidden_attrs:
+            if hasattr(wizard_instance, attr):
+                raise SecurityError(
+                    f&quot;E501: Wizard 實例包含禁止的屬性 '{attr}'，&quot;
+                    f&quot;可能嘗試繞過 Excel-Only 限制。&quot;
+                )
 
-        <span class="c1"># 檢查類別 MRO（方法解析順序）是否有 yaml 相關類別</span>
-        <span class="n">mro</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getmro</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">wizard_instance</span><span class="p">))</span>
-        <span class="n">forbidden_classes</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;YamlWriter&#39;</span><span class="p">,</span> <span class="s1">&#39;YAMLExporter&#39;</span><span class="p">,</span> <span class="s1">&#39;ConfigDumper&#39;</span><span class="p">]</span>
-        <span class="k">for</span> <span class="bp">cls</span> <span class="ow">in</span> <span class="n">mro</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span> <span class="ow">in</span> <span class="n">forbidden_classes</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">SecurityError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;E501: Wizard 繼承了禁止的類別 &#39;</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
-                <span class="p">)</span>
+        # 檢查類別 MRO（方法解析順序）是否有 yaml 相關類別
+        mro = inspect.getmro(type(wizard_instance))
+        forbidden_classes = ['YamlWriter', 'YAMLExporter', 'ConfigDumper']
+        for cls in mro:
+            if cls.__name__ in forbidden_classes:
+                raise SecurityError(
+                    f&quot;E501: Wizard 繼承了禁止的類別 '{cls.__name__}'&quot;
+                )
 
-        <span class="k">return</span> <span class="kc">True</span>
+        return True
 
-<span class="k">class</span><span class="w"> </span><span class="nc">SecurityError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;安全性違反錯誤&quot;&quot;&quot;</span>
-    <span class="k">pass</span>
-</code></pre></div>
-
+class SecurityError(Exception):
+    &quot;&quot;&quot;安全性違反錯誤&quot;&quot;&quot;
+    pass
+</code></pre>
 <hr />
 <h2 id="3-layer-2-os">3. Layer 2: 檔案系統防護（OS 層級阻擋）</h2>
 <h3 id="31-yaml">3.1 YAML 檔案權限管理</h3>
 <p><strong>檔案</strong>: <code>src/security/filesystem_guard.py</code></p>
 <p><strong>機制</strong>: 使用 Linux filesystem permissions 與 optional immutable flag，確保 YAML 檔案無法被一般使用者修改。</p>
-<div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">stat</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">contextmanager</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Union</span>
+<pre><code class="language-python">import os
+import stat
+import subprocess
+from pathlib import Path
+from contextlib import contextmanager
+from typing import Union
 
-<span class="k">class</span><span class="w"> </span><span class="nc">FilesystemGuard</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    YAML 檔案系統防護管理器。</span>
+class FilesystemGuard:
+    &quot;&quot;&quot;
+    YAML 檔案系統防護管理器。
 
-<span class="sd">    提供兩種防護等級:</span>
-<span class="sd">    1. Standard (444): 移除寫入權限（可復原）</span>
-<span class="sd">    2. Immutable (+i): 連 root 都無法修改（需特權解除）</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+    提供兩種防護等級:
+    1. Standard (444): 移除寫入權限（可復原）
+    2. Immutable (+i): 連 root 都無法修改（需特權解除）
+    &quot;&quot;&quot;
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">yaml_base_dir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">yaml_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">yaml_base_dir</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_immutable_available</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_chattr_support</span><span class="p">()</span>
+    def __init__(self, yaml_base_dir: Union[str, Path]):
+        self.yaml_dir = Path(yaml_base_dir)
+        self._immutable_available = self._check_chattr_support()
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_check_chattr_support</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;檢查是否支援 chattr（Linux ext4/xfs）&quot;&quot;&quot;</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-                <span class="p">[</span><span class="s1">&#39;chattr&#39;</span><span class="p">,</span> <span class="s1">&#39;--help&#39;</span><span class="p">],</span> 
-                <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> 
-                <span class="n">check</span><span class="o">=</span><span class="kc">False</span>
-            <span class="p">)</span>
-            <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span>
-        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">False</span>
+    def _check_chattr_support(self) -&gt; bool:
+        &quot;&quot;&quot;檢查是否支援 chattr（Linux ext4/xfs）&quot;&quot;&quot;
+        try:
+            result = subprocess.run(
+                ['chattr', '--help'], 
+                capture_output=True, 
+                check=False
+            )
+            return result.returncode == 0
+        except FileNotFoundError:
+            return False
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">protect_yaml_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;standard&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        保護特定案場的 YAML 檔案。</span>
+    def protect_yaml_file(self, site_id: str, level: str = 'standard') -&gt; Path:
+        &quot;&quot;&quot;
+        保護特定案場的 YAML 檔案。
 
-<span class="sd">        Args:</span>
-<span class="sd">            site_id: 案場識別碼</span>
-<span class="sd">            level: &#39;standard&#39; (444) 或 &#39;immutable&#39; (+i)</span>
+        Args:
+            site_id: 案場識別碼
+            level: 'standard' (444) 或 'immutable' (+i)
 
-<span class="sd">        Returns:</span>
-<span class="sd">            Path: 被保護的檔案路徑</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">yaml_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">yaml_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">site_id</span><span class="si">}</span><span class="s2">.yaml&quot;</span>
+        Returns:
+            Path: 被保護的檔案路徑
+        &quot;&quot;&quot;
+        yaml_path = self.yaml_dir / f&quot;{site_id}.yaml&quot;
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">yaml_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;YAML 檔案不存在: </span><span class="si">{</span><span class="n">yaml_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        if not yaml_path.exists():
+            raise FileNotFoundError(f&quot;YAML 檔案不存在: {yaml_path}&quot;)
 
-        <span class="k">if</span> <span class="n">level</span> <span class="o">==</span> <span class="s1">&#39;standard&#39;</span><span class="p">:</span>
-            <span class="c1"># 設定為唯讀（所有者、群組、其他人都只能讀取）</span>
-            <span class="n">os</span><span class="o">.</span><span class="n">chmod</span><span class="p">(</span><span class="n">yaml_path</span><span class="p">,</span> <span class="n">stat</span><span class="o">.</span><span class="n">S_IRUSR</span> <span class="o">|</span> <span class="n">stat</span><span class="o">.</span><span class="n">S_IRGRP</span> <span class="o">|</span> <span class="n">stat</span><span class="o">.</span><span class="n">S_IROTH</span><span class="p">)</span>
-            <span class="c1"># 444 = r--r--r--</span>
+        if level == 'standard':
+            # 設定為唯讀（所有者、群組、其他人都只能讀取）
+            os.chmod(yaml_path, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+            # 444 = r--r--r--
 
-        <span class="k">elif</span> <span class="n">level</span> <span class="o">==</span> <span class="s1">&#39;immutable&#39;</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_immutable_available</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;目前作業系統不支援 chattr +i&quot;</span><span class="p">)</span>
+        elif level == 'immutable':
+            if not self._immutable_available:
+                raise RuntimeError(&quot;目前作業系統不支援 chattr +i&quot;)
 
-            <span class="c1"># 先設定權限</span>
-            <span class="n">os</span><span class="o">.</span><span class="n">chmod</span><span class="p">(</span><span class="n">yaml_path</span><span class="p">,</span> <span class="n">stat</span><span class="o">.</span><span class="n">S_IRUSR</span> <span class="o">|</span> <span class="n">stat</span><span class="o">.</span><span class="n">S_IRGRP</span> <span class="o">|</span> <span class="n">stat</span><span class="o">.</span><span class="n">S_IROTH</span><span class="p">)</span>
-            <span class="c1"># 再設定 immutable flag（需要 root）</span>
-            <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-                <span class="p">[</span><span class="s1">&#39;sudo&#39;</span><span class="p">,</span> <span class="s1">&#39;chattr&#39;</span><span class="p">,</span> <span class="s1">&#39;+i&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">yaml_path</span><span class="p">)],</span>
-                <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span>
-            <span class="p">)</span>
+            # 先設定權限
+            os.chmod(yaml_path, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+            # 再設定 immutable flag（需要 root）
+            subprocess.run(
+                ['sudo', 'chattr', '+i', str(yaml_path)],
+                check=True,
+                capture_output=True
+            )
 
-        <span class="k">return</span> <span class="n">yaml_path</span>
+        return yaml_path
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">unprotect_yaml_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;standard&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        解除保護（僅供 excel_to_yaml.py 特權使用）。</span>
+    def unprotect_yaml_file(self, site_id: str, level: str = 'standard') -&gt; Path:
+        &quot;&quot;&quot;
+        解除保護（僅供 excel_to_yaml.py 特權使用）。
 
-<span class="sd">        Args:</span>
-<span class="sd">            site_id: 案場識別碼</span>
-<span class="sd">            level: 保護等級（必須與 protect 時一致）</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">yaml_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">yaml_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">site_id</span><span class="si">}</span><span class="s2">.yaml&quot;</span>
+        Args:
+            site_id: 案場識別碼
+            level: 保護等級（必須與 protect 時一致）
+        &quot;&quot;&quot;
+        yaml_path = self.yaml_dir / f&quot;{site_id}.yaml&quot;
 
-        <span class="k">if</span> <span class="n">level</span> <span class="o">==</span> <span class="s1">&#39;immutable&#39;</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_immutable_available</span><span class="p">:</span>
-                <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-                    <span class="p">[</span><span class="s1">&#39;sudo&#39;</span><span class="p">,</span> <span class="s1">&#39;chattr&#39;</span><span class="p">,</span> <span class="s1">&#39;-i&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">yaml_path</span><span class="p">)],</span>
-                    <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                    <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span>
-                <span class="p">)</span>
+        if level == 'immutable':
+            if self._immutable_available:
+                subprocess.run(
+                    ['sudo', 'chattr', '-i', str(yaml_path)],
+                    check=True,
+                    capture_output=True
+                )
 
-        <span class="c1"># 恢復為可讀寫（664 = rw-rw-r--）</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">chmod</span><span class="p">(</span><span class="n">yaml_path</span><span class="p">,</span> 
-                <span class="n">stat</span><span class="o">.</span><span class="n">S_IRUSR</span> <span class="o">|</span> <span class="n">stat</span><span class="o">.</span><span class="n">S_IWUSR</span> <span class="o">|</span> 
-                <span class="n">stat</span><span class="o">.</span><span class="n">S_IRGRP</span> <span class="o">|</span> <span class="n">stat</span><span class="o">.</span><span class="n">S_IWGRP</span> <span class="o">|</span> 
-                <span class="n">stat</span><span class="o">.</span><span class="n">S_IROTH</span><span class="p">)</span>
+        # 恢復為可讀寫（664 = rw-rw-r--）
+        os.chmod(yaml_path, 
+                stat.S_IRUSR | stat.S_IWUSR | 
+                stat.S_IRGRP | stat.S_IWGRP | 
+                stat.S_IROTH)
 
-        <span class="k">return</span> <span class="n">yaml_path</span>
+        return yaml_path
 
-    <span class="nd">@contextmanager</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">temporary_unprotect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;standard&#39;</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        上下文管理器：暫時解除保護，完成操作後自動恢復。</span>
+    @contextmanager
+    def temporary_unprotect(self, site_id: str, level: str = 'standard'):
+        &quot;&quot;&quot;
+        上下文管理器：暫時解除保護，完成操作後自動恢復。
 
-<span class="sd">        Usage:</span>
-<span class="sd">            with guard.temporary_unprotect(&#39;cgmh_ty&#39;):</span>
-<span class="sd">                # 此區塊內 YAML 可寫入</span>
-<span class="sd">                yaml.safe_dump(data, open(yaml_path, &#39;w&#39;))</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">unprotect_yaml_file</span><span class="p">(</span><span class="n">site_id</span><span class="p">,</span> <span class="n">level</span><span class="p">)</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="k">yield</span>
-        <span class="k">finally</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">protect_yaml_file</span><span class="p">(</span><span class="n">site_id</span><span class="p">,</span> <span class="n">level</span><span class="p">)</span>
+        Usage:
+            with guard.temporary_unprotect('cgmh_ty'):
+                # 此區塊內 YAML 可寫入
+                yaml.safe_dump(data, open(yaml_path, 'w'))
+        &quot;&quot;&quot;
+        self.unprotect_yaml_file(site_id, level)
+        try:
+            yield
+        finally:
+            self.protect_yaml_file(site_id, level)
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">verify_protection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        驗證檔案保護狀態。</span>
+    def verify_protection(self, site_id: str) -&gt; dict:
+        &quot;&quot;&quot;
+        驗證檔案保護狀態。
 
-<span class="sd">        Returns:</span>
-<span class="sd">            {</span>
-<span class="sd">                &#39;protected&#39;: bool,</span>
-<span class="sd">                &#39;permissions&#39;: str,</span>
-<span class="sd">                &#39;immutable&#39;: bool,</span>
-<span class="sd">                &#39;writable_by_wizard&#39;: bool  # 應該為 False</span>
-<span class="sd">            }</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">yaml_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">yaml_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">site_id</span><span class="si">}</span><span class="s2">.yaml&quot;</span>
+        Returns:
+            {
+                'protected': bool,
+                'permissions': str,
+                'immutable': bool,
+                'writable_by_wizard': bool  # 應該為 False
+            }
+        &quot;&quot;&quot;
+        yaml_path = self.yaml_dir / f&quot;{site_id}.yaml&quot;
 
-        <span class="c1"># 取得權限</span>
-        <span class="n">file_stat</span> <span class="o">=</span> <span class="n">yaml_path</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span>
-        <span class="n">mode</span> <span class="o">=</span> <span class="n">stat</span><span class="o">.</span><span class="n">filemode</span><span class="p">(</span><span class="n">file_stat</span><span class="o">.</span><span class="n">st_mode</span><span class="p">)</span>
+        # 取得權限
+        file_stat = yaml_path.stat()
+        mode = stat.filemode(file_stat.st_mode)
 
-        <span class="c1"># 檢查是否可寫入（對於目前使用者）</span>
-        <span class="n">writable</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">access</span><span class="p">(</span><span class="n">yaml_path</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">W_OK</span><span class="p">)</span>
+        # 檢查是否可寫入（對於目前使用者）
+        writable = os.access(yaml_path, os.W_OK)
 
-        <span class="c1"># 檢查 immutable flag</span>
-        <span class="n">immutable</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_immutable_available</span><span class="p">:</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-                <span class="p">[</span><span class="s1">&#39;lsattr&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">yaml_path</span><span class="p">)],</span>
-                <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                <span class="n">check</span><span class="o">=</span><span class="kc">False</span>
-            <span class="p">)</span>
-            <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="c1"># lsattr 輸出格式: ---- filename 或 -i--- filename</span>
-                <span class="n">attrs</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
-                <span class="n">immutable</span> <span class="o">=</span> <span class="s1">&#39;i&#39;</span> <span class="ow">in</span> <span class="n">attrs</span>
+        # 檢查 immutable flag
+        immutable = False
+        if self._immutable_available:
+            result = subprocess.run(
+                ['lsattr', str(yaml_path)],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            if result.returncode == 0:
+                # lsattr 輸出格式: ---- filename 或 -i--- filename
+                attrs = result.stdout.split()[0]
+                immutable = 'i' in attrs
 
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="s1">&#39;protected&#39;</span><span class="p">:</span> <span class="ow">not</span> <span class="n">writable</span> <span class="ow">or</span> <span class="n">immutable</span><span class="p">,</span>
-            <span class="s1">&#39;permissions&#39;</span><span class="p">:</span> <span class="n">mode</span><span class="p">,</span>
-            <span class="s1">&#39;immutable&#39;</span><span class="p">:</span> <span class="n">immutable</span><span class="p">,</span>
-            <span class="s1">&#39;writable_by_wizard&#39;</span><span class="p">:</span> <span class="n">writable</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">immutable</span>
-        <span class="p">}</span>
-</code></pre></div>
-
+        return {
+            'protected': not writable or immutable,
+            'permissions': mode,
+            'immutable': immutable,
+            'writable_by_wizard': writable and not immutable
+        }
+</code></pre>
 <h3 id="32-excel_to_yamlpy">3.2 與 excel_to_yaml.py 整合</h3>
 <p><strong>檔案</strong>: <code>tools/features/excel_to_yaml.py</code> (安全強化版)</p>
-<div class="codehilite"><pre><span></span><code><span class="ch">#!/usr/bin/env python3</span>
-<span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Excel to YAML Converter - 特權轉換工具</span>
-<span class="sd">唯一直接寫入 YAML 的合法途徑。</span>
-<span class="sd">&quot;&quot;&quot;</span>
+<pre><code class="language-python">#!/usr/bin/env python3
+&quot;&quot;&quot;
+Excel to YAML Converter - 特權轉換工具
+唯一直接寫入 YAML 的合法途徑。
+&quot;&quot;&quot;
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">yaml</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">src.security.filesystem_guard</span><span class="w"> </span><span class="kn">import</span> <span class="n">FilesystemGuard</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">src.utils.config_loader</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigLoader</span>
+import yaml
+import argparse
+from pathlib import Path
+from src.security.filesystem_guard import FilesystemGuard
+from src.utils.config_loader import ConfigLoader
 
-<span class="k">def</span><span class="w"> </span><span class="nf">convert_excel_to_yaml</span><span class="p">(</span>
-    <span class="n">excel_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> 
-    <span class="n">output_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
-    <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="n">force</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    執行 Excel 到 YAML 的特權轉換。</span>
+def convert_excel_to_yaml(
+    excel_path: Path, 
+    output_path: Path,
+    site_id: str,
+    force: bool = False
+) -&gt; dict:
+    &quot;&quot;&quot;
+    執行 Excel 到 YAML 的特權轉換。
 
-<span class="sd">    流程:</span>
-<span class="sd">    1. 驗證 Excel 格式與內容</span>
-<span class="sd">    2. 暫時解除 YAML 檔案保護（若存在）</span>
-<span class="sd">    3. 寫入 YAML</span>
-<span class="sd">    4. 重新設定保護（444 或 +i）</span>
-<span class="sd">    5. 記錄稽核日誌</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">guard</span> <span class="o">=</span> <span class="n">FilesystemGuard</span><span class="p">(</span><span class="n">output_path</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span>
+    流程:
+    1. 驗證 Excel 格式與內容
+    2. 暫時解除 YAML 檔案保護（若存在）
+    3. 寫入 YAML
+    4. 重新設定保護（444 或 +i）
+    5. 記錄稽核日誌
+    &quot;&quot;&quot;
+    guard = FilesystemGuard(output_path.parent)
 
-    <span class="c1"># 驗證 Excel（省略詳細驗證邏輯...）</span>
-    <span class="n">validation_result</span> <span class="o">=</span> <span class="n">validate_excel</span><span class="p">(</span><span class="n">excel_path</span><span class="p">)</span>
+    # 驗證 Excel（省略詳細驗證邏輯...）
+    validation_result = validate_excel(excel_path)
 
-    <span class="c1"># 轉換為 YAML 資料</span>
-    <span class="n">yaml_data</span> <span class="o">=</span> <span class="n">convert_to_yaml_data</span><span class="p">(</span><span class="n">validation_result</span><span class="p">)</span>
+    # 轉換為 YAML 資料
+    yaml_data = convert_to_yaml_data(validation_result)
 
-    <span class="c1"># 使用特權上下文寫入 YAML</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="k">with</span> <span class="n">guard</span><span class="o">.</span><span class="n">temporary_unprotect</span><span class="p">(</span><span class="n">site_id</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;standard&#39;</span><span class="p">):</span>
-            <span class="c1"># 寫入 YAML</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">yaml</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">yaml_data</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">default_flow_style</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">allow_unicode</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    # 使用特權上下文寫入 YAML
+    try:
+        with guard.temporary_unprotect(site_id, level='standard'):
+            # 寫入 YAML
+            with open(output_path, 'w', encoding='utf-8') as f:
+                yaml.dump(yaml_data, f, default_flow_style=False, allow_unicode=True)
 
-            <span class="c1"># 驗證寫入成功</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">output_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;YAML 寫入失敗&quot;</span><span class="p">)</span>
+            # 驗證寫入成功
+            if not output_path.exists():
+                raise RuntimeError(&quot;YAML 寫入失敗&quot;)
 
-        <span class="c1"># 驗證保護已恢復</span>
-        <span class="n">status</span> <span class="o">=</span> <span class="n">guard</span><span class="o">.</span><span class="n">verify_protection</span><span class="p">(</span><span class="n">site_id</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">status</span><span class="p">[</span><span class="s1">&#39;writable_by_wizard&#39;</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="n">SecurityError</span><span class="p">(</span><span class="s2">&quot;保護恢復失敗，YAML 仍然可寫入&quot;</span><span class="p">)</span>
+        # 驗證保護已恢復
+        status = guard.verify_protection(site_id)
+        if status['writable_by_wizard']:
+            raise SecurityError(&quot;保護恢復失敗，YAML 仍然可寫入&quot;)
 
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="s1">&#39;status&#39;</span><span class="p">:</span> <span class="s1">&#39;success&#39;</span><span class="p">,</span>
-            <span class="s1">&#39;yaml_path&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">output_path</span><span class="p">),</span>
-            <span class="s1">&#39;protection&#39;</span><span class="p">:</span> <span class="n">status</span><span class="p">,</span>
-            <span class="s1">&#39;timestamp&#39;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
-        <span class="p">}</span>
+        return {
+            'status': 'success',
+            'yaml_path': str(output_path),
+            'protection': status,
+            'timestamp': datetime.now().isoformat()
+        }
 
-    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-        <span class="c1"># 確保即使失敗也嘗試恢復保護</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">guard</span><span class="o">.</span><span class="n">protect_yaml_file</span><span class="p">(</span><span class="n">site_id</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;standard&#39;</span><span class="p">)</span>
-        <span class="k">except</span><span class="p">:</span>
-            <span class="k">pass</span>
-        <span class="k">raise</span>
+    except Exception as e:
+        # 確保即使失敗也嘗試恢復保護
+        try:
+            guard.protect_yaml_file(site_id, level='standard')
+        except:
+            pass
+        raise
 
-<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
-    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s1">&#39;Excel to YAML Converter (Privileged)&#39;</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--input&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;輸入 Excel 路徑&#39;</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--output&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;輸出 YAML 路徑&#39;</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--site-id&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;案場 ID&#39;</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--force&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store_true&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;強制覆寫（需管理員權限）&#39;</span><span class="p">)</span>
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Excel to YAML Converter (Privileged)')
+    parser.add_argument('--input', required=True, help='輸入 Excel 路徑')
+    parser.add_argument('--output', required=True, help='輸出 YAML 路徑')
+    parser.add_argument('--site-id', required=True, help='案場 ID')
+    parser.add_argument('--force', action='store_true', help='強制覆寫（需管理員權限）')
 
-    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+    args = parser.parse_args()
 
-    <span class="c1"># 驗證執行者身份（可選：檢查是否為 CI 或特定使用者）</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">verify_privileged_user</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">force</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;❌ 錯誤：僅允許特權使用者或 CI 執行此工具&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;   一般使用者請使用 Wizard 編輯 Excel，然後提交 PR&quot;</span><span class="p">)</span>
-        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    # 驗證執行者身份（可選：檢查是否為 CI 或特定使用者）
+    if not verify_privileged_user() and not args.force:
+        print(&quot;❌ 錯誤：僅允許特權使用者或 CI 執行此工具&quot;)
+        print(&quot;   一般使用者請使用 Wizard 編輯 Excel，然後提交 PR&quot;)
+        sys.exit(1)
 
-    <span class="n">result</span> <span class="o">=</span> <span class="n">convert_excel_to_yaml</span><span class="p">(</span>
-        <span class="n">Path</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">input</span><span class="p">),</span> 
-        <span class="n">Path</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">output</span><span class="p">),</span>
-        <span class="n">args</span><span class="o">.</span><span class="n">site_id</span><span class="p">,</span>
-        <span class="n">args</span><span class="o">.</span><span class="n">force</span>
-    <span class="p">)</span>
+    result = convert_excel_to_yaml(
+        Path(args.input), 
+        Path(args.output),
+        args.site_id,
+        args.force
+    )
 
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ 轉換成功: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;yaml_path&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;🔒 保護狀態: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;protection&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</code></pre></div>
-
+    print(f&quot;✅ 轉換成功: {result['yaml_path']}&quot;)
+    print(f&quot;🔒 保護狀態: {result['protection']}&quot;)
+</code></pre>
 <hr />
 <h2 id="4-layer-3-cicd">4. Layer 3: CI/CD 防護閘道</h2>
 <h3 id="41-pre-commit-hook">4.1 Pre-commit Hook（本地提交檢查）</h3>
 <p><strong>檔案</strong>: <code>.pre-commit-hooks/check-yaml-modification.sh</code></p>
-<div class="codehilite"><pre><span></span><code><span class="ch">#!/bin/bash</span>
-<span class="c1"># Pre-commit hook: 阻擋直接修改 YAML 的提交</span>
+<pre><code class="language-bash">#!/bin/bash
+# Pre-commit hook: 阻擋直接修改 YAML 的提交
 
-<span class="c1"># 檢查是否有 YAML 檔案被修改（非 excel_to_yaml.py 生成的變更）</span>
-<span class="nv">CHANGED_YAML</span><span class="o">=</span><span class="k">$(</span>git<span class="w"> </span>diff<span class="w"> </span>--cached<span class="w"> </span>--name-only<span class="w"> </span>--diff-filter<span class="o">=</span>M<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">&#39;config/features/sites/.*\.yaml$&#39;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">true</span><span class="k">)</span>
+# 檢查是否有 YAML 檔案被修改（非 excel_to_yaml.py 生成的變更）
+CHANGED_YAML=$(git diff --cached --name-only --diff-filter=M | grep -E 'config/features/sites/.*\.yaml$' || true)
 
-<span class="k">if</span><span class="w"> </span><span class="o">[</span><span class="w"> </span>-n<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$CHANGED_YAML</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">]</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
-<span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;❌ E501: 檢測到直接修改 YAML 檔案的嘗試！&quot;</span>
-<span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;&quot;</span>
-<span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;受影響的檔案:&quot;</span>
-<span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$CHANGED_YAML</span><span class="s2">&quot;</span>
-<span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;&quot;</span>
-<span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;政策提醒:&quot;</span>
-<span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;  1. Wizard 禁止直接寫入 YAML（技術阻擋機制）&quot;</span>
-<span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;  2. 所有變更必須透過 Excel → excel_to_yaml.py 流程&quot;</span>
-<span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;  3. 若您確實需要緊急修改 YAML，請使用 --no-verify 並聯繫管理員&quot;</span>
-<span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;&quot;</span>
-<span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;正確流程:&quot;</span>
-<span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;  1. 編輯 data/features/{site}/{site}.xlsx&quot;</span>
-<span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;  2. 執行: python tools/features/excel_to_yaml.py --input ... --output ...&quot;</span>
-<span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;  3. 提交變更（包含 .xlsx 與 .yaml）&quot;</span>
+if [ -n &quot;$CHANGED_YAML&quot; ]; then
+    echo &quot;❌ E501: 檢測到直接修改 YAML 檔案的嘗試！&quot;
+    echo &quot;&quot;
+    echo &quot;受影響的檔案:&quot;
+    echo &quot;$CHANGED_YAML&quot;
+    echo &quot;&quot;
+    echo &quot;政策提醒:&quot;
+    echo &quot;  1. Wizard 禁止直接寫入 YAML（技術阻擋機制）&quot;
+    echo &quot;  2. 所有變更必須透過 Excel → excel_to_yaml.py 流程&quot;
+    echo &quot;  3. 若您確實需要緊急修改 YAML，請使用 --no-verify 並聯繫管理員&quot;
+    echo &quot;&quot;
+    echo &quot;正確流程:&quot;
+    echo &quot;  1. 編輯 data/features/{site}/{site}.xlsx&quot;
+    echo &quot;  2. 執行: python tools/features/excel_to_yaml.py --input ... --output ...&quot;
+    echo &quot;  3. 提交變更（包含 .xlsx 與 .yaml）&quot;
 
-<span class="w">    </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span>
-<span class="k">fi</span>
+    exit 1
+fi
 
-<span class="c1"># 檢查 Wizard 程式碼是否嘗試導入 yaml</span>
-<span class="nv">WIZARD_FILES</span><span class="o">=</span><span class="k">$(</span>git<span class="w"> </span>diff<span class="w"> </span>--cached<span class="w"> </span>--name-only<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">&#39;src/features/wizard&#39;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">true</span><span class="k">)</span>
-<span class="k">if</span><span class="w"> </span><span class="o">[</span><span class="w"> </span>-n<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$WIZARD_FILES</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">]</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
-<span class="w">    </span><span class="c1"># 檢查是否新增 yaml 導入</span>
-<span class="w">    </span><span class="k">if</span><span class="w"> </span>git<span class="w"> </span>diff<span class="w"> </span>--cached<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">&#39;^\+.*import yaml|^\+.*from yaml&#39;</span><span class="w"> </span>&gt;<span class="w"> </span>/dev/null<span class="p">;</span><span class="w"> </span><span class="k">then</span>
-<span class="w">        </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;❌ E501: Wizard 程式碼禁止導入 yaml 模組！&quot;</span>
-<span class="w">        </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;檢測到以下違規:&quot;</span>
-<span class="w">        </span>git<span class="w"> </span>diff<span class="w"> </span>--cached<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">&#39;^\+.*import yaml|^\+.*from yaml&#39;</span>
-<span class="w">        </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span>
-<span class="w">    </span><span class="k">fi</span>
-<span class="k">fi</span>
+# 檢查 Wizard 程式碼是否嘗試導入 yaml
+WIZARD_FILES=$(git diff --cached --name-only | grep -E 'src/features/wizard' || true)
+if [ -n &quot;$WIZARD_FILES&quot; ]; then
+    # 檢查是否新增 yaml 導入
+    if git diff --cached | grep -E '^\+.*import yaml|^\+.*from yaml' &gt; /dev/null; then
+        echo &quot;❌ E501: Wizard 程式碼禁止導入 yaml 模組！&quot;
+        echo &quot;檢測到以下違規:&quot;
+        git diff --cached | grep -E '^\+.*import yaml|^\+.*from yaml'
+        exit 1
+    fi
+fi
 
-<span class="nb">exit</span><span class="w"> </span><span class="m">0</span>
-</code></pre></div>
-
+exit 0
+</code></pre>
 <h3 id="42-github-actions-workflowpr">4.2 GitHub Actions Workflow（PR 檢查）</h3>
 <p><strong>檔案</strong>: <code>.github/workflows/yaml-protection.yml</code></p>
-<div class="codehilite"><pre><span></span><code><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">YAML SSOT Protection</span>
+<pre><code class="language-yaml">name: YAML SSOT Protection
 
-<span class="nt">on</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">pull_request</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">paths</span><span class="p">:</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&#39;config/features/sites/**.yaml&#39;</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&#39;src/features/wizard.py&#39;</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&#39;tools/features/excel_to_yaml.py&#39;</span>
+on:
+  pull_request:
+    paths:
+      - 'config/features/sites/**.yaml'
+      - 'src/features/wizard.py'
+      - 'tools/features/excel_to_yaml.py'
 
-<span class="nt">jobs</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">verify-yaml-source</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">runs-on</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ubuntu-latest</span>
-<span class="w">    </span><span class="nt">steps</span><span class="p">:</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/checkout@v3</span>
-<span class="w">        </span><span class="nt">with</span><span class="p">:</span>
-<span class="w">          </span><span class="nt">fetch-depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span><span class="w">  </span><span class="c1"># 需要完整歷史記錄檢查</span>
+jobs:
+  verify-yaml-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # 需要完整歷史記錄檢查
 
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Check YAML Modification Source</span>
-<span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
-<span class="w">          </span><span class="no">echo &quot;🔍 檢查 YAML 檔案變更來源...&quot;</span>
+      - name: Check YAML Modification Source
+        run: |
+          echo &quot;🔍 檢查 YAML 檔案變更來源...&quot;
 
-<span class="w">          </span><span class="no"># 取得變更的 YAML 檔案</span>
-<span class="w">          </span><span class="no">YAML_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E &#39;config/features/sites/.*\.yaml$&#39; || true)</span>
+          # 取得變更的 YAML 檔案
+          YAML_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E 'config/features/sites/.*\.yaml$' || true)
 
-<span class="w">          </span><span class="no">if [ -z &quot;$YAML_FILES&quot; ]; then</span>
-<span class="w">            </span><span class="no">echo &quot;✅ 無 YAML 檔案變更，檢查通過&quot;</span>
-<span class="w">            </span><span class="no">exit 0</span>
-<span class="w">          </span><span class="no">fi</span>
+          if [ -z &quot;$YAML_FILES&quot; ]; then
+            echo &quot;✅ 無 YAML 檔案變更，檢查通過&quot;
+            exit 0
+          fi
 
-<span class="w">          </span><span class="no">echo &quot;檢測到以下 YAML 變更:&quot;</span>
-<span class="w">          </span><span class="no">echo &quot;$YAML_FILES&quot;</span>
+          echo &quot;檢測到以下 YAML 變更:&quot;
+          echo &quot;$YAML_FILES&quot;
 
-<span class="w">          </span><span class="no"># 檢查對應的 Excel 是否也有變更</span>
-<span class="w">          </span><span class="no">for yaml_file in $YAML_FILES; do</span>
-<span class="w">            </span><span class="no">site_id=$(basename &quot;$yaml_file&quot; .yaml)</span>
-<span class="w">            </span><span class="no">excel_file=&quot;data/features/${site_id}/${site_id}.xlsx&quot;</span>
+          # 檢查對應的 Excel 是否也有變更
+          for yaml_file in $YAML_FILES; do
+            site_id=$(basename &quot;$yaml_file&quot; .yaml)
+            excel_file=&quot;data/features/${site_id}/${site_id}.xlsx&quot;
 
-<span class="w">            </span><span class="no">if ! git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q &quot;$excel_file&quot;; then</span>
-<span class="w">              </span><span class="no">echo &quot;❌ 錯誤: $yaml_file 已變更，但對應的 $excel_file 未變更&quot;</span>
-<span class="w">              </span><span class="no">echo &quot;   這違反了 Excel-Centric SSOT 政策（E501）&quot;</span>
-<span class="w">              </span><span class="no">exit 1</span>
-<span class="w">            </span><span class="no">fi</span>
+            if ! git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q &quot;$excel_file&quot;; then
+              echo &quot;❌ 錯誤: $yaml_file 已變更，但對應的 $excel_file 未變更&quot;
+              echo &quot;   這違反了 Excel-Centric SSOT 政策（E501）&quot;
+              exit 1
+            fi
 
-<span class="w">            </span><span class="no"># 檢查時間戳：Excel 必須比 YAML 新</span>
-<span class="w">            </span><span class="no">yaml_mtime=$(git log -1 --format=%ct origin/${{ github.base_ref }}...HEAD -- &quot;$yaml_file&quot;)</span>
-<span class="w">            </span><span class="no">excel_mtime=$(git log -1 --format=%ct origin/${{ github.base_ref }}...HEAD -- &quot;$excel_file&quot;)</span>
+            # 檢查時間戳：Excel 必須比 YAML 新
+            yaml_mtime=$(git log -1 --format=%ct origin/${{ github.base_ref }}...HEAD -- &quot;$yaml_file&quot;)
+            excel_mtime=$(git log -1 --format=%ct origin/${{ github.base_ref }}...HEAD -- &quot;$excel_file&quot;)
 
-<span class="w">            </span><span class="no">if [ &quot;$excel_mtime&quot; -lt &quot;$yaml_mtime&quot; ]; then</span>
-<span class="w">              </span><span class="no">echo &quot;❌ 錯誤: $excel_file 的提交時間早於 $yaml_file&quot;</span>
-<span class="w">              </span><span class="no">echo &quot;   這表示 YAML 可能是手動修改而非由 Excel 生成&quot;</span>
-<span class="w">              </span><span class="no">exit 1</span>
-<span class="w">            </span><span class="no">fi</span>
-<span class="w">          </span><span class="no">done</span>
+            if [ &quot;$excel_mtime&quot; -lt &quot;$yaml_mtime&quot; ]; then
+              echo &quot;❌ 錯誤: $excel_file 的提交時間早於 $yaml_file&quot;
+              echo &quot;   這表示 YAML 可能是手動修改而非由 Excel 生成&quot;
+              exit 1
+            fi
+          done
 
-<span class="w">          </span><span class="no">echo &quot;✅ YAML 變更來源驗證通過&quot;</span>
+          echo &quot;✅ YAML 變更來源驗證通過&quot;
 
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Verify Wizard Code Safety</span>
-<span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
-<span class="w">          </span><span class="no">echo &quot;🔍 驗證 Wizard 程式碼安全性...&quot;</span>
+      - name: Verify Wizard Code Safety
+        run: |
+          echo &quot;🔍 驗證 Wizard 程式碼安全性...&quot;
 
-<span class="w">          </span><span class="no"># 檢查 Wizard 是否導入 yaml</span>
-<span class="w">          </span><span class="no">if grep -r &quot;import yaml\|from yaml&quot; src/features/wizard*.py; then</span>
-<span class="w">            </span><span class="no">echo &quot;❌ E501: Wizard 程式碼包含 yaml 導入&quot;</span>
-<span class="w">            </span><span class="no">exit 1</span>
-<span class="w">          </span><span class="no">fi</span>
+          # 檢查 Wizard 是否導入 yaml
+          if grep -r &quot;import yaml\|from yaml&quot; src/features/wizard*.py; then
+            echo &quot;❌ E501: Wizard 程式碼包含 yaml 導入&quot;
+            exit 1
+          fi
 
-<span class="w">          </span><span class="no"># 檢查是否有寫入 YAML 的方法</span>
-<span class="w">          </span><span class="no">if grep -r &quot;def.*yaml\|write_yaml\|dump.*yaml&quot; src/features/wizard*.py; then</span>
-<span class="w">            </span><span class="no">echo &quot;❌ E501: Wizard 程式碼包含 YAML 寫入相關方法&quot;</span>
-<span class="w">            </span><span class="no">exit 1</span>
-<span class="w">          </span><span class="no">fi</span>
+          # 檢查是否有寫入 YAML 的方法
+          if grep -r &quot;def.*yaml\|write_yaml\|dump.*yaml&quot; src/features/wizard*.py; then
+            echo &quot;❌ E501: Wizard 程式碼包含 YAML 寫入相關方法&quot;
+            exit 1
+          fi
 
-<span class="w">          </span><span class="no">echo &quot;✅ Wizard 程式碼安全檢查通過&quot;</span>
+          echo &quot;✅ Wizard 程式碼安全檢查通過&quot;
 
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Check File Permissions</span>
-<span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
-<span class="w">          </span><span class="no">echo &quot;🔍 檢查 YAML 檔案權限...&quot;</span>
+      - name: Check File Permissions
+        run: |
+          echo &quot;🔍 檢查 YAML 檔案權限...&quot;
 
-<span class="w">          </span><span class="no">for file in config/features/sites/*.yaml; do</span>
-<span class="w">            </span><span class="no">if [ -f &quot;$file&quot; ]; then</span>
-<span class="w">              </span><span class="no">perms=$(stat -c %a &quot;$file&quot;)</span>
-<span class="w">              </span><span class="no">if [ &quot;$perms&quot; != &quot;444&quot; ] &amp;&amp; [ &quot;$perms&quot; != &quot;644&quot; ]; then</span>
-<span class="w">                </span><span class="no">echo &quot;⚠️  警告: $file 權限為 $perms，建議設定為 444（唯讀）&quot;</span>
-<span class="w">              </span><span class="no">fi</span>
-<span class="w">            </span><span class="no">fi</span>
-<span class="w">          </span><span class="no">done</span>
+          for file in config/features/sites/*.yaml; do
+            if [ -f &quot;$file&quot; ]; then
+              perms=$(stat -c %a &quot;$file&quot;)
+              if [ &quot;$perms&quot; != &quot;444&quot; ] &amp;&amp; [ &quot;$perms&quot; != &quot;644&quot; ]; then
+                echo &quot;⚠️  警告: $file 權限為 $perms，建議設定為 444（唯讀）&quot;
+              fi
+            fi
+          done
 
-<span class="w">          </span><span class="no">echo &quot;✅ 權限檢查完成&quot;</span>
-</code></pre></div>
-
+          echo &quot;✅ 權限檢查完成&quot;
+</code></pre>
 <hr />
 <h2 id="5">5. 例外處理與緊急流程</h2>
 <h3 id="51-emergency-override">5.1 緊急覆寫程序（Emergency Override）</h3>
 <p><strong>檔案</strong>: <code>src/security/emergency_access.py</code></p>
 <p>在極端情況下（如生產環境緊急修復且無法重新執行 Excel 流程），允許經過嚴格審批的手動 YAML 修改。</p>
-<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">getpass</span>
+<pre><code class="language-python">from datetime import datetime, timedelta
+from typing import Optional
+import hashlib
+import getpass
 
-<span class="k">class</span><span class="w"> </span><span class="nc">EmergencyAccess</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    緊急存取管理器。</span>
+class EmergencyAccess:
+    &quot;&quot;&quot;
+    緊急存取管理器。
 
-<span class="sd">    使用雙人驗證（Two-person rule）與時間限制（30 分鐘）確保安全性。</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+    使用雙人驗證（Two-person rule）與時間限制（30 分鐘）確保安全性。
+    &quot;&quot;&quot;
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">site_id</span> <span class="o">=</span> <span class="n">site_id</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_granted</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_expiry</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_approvers</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_audit_log</span> <span class="o">=</span> <span class="p">[]</span>
+    def __init__(self, site_id: str):
+        self.site_id = site_id
+        self._granted = False
+        self._expiry: Optional[datetime] = None
+        self._approvers = []
+        self._audit_log = []
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">request_access</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> 
-        <span class="n">requester</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
-        <span class="n">approver1</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
-        <span class="n">approver2</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">duration_minutes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        請求緊急存取權限。</span>
+    def request_access(
+        self, 
+        requester: str, 
+        approver1: str, 
+        approver2: str,
+        reason: str,
+        duration_minutes: int = 30
+    ) -&gt; bool:
+        &quot;&quot;&quot;
+        請求緊急存取權限。
 
-<span class="sd">        Args:</span>
-<span class="sd">            requester: 請求者帳號</span>
-<span class="sd">            approver1, approver2: 兩位審批者帳號（必須不同）</span>
-<span class="sd">            reason: 緊急原因說明</span>
-<span class="sd">            duration_minutes: 權限有效期（預設 30 分鐘）</span>
+        Args:
+            requester: 請求者帳號
+            approver1, approver2: 兩位審批者帳號（必須不同）
+            reason: 緊急原因說明
+            duration_minutes: 權限有效期（預設 30 分鐘）
 
-<span class="sd">        Returns:</span>
-<span class="sd">            bool: 是否授權成功</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># 驗證雙人規則</span>
-        <span class="k">if</span> <span class="n">approver1</span> <span class="o">==</span> <span class="n">approver2</span> <span class="ow">or</span> <span class="n">requester</span> <span class="ow">in</span> <span class="p">[</span><span class="n">approver1</span><span class="p">,</span> <span class="n">approver2</span><span class="p">]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;違反雙人驗證規則：審批者必須與請求者不同，且兩位審批者不同&quot;</span><span class="p">)</span>
+        Returns:
+            bool: 是否授權成功
+        &quot;&quot;&quot;
+        # 驗證雙人規則
+        if approver1 == approver2 or requester in [approver1, approver2]:
+            raise ValueError(&quot;違反雙人驗證規則：審批者必須與請求者不同，且兩位審批者不同&quot;)
 
-        <span class="c1"># 記錄請求</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_audit_log</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-            <span class="s1">&#39;timestamp&#39;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
-            <span class="s1">&#39;action&#39;</span><span class="p">:</span> <span class="s1">&#39;request&#39;</span><span class="p">,</span>
-            <span class="s1">&#39;requester&#39;</span><span class="p">:</span> <span class="n">requester</span><span class="p">,</span>
-            <span class="s1">&#39;approvers&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">approver1</span><span class="p">,</span> <span class="n">approver2</span><span class="p">],</span>
-            <span class="s1">&#39;reason&#39;</span><span class="p">:</span> <span class="n">reason</span>
-        <span class="p">})</span>
+        # 記錄請求
+        self._audit_log.append({
+            'timestamp': datetime.now().isoformat(),
+            'action': 'request',
+            'requester': requester,
+            'approvers': [approver1, approver2],
+            'reason': reason
+        })
 
-        <span class="c1"># 驗證審批者身份（簡化版，實際應串接 LDAP 或 SSO）</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_verify_approver</span><span class="p">(</span><span class="n">approver1</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_verify_approver</span><span class="p">(</span><span class="n">approver2</span><span class="p">)</span>
+        # 驗證審批者身份（簡化版，實際應串接 LDAP 或 SSO）
+        self._verify_approver(approver1)
+        self._verify_approver(approver2)
 
-        <span class="c1"># 授權</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_granted</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_expiry</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="n">duration_minutes</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_approvers</span> <span class="o">=</span> <span class="p">[</span><span class="n">approver1</span><span class="p">,</span> <span class="n">approver2</span><span class="p">]</span>
+        # 授權
+        self._granted = True
+        self._expiry = datetime.now() + timedelta(minutes=duration_minutes)
+        self._approvers = [approver1, approver2]
 
-        <span class="c1"># 產生一次性 Token</span>
-        <span class="n">token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_token</span><span class="p">(</span><span class="n">requester</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span>
+        # 產生一次性 Token
+        token = self._generate_token(requester, reason)
 
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;🚨 緊急存取已授權（Token: </span><span class="si">{</span><span class="n">token</span><span class="si">}</span><span class="s2">）&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   有效期至: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_expiry</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   案場: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">site_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   原因: </span><span class="si">{</span><span class="n">reason</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   審批者: </span><span class="si">{</span><span class="n">approver1</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">approver2</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        print(f&quot;🚨 緊急存取已授權（Token: {token}）&quot;)
+        print(f&quot;   有效期至: {self._expiry.isoformat()}&quot;)
+        print(f&quot;   案場: {self.site_id}&quot;)
+        print(f&quot;   原因: {reason}&quot;)
+        print(f&quot;   審批者: {approver1}, {approver2}&quot;)
 
-        <span class="k">return</span> <span class="kc">True</span>
+        return True
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">verify_access</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;驗證存取權限是否有效&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_granted</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">False</span>
+    def verify_access(self, token: str) -&gt; bool:
+        &quot;&quot;&quot;驗證存取權限是否有效&quot;&quot;&quot;
+        if not self._granted:
+            return False
 
-        <span class="k">if</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_expiry</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_granted</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="k">return</span> <span class="kc">False</span>
+        if datetime.now() &gt; self._expiry:
+            self._granted = False
+            return False
 
-        <span class="c1"># 驗證 Token（簡化邏輯）</span>
-        <span class="n">expected_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_token_from_current_state</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">token</span> <span class="o">==</span> <span class="n">expected_token</span>
+        # 驗證 Token（簡化邏輯）
+        expected_token = self._generate_token_from_current_state()
+        return token == expected_token
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_verify_approver</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">approver</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;驗證審批者身份（占位符，實際需整合企業身份驗證）&quot;&quot;&quot;</span>
-        <span class="c1"># 實際應檢查是否為管理員群組成員</span>
-        <span class="k">pass</span>
+    def _verify_approver(self, approver: str):
+        &quot;&quot;&quot;驗證審批者身份（占位符，實際需整合企業身份驗證）&quot;&quot;&quot;
+        # 實際應檢查是否為管理員群組成員
+        pass
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">requester</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;產生安全 Token&quot;&quot;&quot;</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">site_id</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">requester</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">reason</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="k">return</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()[:</span><span class="mi">16</span><span class="p">]</span>
+    def _generate_token(self, requester: str, reason: str) -&gt; str:
+        &quot;&quot;&quot;產生安全 Token&quot;&quot;&quot;
+        data = f&quot;{self.site_id}:{requester}:{datetime.now().timestamp()}:{reason}&quot;
+        return hashlib.sha256(data.encode()).hexdigest()[:16]
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_audit_log</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;取得完整稽核日誌（用於事後審查）&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_audit_log</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    def get_audit_log(self) -&gt; list:
+        &quot;&quot;&quot;取得完整稽核日誌（用於事後審查）&quot;&quot;&quot;
+        return self._audit_log.copy()
 
-<span class="c1"># CLI 介面</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">emergency_cli</span><span class="p">():</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;緊急存取 CLI&quot;&quot;&quot;</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
-    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s1">&#39;Emergency YAML Access (Two-person rule)&#39;</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--site&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--requester&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">getpass</span><span class="o">.</span><span class="n">getuser</span><span class="p">())</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--approver1&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--approver2&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--reason&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+# CLI 介面
+def emergency_cli():
+    &quot;&quot;&quot;緊急存取 CLI&quot;&quot;&quot;
+    import argparse
+    parser = argparse.ArgumentParser(description='Emergency YAML Access (Two-person rule)')
+    parser.add_argument('--site', required=True)
+    parser.add_argument('--requester', default=getpass.getuser())
+    parser.add_argument('--approver1', required=True)
+    parser.add_argument('--approver2', required=True)
+    parser.add_argument('--reason', required=True)
 
-    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+    args = parser.parse_args()
 
-    <span class="n">access</span> <span class="o">=</span> <span class="n">EmergencyAccess</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">site</span><span class="p">)</span>
-    <span class="n">access</span><span class="o">.</span><span class="n">request_access</span><span class="p">(</span>
-        <span class="n">args</span><span class="o">.</span><span class="n">requester</span><span class="p">,</span>
-        <span class="n">args</span><span class="o">.</span><span class="n">approver1</span><span class="p">,</span>
-        <span class="n">args</span><span class="o">.</span><span class="n">approver2</span><span class="p">,</span>
-        <span class="n">args</span><span class="o">.</span><span class="n">reason</span>
-    <span class="p">)</span>
-</code></pre></div>
-
+    access = EmergencyAccess(args.site)
+    access.request_access(
+        args.requester,
+        args.approver1,
+        args.approver2,
+        args.reason
+    )
+</code></pre>
 <h3 id="52">5.2 例外處理矩陣</h3>
 <table>
 <thead>
@@ -1059,101 +1053,100 @@
 </table>
 <h3 id="62">6.2 滲透測試腳本</h3>
 <p><strong>檔案</strong>: <code>tests/security/test_wizard_blockade.py</code></p>
-<div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<pre><code class="language-python">import pytest
+import subprocess
+import tempfile
+from pathlib import Path
 
-<span class="k">class</span><span class="w"> </span><span class="nc">TestWizardBlockade</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;測試 Wizard 技術阻擋機制&quot;&quot;&quot;</span>
+class TestWizardBlockade:
+    &quot;&quot;&quot;測試 Wizard 技術阻擋機制&quot;&quot;&quot;
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">test_wizard_cannot_import_yaml</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;SEC-001: Wizard 無法導入 yaml&quot;&quot;&quot;</span>
-        <span class="n">code</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
-<span class="s2">import sys</span>
-<span class="s2">sys.path.insert(0, &#39;src&#39;)</span>
-<span class="s2">from src.security.import_guard import WizardImportGuard</span>
-<span class="s2">guard = WizardImportGuard()</span>
-<span class="s2">guard.install()</span>
+    def test_wizard_cannot_import_yaml(self):
+        &quot;&quot;&quot;SEC-001: Wizard 無法導入 yaml&quot;&quot;&quot;
+        code = &quot;&quot;&quot;
+import sys
+sys.path.insert(0, 'src')
+from src.security.import_guard import WizardImportGuard
+guard = WizardImportGuard()
+guard.install()
 
-<span class="s2"># 模擬在 Wizard 模組中導入 yaml</span>
-<span class="s2">import types</span>
-<span class="s2">wizard_module = types.ModuleType(&#39;src.features.wizard&#39;)</span>
-<span class="s2">wizard_module.__name__ = &#39;src.features.wizard&#39;</span>
-<span class="s2">sys.modules[&#39;src.features.wizard&#39;] = wizard_module</span>
+# 模擬在 Wizard 模組中導入 yaml
+import types
+wizard_module = types.ModuleType('src.features.wizard')
+wizard_module.__name__ = 'src.features.wizard'
+sys.modules['src.features.wizard'] = wizard_module
 
-<span class="s2"># 嘗試在 Wizard 上下文中導入 yaml</span>
-<span class="s2">exec(&quot;import yaml&quot;, wizard_module.__dict__)</span>
-<span class="s2">&quot;&quot;&quot;</span>
-        <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="n">match</span><span class="o">=</span><span class="s2">&quot;E501&quot;</span><span class="p">):</span>
-            <span class="n">exec</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+# 嘗試在 Wizard 上下文中導入 yaml
+exec(&quot;import yaml&quot;, wizard_module.__dict__)
+&quot;&quot;&quot;
+        with pytest.raises(ImportError, match=&quot;E501&quot;):
+            exec(code)
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">test_wizard_cannot_write_yaml_via_api</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;SEC-002: Wizard API 層級阻擋&quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">src.features.wizard</span><span class="w"> </span><span class="kn">import</span> <span class="n">SecureFeatureWizard</span>
+    def test_wizard_cannot_write_yaml_via_api(self):
+        &quot;&quot;&quot;SEC-002: Wizard API 層級阻擋&quot;&quot;&quot;
+        from src.features.wizard import SecureFeatureWizard
 
-        <span class="n">wizard</span> <span class="o">=</span> <span class="n">SecureFeatureWizard</span><span class="p">(</span>
-            <span class="n">site_id</span><span class="o">=</span><span class="s2">&quot;test&quot;</span><span class="p">,</span>
-            <span class="n">excel_base_dir</span><span class="o">=</span><span class="s2">&quot;/tmp/test&quot;</span><span class="p">,</span>
-            <span class="n">template_version</span><span class="o">=</span><span class="s2">&quot;1.2&quot;</span>
-        <span class="p">)</span>
+        wizard = SecureFeatureWizard(
+            site_id=&quot;test&quot;,
+            excel_base_dir=&quot;/tmp/test&quot;,
+            template_version=&quot;1.2&quot;
+        )
 
-        <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">PermissionError</span><span class="p">,</span> <span class="n">match</span><span class="o">=</span><span class="s2">&quot;E501&quot;</span><span class="p">):</span>
-            <span class="n">wizard</span><span class="o">.</span><span class="n">write_yaml</span><span class="p">({</span><span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="s2">&quot;data&quot;</span><span class="p">})</span>
+        with pytest.raises(PermissionError, match=&quot;E501&quot;):
+            wizard.write_yaml({&quot;test&quot;: &quot;data&quot;})
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">test_yaml_file_permissions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;SEC-003: 檔案系統權限阻擋&quot;&quot;&quot;</span>
-        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmpdir</span><span class="p">:</span>
-            <span class="n">yaml_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmpdir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;test.yaml&quot;</span>
-            <span class="n">yaml_file</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">&quot;test: data&quot;</span><span class="p">)</span>
+    def test_yaml_file_permissions(self):
+        &quot;&quot;&quot;SEC-003: 檔案系統權限阻擋&quot;&quot;&quot;
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yaml_file = Path(tmpdir) / &quot;test.yaml&quot;
+            yaml_file.write_text(&quot;test: data&quot;)
 
-            <span class="c1"># 設定 444 權限</span>
-            <span class="kn">import</span><span class="w"> </span><span class="nn">stat</span>
-            <span class="n">yaml_file</span><span class="o">.</span><span class="n">chmod</span><span class="p">(</span><span class="n">stat</span><span class="o">.</span><span class="n">S_IRUSR</span> <span class="o">|</span> <span class="n">stat</span><span class="o">.</span><span class="n">S_IRGRP</span> <span class="o">|</span> <span class="n">stat</span><span class="o">.</span><span class="n">S_IROTH</span><span class="p">)</span>
+            # 設定 444 權限
+            import stat
+            yaml_file.chmod(stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
 
-            <span class="c1"># 嘗試寫入</span>
-            <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">PermissionError</span><span class="p">):</span>
-                <span class="n">yaml_file</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">&quot;hacked&quot;</span><span class="p">)</span>
+            # 嘗試寫入
+            with pytest.raises(PermissionError):
+                yaml_file.write_text(&quot;hacked&quot;)
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">test_pre_commit_hook_blocks_yaml</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;SEC-004: Pre-commit 阻擋&quot;&quot;&quot;</span>
-        <span class="c1"># 模擬變更 YAML 的提交</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-            <span class="p">[</span><span class="s1">&#39;bash&#39;</span><span class="p">,</span> <span class="s1">&#39;.pre-commit-hooks/check-yaml-modification.sh&#39;</span><span class="p">],</span>
-            <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">cwd</span><span class="o">=</span><span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">()</span>  <span class="c1"># 使用臨時 git repo</span>
-        <span class="p">)</span>
+    def test_pre_commit_hook_blocks_yaml(self):
+        &quot;&quot;&quot;SEC-004: Pre-commit 阻擋&quot;&quot;&quot;
+        # 模擬變更 YAML 的提交
+        result = subprocess.run(
+            ['bash', '.pre-commit-hooks/check-yaml-modification.sh'],
+            capture_output=True,
+            text=True,
+            cwd=tempfile.mkdtemp()  # 使用臨時 git repo
+        )
 
-        <span class="c1"># 在無 git repo 環境下應返回 0（無變更）</span>
-        <span class="c1"># 實際測試需在真實 git repo 中進行</span>
-        <span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">returncode</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>  <span class="c1"># 0=無變更, 1=阻擋</span>
+        # 在無 git repo 環境下應返回 0（無變更）
+        # 實際測試需在真實 git repo 中進行
+        assert result.returncode in [0, 1]  # 0=無變更, 1=阻擋
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">test_emergency_access_two_person_rule</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;SEC-008: 雙人驗證&quot;&quot;&quot;</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">src.security.emergency_access</span><span class="w"> </span><span class="kn">import</span> <span class="n">EmergencyAccess</span>
+    def test_emergency_access_two_person_rule(self):
+        &quot;&quot;&quot;SEC-008: 雙人驗證&quot;&quot;&quot;
+        from src.security.emergency_access import EmergencyAccess
 
-        <span class="n">access</span> <span class="o">=</span> <span class="n">EmergencyAccess</span><span class="p">(</span><span class="s2">&quot;test_site&quot;</span><span class="p">)</span>
+        access = EmergencyAccess(&quot;test_site&quot;)
 
-        <span class="c1"># 嘗試單人審批（應失敗）</span>
-        <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="n">match</span><span class="o">=</span><span class="s2">&quot;雙人驗證&quot;</span><span class="p">):</span>
-            <span class="n">access</span><span class="o">.</span><span class="n">request_access</span><span class="p">(</span>
-                <span class="n">requester</span><span class="o">=</span><span class="s2">&quot;user1&quot;</span><span class="p">,</span>
-                <span class="n">approver1</span><span class="o">=</span><span class="s2">&quot;admin1&quot;</span><span class="p">,</span>
-                <span class="n">approver2</span><span class="o">=</span><span class="s2">&quot;admin1&quot;</span><span class="p">,</span>  <span class="c1"># 相同審批者</span>
-                <span class="n">reason</span><span class="o">=</span><span class="s2">&quot;test&quot;</span>
-            <span class="p">)</span>
+        # 嘗試單人審批（應失敗）
+        with pytest.raises(ValueError, match=&quot;雙人驗證&quot;):
+            access.request_access(
+                requester=&quot;user1&quot;,
+                approver1=&quot;admin1&quot;,
+                approver2=&quot;admin1&quot;,  # 相同審批者
+                reason=&quot;test&quot;
+            )
 
-        <span class="c1"># 嘗試請求者作為審批者（應失敗）</span>
-        <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="n">match</span><span class="o">=</span><span class="s2">&quot;雙人驗證&quot;</span><span class="p">):</span>
-            <span class="n">access</span><span class="o">.</span><span class="n">request_access</span><span class="p">(</span>
-                <span class="n">requester</span><span class="o">=</span><span class="s2">&quot;user1&quot;</span><span class="p">,</span>
-                <span class="n">approver1</span><span class="o">=</span><span class="s2">&quot;user1&quot;</span><span class="p">,</span>  <span class="c1"># 請求者審批</span>
-                <span class="n">approver2</span><span class="o">=</span><span class="s2">&quot;admin2&quot;</span><span class="p">,</span>
-                <span class="n">reason</span><span class="o">=</span><span class="s2">&quot;test&quot;</span>
-            <span class="p">)</span>
-</code></pre></div>
-
+        # 嘗試請求者作為審批者（應失敗）
+        with pytest.raises(ValueError, match=&quot;雙人驗證&quot;):
+            access.request_access(
+                requester=&quot;user1&quot;,
+                approver1=&quot;user1&quot;,  # 請求者審批
+                approver2=&quot;admin2&quot;,
+                reason=&quot;test&quot;
+            )
+</code></pre>
 <hr />
 <h2 id="7-deliverables">7. 交付物清單 (Deliverables)</h2>
 <h3 id="71">7.1 程式碼檔案</h3>
@@ -1166,19 +1159,19 @@
 <li><code>tools/features/excel_to_yaml.py</code> - 特權轉換工具（整合 FilesystemGuard）</li>
 </ol>
 <h3 id="72">7.2 配置與腳本</h3>
-<ol>
+<ol start="7">
 <li><code>.pre-commit-hooks/check-yaml-modification.sh</code> - Pre-commit 檢查腳本</li>
 <li><code>.github/workflows/yaml-protection.yml</code> - GitHub Actions CI 檢查</li>
 <li><code>scripts/setup-yaml-protection.sh</code> - 初始化檔案權限腳本（設定 444）</li>
 </ol>
 <h3 id="73">7.3 測試檔案</h3>
-<ol>
+<ol start="10">
 <li><code>tests/security/test_wizard_blockade.py</code> - 安全阻擋測試</li>
 <li><code>tests/security/test_filesystem_protection.py</code> - 檔案權限測試</li>
 <li><code>tests/security/test_emergency_access.py</code> - 緊急流程測試</li>
 </ol>
 <h3 id="74">7.4 文件檔案</h3>
-<ol>
+<ol start="13">
 <li><code>docs/security/WIZARD_BLOCKADE.md</code> - 操作手冊與故障排除</li>
 <li><code>docs/security/EMERGENCY_PROCEDURES.md</code> - 緊急存取 SOP</li>
 </ol>
@@ -1196,8 +1189,8 @@
 <h3 id="phase-2-day-2">Phase 2: 檔案系統防護（Day 2）</h3>
 <ul>
 <li>[ ] 建立 <code>src/security/filesystem_guard.py</code></li>
-<li>[ ] 建立 <code>scripts/setup-yaml-protection.sh</code>：
-  <code>bash
+<li>[ ] 建立 <code>scripts/setup-yaml-protection.sh</code>：<br />
+<code>bash
   #!/bin/bash
   # 設定所有現有 YAML 為唯讀
   find config/features/sites -name "*.yaml" -exec chmod 444 {} \;
@@ -1209,8 +1202,8 @@
 <h3 id="phase-3-cicd-day-3">Phase 3: CI/CD 防護（Day 3）</h3>
 <ul>
 <li>[ ] 建立 <code>.pre-commit-hooks/</code> 目錄與檢查腳本</li>
-<li>[ ] 設定 pre-commit hook：
-  <code>bash
+<li>[ ] 設定 pre-commit hook：<br />
+<code>bash
   # 安裝 hook
   ln -s ../../.pre-commit-hooks/check-yaml-modification.sh .git/hooks/pre-commit</code></li>
 <li>[ ] 建立 <code>.github/workflows/yaml-protection.yml</code></li>
@@ -1315,11 +1308,5 @@
 </tr>
 </tbody>
 </table>
-    
-<script type="module">
-    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-    mermaid.initialize({ startOnLoad: true });
-</script>
-
 </body>
 </html>

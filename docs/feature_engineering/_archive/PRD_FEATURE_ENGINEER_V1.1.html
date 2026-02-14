@@ -1,64 +1,97 @@
-
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Feature Engineering PRD v1.1</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            background-color: #f8f9fa;
-        }
-        .container {
-            background-color: #fff;
-            padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        h1, h2, h3 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-        h2 { margin-top: 2em; }
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 20px 0;
-        }
-        th, td {
-            border: 1px solid #dfe2e5;
-            padding: 12px;
-            text-align: left;
-        }
-        th { background-color: #f6f8fa; font-weight: bold; }
-        tr:nth-child(even) { background-color: #fdfdfd; }
-        code {
-            background-color: #f3f3f3;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 85%;
-        }
-        pre {
-            background-color: #f6f8fa;
-            padding: 16px;
-            overflow: auto;
-            border-radius: 6px;
-        }
-        blockquote {
-            margin: 0;
-            padding: 0 1em;
-            color: #6a737d;
-            border-left: 0.25em solid #dfe2e5;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_FEATURE_ENGINEER_V1.1</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
 </head>
 <body>
-    <div class="container">
-        <h1 id="prd-v11-feature-engineering-implementation-guide">PRD v1.1: 特徵工程強健性實作指南 (Feature Engineering Implementation Guide)</h1>
+<h1 id="prd-v11-feature-engineering-implementation-guide">PRD v1.1: 特徵工程強健性實作指南 (Feature Engineering Implementation Guide)</h1>
 <p><strong>文件版本:</strong> v1.1<br />
 <strong>日期:</strong> 2026-02-12<br />
 <strong>負責人:</strong> Oscar Chang<br />
@@ -69,9 +102,9 @@
 <h2 id="1">1. 執行總綱與設計原則</h2>
 <h3 id="11">1.1 核心職責</h3>
 <p>本模組專注於 <strong>「加法與創造」</strong>，嚴格禁止執行資料清洗或過濾。所有輸入資料必須先經過 <code>DataCleaner</code> 處理。</p>
-<p><strong>設計原則：</strong>
-1. <strong>防禦式設計</strong>：即使 Cleaner 輸出異常（含 Null、空缺），仍不拋出致命錯誤
-2. <strong>冪等性 (Idempotency)</strong>：相同輸入執行多次，輸出必須完全一致
+<p><strong>設計原則：</strong><br />
+1. <strong>防禦式設計</strong>：即使 Cleaner 輸出異常（含 Null、空缺），仍不拋出致命錯誤<br />
+2. <strong>冪等性 (Idempotency)</strong>：相同輸入執行多次，輸出必須完全一致<br />
 3. <strong>記憶體安全</strong>：禁止產生維度爆炸特徵，強制限制 Rolling Window 大小</p>
 <h3 id="12-inputoutput-contract">1.2 輸入輸出契約（Input/Output Contract）</h3>
 <pre><code class="language-python">class FeatureEngineerInputContract:
@@ -265,7 +298,7 @@ def calculate_wet_bulb_temp(
     pressure: pl.Series,  # 大氣壓 (hPa)
     temp_range: Tuple[float, float] = (-40, 60),
     rh_range: Tuple[float, float] = (0, 100)
-+) -&gt; pl.Series:
+) -&gt; pl.Series:
     &quot;&quot;&quot;
     計算濕球溫度 (Wet Bulb Temperature)
 
@@ -290,9 +323,9 @@ def calculate_enthalpy(t_db: pl.Series, w: pl.Series) -&gt; pl.Series:
     ...
 </code></pre>
 <h4 id="step-22">Step 2.2: 實作物理特徵轉換層</h4>
-<p><strong>邏輯</strong>:
-- 從 <code>feature_mapping</code> 識別 <code>physical_type</code> 為 <code>temperature</code> 與 <code>humidity</code> 的欄位對
-- 自動配對計算（如 <code>dry_bulb_temp_ch1</code> + <code>relative_humidity_ch1</code> → <code>wet_bulb_temp_ch1</code>）
+<p><strong>邏輯</strong>:<br />
+- 從 <code>feature_mapping</code> 識別 <code>physical_type</code> 為 <code>temperature</code> 與 <code>humidity</code> 的欄位對<br />
+- 自動配對計算（如 <code>dry_bulb_temp_ch1</code> + <code>relative_humidity_ch1</code> → <code>wet_bulb_temp_ch1</code>）<br />
 - <strong>命名規範</strong>: <code>{location}_wet_bulb_temp_physics</code>, <code>{location}_enthalpy_physics</code></p>
 <h3 id="phase-3-15">Phase 3: 時間與統計特徵 (預估 1.5 天)</h3>
 <h4 id="step-31">Step 3.1: 時間特徵與週期性編碼</h4>
@@ -500,7 +533,7 @@ def calculate_enthalpy(t_db: pl.Series, w: pl.Series) -&gt; pl.Series:
 <li>[ ] 記憶體預算如何分配？建議 Cleaner:Feature Engineer = 4GB:4GB，總計 8GB 上限</li>
 </ul>
 <hr />
-<p><strong>審閱重點</strong>：請特別確認 <strong>Step 3.2 的 Rolling Window 安全限制</strong> 與 <strong>Quality Flags 處理策略</strong> 是否符合下游 XGBoost 模型的期望（是否需要 <code>is_frozen</code> 作為特徵，還是直接丟棄異常資料）。</p>
-    </div>
+<p><strong>審閱重點</strong>：請特別確認 <strong>Step 3.2 的 Rolling Window 安全限制</strong> 與 <strong>Quality Flags 處理策略</strong> 是否符合下游 XGBoost 模型的期望（是否需要 <code>is_frozen</code> 作為特徵，還是直接丟棄異常資料）。<br />
+```</p>
 </body>
 </html>

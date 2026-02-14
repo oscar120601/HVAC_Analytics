@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_Review_Optimization_v1.1_Approved</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="optimization-engine-prd-v11">Optimization Engine PRD (v1.1) 最終核准報告</h1>
+<p><strong>審查對象</strong>: <code>docs/Chiller_Plant_Optimization_Engine/PRD_Chiller_Plant_Optimization_V1.1.md</code><br />
+<strong>關聯審查</strong>: <code>docs/Model_Training/PRD_Model_Training_v1.2.md</code><br />
+<strong>審查者</strong>: Senior System Architect<br />
+<strong>日期</strong>: 2026-02-13<br />
+<strong>總體評級</strong>: <strong>S (Production Ready)</strong> - 架構完整，與 Training Pipeline 完美銜接，風險已排除。</p>
+<hr />
+<h2 id="1-executive-summary">1. 審查結論 (Executive Summary)</h2>
+<p>經過對 v1.1 版 PRD 的詳細審查，確認<strong>所有關鍵架構風險（Granularity Gap）已完全解決</strong>。</p>
+<p>新引入的 <strong>Model Registry Index</strong> 機制成功地將「模型訓練」與「最佳化引擎」解耦，同時透過 <strong>System-Level Blackbox</strong> 策略確保了優化目標的可行性與準確性。</p>
+<h3 id="key-improvements-verified">✅ 關鍵改進驗證 (Key Improvements Verified)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">審查項目</th>
+<th style="text-align: left;">v1.0 狀態</th>
+<th style="text-align: left;">v1.1 狀態</th>
+<th style="text-align: left;">評語</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>模型顆粒度</strong></td>
+<td style="text-align: left;">衝突 (Component vs System)</td>
+<td style="text-align: left;"><strong>一致 (System-Level Default)</strong></td>
+<td style="text-align: left;">雙方皆預設使用 <code>system_total_kw</code>，消除了架構歧義。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>介面契約</strong></td>
+<td style="text-align: left;">模糊 (File Path 依賴)</td>
+<td style="text-align: left;"><strong>明確 (Registry Index)</strong></td>
+<td style="text-align: left;"><code>model_registry_index.json</code> 成為單一真相來源，支援自動發現與版本驗證。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>特徵對齊</strong></td>
+<td style="text-align: left;">未定義</td>
+<td style="text-align: left;"><strong>嚴格 (FeatureVectorizer)</strong></td>
+<td style="text-align: left;">新增 <code>FeatureVectorizer</code> 類別，確保 Optimization Config 能精確轉換為模型所需的特徵向量。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>混合模式</strong></td>
+<td style="text-align: left;">無</td>
+<td style="text-align: left;"><strong>支援 (Hybrid Mode)</strong></td>
+<td style="text-align: left;">正確定義了 Hybrid 模式下的「一致性檢查」機制，兼顧了精度與可解釋性。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>環境輸入</strong></td>
+<td style="text-align: left;">不明確</td>
+<td style="text-align: left;"><strong>支援 (Ambient File)</strong></td>
+<td style="text-align: left;">CLI 增加 <code>--ambient-file</code> 參數，滿足離線批次模擬需求。</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2-architectural-highlights">2. 架構亮點 (Architectural Highlights)</h2>
+<ol>
+<li>
+<p><strong>Model Registry Index 作為契約核心</strong>: </p>
+<ul>
+<li>不僅解決了檔案路徑問題，還帶入 <code>schema_version</code> 與 <code>annotation_checksum</code>，在 Runtime 強制檢查版本相容性，防止了「模型與物理定義不一致」的災難性錯誤。</li>
+</ul>
+</li>
+<li>
+<p><strong>特徵向量化層 (Feature Vectorization Layer)</strong>:</p>
+<ul>
+<li>明確將「設備配置 (Config)」轉換為「特徵向量 (Vector)」的責任劃分給 <code>FeatureVectorizer</code>，並繼承訓練時的 Scaler，這是確保模型預測有效性的關鍵設計。</li>
+</ul>
+</li>
+<li>
+<p><strong>雙軌約束引擎</strong>:</p>
+<ul>
+<li>物理限制 (Physical Types) 與 邏輯約束 (Config Logic) 的分離設計非常清晰，且 v1.1 新增的 <code>min_runtime</code> / <code>switching_penalty</code> 有效解決了頻繁啟停的工程實務問題。</li>
+</ul>
+</li>
+</ol>
+<hr />
+<h2 id="3-implementation-recommendations">3. 實作建議 (Implementation Recommendations)</h2>
+<p>雖然文件已臻完美，但在 Coding 階段仍需注意以下細節：</p>
+<h3 id="31">3.1 優先順序</h3>
+<ol>
+<li><strong>Phase 0 (介面層)</strong>: 優先實作 <code>ModelRegistry</code> 與 <code>FeatureVectorizer</code>。這是連接兩大系統的橋樑，必須最先打通。</li>
+<li><strong>Phase 1 (約束層)</strong>: 實作 <code>LogicConstraintGraph</code>。優化演算法若無約束檢查就是廢物，需優先保證產生出的解是「工程可行」的。</li>
+<li><strong>Phase 2 (優化層)</strong>: 最後再實作 <code>HybridOptimizer</code>。初期甚至可以用簡單的 Random Search 替代 GA/DE，先驗證流程跑通。</li>
+</ol>
+<h3 id="32">3.2 測試策略</h3>
+<ul>
+<li><strong>Mock Registry</strong>: 在測試 Optimization Engine 時，不要依賴真實的 Training 產出。請手刻一個 <code>mock_registry_index.json</code> 與 <code>mock_model.joblib</code>，確保單元測試的獨立性。</li>
+<li><strong>Boundary Testing</strong>: 重點測試 <code>FeatureVectorizer</code> 在邊界條件（如 load=0% 或 load=100%）下的數值轉換是否正確。</li>
+</ul>
+<hr />
+<h2 id="4">4. 結論</h2>
+<p>本 PRD (v1.1) 定義清晰、邏輯嚴密，且具備高度的可落地性。</p>
+<p><strong>批准狀態</strong>: <strong>✅ APPROVED (正式核准)</strong></p>
+<p>請立即進入 <strong>Implementation Phase</strong>，建議從 <code>src/optimization/model_interface.py</code> 開始構建。</p>
+</body>
+</html>

@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_CLEANER_v2.2</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="prd-v22-contract-aligned-datacleaner-implementation-guide">PRD v2.2-Contract-Aligned: 資料清洗器實作指南 (DataCleaner Implementation Guide)</h1>
+<h1 id="feature-annotation-v12equipment-validation-sync-interface-contract-v11">強制執行版：整合 Feature Annotation v1.2、Equipment Validation Sync 與 Interface Contract v1.1</h1>
+<p><strong>文件版本:</strong> v2.2-Contract-Aligned (Interface Contract v1.1 Compliance &amp; Equipment Validation Integration)<br />
+<strong>日期:</strong> 2026-02-14<br />
+<strong>負責人:</strong> Oscar Chang<br />
+<strong>目標模組:</strong> <code>src/etl/cleaner.py</code> (v2.2+)<br />
+<strong>上游契約:</strong> <code>src/etl/parser.py</code> (v2.1+, 輸出 UTC, Header Standardization)<br />
+<strong>下游契約:</strong> <code>src/etl/batch_processor.py</code> (v1.3+, 檢查點 #2)<br />
+<strong>關鍵相依:</strong> <br />
+- <code>src/features/annotation_manager.py</code> (v1.2+, 提供 device_role 查詢)<br />
+- <code>src/equipment/equipment_validator.py</code> (v1.0+, 設備邏輯預檢，新增)<br />
+- <code>src/core/temporal_baseline.py</code> (PipelineContext, 時間基準)<br />
+<strong>預估工時:</strong> 7 ~ 8 個工程天（含設備邏輯預檢、強化時間同步、CI/CD Gate 配置）</p>
+<hr />
+<h2 id="1">1. 執行總綱與變更摘要</h2>
+<h3 id="11-v21-v22-contract-aligned">1.1 版本變更總覽 (v2.1 → v2.2-Contract-Aligned)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">變更類別</th>
+<th style="text-align: left;">v2.1 狀態</th>
+<th style="text-align: left;">v2.2-Contract-Aligned 修正</th>
+<th style="text-align: center;">影響層級</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Interface Contract 對齊</strong></td>
+<td style="text-align: left;">基礎契約檢查</td>
+<td style="text-align: left;"><strong>完全對齊 v1.1 檢查點 #2</strong>：新增設備邏輯預檢、時間基準強制同步</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Equipment Validation Sync</strong></td>
+<td style="text-align: left;">無</td>
+<td style="text-align: left;"><strong>新增設備邏輯預檢機制</strong>（E350），與 Optimization 限制條件保持一致</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Temporal Baseline</strong></td>
+<td style="text-align: left;">提及但未強制</td>
+<td style="text-align: left;"><strong>強制使用</strong> <code>pipeline_origin_timestamp</code> 進行未來資料檢查（E000, E102）</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Header Standardization</strong></td>
+<td style="text-align: left;">無</td>
+<td style="text-align: left;"><strong>對接 Parser v2.1</strong>：接收已正規化標頭，驗證與 Annotation 匹配（E409）</td>
+<td style="text-align: center;">🟡 Medium</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>輸出稽核軌跡</strong></td>
+<td style="text-align: left;">基礎 metadata</td>
+<td style="text-align: left;"><strong>新增</strong> <code>equipment_validation_audit</code> 供 BatchProcessor 寫入 Manifest</td>
+<td style="text-align: center;">🟡 Medium</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>SSOT 強化</strong></td>
+<td style="text-align: left;">引用 flags</td>
+<td style="text-align: left;"><strong>新增</strong> <code>EQUIPMENT_VALIDATION_CONSTRAINTS</code> 引用，確保與 Optimization 邏輯一致</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>職責分離</strong></td>
+<td style="text-align: left;">三層防護</td>
+<td style="text-align: left;"><strong>維持</strong>白名單+Schema淨化+CI Gate，確保 E500 絕不發生</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+</tbody>
+</table>
+<h3 id="12-contract-aligned">1.2 核心設計原則（Contract-Aligned 版）</h3>
+<ol>
+<li><strong>Gatekeeper (守門員)</strong>: 髒數據絕不進入下游，<strong>設備邏輯違規提前標記</strong>（非等到 Optimization 才發現）</li>
+<li><strong>SSOT 嚴格遵守</strong>: 所有品質標記、單位定義、<strong>設備限制條件</strong>必須引用 <code>config_models.py</code></li>
+<li><strong>職責分離強制執行 (Mandatory Separation of Concerns)</strong>:<br />
+   - <strong>Cleaner 職責</strong>：讀取 <code>device_role</code> 進行<strong>語意感知清洗</strong>與<strong>設備邏輯預檢</strong>，但<strong>絕對禁止將 <code>device_role</code> 寫入輸出</strong><br />
+   - <strong>強制機制</strong>：透過 <code>ALLOWED_METADATA_KEYS</code> 白名單與 <code>FORBIDDEN_COLS</code> 自動清除，從技術層面杜絕誤寫入<br />
+   - <strong>設備邏輯預檢</strong>：在清洗階段檢查基礎設備邏輯（如主機開啟時水泵不可全關），標記違規資料供下游參考</li>
+<li><strong>時間基準一致性</strong>: 所有時間相關驗證（未來資料檢查）必須使用上游傳入的 <code>pipeline_origin_timestamp</code>，<strong>禁止</strong>使用 <code>datetime.now()</code></li>
+<li><strong>物理邏輯一致性</strong>: 與 Optimization 共享 <code>EQUIPMENT_VALIDATION_CONSTRAINTS</code>，確保清洗階段與優化階段的設備邏輯一致</li>
+</ol>
+<h3 id="13-interface-contract-v11">1.3 與 Interface Contract v1.1 的對齊關係</h3>
+<pre><code class="language-mermaid">graph LR
+    A[Parser v2.1&lt;br/&gt;Header Standardization] --&gt;|正規化標頭&lt;br/&gt;pipeline_origin_timestamp| B[DataCleaner v2.2]
+    B --&gt;|讀取 device_role| C[語意感知清洗&lt;br/&gt;調整閾值]
+    B --&gt;|讀取設備狀態| D[Equipment Validation Precheck&lt;br/&gt;E350]
+    D --&gt;|標記違規| E[quality_flags&lt;br/&gt;PHYSICAL_IMPOSSIBLE]
+    C --&gt;|輸出| F[Clean DataFrame&lt;br/&gt;不含 device_role]
+    B --&gt;|產生| G[equipment_validation_audit&lt;br/&gt;供 Manifest]
+    F --&gt;|強制淨化| H[BatchProcessor v1.3&lt;br/&gt;檢查點 #2]
+    H --&gt;|讀取| I[FeatureAnnotationManager&lt;br/&gt;直接查詢 device_role]
+
+    style B fill:#f9f,stroke:#333,stroke-width:4px
+    style D fill:#ff9,stroke:#f00,stroke-width:3px
+    style F fill:#bbf,stroke:#f00,stroke-width:3px
+</code></pre>
+<p><strong>關鍵約束（強制執行）</strong>：<br />
+- 🔴 <strong>Cleaner 不寫入 device_role</strong>：輸出 DataFrame 的 schema 中<strong>不得包含</strong> <code>device_role</code> 欄位或 metadata<br />
+- 🔴 <strong>時間基準強制使用</strong>：未來資料檢查必須使用輸入的 <code>pipeline_origin_timestamp</code>，違反視為 E000 錯誤<br />
+- 🔴 <strong>設備邏輯預檢</strong>：若啟用 <code>enforce_equipment_validation_sync</code>，必須執行基礎設備邏輯檢查並記錄稽核軌跡<br />
+- 🟡 <strong>標頭對應驗證</strong>：接收 Parser 正規化後的標頭，驗證與 Annotation 中的 <code>column_name</code> 匹配（E409）</p>
+<hr />
+<h2 id="2-interface-contracts">2. 介面契約規範 (Interface Contracts)</h2>
+<h3 id="21-input-contract-from-parser-v21">2.1 輸入契約 (Input Contract from Parser v2.1)</h3>
+<p><strong>對齊 Interface Contract v1.1 檢查點 #1 → #2 過渡</strong>:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">檢查項</th>
+<th style="text-align: left;">規格</th>
+<th style="text-align: left;">容錯處理</th>
+<th style="text-align: center;">錯誤代碼</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>timestamp</code></td>
+<td style="text-align: left;"><code>Datetime(time_unit='ns', time_zone='UTC')</code></td>
+<td style="text-align: left;">若不符，嘗試轉換或拒絕</td>
+<td style="text-align: center;">E101</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>pipeline_origin_timestamp</code></td>
+<td style="text-align: left;"><strong>必須存在於 metadata</strong> (ISO 8601 UTC)</td>
+<td style="text-align: left;">遺失則拋出 E000</td>
+<td style="text-align: center;"><strong>E000</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>quality_flags</code></td>
+<td style="text-align: left;"><code>List(Utf8)</code> (可選)</td>
+<td style="text-align: left;">若存在，驗證值 ⊆ <code>VALID_QUALITY_FLAGS</code></td>
+<td style="text-align: center;">E103</td>
+</tr>
+<tr>
+<td style="text-align: left;">數值欄位</td>
+<td style="text-align: left;"><code>Float64</code> (SI 單位)</td>
+<td style="text-align: left;">單位轉換 (若配置 <code>unit_system=IMPERIAL</code>)</td>
+<td style="text-align: center;">E104</td>
+</tr>
+<tr>
+<td style="text-align: left;">編碼</td>
+<td style="text-align: left;">UTF-8，無 BOM</td>
+<td style="text-align: left;">發現 BOM → 截斷並記錄 Warning</td>
+<td style="text-align: center;">E105</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>欄位存在性</strong></td>
+<td style="text-align: left;">所有欄位必須在 Annotation 中定義</td>
+<td style="text-align: left;">未定義欄位依 <code>unannotated_column_policy</code> 處理</td>
+<td style="text-align: center;"><strong>E402</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>標頭正規化</strong></td>
+<td style="text-align: left;">欄位名稱必須已為 snake_case (Parser 處理)</td>
+<td style="text-align: left;">若收到非正規化標頭，記錄警告</td>
+<td style="text-align: center;"><strong>E105-W</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>關鍵時間基準檢查</strong>:<br />
+- <strong>E000 (TEMPORAL_BASELINE_MISSING)</strong>: 若輸入 metadata 不含 <code>pipeline_origin_timestamp</code>，立即終止流程<br />
+- <strong>時間一致性</strong>: 使用傳入的 <code>pipeline_origin_timestamp</code> 進行所有未來資料檢查，<strong>禁止</strong>呼叫 <code>datetime.now()</code></p>
+<h3 id="22-output-contract-to-batchprocessor-v13">2.2 輸出契約 (Output Contract to BatchProcessor v1.3)</h3>
+<p><strong>對齊 Interface Contract v1.1 檢查點 #2</strong>:</p>
+<pre><code class="language-python">class CleanerOutputContract:
+    &quot;&quot;&quot;Cleaner v2.2-Contract-Aligned 輸出資料規範（強制執行版）&quot;&quot;&quot;
+
+    # 1. 時間戳規範 (與 Parser v2.1 一致，直接透傳)
+    timestamp: pl.Datetime(time_unit=&quot;ns&quot;, time_zone=&quot;UTC&quot;)
+
+    # 2. 時間基準傳遞 (新增強制要求)
+    temporal_baseline: Dict = {
+        &quot;pipeline_origin_timestamp&quot;: str,  # ISO 8601 UTC，與輸入相同
+        &quot;timezone&quot;: &quot;UTC&quot;,
+        &quot;baseline_version&quot;: &quot;1.0&quot;
+    }
+
+    # 3. 品質標記 (核心變更：必須引用 SSOT)
+    quality_flags: pl.List(pl.Utf8)  # 值必須 ∈ VALID_QUALITY_FLAGS
+    # 可能新增：PHYSICAL_IMPOSSIBLE (設備邏輯違規), EQUIPMENT_VIOLATION
+
+    # 4. 資料欄位 (SI 單位，無單位字元)
+    data_columns: pl.Float64  # 所有感測器數值
+
+    # 5. 時間軸完整性標記
+    temporal_continuity: bool  # True=連續無缺漏, False=有缺漏已補Null
+
+    # 6. Metadata (傳遞給 BatchProcessor 寫入 Manifest)
+    # 【關鍵】不包含 device_role，僅包含物理類型與單位，且經過白名單強制過濾
+    column_metadata: Dict[str, ColumnMeta]  # 僅限 ALLOWED_METADATA_KEYS 中的鍵
+
+    # 7. 設備邏輯稽核軌跡 (新增，對齊 Interface Contract v1.1)
+    equipment_validation_audit: Dict = {
+        &quot;validation_enabled&quot;: bool,
+        &quot;constraints_applied&quot;: List[str],  # 套用的限制條件 ID 列表
+        &quot;violations_detected&quot;: int,        # 違規筆數
+        &quot;violation_details&quot;: List[Dict]    # 違規詳情（時間點、設備、限制類型）
+    }
+</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">驗證項目</th>
+<th style="text-align: left;">規格</th>
+<th style="text-align: center;">失敗代碼</th>
+<th style="text-align: center;">嚴重度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>時間基準傳遞</strong></td>
+<td style="text-align: left;">輸出 metadata 必須包含 <code>pipeline_origin_timestamp</code></td>
+<td style="text-align: center;"><strong>E000</strong></td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>未來資料檢查</strong></td>
+<td style="text-align: left;">所有時間戳 ≤ <code>pipeline_origin_timestamp + 5min</code></td>
+<td style="text-align: center;"><strong>E102</strong></td>
+<td style="text-align: center;">High</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>設備邏輯預檢</strong></td>
+<td style="text-align: left;">若啟用，必須檢查基礎設備邏輯並標記違規</td>
+<td style="text-align: center;"><strong>E350</strong></td>
+<td style="text-align: center;">High</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>device_role 不存在</strong></td>
+<td style="text-align: left;">DataFrame 與 metadata 皆不可含此欄位</td>
+<td style="text-align: center;"><strong>E500</strong></td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Metadata 純淨性</strong></td>
+<td style="text-align: left;">僅允許 <code>physical_type</code>, <code>unit</code>, <code>description</code></td>
+<td style="text-align: center;"><strong>E500</strong></td>
+<td style="text-align: center;">Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Quality Flags 合法性</strong></td>
+<td style="text-align: left;">所有值必須 ∈ <code>VALID_QUALITY_FLAGS</code></td>
+<td style="text-align: center;"><strong>E202</strong></td>
+<td style="text-align: center;">Critical</td>
+</tr>
+</tbody>
+</table>
+<h3 id="23-feature-annotation-equipment-validation">2.3 Feature Annotation 與 Equipment Validation 整合契約</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">項目</th>
+<th style="text-align: left;">來源</th>
+<th style="text-align: center;">使用方式</th>
+<th style="text-align: center;">是否寫入輸出</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>physical_type</code></td>
+<td style="text-align: left;"><code>FeatureAnnotationManager</code></td>
+<td style="text-align: center;">物理限制檢查、單位驗證</td>
+<td style="text-align: center;">✅ 是（經白名單過濾後寫入 metadata）</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>unit</code></td>
+<td style="text-align: left;"><code>FeatureAnnotationManager</code></td>
+<td style="text-align: center;">單位轉換驗證</td>
+<td style="text-align: center;">✅ 是（經白名單過濾後寫入 metadata）</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>device_role</code></td>
+<td style="text-align: left;"><code>FeatureAnnotationManager</code></td>
+<td style="text-align: center;"><strong>語意感知清洗策略調整</strong>、<strong>設備邏輯預檢條件判斷</strong></td>
+<td style="text-align: center;">❌ <strong>否</strong>（僅 runtime 使用，強制移除）</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>ignore_warnings</code></td>
+<td style="text-align: left;"><code>FeatureAnnotationManager</code></td>
+<td style="text-align: center;">決定是否標記特定 Warning</td>
+<td style="text-align: center;">❌ <strong>否</strong>（僅 runtime 使用，強制移除）</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>is_target</code></td>
+<td style="text-align: left;"><code>FeatureAnnotationManager</code></td>
+<td style="text-align: center;">跳過特定清洗（如 target 不標記 FROZEN）</td>
+<td style="text-align: center;">❌ <strong>否</strong>（僅 runtime 使用，強制移除）</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>設備狀態欄位</strong></td>
+<td style="text-align: left;"><code>physical_type == 'status'</code></td>
+<td style="text-align: center;">設備邏輯預檢（如 chiller_1_status）</td>
+<td style="text-align: center;">✅ 是（作為資料欄位，非 metadata）</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>設備限制條件</strong></td>
+<td style="text-align: left;"><code>EQUIPMENT_VALIDATION_CONSTRAINTS</code> (SSOT)</td>
+<td style="text-align: center;">預檢邏輯判斷</td>
+<td style="text-align: center;">❌ <strong>否</strong>（邏輯使用，不寫入輸出）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-equipment-validation-precheck">3. 設備邏輯預檢規範 (Equipment Validation Precheck)</h2>
+<h3 id="31">3.1 設計目標</h3>
+<p>為解決 <strong>Physics Logic Decoupling</strong> 風險（清洗時未檢測違規，優化時才發現不可行），DataCleaner 在清洗階段執行基礎設備邏輯預檢，提前標記違規資料。</p>
+<p><strong>預檢範圍</strong>:<br />
+- 僅檢查<strong>基礎邏輯</strong>（如主機開啟時水泵不可全關）<br />
+- 不檢查<strong>複雜時序</strong>（如最小運轉時間，由專門的 EquipmentValidator 處理）<br />
+- 標記為 <code>PHYSICAL_IMPOSSIBLE</code> 或 <code>EQUIPMENT_VIOLATION</code>，供 Optimization 參考</p>
+<h3 id="32-ssot">3.2 整合 SSOT 限制條件</h3>
+<pre><code class="language-python"># 引用自 Interface Contract v1.1 / config_models.py
+from src.etl.config_models import EQUIPMENT_VALIDATION_CONSTRAINTS
+
+# Cleaner 內部使用的預檢規則（與 Optimization 共享 SSOT）
+PRECHECK_CONSTRAINTS = {
+    &quot;chiller_pump_mutex&quot;: {
+        &quot;description&quot;: &quot;主機開啟時必須有至少一台冷卻水泵運轉&quot;,
+        &quot;check_type&quot;: &quot;requires&quot;,
+        &quot;trigger_status&quot;: [&quot;chiller_1_status&quot;, &quot;chiller_2_status&quot;],  # 任一為 1 時觸發
+        &quot;required_status&quot;: [&quot;pump_1_status&quot;, &quot;pump_2_status&quot;],       # 至少一個必須為 1
+        &quot;severity&quot;: &quot;critical&quot;,  # 標記為 PHYSICAL_IMPOSSIBLE
+    },
+    &quot;chiller_cooling_tower_mutex&quot;: {
+        &quot;description&quot;: &quot;主機開啟時必須有至少一台冷卻水塔運轉&quot;,
+        &quot;check_type&quot;: &quot;requires&quot;, 
+        &quot;trigger_status&quot;: [&quot;chiller_1_status&quot;, &quot;chiller_2_status&quot;],
+        &quot;required_status&quot;: [&quot;ct_1_status&quot;, &quot;ct_2_status&quot;],
+        &quot;severity&quot;: &quot;critical&quot;,
+    }
+}
+</code></pre>
+<h3 id="33">3.3 預檢執行流程</h3>
+<pre><code class="language-python">def _apply_equipment_validation_precheck(self, df: pl.DataFrame) -&gt; pl.DataFrame:
+    &quot;&quot;&quot;
+    設備邏輯預檢（對齊 Interface Contract v1.1 檢查點 #2）
+
+    執行時機：在 Semantic-Aware Cleaning 之後，輸出驗證之前
+    邏輯：
+    1. 識別設備狀態欄位（physical_type == 'status'）
+    2. 檢查 PRECHECK_CONSTRAINTS 中的條件
+    3. 違反時標記 quality_flags，並記錄至 equipment_validation_audit
+    &quot;&quot;&quot;
+    if not self.config.enforce_equipment_validation_sync:
+        self._equipment_validation_audit = {
+            &quot;validation_enabled&quot;: False,
+            &quot;constraints_applied&quot;: [],
+            &quot;violations_detected&quot;: 0,
+            &quot;violation_details&quot;: []
+        }
+        return df
+
+    violations = []
+    df_with_flags = df
+
+    for constraint_id, constraint in PRECHECK_CONSTRAINTS.items():
+        # 檢查觸發條件（是否有主機開啟）
+        trigger_cols = [c for c in constraint[&quot;trigger_status&quot;] if c in df.columns]
+        if not trigger_cols:
+            continue
+
+        # 建立觸發遮罩（任一觸發欄位為 1）
+        trigger_mask = pl.col(trigger_cols[0]) == 1
+        for col in trigger_cols[1:]:
+            trigger_mask = trigger_mask | (pl.col(col) == 1)
+
+        # 檢查需求條件（是否至少一台水泵運轉）
+        required_cols = [c for c in constraint[&quot;required_status&quot;] if c in df.columns]
+        if not required_cols:
+            continue
+
+        requirement_mask = pl.col(required_cols[0]) == 1
+        for col in required_cols[1:]:
+            requirement_mask = requirement_mask | (pl.col(col) == 1)
+
+        # 違規：觸發但需求不滿足
+        violation_mask = trigger_mask &amp; ~requirement_mask
+
+        # 統計違規
+        violation_count = df.filter(violation_mask).height
+        if violation_count &gt; 0:
+            violations.append({
+                &quot;constraint_id&quot;: constraint_id,
+                &quot;description&quot;: constraint[&quot;description&quot;],
+                &quot;count&quot;: violation_count,
+                &quot;severity&quot;: constraint[&quot;severity&quot;]
+            })
+
+            # 標記 Quality Flag
+            flag = &quot;PHYSICAL_IMPOSSIBLE&quot; if constraint[&quot;severity&quot;] == &quot;critical&quot; else &quot;EQUIPMENT_VIOLATION&quot;
+            df_with_flags = df_with_flags.with_columns(
+                pl.when(violation_mask).then(
+                    pl.col(&quot;quality_flags&quot;).list.concat(pl.lit([flag]))
+                ).otherwise(pl.col(&quot;quality_flags&quot;)).alias(&quot;quality_flags&quot;)
+            )
+
+    # 記錄稽核軌跡（供 BatchProcessor 寫入 Manifest）
+    self._equipment_validation_audit = {
+        &quot;validation_enabled&quot;: True,
+        &quot;constraints_applied&quot;: list(PRECHECK_CONSTRAINTS.keys()),
+        &quot;violations_detected&quot;: sum(v[&quot;count&quot;] for v in violations),
+        &quot;violation_details&quot;: violations
+    }
+
+    if violations:
+        self.logger.warning(
+            f&quot;設備邏輯預檢發現 {len(violations)} 項違規: &quot;
+            f&quot;{[v['constraint_id'] for v in violations]}&quot;
+        )
+
+    return df_with_flags
+</code></pre>
+<hr />
+<h2 id="4-phase-based-implementation">4. 分階段實作計畫 (Phase-Based Implementation)</h2>
+<h3 id="phase-0-annotation-day-1">Phase 0: Annotation 整合與時間基準基礎建設 (Day 1)</h3>
+<h4 id="step-01-temporal-context">Step 0.1: 建構子與 Temporal Context 注入</h4>
+<p><strong>檔案</strong>: <code>src/etl/cleaner.py</code> (頂部與 <code>__init__</code>)</p>
+<p><strong>實作內容</strong>:</p>
+<pre><code class="language-python">from typing import Final, Dict, List, Optional, Tuple, Set, Any
+import polars as pl
+import numpy as np
+from datetime import datetime, timedelta, timezone
+from pydantic import BaseModel, validator
+
+# 【關鍵】SSOT 嚴格引用（對齊 Interface Contract v1.1）
+from src.etl.config_models import (
+    VALID_QUALITY_FLAGS,      # SSOT: 品質標記
+    TIMESTAMP_CONFIG,         # SSOT: 時間戳規格 (UTC, ns)
+    FEATURE_ANNOTATION_CONSTANTS,  # SSOT: Annotation 版本
+    EQUIPMENT_VALIDATION_CONSTRAINTS,  # 【新增】SSOT: 設備限制條件
+    CleanerConfig,
+)
+
+# 【新增】Temporal Baseline 整合
+from src.core.temporal_baseline import TemporalContext, get_temporal_context
+
+# 【新增】Feature Annotation 與 Equipment Validation 整合
+from src.features.annotation_manager import FeatureAnnotationManager, ColumnAnnotation
+from src.equipment.equipment_validator import EquipmentValidator  # 【新增】
+
+from src.exceptions import (
+    ConfigurationError, ContractViolationError, DataValidationError,
+    TemporalBaselineError  # 【新增】
+)
+
+class DataCleaner:
+    &quot;&quot;&quot;
+    DataCleaner v2.2-Contract-Aligned
+    - 整合 Feature Annotation v1.2（語意感知清洗）
+    - 整合 Equipment Validation Sync（設備邏輯預檢）
+    - 強制執行 Temporal Baseline（時間基準一致性）
+    - 職責分離強制執行（三層防護）
+    &quot;&quot;&quot;
+
+    # 【強制執行】類別層級常數定義（維持不變）
+    ALLOWED_METADATA_KEYS: Final[Set[str]] = frozenset({
+        'physical_type', 'unit', 'description', 'column_name'
+    })
+
+    FORBIDDEN_COLS: Final[Set[str]] = frozenset({
+        'device_role', 'ignore_warnings', 'is_target', 'role', 
+        'device_type', 'annotation_role', 'col_role', 'feature_role'
+    })
+
+    DEVICE_ROLE_THRESHOLDS: Final[Dict[str, Dict]] = {
+        &quot;primary&quot;: {&quot;frozen_multiplier&quot;: 1.0, &quot;zero_ratio_warning&quot;: 0.1},
+        &quot;backup&quot;: {&quot;frozen_multiplier&quot;: 3.0, &quot;zero_ratio_warning&quot;: 0.8},
+        &quot;seasonal&quot;: {&quot;frozen_multiplier&quot;: 2.0, &quot;zero_ratio_warning&quot;: 0.5}
+    }
+
+    def __init__(
+        self, 
+        config: CleanerConfig,
+        annotation_manager: Optional[FeatureAnnotationManager] = None,
+        temporal_context: Optional[TemporalContext] = None,  # 【新增】
+        equipment_validator: Optional[EquipmentValidator] = None  # 【新增】
+    ):
+        &quot;&quot;&quot;
+        Args:
+            config: 清洗配置
+            annotation_manager: 特徵標註管理器
+            temporal_context: 時間基準上下文（強制使用，禁止自行產生時間戳）
+            equipment_validator: 設備驗證器（用於預檢）
+        &quot;&quot;&quot;
+        self.config = config
+        self.annotation = annotation_manager
+        self.equipment_validator = equipment_validator  # 【新增】
+        self.logger = get_logger(&quot;DataCleaner&quot;)
+
+        # 【新增】時間基準強制檢查（對齊 Interface Contract v1.1 E000）
+        if temporal_context is None:
+            raise TemporalBaselineError(
+                &quot;E000: DataCleaner 必須接收 TemporalContext，禁止自行產生時間戳。 &quot;
+                &quot;請確保 Container 正確傳遞 pipeline_origin_timestamp。&quot;
+            )
+        self.temporal_context = temporal_context
+        self.pipeline_origin_timestamp = temporal_context.get_baseline()
+
+        # 驗證：若啟用設備邏輯預檢，建議提供 EquipmentValidator
+        if config.enforce_equipment_validation_sync and equipment_validator is None:
+            self.logger.warning(
+                &quot;啟用設備邏輯預檢但未提供 EquipmentValidator，將使用內建預檢邏輯&quot;
+            )
+
+        self.logger.info(
+            f&quot;初始化 DataCleaner (SSOT Flags: {len(VALID_QUALITY_FLAGS)}, &quot;
+            f&quot;Temporal Baseline: {self.pipeline_origin_timestamp.isoformat()}, &quot;
+            f&quot;Equipment Validation: {config.enforce_equipment_validation_sync})&quot;
+        )
+</code></pre>
+<h4 id="step-02-e402-e409">Step 0.2: 未定義欄位與標頭驗證 (E402, E409)</h4>
+<pre><code class="language-python">def _validate_columns_annotated(self, df: pl.DataFrame) -&gt; pl.DataFrame:
+    &quot;&quot;&quot;
+    驗證所有欄位已在 Annotation 中定義 (E402)
+    並驗證標頭已正規化（對齊 Interface Contract v1.1 Header Standardization）
+    &quot;&quot;&quot;
+    if not self.annotation or not self.config.use_device_role_from_annotation:
+        return df
+
+    unannotated = []
+    non_standardized = []  # 【新增】檢查非正規化標頭
+
+    for col in df.columns:
+        if col == &quot;timestamp&quot;:
+            continue
+
+        # E402 檢查：欄位是否已定義於 Annotation
+        if not self.annotation.is_column_annotated(col):
+            unannotated.append(col)
+        else:
+            # 【新增】E409 檢查：驗證標頭為 snake_case（防範 Parser 未正確正規化）
+            if not self._is_snake_case(col):
+                non_standardized.append(col)
+
+    # 處理未定義欄位
+    if unannotated:
+        policy = self.config.unannotated_column_policy
+        if policy == &quot;error&quot;:
+            raise DataValidationError(
+                f&quot;E402: 以下欄位未定義於 Feature Annotation: {unannotated}&quot;
+            )
+        elif policy == &quot;skip&quot;:
+            self.logger.warning(f&quot;E402 (Skip): 跳過未定義欄位: {unannotated}&quot;)
+            self._skipped_columns = set(unannotated)
+        elif policy == &quot;warn&quot;:
+            self.logger.warning(f&quot;E402 (Warn): 未定義欄位使用保守預設: {unannotated}&quot;)
+
+    # 【新增】處理非正規化標頭（警告層級，不阻擋流程）
+    if non_standardized:
+        self.logger.warning(
+            f&quot;E409-Warning: 以下欄位未使用 snake_case，可能未經 Parser 正規化: {non_standardized}&quot;
+        )
+
+    return df
+
+def _is_snake_case(self, s: str) -&gt; bool:
+    &quot;&quot;&quot;檢查字串是否符合 snake_case 規範&quot;&quot;&quot;
+    import re
+    return bool(re.match(r'^[a-z][a-z0-9_]*$', s))
+</code></pre>
+<hr />
+<h3 id="phase-1-day-2">Phase 1: 時間標準化與基準一致性 (Day 2)</h3>
+<h4 id="step-11-temporal-baseline">Step 1.1: 時間戳標準化（強化 Temporal Baseline）</h4>
+<pre><code class="language-python">def _normalize_timestamp(self, df: pl.DataFrame) -&gt; pl.DataFrame:
+    &quot;&quot;&quot;
+    Step 1: 時間戳標準化 (E101 處理)
+
+    【關鍵變更】：不再呼叫 datetime.now()，所有時間檢查使用 self.pipeline_origin_timestamp
+    &quot;&quot;&quot;
+    if &quot;timestamp&quot; not in df.columns:
+        raise DataValidationError(&quot;輸入資料缺少必要欄位 'timestamp'&quot;)
+
+    ts_col = df[&quot;timestamp&quot;]
+
+    # 檢查類型
+    if not isinstance(ts_col.dtype, pl.Datetime):
+        raise DataValidationError(f&quot;timestamp 欄位類型錯誤: {ts_col.dtype}&quot;)
+
+    # 時區處理（維持不變）
+    current_tz = ts_col.dtype.time_zone
+    if current_tz is None:
+        self.logger.warning(&quot;timestamp 無時區資訊，假設為 UTC&quot;)
+        df = df.with_columns(
+            pl.col(&quot;timestamp&quot;).dt.replace_time_zone(&quot;UTC&quot;).alias(&quot;timestamp&quot;)
+        )
+    elif current_tz != &quot;UTC&quot;:
+        self.logger.warning(f&quot;E101: 偵測到非 UTC 時區 {current_tz}，自動轉換&quot;)
+        df = df.with_columns(
+            pl.col(&quot;timestamp&quot;).dt.convert_time_zone(&quot;UTC&quot;).alias(&quot;timestamp&quot;)
+        )
+
+    # 確保精度為 nanosecond
+    if ts_col.dtype.time_unit != &quot;ns&quot;:
+        df = df.with_columns(
+            pl.col(&quot;timestamp&quot;).cast(pl.Datetime(time_unit=&quot;ns&quot;, time_zone=&quot;UTC&quot;))
+        )
+
+    return df
+</code></pre>
+<h4 id="step-12-temporal-baseline">Step 1.2: 未來資料檢查（強制使用 Temporal Baseline）</h4>
+<pre><code class="language-python">def _check_future_data(self, df: pl.DataFrame) -&gt; None:
+    &quot;&quot;&quot;
+    Step 2: 未來資料檢查 (E102)
+
+    【關鍵變更】：使用 self.pipeline_origin_timestamp 而非 datetime.now()
+    對齊 Interface Contract v1.1 要求，防止時間漂移
+    &quot;&quot;&quot;
+    # 【強制】使用傳入的時間基準，禁止動態取得時間
+    threshold = self.pipeline_origin_timestamp + timedelta(minutes=5)
+
+    future_mask = df[&quot;timestamp&quot;] &gt; threshold
+    future_count = future_mask.sum()
+
+    if future_count &gt; 0:
+        future_samples = df.filter(future_mask)[&quot;timestamp&quot;].head(3).to_list()
+        raise DataValidationError(
+            f&quot;E102: 偵測到 {future_count} 筆未來資料（&gt;{threshold.isoformat()}）。&quot;
+            f&quot;樣本: {future_samples}。 &quot;
+            f&quot;Pipeline 時間基準: {self.pipeline_origin_timestamp.isoformat()}。 &quot;
+            f&quot;請檢查資料來源時鐘或時間基準傳遞。&quot;
+        )
+
+    self.logger.debug(f&quot;未來資料檢查通過（基準: {self.pipeline_origin_timestamp.isoformat()}）&quot;)
+</code></pre>
+<hr />
+<h3 id="phase-2-day-3-4">Phase 2: 語意感知清洗與設備邏輯預檢 (Day 3-4)</h3>
+<h4 id="step-21">Step 2.1: 語意感知清洗（維持並強化）</h4>
+<pre><code class="language-python">def _semantic_aware_cleaning(self, df: pl.DataFrame) -&gt; pl.DataFrame:
+    &quot;&quot;&quot;
+    語意感知清洗主流程（讀取 device_role，但絕不寫入輸出）
+
+    維持 v2.2 原有邏輯：
+    - 凍結資料偵測（角色感知閾值）
+    - 零值比例檢查（角色感知警告抑制）
+    - 物理限制檢查
+    &quot;&quot;&quot;
+    if not self.annotation:
+        self.logger.debug(&quot;未啟用 Annotation 整合，跳過語意感知清洗&quot;)
+        return df
+
+    self.logger.info(&quot;啟動語意感知清洗（device_role 感知，輸出隔離）...&quot;)
+
+    # 1. 凍結資料偵測（角色感知閾值）
+    df = self._detect_frozen_data_semantic(df)
+
+    # 2. 零值比例檢查（角色感知警告抑制）
+    df = self._check_zero_ratio_semantic(df)
+
+    # 3. 物理限制檢查
+    df = self._apply_physical_constraints_semantic(df)
+
+    return df
+</code></pre>
+<h4 id="step-22">Step 2.2: 設備邏輯預檢（新增核心功能）</h4>
+<pre><code class="language-python">def _apply_equipment_validation_precheck(self, df: pl.DataFrame) -&gt; pl.DataFrame:
+    &quot;&quot;&quot;
+    【新增】設備邏輯預檢（對齊 Interface Contract v1.1 檢查點 #2）
+
+    在語意感知清洗後執行，檢查基礎設備邏輯違規：
+    - 主機開啟時水泵不可全關（chiller_pump_mutex）
+    - 主機開啟時冷卻水塔不可全關（chiller_cooling_tower_mutex）
+
+    違規資料標記為 PHYSICAL_IMPOSSIBLE 或 EQUIPMENT_VIOLATION
+    &quot;&quot;&quot;
+    if not self.config.enforce_equipment_validation_sync:
+        self._equipment_validation_audit = {
+            &quot;validation_enabled&quot;: False,
+            &quot;constraints_applied&quot;: [],
+            &quot;violations_detected&quot;: 0,
+            &quot;violation_details&quot;: []
+        }
+        return df
+
+    self.logger.info(&quot;執行設備邏輯預檢（Equipment Validation Precheck）...&quot;)
+
+    violations = []
+    df_result = df
+
+    # 從 SSOT 載入預檢規則（與 Optimization 共用）
+    from src.etl.config_models import EQUIPMENT_VALIDATION_CONSTRAINTS
+
+    for constraint_id, constraint in EQUIPMENT_VALIDATION_CONSTRAINTS.items():
+        # 只處理預檢類型（precheck）
+        if constraint.get(&quot;check_phase&quot;) != &quot;precheck&quot;:
+            continue
+
+        # 檢查必要欄位是否存在
+        trigger_cols = [c for c in constraint.get(&quot;trigger_status&quot;, []) if c in df.columns]
+        required_cols = [c for c in constraint.get(&quot;required_status&quot;, []) if c in df.columns]
+
+        if not trigger_cols or not required_cols:
+            continue
+
+        # 建立邏輯條件（Polars 表達式）
+        trigger_condition = pl.col(trigger_cols[0]) == 1
+        for col in trigger_cols[1:]:
+            trigger_condition = trigger_condition | (pl.col(col) == 1)
+
+        required_condition = pl.col(required_cols[0]) == 1
+        for col in required_cols[1:]:
+            required_condition = required_condition | (pl.col(col) == 1)
+
+        # 違規條件：觸發但需求不滿足
+        violation_condition = trigger_condition &amp; ~required_condition
+
+        # 計算違規數
+        violation_count = df.filter(violation_condition).height
+
+        if violation_count &gt; 0:
+            severity = constraint.get(&quot;severity&quot;, &quot;warning&quot;)
+            flag = &quot;PHYSICAL_IMPOSSIBLE&quot; if severity == &quot;critical&quot; else &quot;EQUIPMENT_VIOLATION&quot;
+
+            violations.append({
+                &quot;constraint_id&quot;: constraint_id,
+                &quot;description&quot;: constraint.get(&quot;description&quot;, &quot;&quot;),
+                &quot;count&quot;: violation_count,
+                &quot;severity&quot;: severity,
+                &quot;timestamp&quot;: datetime.now(timezone.utc).isoformat()
+            })
+
+            # 標記 Quality Flag
+            df_result = df_result.with_columns(
+                pl.when(violation_condition).then(
+                    pl.col(&quot;quality_flags&quot;).list.concat(pl.lit([flag]))
+                ).otherwise(pl.col(&quot;quality_flags&quot;)).alias(&quot;quality_flags&quot;)
+            )
+
+            self.logger.warning(
+                f&quot;E350: 設備邏輯違規 '{constraint_id}' 發生 {violation_count} 筆，&quot;
+                f&quot;標記為 {flag}&quot;
+            )
+
+    # 記錄稽核軌跡（供 BatchProcessor 寫入 Manifest）
+    self._equipment_validation_audit = {
+        &quot;validation_enabled&quot;: True,
+        &quot;constraints_applied&quot;: list(EQUIPMENT_VALIDATION_CONSTRAINTS.keys()),
+        &quot;violations_detected&quot;: sum(v[&quot;count&quot;] for v in violations),
+        &quot;violation_details&quot;: violations,
+        &quot;precheck_timestamp&quot;: datetime.now(timezone.utc).isoformat()
+    }
+
+    return df_result
+</code></pre>
+<hr />
+<h3 id="phase-3-day-5">Phase 3: 重採樣與輸出契約強制執行 (Day 5)</h3>
+<h4 id="step-31">Step 3.1: 重採樣（維持不變）</h4>
+<pre><code class="language-python">def _resample_and_fill(self, df: pl.DataFrame) -&gt; pl.DataFrame:
+    &quot;&quot;&quot;Step 3: 重採樣與缺漏處理（維持 v2.2 原有邏輯）&quot;&quot;&quot;
+    # ... 原有實作 ...
+    return df
+</code></pre>
+<h4 id="step-32-metadata-equipment-audit">Step 3.2: Metadata 強制淨化（更新包含 Equipment Audit）</h4>
+<pre><code class="language-python">def _build_column_metadata(self, df: pl.DataFrame) -&gt; Tuple[Dict[str, Dict], Dict]:
+    &quot;&quot;&quot;
+    Step 7: 建構欄位元資料與設備稽核軌跡
+
+    Returns:
+        (column_metadata, equipment_validation_audit)
+    &quot;&quot;&quot;
+    metadata: Dict[str, Dict[str, Any]] = {}
+
+    for col in df.columns:
+        if col == &quot;timestamp&quot;:
+            continue
+
+        raw_meta = self._extract_raw_metadata(col)
+        sanitized_meta = self._sanitize_metadata_dict(raw_meta, col)
+        metadata[col] = sanitized_meta
+
+    # 取得設備邏輯稽核軌跡（由 Step 2.2 產生）
+    audit = getattr(self, '_equipment_validation_audit', {
+        &quot;validation_enabled&quot;: False,
+        &quot;constraints_applied&quot;: [],
+        &quot;violations_detected&quot;: 0,
+        &quot;violation_details&quot;: []
+    })
+
+    return metadata, audit
+</code></pre>
+<h4 id="step-33-schema">Step 3.3: Schema 強制淨化與時間基準傳遞</h4>
+<pre><code class="language-python">def _validate_output_contract(self, df: pl.DataFrame) -&gt; pl.DataFrame:
+    &quot;&quot;&quot;
+    Step 6: 最終輸出驗證與強制淨化 (Interface Contract Enforcement)
+
+    【更新】：
+    1. 驗證時間基準傳遞（E000）
+    2. 驗證未來資料防護（E102）
+    3. 強制執行 Schema 淨化（移除 FORBIDDEN_COLS）
+    4. 驗證 device_role 不存在（E500）
+    &quot;&quot;&quot;
+    errors = []
+
+    # 1. 時間戳檢查
+    if &quot;timestamp&quot; not in df.columns:
+        errors.append(&quot;缺少必要欄位 'timestamp'&quot;)
+
+    # 2. 【關鍵】時間基準傳遞檢查
+    if not hasattr(self, 'pipeline_origin_timestamp'):
+        errors.append(&quot;E000: 遺失 pipeline_origin_timestamp，無法傳遞時間基準&quot;)
+
+    # 3. quality_flags 檢查
+    if &quot;quality_flags&quot; not in df.columns:
+        errors.append(&quot;缺少必要欄位 'quality_flags'&quot;)
+
+    # 4. 【強制執行】Schema 淨化
+    df = self._enforce_schema_sanitization(df)
+
+    # 5. 【強制執行】device_role 不存在檢查（E500）
+    for forbidden_col in self.FORBIDDEN_COLS:
+        if forbidden_col in df.columns:
+            errors.append(f&quot;E500: 輸出包含禁止欄位 '{forbidden_col}'&quot;)
+
+    # 6. 未來資料二次確認（使用 Temporal Baseline）
+    if hasattr(self, 'pipeline_origin_timestamp'):
+        threshold = self.pipeline_origin_timestamp + timedelta(minutes=5)
+        if (df[&quot;timestamp&quot;] &gt; threshold).any():
+            errors.append(&quot;E102: 輸出仍包含未來資料（時序防護失效）&quot;)
+
+    if errors:
+        raise ContractViolationError(f&quot;Cleaner 輸出契約驗證失敗: {errors}&quot;)
+
+    return df
+</code></pre>
+<hr />
+<h2 id="5-call-chain-updated">5. 完整方法呼叫鏈 (Call Chain - Updated)</h2>
+<pre><code>clean(df: pl.DataFrame, input_metadata: Dict) -&gt; Tuple[pl.DataFrame, Dict, Dict]
+  ├── _validate_temporal_baseline(input_metadata)      # 【新增】E000 檢查
+  ├── _validate_columns_annotated(df)                  # Step 0: E402, E409 檢查
+  ├── _normalize_timestamp(df)                         # Step 1: 時區標準化 (UTC)
+  ├── _check_future_data(df)                           # Step 2: 未來資料檢查 (E102)
+  │   └── 使用 self.pipeline_origin_timestamp（非 now()）
+  ├── _semantic_aware_cleaning(df)                     # Step 3: 語意感知清洗
+  │   ├── _detect_frozen_data_semantic()               # 角色感知閾值
+  │   ├── _check_zero_ratio_semantic()                 # 抑制警告
+  │   └── _apply_physical_constraints_semantic()       # 物理限制
+  ├── _apply_equipment_validation_precheck(df)         # 【新增】Step 3.5: 設備邏輯預檢 (E350)
+  │   └── 產生 self._equipment_validation_audit
+  ├── _resample_and_fill(df)                           # Step 4: 重採樣
+  ├── _validate_quality_flags(df)                      # Step 5: Flags 合法性 (E103)
+  ├── _validate_output_contract(df)                    # Step 6: 強制執行 Schema淨化
+  │   └── _enforce_schema_sanitization()               # 移除 FORBIDDEN_COLS
+  ├── _build_column_metadata(df)                       # Step 7: 白名單過濾 + Audit
+  │   ├── _sanitize_metadata_dict()                    # 移除非白名單鍵
+  │   └── 回傳 (metadata, equipment_validation_audit)
+  └── return (clean_df, metadata, equipment_validation_audit)
+</code></pre>
+<hr />
+<h2 id="6-error-codes-updated">6. 錯誤代碼對照表 (Error Codes - Updated)</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">錯誤代碼</th>
+<th style="text-align: left;">名稱</th>
+<th style="text-align: center;">發生階段</th>
+<th style="text-align: left;">說明</th>
+<th style="text-align: left;">處理建議</th>
+<th style="text-align: center;">嚴重度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>E000</strong></td>
+<td style="text-align: left;"><code>TEMPORAL_BASELINE_MISSING</code></td>
+<td style="text-align: center;">Step 0</td>
+<td style="text-align: left;">未接收 pipeline_origin_timestamp</td>
+<td style="text-align: left;">檢查 Container 傳遞邏輯</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E101</strong></td>
+<td style="text-align: left;"><code>TIMEZONE_MISMATCH</code></td>
+<td style="text-align: center;">Step 1</td>
+<td style="text-align: left;">時區非 UTC</td>
+<td style="text-align: left;">確認 Parser 版本</td>
+<td style="text-align: center;">🟡 Medium</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E102</strong></td>
+<td style="text-align: left;"><code>FUTURE_DATA_DETECTED</code></td>
+<td style="text-align: center;">Step 2</td>
+<td style="text-align: left;">資料時間超過基準+5分鐘</td>
+<td style="text-align: left;">檢查資料來源時鐘</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E103</strong></td>
+<td style="text-align: left;"><code>UNKNOWN_QUALITY_FLAG</code></td>
+<td style="text-align: center;">Step 5</td>
+<td style="text-align: left;">非法品質標記</td>
+<td style="text-align: left;">同步 SSOT</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E105</strong></td>
+<td style="text-align: left;"><code>HEADER_NON_STANDARDIZED</code></td>
+<td style="text-align: center;">Step 0</td>
+<td style="text-align: left;">標頭未正規化（警告）</td>
+<td style="text-align: left;">確認 Parser 設定</td>
+<td style="text-align: center;">🟢 Low</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E402</strong></td>
+<td style="text-align: left;"><code>UNANNOTATED_COLUMN</code></td>
+<td style="text-align: center;">Step 0</td>
+<td style="text-align: left;">欄位未定義於 Annotation</td>
+<td style="text-align: left;">執行 features wizard</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E409</strong></td>
+<td style="text-align: left;"><code>HEADER_ANNOTATION_MISMATCH</code></td>
+<td style="text-align: center;">Step 0</td>
+<td style="text-align: left;">標頭與 Annotation 不匹配</td>
+<td style="text-align: left;">檢查 Excel 標註</td>
+<td style="text-align: center;">🟡 Medium</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E350</strong></td>
+<td style="text-align: left;"><code>EQUIPMENT_LOGIC_PRECHECK_FAILED</code></td>
+<td style="text-align: center;">Step 3.5</td>
+<td style="text-align: left;">設備邏輯預檢發現違規</td>
+<td style="text-align: left;">檢查設備狀態資料</td>
+<td style="text-align: center;">🟡 Medium</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E500</strong></td>
+<td style="text-align: left;"><code>DEVICE_ROLE_LEAKAGE</code></td>
+<td style="text-align: center;">Step 6</td>
+<td style="text-align: left;">輸出包含 device_role</td>
+<td style="text-align: left;">檢查職責分離邏輯</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E501</strong></td>
+<td style="text-align: left;"><code>METADATA_WHITELIST_VIOLATION</code></td>
+<td style="text-align: center;">Step 7</td>
+<td style="text-align: left;">Metadata 包含禁止鍵</td>
+<td style="text-align: left;">檢查白名單機制</td>
+<td style="text-align: center;">🔴 Critical</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-test-plan-updated">7. 測試與驗證計畫 (Test Plan - Updated)</h2>
+<h3 id="71-unit-tests">7.1 單元測試 (Unit Tests)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">測試案例 ID</th>
+<th style="text-align: left;">描述</th>
+<th style="text-align: left;">輸入</th>
+<th style="text-align: left;">預期結果</th>
+<th style="text-align: center;">CI/CD 屬性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">C22-TB-01</td>
+<td style="text-align: left;">時間基準遺失</td>
+<td style="text-align: left;">無 temporal_context</td>
+<td style="text-align: left;">拋出 E000</td>
+<td style="text-align: center;">🔴 Blocker</td>
+</tr>
+<tr>
+<td style="text-align: left;">C22-TB-02</td>
+<td style="text-align: left;">未來資料檢查（使用基準）</td>
+<td style="text-align: left;">資料時間 &gt; 基準+5min</td>
+<td style="text-align: left;">拋出 E102</td>
+<td style="text-align: center;">🔴 Blocker</td>
+</tr>
+<tr>
+<td style="text-align: left;">C22-TB-03</td>
+<td style="text-align: left;">長時間執行漂移檢測</td>
+<td style="text-align: left;">模擬基準時間過舊</td>
+<td style="text-align: left;">記錄警告</td>
+<td style="text-align: center;">🟡 Standard</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>C22-EV-01</strong></td>
+<td style="text-align: left;">設備邏輯預檢通過</td>
+<td style="text-align: left;">主機開+水泵開</td>
+<td style="text-align: left;">無違規標記</td>
+<td style="text-align: center;">🔴 Blocker</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>C22-EV-02</strong></td>
+<td style="text-align: left;">設備邏輯違規檢測</td>
+<td style="text-align: left;">主機開+水泵全關</td>
+<td style="text-align: left;">標記 PHYSICAL_IMPOSSIBLE</td>
+<td style="text-align: center;">🔴 Blocker</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>C22-EV-03</strong></td>
+<td style="text-align: left;">設備稽核軌跡產生</td>
+<td style="text-align: left;">啟用預檢</td>
+<td style="text-align: left;">Audit 結構正確</td>
+<td style="text-align: center;">🔴 Blocker</td>
+</tr>
+<tr>
+<td style="text-align: left;">C22-FA-05</td>
+<td style="text-align: left;">職責分離 Gate Test</td>
+<td style="text-align: left;">輸出含 device_role</td>
+<td style="text-align: left;">拋出 E500</td>
+<td style="text-align: center;">🔴 Blocker</td>
+</tr>
+<tr>
+<td style="text-align: left;">C22-FA-06</td>
+<td style="text-align: left;">Metadata Gate Test</td>
+<td style="text-align: left;">輸出含禁止鍵</td>
+<td style="text-align: left;">自動移除並警告</td>
+<td style="text-align: center;">🔴 Blocker</td>
+</tr>
+</tbody>
+</table>
+<h3 id="72-integration-tests">7.2 整合測試 (Integration Tests)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">測試案例 ID</th>
+<th style="text-align: left;">描述</th>
+<th style="text-align: center;">上游</th>
+<th style="text-align: center;">下游</th>
+<th style="text-align: left;">驗證目標</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>INT-C-EV-01</strong></td>
+<td style="text-align: left;">設備邏輯同步流程</td>
+<td style="text-align: center;">Cleaner (啟用預檢)</td>
+<td style="text-align: center;">BatchProcessor</td>
+<td style="text-align: left;">Manifest 包含 equipment_validation_audit</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>INT-C-EV-02</strong></td>
+<td style="text-align: left;">與 Optimization 限制一致性</td>
+<td style="text-align: center;">Cleaner 預檢邏輯</td>
+<td style="text-align: center;">Optimization 限制</td>
+<td style="text-align: left;">兩者使用相同 SSOT 限制條件</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-C-TB-01</td>
+<td style="text-align: left;">時間基準傳遞</td>
+<td style="text-align: center;">Parser (帶基準)</td>
+<td style="text-align: center;">Cleaner</td>
+<td style="text-align: left;">正確接收並傳遞，無 now() 呼叫</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-C-TB-02</td>
+<td style="text-align: left;">跨日執行時間一致性</td>
+<td style="text-align: center;">模擬跨日資料</td>
+<td style="text-align: center;">Cleaner</td>
+<td style="text-align: left;">使用固定基準，無跨日錯誤</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-risk-assessment-updated">8. 風險評估與緩解 (Risk Assessment - Updated)</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">風險</th>
+<th style="text-align: center;">嚴重度</th>
+<th style="text-align: center;">可能性</th>
+<th style="text-align: left;">緩解措施</th>
+<th style="text-align: center;">狀態</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>時間漂移</strong> (使用 now() 而非基準)</td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: left;">建構子強制檢查 temporal_context，違反拋 E000</td>
+<td style="text-align: center;">已強化</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>設備邏輯脫鉤</strong> (清洗與優化不一致)</td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: left;">共用 EQUIPMENT_VALIDATION_CONSTRAINTS (SSOT)</td>
+<td style="text-align: center;">已新增</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>職責邊界混淆</strong></td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: left;">三層防護：白名單+Schema淨化+CI Gate</td>
+<td style="text-align: center;">維持</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>標頭不匹配</strong> (Parser-Cleaner-Annotation)</td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: left;">E409 檢查，驗證 snake_case 與 Annotation 匹配</td>
+<td style="text-align: center;">已新增</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9-deliverables-updated">9. 交付物清單 (Deliverables - Updated)</h2>
+<h3 id="91">9.1 程式碼檔案</h3>
+<ol>
+<li><code>src/etl/cleaner.py</code> - 主要實作 (v2.2-Contract-Aligned)</li>
+<li><code>src/etl/config_models.py</code> - 擴充（新增 <code>EQUIPMENT_VALIDATION_CONSTRAINTS</code>）</li>
+<li><code>src/core/temporal_baseline.py</code> - 時間基準類別（若尚未存在）</li>
+</ol>
+<h3 id="92">9.2 測試檔案</h3>
+<ol start="4">
+<li><code>tests/test_cleaner_v22_contract_aligned.py</code> - 主要測試（含時間基準、設備預檢）</li>
+<li><code>tests/test_cleaner_equipment_validation.py</code> - 【新增】設備邏輯預檢測試</li>
+<li><code>tests/test_cleaner_temporal_baseline.py</code> - 【新增】時間基準一致性測試</li>
+</ol>
+<h3 id="93">9.3 文件檔案</h3>
+<ol start="7">
+<li><code>docs/cleaner/PRD_CLEANER_v2.2-Contract-Aligned.md</code> - 本文件</li>
+<li><code>docs/cleaner/MIGRATION_v22_to_Contract_Aligned.md</code> - 升級指引</li>
+</ol>
+<hr />
+<h2 id="10-sign-off-checklist-updated">10. 驗收簽核 (Sign-off Checklist - Updated)</h2>
+<ul>
+<li>[ ] <strong>時間基準強制使用 (E000)</strong>：未接收 temporal_context 時正確拋出 E000</li>
+<li>[ ] <strong>未來資料檢查 (E102)</strong>：使用 pipeline_origin_timestamp 而非 now()，跨日執行測試通過</li>
+<li>[ ] <strong>設備邏輯預檢 (E350)</strong>：正確檢測主機開啟時水泵全關等違規，標記 PHYSICAL_IMPOSSIBLE</li>
+<li>[ ] <strong>設備稽核軌跡</strong>：輸出包含 equipment_validation_audit 結構，供 BatchProcessor 寫入 Manifest</li>
+<li>[ ] <strong>SSOT 一致性</strong>：與 Optimization 共用 EQUIPMENT_VALIDATION_CONSTRAINTS，邏輯一致</li>
+<li>[ ] <strong>職責分離 (E500)</strong>：輸出絕對不含 device_role，三層防護機制運作正常</li>
+<li>[ ] <strong>標頭對應 (E409)</strong>：驗證 Parser 正規化後的標頭與 Annotation 匹配</li>
+<li>[ ] <strong>Interface Contract v1.1 對齊</strong>：檢查點 #2 所有項目通過驗證</li>
+</ul>
+<hr />
+<p><strong>重要提醒</strong>：本版本已將 <strong>Temporal Baseline</strong> 與 <strong>Equipment Validation Sync</strong> 提升為強制要求，與 Interface Contract v1.1 完全對齊。任何時間相關檢查必須使用傳入的時間基準，禁止動態取得系統時間。</p>
+<p><strong>文件結束</strong><br />
+```</p>
+</body>
+</html>

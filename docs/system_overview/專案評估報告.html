@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>專案評估報告</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="_1">空調節能系統專案評估報告</h1>
+<p><strong>評估日期:</strong> 2026-02-14<br />
+<strong>評估範圍:</strong> 12份PRD文件<br />
+<strong>專案性質:</strong> 空調節能、資料清洗及離線能源最佳化建議系統（核心部分）  </p>
+<hr />
+<h2 id="_2">執行摘要</h2>
+<p>本報告針對空調節能系統的12份PRD文件進行全面評估，確認<strong>所有PRD文件均已達到可開發標準</strong>。整體架構設計合理、介面定義清晰、技術選型成熟，預估總開發工時為 <strong>56-70個工程天</strong>。</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">評估項目</th>
+<th style="text-align: center;">結果</th>
+<th style="text-align: center;">評分</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">文件完整性</td>
+<td style="text-align: center;">✅ 通過</td>
+<td style="text-align: center;">95/100</td>
+</tr>
+<tr>
+<td style="text-align: left;">跨文件一致性</td>
+<td style="text-align: center;">✅ 通過</td>
+<td style="text-align: center;">92/100</td>
+</tr>
+<tr>
+<td style="text-align: left;">技術可行性</td>
+<td style="text-align: center;">✅ 通過</td>
+<td style="text-align: center;">95/100</td>
+</tr>
+<tr>
+<td style="text-align: left;">開發就緒度</td>
+<td style="text-align: center;">✅ 可開發</td>
+<td style="text-align: center;">93/100</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-prd">1. PRD文件清單與工時預估</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">序號</th>
+<th style="text-align: left;">文件名稱</th>
+<th style="text-align: left;">模組名稱</th>
+<th style="text-align: center;">版本</th>
+<th style="text-align: center;">預估工時</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: left;">PRD_Model_Training_v1.3.md</td>
+<td style="text-align: left;">模型訓練</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;">8-10天</td>
+</tr>
+<tr>
+<td style="text-align: center;">2</td>
+<td style="text-align: left;">PRD_Chiller_Plant_Optimization_V1.2.md</td>
+<td style="text-align: left;">冰水主機最佳化</td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;">6-8天</td>
+</tr>
+<tr>
+<td style="text-align: center;">3</td>
+<td style="text-align: left;">PRD_BATCH_PROCESSOR_v1.3.md</td>
+<td style="text-align: left;">批次處理器</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;">5-6天</td>
+</tr>
+<tr>
+<td style="text-align: center;">4</td>
+<td style="text-align: left;">PRD_Feature_Annotation_Specification_V1.2.md</td>
+<td style="text-align: left;">特徵註解規格</td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;">4-5天</td>
+</tr>
+<tr>
+<td style="text-align: center;">5</td>
+<td style="text-align: left;">PRD_CLEANER_v2.2.md</td>
+<td style="text-align: left;">資料清洗器</td>
+<td style="text-align: center;">v2.2</td>
+<td style="text-align: center;">5-6天</td>
+</tr>
+<tr>
+<td style="text-align: center;">6</td>
+<td style="text-align: left;">PRD_Interface_Contract_v1.1.md</td>
+<td style="text-align: left;">介面合約</td>
+<td style="text-align: center;">v1.1</td>
+<td style="text-align: center;">3-4天</td>
+</tr>
+<tr>
+<td style="text-align: center;">7</td>
+<td style="text-align: left;">PRD_Parser_V2.1.md</td>
+<td style="text-align: left;">解析器</td>
+<td style="text-align: center;">v2.1</td>
+<td style="text-align: center;">4-5天</td>
+</tr>
+<tr>
+<td style="text-align: center;">8</td>
+<td style="text-align: left;">PRD_FEATURE_ENGINEER_V1.3.md</td>
+<td style="text-align: left;">特徵工程</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;">5-6天</td>
+</tr>
+<tr>
+<td style="text-align: center;">9</td>
+<td style="text-align: left;">PRD_Wizard_Technical_Blockade_V1.0.md</td>
+<td style="text-align: left;">技術阻擋精靈</td>
+<td style="text-align: center;">v1.0</td>
+<td style="text-align: center;">3-4天</td>
+</tr>
+<tr>
+<td style="text-align: center;">10</td>
+<td style="text-align: left;">PRD_System_Integration_v1.2.md</td>
+<td style="text-align: left;">系統整合</td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;">6-7天</td>
+</tr>
+<tr>
+<td style="text-align: center;">11</td>
+<td style="text-align: left;">PRD_Hybrid_Model_Consistency_v1.0.md</td>
+<td style="text-align: left;">混合模型一致性</td>
+<td style="text-align: center;">v1.0</td>
+<td style="text-align: center;">3-4天</td>
+</tr>
+<tr>
+<td style="text-align: center;">12</td>
+<td style="text-align: left;">PRD_Equipment_Dependency_Validation_v1.0.md</td>
+<td style="text-align: left;">設備依賴驗證</td>
+<td style="text-align: center;">v1.0</td>
+<td style="text-align: center;">4-5天</td>
+</tr>
+<tr>
+<td style="text-align: center;"></td>
+<td style="text-align: left;"><strong>總計</strong></td>
+<td style="text-align: left;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>56-70天</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2">2. 系統架構概覽</h2>
+<h3 id="21">2.1 核心資料流</h3>
+<pre><code>┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Parser    │───→│   Cleaner   │───→│   Batch     │───→│   Feature   │───→│   Model     │
+│   (v2.1)    │    │   (v2.2)    │    │ Processor   │    │  Engineer   │    │  Training   │
+│             │    │             │    │   (v1.3)    │    │   (v1.3)    │    │   (v1.3)    │
+└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+      │                   │                  │                  │                  │
+      └───────────────────┴──────────────────┴──────────────────┴──────────────────┘
+                                          │
+                                          ▼
+                              ┌─────────────────────┐
+                              │  Feature Annotation │
+                              │      (v1.2)         │
+                              │  Excel → YAML SSOT  │
+                              └─────────────────────┘
+</code></pre>
+<h3 id="22">2.2 模組分類</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">類別</th>
+<th style="text-align: left;">模組</th>
+<th style="text-align: left;">說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>基礎建設</strong></td>
+<td style="text-align: left;">Interface Contract v1.1, System Integration v1.2</td>
+<td style="text-align: left;">錯誤代碼、DI Container、初始化順序</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>核心ETL</strong></td>
+<td style="text-align: left;">Parser v2.1, Cleaner v2.2, BatchProcessor v1.3</td>
+<td style="text-align: left;">資料解析、清洗、批次處理</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>特徵相關</strong></td>
+<td style="text-align: left;">Feature Annotation v1.2, Feature Engineer v1.3</td>
+<td style="text-align: left;">特徵定義、特徵工程</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>模型相關</strong></td>
+<td style="text-align: left;">Model Training v1.3, Hybrid Consistency v1.0</td>
+<td style="text-align: left;">模型訓練、一致性驗證</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>最佳化相關</strong></td>
+<td style="text-align: left;">Chiller Optimization v1.2, Equipment Validation v1.0</td>
+<td style="text-align: left;">能源最佳化、設備依賴驗證</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>安全防護</strong></td>
+<td style="text-align: left;">Wizard Technical Blockade v1.0</td>
+<td style="text-align: left;">Excel-Centric SSOT 防護</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3">3. 完整性評估</h2>
+<h3 id="31">3.1 介面定義 ✅ 完整</h3>
+<ul>
+<li><strong>Interface Contract v1.1</strong> 定義了完整的錯誤代碼分層 (E000-E999)</li>
+<li>各PRD均明確定義了輸入/輸出介面</li>
+<li>資料格式規範統一 (Polars DataFrame, Parquet, YAML)</li>
+</ul>
+<h3 id="32">3.2 功能規格 ✅ 完整</h3>
+<ul>
+<li>所有核心功能均有詳細的類別設計與方法定義</li>
+<li>特徵工程、模型訓練、最佳化等複雜模組有完整的演算法描述</li>
+<li>包含配置模型 (Pydantic BaseModel) 定義</li>
+</ul>
+<h3 id="33">3.3 測試計畫 ✅ 完整</h3>
+<ul>
+<li>各PRD均包含單元測試案例</li>
+<li>整合測試與E2E測試有明確規劃</li>
+<li>驗收標準與簽核清單完整</li>
+</ul>
+<h3 id="34">3.4 文件相依 ✅ 完整</h3>
+<ul>
+<li>各PRD明確標註了相依文件與版本</li>
+<li>模組間介面契約清晰</li>
+<li>版本相容性矩陣明確</li>
+</ul>
+<hr />
+<h2 id="4">4. 一致性評估</h2>
+<h3 id="41">4.1 錯誤代碼分層 ✅ 一致</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">代碼區間</th>
+<th style="text-align: left;">對應模組</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">E1xx</td>
+<td style="text-align: left;">Parser 相關錯誤</td>
+</tr>
+<tr>
+<td style="text-align: center;">E2xx</td>
+<td style="text-align: left;">Cleaner 相關錯誤</td>
+</tr>
+<tr>
+<td style="text-align: center;">E3xx</td>
+<td style="text-align: left;">BatchProcessor 相關錯誤</td>
+</tr>
+<tr>
+<td style="text-align: center;">E4xx</td>
+<td style="text-align: left;">Feature Annotation 相關錯誤</td>
+</tr>
+<tr>
+<td style="text-align: center;">E5xx</td>
+<td style="text-align: left;">治理與安全相關錯誤</td>
+</tr>
+<tr>
+<td style="text-align: center;">E6xx</td>
+<td style="text-align: left;">Feature Engineer 相關錯誤</td>
+</tr>
+<tr>
+<td style="text-align: center;">E7xx</td>
+<td style="text-align: left;">Model Training 相關錯誤</td>
+</tr>
+<tr>
+<td style="text-align: center;">E8xx</td>
+<td style="text-align: left;">Optimization 相關錯誤</td>
+</tr>
+<tr>
+<td style="text-align: center;">E9xx</td>
+<td style="text-align: left;">跨階段錯誤</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42">4.2 資料流 ✅ 一致</h3>
+<pre><code>Raw DataFrame (UTC) → Clean DataFrame → Parquet + Manifest → Feature Matrix
+</code></pre>
+<ul>
+<li>所有模組遵循相同的時間戳規範 (UTC, nanoseconds)</li>
+<li>Quality Flags 定義統一 (6個標準值)</li>
+</ul>
+<h3 id="43-ssot">4.3 SSOT原則 ✅ 一致</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">資料類型</th>
+<th style="text-align: left;">SSOT來源</th>
+<th style="text-align: left;">流向</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Feature Annotation</td>
+<td style="text-align: left;">Excel 唯一編輯</td>
+<td style="text-align: left;">Excel → YAML → Pipeline</td>
+</tr>
+<tr>
+<td style="text-align: left;">Configuration</td>
+<td style="text-align: left;">settings.yaml</td>
+<td style="text-align: left;">YAML → ETLConfig</td>
+</tr>
+<tr>
+<td style="text-align: left;">Constraints</td>
+<td style="text-align: left;">Optimization Config</td>
+<td style="text-align: left;">唯讀引用</td>
+</tr>
+</tbody>
+</table>
+<h3 id="44">4.4 版本命名 ⚠️ 需注意</h3>
+<ul>
+<li>主要模組版本已對齊 (v1.2/v1.3)</li>
+<li>Wizard Blockade v1.0、Hybrid Consistency v1.0、Equipment Validation v1.0 為新模組</li>
+<li>建議確認整合順序與相依關係</li>
+</ul>
+<hr />
+<h2 id="5">5. 可開發性評估</h2>
+<h3 id="51-95100">5.1 技術可行性 ✅ 可行 (95/100)</h3>
+<p><strong>優勢:</strong><br />
+- 使用成熟的Python生態 (Polars, Pydantic, PyYAML)<br />
+- 架構設計合理 (DI Container, Pipeline Pattern)<br />
+- 無需引入特殊硬體或外部服務</p>
+<p><strong>技術棧:</strong><br />
+| 類別 | 技術 |<br />
+|:---|:---|<br />
+| 資料處理 | Polars, Pandas, PyArrow |<br />
+| 配置管理 | Pydantic, PyYAML |<br />
+| 模型訓練 | LightGBM, XGBoost, Scikit-learn |<br />
+| 最佳化 | OR-Tools, SciPy |<br />
+| 儲存 | Parquet, YAML |</p>
+<h3 id="52">5.2 建議開發順序</h3>
+<pre><code>Phase 1 (基礎建設)
+├── Interface Contract v1.1 (3-4天)
+└── System Integration v1.2 (6-7天)
+
+Phase 2 (核心ETL)
+├── Parser v2.1 (4-5天)
+├── Cleaner v2.2 (5-6天)
+└── BatchProcessor v1.3 (5-6天)
+
+Phase 3 (特徵相關)
+├── Feature Annotation v1.2 (4-5天)
+└── Feature Engineer v1.3 (5-6天)
+
+Phase 4 (模型相關)
+├── Model Training v1.3 (8-10天)
+└── Hybrid Consistency v1.0 (3-4天)
+
+Phase 5 (最佳化相關)
+├── Chiller Optimization v1.2 (6-8天)
+└── Equipment Validation v1.0 (4-5天)
+
+Phase 6 (安全防護)
+└── Wizard Technical Blockade v1.0 (3-4天)
+</code></pre>
+<hr />
+<h2 id="6">6. 風險評估</h2>
+<h3 id="61">6.1 高風險項目</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">風險</th>
+<th style="text-align: center;">影響</th>
+<th style="text-align: left;">緩解措施</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">System Integration v1.2 初始化順序</td>
+<td style="text-align: center;">🔴 高</td>
+<td style="text-align: left;">增加整合測試覆蓋率，驗證Race Condition</td>
+</tr>
+<tr>
+<td style="text-align: left;">Hybrid Model Consistency 動態容差</td>
+<td style="text-align: center;">🔴 高</td>
+<td style="text-align: left;">預留模型校準階段，收集至少1個月運行資料</td>
+</tr>
+</tbody>
+</table>
+<h3 id="62">6.2 中風險項目</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">風險</th>
+<th style="text-align: center;">影響</th>
+<th style="text-align: left;">緩解措施</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Feature Annotation 繼承鏈複雜度</td>
+<td style="text-align: center;">🟡 中</td>
+<td style="text-align: left;">提供繼承鏈視覺化工具，簡化除錯</td>
+</tr>
+<tr>
+<td style="text-align: left;">Equipment Validation 雙向同步</td>
+<td style="text-align: center;">🟡 中</td>
+<td style="text-align: left;">建立Constraint Sync Manager單例，確保一致性</td>
+</tr>
+</tbody>
+</table>
+<h3 id="63">6.3 低風險項目</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">風險</th>
+<th style="text-align: center;">影響</th>
+<th style="text-align: left;">說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Parser/Cleaner</td>
+<td style="text-align: center;">🟢 低</td>
+<td style="text-align: left;">標準ETL處理，技術成熟</td>
+</tr>
+<tr>
+<td style="text-align: left;">Wizard Blockade</td>
+<td style="text-align: center;">🟢 低</td>
+<td style="text-align: left;">獨立安全模組，不影響核心流程</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7">7. 關鍵發現與建議</h2>
+<h3 id="71">7.1 優勢</h3>
+<p>✅ <strong>完整的錯誤代碼分層系統</strong> (E000-E999)，便於問題追蹤<br />
+✅ <strong>明確的SSOT原則</strong> (Excel→YAML→Pipeline)，避免配置漂移<br />
+✅ <strong>現代化技術棧</strong> (Polars, Pydantic, DI Container)，開發效率高<br />
+✅ <strong>詳細的測試計畫與驗收標準</strong>，品質有保障<br />
+✅ <strong>考量HVAC領域特性</strong> (Copula Effect, 設備依賴)，專業性強  </p>
+<h3 id="72">7.2 需關注事項</h3>
+<p>⚠️ <strong>System Integration v1.2</strong> 的初始化順序是關鍵路徑，需優先開發<br />
+⚠️ <strong>Feature Annotation 繼承鏈</strong> 的複雜度可能影響維護性<br />
+⚠️ <strong>Hybrid Model Consistency</strong> 的動態容差需實際資料驗證<br />
+⚠️ <strong>Wizard Blockade</strong> 的三層防護需CI/CD配合才能發揮作用  </p>
+<h3 id="73">7.3 建議</h3>
+<ol>
+<li><strong>優先完成 Interface Contract + System Integration</strong>，作為其他模組的基礎</li>
+<li><strong>建立整合測試環境</strong>，驗證各模組間的介面相容性</li>
+<li><strong>預留2-3天的緩衝時間</strong>，處理跨模組整合問題</li>
+<li><strong>考慮採用迭代開發方式</strong>，先完成MVP再逐步增強功能</li>
+</ol>
+<hr />
+<h2 id="8">8. 結論</h2>
+<h3 id="81">8.1 評估結論</h3>
+<p><strong>✅ 本專案PRD文件已達可開發標準</strong></p>
+<p>所有12份PRD文件均具備：<br />
+- 完整的介面定義與功能規格<br />
+- 清晰的模組間相依關係<br />
+- 詳細的測試計畫與驗收標準<br />
+- 合理的技術選型與架構設計</p>
+<h3 id="82">8.2 開發就緒度</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">項目</th>
+<th style="text-align: center;">狀態</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">文件完整性</td>
+<td style="text-align: center;">✅ 就緒</td>
+</tr>
+<tr>
+<td style="text-align: left;">介面一致性</td>
+<td style="text-align: center;">✅ 就緒</td>
+</tr>
+<tr>
+<td style="text-align: left;">技術可行性</td>
+<td style="text-align: center;">✅ 就緒</td>
+</tr>
+<tr>
+<td style="text-align: left;">測試計畫</td>
+<td style="text-align: center;">✅ 就緒</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>整體評估</strong></td>
+<td style="text-align: center;"><strong>✅ 可開始開發</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="83">8.3 預估時程</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">階段</th>
+<th style="text-align: center;">工時</th>
+<th style="text-align: center;">累計</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">Phase 1: 基礎建設</td>
+<td style="text-align: center;">9-11天</td>
+<td style="text-align: center;">9-11天</td>
+</tr>
+<tr>
+<td style="text-align: center;">Phase 2: 核心ETL</td>
+<td style="text-align: center;">14-17天</td>
+<td style="text-align: center;">23-28天</td>
+</tr>
+<tr>
+<td style="text-align: center;">Phase 3: 特徵相關</td>
+<td style="text-align: center;">9-11天</td>
+<td style="text-align: center;">32-39天</td>
+</tr>
+<tr>
+<td style="text-align: center;">Phase 4: 模型相關</td>
+<td style="text-align: center;">11-14天</td>
+<td style="text-align: center;">43-53天</td>
+</tr>
+<tr>
+<td style="text-align: center;">Phase 5: 最佳化相關</td>
+<td style="text-align: center;">10-13天</td>
+<td style="text-align: center;">53-66天</td>
+</tr>
+<tr>
+<td style="text-align: center;">Phase 6: 安全防護</td>
+<td style="text-align: center;">3-4天</td>
+<td style="text-align: center;"><strong>56-70天</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>建議:</strong> 預留 <strong>10-15% 緩衝時間</strong> (約6-10天)，總計約 <strong>62-80個工程天</strong>。</p>
+<hr />
+<p><strong>報告產生時間:</strong> 2026-02-14<br />
+<strong>評估人員:</strong> AI Assistant<br />
+<strong>版本:</strong> v1.0</p>
+</body>
+</html>

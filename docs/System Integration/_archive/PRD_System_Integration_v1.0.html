@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_System_Integration_v1.0</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="prd-v10-system-integration-architecture">PRD v1.0: 系統整合架構 (System Integration Architecture)</h1>
+<p><strong>文件版本:</strong> v1.0 (Zero-Gap Pipeline Integration)<br />
+<strong>日期:</strong> 2026-02-13<br />
+<strong>負責人:</strong> Oscar Chang<br />
+<strong>目標模組:</strong> <code>src/container.py</code>, <code>src/main.py</code>, <code>src/utils/config_loader.py</code><br />
+<strong>相依模組:</strong> 所有 ETL 模組 (Parser v2.1+, Cleaner v2.2+, BatchProcessor v1.3+, Feature Engineer v1.3+)<br />
+<strong>預估工時:</strong> 3 ~ 4 個工程天（含全鏈路整合測試）</p>
+<hr />
+<h2 id="1">1. 執行總綱與設計哲學</h2>
+<h3 id="11">1.1 核心目標</h3>
+<p>建立<strong>零間隙對接</strong>的完整 ETL Pipeline，確保：<br />
+1. <strong>配置單一真相源 (SSOT)</strong>: 所有模組引用同一個 <code>ETLConfig</code> 實例<br />
+2. <strong>依賴注入 (DI)</strong>: 透過 <code>Container</code> 管理模組生命周期，避免實例化不一致<br />
+3. <strong>契約檢查點</strong>: 4 個關鍵檢查點自動驗證 (Interface Contract v1.0)<br />
+4. <strong>錯誤傳播鏈</strong>: 明確定義錯誤如何在模組間傳播（終止 vs 跳過）</p>
+<h3 id="12">1.2 架構概覽</h3>
+<pre><code class="language-mermaid">graph TB
+    subgraph &quot;Configuration Layer&quot;
+        A[settings.yaml] --&gt; B[ConfigLoader]
+        B --&gt; C[ETLConfig SSOT]
+    end
+
+    subgraph &quot;Dependency Injection Container&quot;
+        C --&gt; D[ETLContainer]
+        D --&gt; E[ReportParser v2.1]
+        D --&gt; F[DataCleaner v2.2]
+        D --&gt; G[BatchOrchestrator v1.3]
+        D --&gt; H[FeatureEngineer v1.3]
+    end
+
+    subgraph &quot;Pipeline Execution&quot;
+        E --&gt;|Raw DF UTC| F
+        F --&gt;|Clean DF + Metadata| G
+        G --&gt;|Parquet + Manifest| H
+        H --&gt;|Feature Matrix| I[Model Training]
+    end
+
+    subgraph &quot;Contract Checkpoints&quot;
+        CP1{檢查點 #1&lt;br/&gt;Parser Output}
+        CP2{檢查點 #2&lt;br/&gt;Cleaner Output}
+        CP3{檢查點 #3&lt;br/&gt;BatchProcessor Output}
+    end
+
+    E -.-&gt; CP1 -.-&gt; F
+    F -.-&gt; CP2 -.-&gt; G
+    G -.-&gt; CP3 -.-&gt; H
+
+    style C fill:#f9f,stroke:#333,stroke-width:4px
+    style D fill:#bbf,stroke:#333,stroke-width:4px
+</code></pre>
+<hr />
+<h2 id="2-ssot-configuration-system">2. SSOT 配置系統 (Configuration System)</h2>
+<h3 id="21">2.1 統一配置結構</h3>
+<p><strong>檔案</strong>: <code>src/etl/config_models.py</code> (核心 SSOT)</p>
+<p><strong>實作內容</strong>:</p>
+<pre><code class="language-python">from typing import Final, List, Dict, Optional, Literal
+from pydantic import BaseModel, validator, Field
+
+# SSOT 1: Quality Flags (6個標準值，全域唯一)
+VALID_QUALITY_FLAGS: Final[List[str]] = [
+    &quot;FROZEN&quot;,           # 數據凍結（連續3個區間值相同）
+    &quot;HEAT_IMBALANCE&quot;,   # 熱平衡偏差 &gt; 5%
+    &quot;AFFINITY_VIOLATION&quot;, # 違反親和律 &gt; 15%
+    &quot;OUTLIER&quot;,          # 統計離群值（IQR法）
+    &quot;INSUFFICIENT_DATA&quot;, # 時間空缺補全標記
+    &quot;SENSOR_OFFLINE&quot;    # 感測器離線（新增）
+]
+
+# SSOT 2: 時間戳規範 (所有模組必須遵守)
+TIMESTAMP_CONFIG: Final[Dict] = {
+    &quot;dtype&quot;: &quot;Datetime&quot;,
+    &quot;time_unit&quot;: &quot;nanoseconds&quot;,  # ns
+    &quot;time_zone&quot;: &quot;UTC&quot;,          # 強制UTC
+    &quot;parquet_physical_type&quot;: &quot;INT64&quot;  # 禁止INT96
+}
+
+# SSOT 3: Feature Metadata Schema
+class FeatureMetadata(BaseModel):
+    column_name: str
+    physical_type: Literal[
+        &quot;temperature&quot;, &quot;flow_rate&quot;, &quot;power&quot;, &quot;status&quot;, 
+        &quot;humidity&quot;, &quot;gauge&quot;, &quot;chiller_load&quot;, &quot;cooling_tower_load&quot;
+    ]
+    unit: Optional[str] = None           # &quot;LPM&quot;, &quot;kW&quot;, &quot;°C&quot;, &quot;%&quot;
+    is_target: bool = False              # 是否為目標變數（不應生成Lag）
+    enable_lag: bool = True
+    enable_rolling: bool = True
+    agg_method: Literal[&quot;mean&quot;, &quot;sum&quot;, &quot;last&quot;, &quot;first&quot;] = &quot;mean&quot;
+
+# Parser 配置
+class ParserConfig(BaseModel):
+    encoding: str = &quot;auto&quot;               # auto | utf-8 | cp950 | utf-16
+    header_scan_rows: int = 500
+    assumed_timezone: str = &quot;Asia/Taipei&quot;  # 僅用於 naive datetime
+    null_values: List[str] = Field(default_factory=lambda: [
+        &quot;&quot;, &quot;NA&quot;, &quot;null&quot;, &quot;---&quot;, &quot;Error&quot;, &quot;N/A&quot;, &quot;OFF&quot;, &quot;OFFLINE&quot;, &quot;#VALUE!&quot;
+    ])
+
+# Cleaner 配置
+class CleanerConfig(BaseModel):
+    unit_system: Literal[&quot;METRIC&quot;, &quot;IMPERIAL&quot;] = &quot;METRIC&quot;
+    resample_interval: str = &quot;15m&quot;       # Polars interval syntax
+    heat_balance_threshold: float = 0.05  # 5%
+    frozen_data_intervals: int = 3
+    enforce_output_contract: bool = True
+
+# BatchProcessor 配置
+class BatchConfig(BaseModel):
+    output_base_dir: str = &quot;data/processed&quot;
+    staging_dir: str = &quot;data/.staging&quot;
+    max_rows_per_file: int = 100_000
+    compression: Literal[&quot;snappy&quot;, &quot;zstd&quot;] = &quot;snappy&quot;
+    use_pyarrow: bool = False            # 必須 False 以避免 INT96
+    future_data_tolerance_minutes: int = 5
+
+# Feature Engineer 配置
+class FeatureEngineeringConfig(BaseModel):
+    execution_mode: Literal[&quot;in_memory&quot;] = &quot;in_memory&quot;
+    cutoff_timestamp: Optional[str] = None  # ISO 8601 format
+    group_policies: List[Dict] = Field(default_factory=list)
+    physics_features: bool = True
+    time_features: bool = True
+
+# 統一配置根
+class ETLConfig(BaseModel):
+    &quot;&quot;&quot;ETL Pipeline 統一配置 (SSOT 中心)&quot;&quot;&quot;
+    version: str = &quot;1.0&quot;
+    site_id: str = &quot;default&quot;
+
+    parser: ParserConfig = ParserConfig()
+    cleaner: CleanerConfig = CleanerConfig()
+    batch: BatchConfig = BatchConfig()
+    feature: FeatureEngineeringConfig = FeatureEngineeringConfig()
+
+    # 全域設定
+    log_level: str = &quot;INFO&quot;
+    strict_mode: bool = True             # 嚴格契約檢查
+
+    @validator('version')
+    def validate_version(cls, v):
+        if v != &quot;1.0&quot;:
+            raise ValueError(&quot;Config version must be 1.0&quot;)
+        return v
+</code></pre>
+<h3 id="22-configloader">2.2 配置載入器 (ConfigLoader)</h3>
+<p><strong>檔案</strong>: <code>src/utils/config_loader.py</code></p>
+<p><strong>實作內容</strong>:</p>
+<pre><code class="language-python">import yaml
+from pathlib import Path
+from typing import Union
+from src.etl.config_models import ETLConfig, VALID_QUALITY_FLAGS
+
+class ConfigurationError(Exception):
+    &quot;&quot;&quot;配置錯誤&quot;&quot;&quot;
+    pass
+
+class ConfigLoader:
+    &quot;&quot;&quot;統一配置載入，確保所有模組引用相同 SSOT&quot;&quot;&quot;
+
+    @staticmethod
+    def load(config_path: Union[str, Path] = &quot;config/settings.yaml&quot;) -&gt; ETLConfig:
+        &quot;&quot;&quot;
+        載入並驗證配置
+
+        驗證項目:
+        1. YAML 格式正確性
+        2. SSOT 一致性 (flags 定義必須匹配程式碼)
+        3. 路徑存在性 (output_base_dir, staging_dir)
+        &quot;&quot;&quot;
+        config_path = Path(config_path)
+
+        if not config_path.exists():
+            raise ConfigurationError(f&quot;配置文件不存在: {config_path}&quot;)
+
+        with open(config_path, 'r', encoding='utf-8') as f:
+            try:
+                data = yaml.safe_load(f)
+            except yaml.YAMLError as e:
+                raise ConfigurationError(f&quot;YAML 解析錯誤: {e}&quot;)
+
+        # 驗證 SSOT 一致性 (關鍵檢查)
+        code_flags = set(VALID_QUALITY_FLAGS)
+        config_flags = set(data.get(&quot;custom_quality_flags&quot;, []))
+
+        if config_flags and config_flags != code_flags:
+            # 允許擴充，但必須包含所有基礎 flags
+            missing_base = code_flags - config_flags
+            if missing_base:
+                raise ConfigurationError(
+                    f&quot;settings.yaml 中的 flags 缺少 SSOT 基礎標記: {missing_base}. &quot;
+                    f&quot;程式碼定義: {code_flags}&quot;
+                )
+
+        # 驗證目錄存在性或自動建立
+        for dir_key in [&quot;output_base_dir&quot;, &quot;staging_dir&quot;]:
+            if dir_key in data.get(&quot;batch&quot;, {}):
+                Path(data[&quot;batch&quot;][dir_key]).mkdir(parents=True, exist_ok=True)
+
+        try:
+            return ETLConfig(**data)
+        except Exception as e:
+            raise ConfigurationError(f&quot;配置驗證失敗: {e}&quot;)
+
+    @staticmethod
+    def validate_ssot_compatibility() -&gt; bool:
+        &quot;&quot;&quot;驗證程式碼 SSOT 與運行時一致性&quot;&quot;&quot;
+        # 可在 CI/CD 中呼叫
+        return True
+</code></pre>
+<hr />
+<h2 id="3-di-container">3. 依賴注入容器 (DI Container)</h2>
+<h3 id="31-etlcontainer">3.1 ETLContainer 實作</h3>
+<p><strong>檔案</strong>: <code>src/container.py</code></p>
+<p><strong>實作內容</strong>:</p>
+<pre><code class="language-python">from typing import Optional, List
+from pathlib import Path
+import polars as pl
+
+from src.etl.config_models import ETLConfig
+from src.etl.parser import ReportParser
+from src.etl.cleaner import DataCleaner
+from src.etl.batch_processor import BatchOrchestrator, BatchResult
+from src.etl.feature_engineer import FeatureEngineer
+from src.utils.logger import get_logger
+
+class ETLContainer:
+    &quot;&quot;&quot;
+    依賴注入容器 (Dependency Injection Container)
+
+    管理所有 ETL 模組的生命周期與配置傳遞，確保:
+    1. 單例模式 (Singleton) - 每個模組只初始化一次
+    2. 配置一致性 - 所有模組引用相同 ETLConfig
+    3. 零間隙銜接 - 自動處理模組間的資料傳遞
+    &quot;&quot;&quot;
+
+    def __init__(self, config: ETLConfig):
+        self.config = config
+        self.logger = get_logger(&quot;ETLContainer&quot;)
+
+        # 快取實例 (Singleton)
+        self._parser: Optional[ReportParser] = None
+        self._cleaner: Optional[DataCleaner] = None
+        self._batch_processor: Optional[BatchOrchestrator] = None
+        self._feature_engineer: Optional[FeatureEngineer] = None
+
+    def get_parser(self) -&gt; ReportParser:
+        &quot;&quot;&quot;取得 Parser 實例 (v2.1+)&quot;&quot;&quot;
+        if self._parser is None:
+            self._parser = ReportParser(
+                site_id=self.config.site_id,
+                config=self.config.parser
+            )
+            self.logger.debug(f&quot;初始化 ReportParser (site: {self.config.site_id})&quot;)
+        return self._parser
+
+    def get_cleaner(self) -&gt; DataCleaner:
+        &quot;&quot;&quot;取得 Cleaner 實例 (v2.2+)&quot;&quot;&quot;
+        if self._cleaner is None:
+            self._cleaner = DataCleaner(config=self.config.cleaner)
+            self.logger.debug(&quot;初始化 DataCleaner&quot;)
+        return self._cleaner
+
+    def get_batch_processor(self) -&gt; BatchOrchestrator:
+        &quot;&quot;&quot;取得 BatchProcessor 實例 (v1.3+)&quot;&quot;&quot;
+        if self._batch_processor is None:
+            self._batch_processor = BatchOrchestrator(
+                config=self.config,
+                parser=self.get_parser(),
+                cleaner=self.get_cleaner()
+            )
+            self.logger.debug(&quot;初始化 BatchOrchestrator&quot;)
+        return self._batch_processor
+
+    def get_feature_engineer(self) -&gt; FeatureEngineer:
+        &quot;&quot;&quot;取得 FeatureEngineer 實例 (v1.3+)&quot;&quot;&quot;
+        if self._feature_engineer is None:
+            self._feature_engineer = FeatureEngineer(
+                config=self.config.feature
+            )
+            self.logger.debug(&quot;初始化 FeatureEngineer&quot;)
+        return self._feature_engineer
+
+    def run_full_pipeline(self, input_files: List[Path]) -&gt; pl.DataFrame:
+        &quot;&quot;&quot;
+        執行完整 ETL 流程 (端到端)
+
+        流程:
+        1. BatchProcessor (Parser → Cleaner → Parquet + Manifest)
+        2. Feature Engineer (Manifest → Feature Matrix)
+
+        錯誤處理:
+        - ContractViolationError: 終止流程，回報詳細錯誤
+        - FutureDataError: 單檔案跳過，其他繼續處理
+        &quot;&quot;&quot;
+        self.logger.info(f&quot;🚀 啟動完整 ETL Pipeline，處理 {len(input_files)} 個檔案&quot;)
+
+        # Step 1: Batch Processing
+        bp = self.get_batch_processor()
+        manifests = []
+
+        for file_path in input_files:
+            try:
+                result = bp.process_single_file(file_path)
+
+                if result.status == &quot;success&quot;:
+                    manifests.append(result.manifest_path)
+                    self.logger.info(f&quot;✅ 處理成功: {file_path.name}&quot;)
+                elif result.status == &quot;future_data_rejected&quot;:
+                    self.logger.warning(f&quot;⚠️  未來資料拒絕: {file_path.name} - {result.error}&quot;)
+                else:
+                    self.logger.error(f&quot;❌ 處理失敗: {file_path.name} - {result.error}&quot;)
+
+            except ContractViolationError as e:
+                self.logger.error(f&quot;❌ 契約違反: {file_path.name} - {e}&quot;)
+                if self.config.strict_mode:
+                    raise  # 嚴格模式下終止整批處理
+
+        if not manifests:
+            raise DataValidationError(&quot;沒有成功處理的檔案，無法繼續特徵工程&quot;)
+
+        # Step 2: Feature Engineering (使用最後一個 manifest 為代表)
+        # 實際應用中應該合併所有 manifests
+        fe = self.get_feature_engineer()
+        manifest_path = manifests[-1]
+
+        self.logger.info(f&quot;🔧 開始特徵工程: {manifest_path}&quot;)
+
+        # 讀取 Manifest 與資料
+        df, metadata = fe.load_from_manifest(manifest_path)
+
+        # 轉換
+        feature_df = fe.transform(
+            df,
+            manifest_metadata=metadata,
+            cutoff_timestamp=self.config.feature.cutoff_timestamp
+        )
+
+        self.logger.info(f&quot;✅ ETL Pipeline 完成，輸出維度: {feature_df.shape}&quot;)
+        return feature_df
+
+    def reset(self):
+        &quot;&quot;&quot;重置所有快取實例 (用於測試)&quot;&quot;&quot;
+        self._parser = None
+        self._cleaner = None
+        self._batch_processor = None
+        self._feature_engineer = None
+        self.logger.debug(&quot;重置所有模組實例&quot;)
+</code></pre>
+<hr />
+<h2 id="4-cli-entry-point">4. CLI 入口點 (Entry Point)</h2>
+<h3 id="41-hvaccli">4.1 HVACCLI 實作</h3>
+<p><strong>檔案</strong>: <code>src/main.py</code></p>
+<p><strong>實作內容</strong>:</p>
+<pre><code class="language-python">#!/usr/bin/env python3
+import sys
+from pathlib import Path
+from typing import List, Optional
+import fire
+
+from src.container import ETLContainer
+from src.utils.config_loader import ConfigLoader, ConfigurationError
+from src.etl.exceptions import ContractViolationError, FutureDataError, DataValidationError
+
+class HVACCLI:
+    &quot;&quot;&quot;
+    HVAC Analytics CLI 介面
+
+    提供統一的命令列入口，整合所有 ETL 與建模功能。
+    &quot;&quot;&quot;
+
+    def __init__(self, config_path: str = &quot;config/settings.yaml&quot;):
+        try:
+            self.config = ConfigLoader.load(config_path)
+            self.container = ETLContainer(self.config)
+        except ConfigurationError as e:
+            print(f&quot;❌ 配置錯誤: {e}&quot;)
+            sys.exit(1)
+
+    def run_etl(
+        self, 
+        input_dir: str, 
+        output_dir: Optional[str] = None,
+        pattern: str = &quot;*.csv&quot;
+    ):
+        &quot;&quot;&quot;
+        執行完整 ETL 流程
+
+        Args:
+            input_dir: 輸入 CSV 檔案目錄
+            output_dir: 輸出目錄 (可選，覆蓋配置)
+            pattern: 檔案匹配模式，預設 *.csv
+        &quot;&quot;&quot;
+        input_path = Path(input_dir)
+        if not input_path.exists():
+            print(f&quot;❌ 輸入目錄不存在: {input_dir}&quot;)
+            return
+
+        files = list(input_path.glob(pattern))
+        if not files:
+            print(f&quot;⚠️  未找到匹配檔案: {pattern}&quot;)
+            return
+
+        print(f&quot;🚀 啟動 ETL Pipeline，處理 {len(files)} 個檔案...&quot;)
+
+        try:
+            result_df = self.container.run_full_pipeline(files)
+
+            # 可選: 儲存最終特徵矩陣
+            if output_dir:
+                output_path = Path(output_dir)
+                output_path.mkdir(parents=True, exist_ok=True)
+                output_file = output_path / &quot;feature_matrix.parquet&quot;
+                result_df.write_parquet(output_file)
+                print(f&quot;💾 特徵矩陣已儲存: {output_file}&quot;)
+
+            print(f&quot;✅ ETL 完成，輸出維度: {result_df.shape}&quot;)
+
+        except ContractViolationError as e:
+            print(f&quot;❌ 契約違反錯誤: {e}&quot;)
+            print(&quot;請檢查各模組版本相容性:&quot;)
+            print(&quot;  - Parser &gt;= v2.1&quot;)
+            print(&quot;  - Cleaner &gt;= v2.2&quot;)
+            print(&quot;  - BatchProcessor &gt;= v1.3&quot;)
+            print(&quot;  - FeatureEngineer &gt;= v1.3&quot;)
+            sys.exit(2)
+
+        except FutureDataError as e:
+            print(f&quot;⚠️  未來資料錯誤: {e}&quot;)
+            print(&quot;請檢查資料來源系統時間設定&quot;)
+            sys.exit(3)
+
+        except Exception as e:
+            print(f&quot;❌ 未預期錯誤: {e}&quot;)
+            import traceback
+            traceback.print_exc()
+            sys.exit(99)
+
+    def validate_config(self):
+        &quot;&quot;&quot;驗證當前配置&quot;&quot;&quot;
+        print(&quot;✅ 配置載入成功&quot;)
+        print(f&quot;   Site ID: {self.config.site_id}&quot;)
+        print(f&quot;   Flags: {VALID_QUALITY_FLAGS}&quot;)
+        print(f&quot;   Strict Mode: {self.config.strict_mode}&quot;)
+
+    def version(self):
+        &quot;&quot;&quot;顯示版本資訊&quot;&quot;&quot;
+        print(&quot;HVAC Analytics Pipeline v1.0&quot;)
+        print(&quot;相容模組版本:&quot;)
+        print(&quot;  - Parser: v2.1+&quot;)
+        print(&quot;  - Cleaner: v2.2+&quot;)
+        print(&quot;  - BatchProcessor: v1.3+&quot;)
+        print(&quot;  - FeatureEngineer: v1.3+&quot;)
+
+def main():
+    &quot;&quot;&quot;Entry point&quot;&quot;&quot;
+    fire.Fire(HVACCLI)
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<hr />
+<h2 id="5-error-handling">5. 錯誤處理與傳播 (Error Handling)</h2>
+<h3 id="51">5.1 錯誤傳播策略</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">錯誤類型</th>
+<th style="text-align: left;">發生模組</th>
+<th style="text-align: center;">傳播策略</th>
+<th style="text-align: left;">下游影響</th>
+<th style="text-align: left;">使用者訊息</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>EncodingError</code> (E001)</td>
+<td style="text-align: left;">Parser</td>
+<td style="text-align: center;"><strong>終止</strong></td>
+<td style="text-align: left;">整批失敗</td>
+<td style="text-align: left;">"檔案編碼錯誤，請確認為 UTF-8/Big5/UTF-16"</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>ContractViolationError</code> (E002/E003/E202/E206)</td>
+<td style="text-align: left;">Parser/Cleaner/BatchProcessor/FE</td>
+<td style="text-align: center;"><strong>終止</strong> (strict_mode) / <strong>單檔跳過</strong></td>
+<td style="text-align: left;">依 strict_mode 決定</td>
+<td style="text-align: left;">"模組間介面契約違反，請檢查版本相容性"</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>FutureDataError</code> (E005/E205)</td>
+<td style="text-align: left;">BatchProcessor</td>
+<td style="text-align: center;"><strong>單檔跳過</strong></td>
+<td style="text-align: left;">該檔案不入庫，其他繼續</td>
+<td style="text-align: left;">"檔案含未來資料，已拒絕處理"</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>UnknownFlagError</code> (E003/E202)</td>
+<td style="text-align: left;">Cleaner/BatchProcessor</td>
+<td style="text-align: center;"><strong>終止</strong></td>
+<td style="text-align: left;">需更新 SSOT</td>
+<td style="text-align: left;">"未定義品質標記，請更新 config_models.py"</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>DataValidationError</code></td>
+<td style="text-align: left;">Parser/Cleaner</td>
+<td style="text-align: center;"><strong>可配置</strong></td>
+<td style="text-align: left;">單檔失敗</td>
+<td style="text-align: left;">"資料驗證失敗"</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>MetadataLossWarning</code> (E203/E304)</td>
+<td style="text-align: left;">BatchProcessor/FE</td>
+<td style="text-align: center;"><strong>Warning</strong></td>
+<td style="text-align: left;">使用保守預設</td>
+<td style="text-align: left;">"缺少 metadata，使用保守預設"</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52">5.2 全域錯誤處理器</h3>
+<p><strong>檔案</strong>: <code>src/exceptions.py</code> (擴充)</p>
+<pre><code class="language-python">class HVACError(Exception):
+    &quot;&quot;&quot;基礎錯誤類別&quot;&quot;&quot;
+    def __init__(self, message: str, error_code: Optional[str] = None):
+        super().__init__(message)
+        self.error_code = error_code
+        self.timestamp = datetime.now(timezone.utc)
+
+class ContractViolationError(HVACError):
+    &quot;&quot;&quot;違反模組間介面契約&quot;&quot;&quot;
+    pass
+
+class FutureDataError(HVACError):
+    &quot;&quot;&quot;檢測到未來資料&quot;&quot;&quot;
+    pass
+
+class ConfigurationError(HVACError):
+    &quot;&quot;&quot;配置錯誤&quot;&quot;&quot;
+    pass
+</code></pre>
+<hr />
+<h2 id="6-version-compatibility-matrix">6. 版本相容性矩陣 (Version Compatibility Matrix)</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Parser</th>
+<th style="text-align: center;">Cleaner</th>
+<th style="text-align: center;">BatchProcessor</th>
+<th style="text-align: center;">Feature Engineer</th>
+<th style="text-align: center;">相容性</th>
+<th style="text-align: left;">說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">v2.1</td>
+<td style="text-align: center;">v2.2</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;">✅ <strong>完全相容</strong></td>
+<td style="text-align: left;">推薦配置，零間隙對接</td>
+</tr>
+<tr>
+<td style="text-align: center;">v2.0 (Asia/Taipei)</td>
+<td style="text-align: center;">v2.2</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;">⚠️ <strong>降級相容</strong></td>
+<td style="text-align: left;">Cleaner 需啟用時區容錯 (E101 Warning)</td>
+</tr>
+<tr>
+<td style="text-align: center;">v2.1</td>
+<td style="text-align: center;">v2.1</td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;">⚠️ <strong>部分相容</strong></td>
+<td style="text-align: left;">BatchProcessor 缺少 metadata (E203)，FE 使用保守預設</td>
+</tr>
+<tr>
+<td style="text-align: center;">v2.1</td>
+<td style="text-align: center;">v2.2</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;">v1.2 (硬編碼 flags)</td>
+<td style="text-align: center;">❌ <strong>不相容</strong></td>
+<td style="text-align: left;">FE v1.2 無法處理新 flags (如 SENSOR_OFFLINE)，特徵維度錯誤</td>
+</tr>
+<tr>
+<td style="text-align: center;">任意</td>
+<td style="text-align: center;">任意</td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;">任意</td>
+<td style="text-align: center;">❌ <strong>不相容</strong></td>
+<td style="text-align: left;">BatchProcessor v1.2 無法傳遞 feature_metadata (GAP #3 未解決)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>升級路徑</strong>: 必須按順序升級：Parser → Cleaner → BatchProcessor → Feature Engineer</p>
+<hr />
+<h2 id="7-integration-test-plan">7. 測試與驗證計畫 (Integration Test Plan)</h2>
+<h3 id="71">7.1 全鏈路整合測試</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">測試案例 ID</th>
+<th style="text-align: left;">描述</th>
+<th style="text-align: left;">輸入</th>
+<th style="text-align: left;">預期結果</th>
+<th style="text-align: left;">驗證目標</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">INT-SYS-001</td>
+<td style="text-align: left;">成功流程</td>
+<td style="text-align: left;">標準 CSV 檔案</td>
+<td style="text-align: left;">輸出 Feature Matrix，無錯誤</td>
+<td style="text-align: left;">全鏈路無縫銜接</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-SYS-002</td>
+<td style="text-align: left;">編碼自適應</td>
+<td style="text-align: left;">Big5 編碼 CSV</td>
+<td style="text-align: left;">正確解析，輸出 UTF-8/UTC</td>
+<td style="text-align: left;">Parser v2.1 編碼處理</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-SYS-003</td>
+<td style="text-align: left;">時區一致性</td>
+<td style="text-align: left;">Parser 輸入 Asia/Taipei (模擬舊版)</td>
+<td style="text-align: left;">Cleaner 轉換為 UTC，發 E101</td>
+<td style="text-align: left;">時區容錯機制</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-SYS-004</td>
+<td style="text-align: left;">未來資料攔截</td>
+<td style="text-align: left;">時間戳為明天的檔案</td>
+<td style="text-align: left;">單檔拒絕 (E205)，其他繼續</td>
+<td style="text-align: left;">Data Leakage 防護</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-SYS-005</td>
+<td style="text-align: left;">契約違反</td>
+<td style="text-align: left;">缺少 timestamp 欄位</td>
+<td style="text-align: left;">拋出 ContractViolationError</td>
+<td style="text-align: left;">檢查點 #1 運作</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-SYS-006</td>
+<td style="text-align: left;">SSOT 同步</td>
+<td style="text-align: left;">使用新增 SENSOR_OFFLINE flag</td>
+<td style="text-align: left;">One-hot 特徵自動包含新 flag</td>
+<td style="text-align: left;">SSOT 一致性</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-SYS-007</td>
+<td style="text-align: left;">Metadata 傳遞</td>
+<td style="text-align: left;">Multi-asset 資料 (3台冰機)</td>
+<td style="text-align: left;">Group Policy 正確套用至所有冰機</td>
+<td style="text-align: left;">GAP #3 解決驗證</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-SYS-008</td>
+<td style="text-align: left;">冪等性</td>
+<td style="text-align: left;">重複執行相同輸入</td>
+<td style="text-align: left;">輸出 Bit-wise 一致</td>
+<td style="text-align: left;">容器的 Singleton 保證</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-deliverables">8. 交付物清單 (Deliverables)</h2>
+<h3 id="81">8.1 程式碼檔案</h3>
+<ol>
+<li><code>src/etl/config_models.py</code> - SSOT 配置定義 (VALID_QUALITY_FLAGS, ETLConfig)</li>
+<li><code>src/utils/config_loader.py</code> - 配置載入器 (含 SSOT 驗證)</li>
+<li><code>src/container.py</code> - DI 容器 (ETLContainer)</li>
+<li><code>src/main.py</code> - CLI 入口點 (HVACCLI)</li>
+<li><code>src/exceptions.py</code> - 全域例外定義</li>
+</ol>
+<h3 id="82">8.2 配置檔案</h3>
+<ol start="6">
+<li><code>config/settings.yaml</code> - 預設配置範本</li>
+<li><code>config/site_templates.yaml</code> - 案場特定配置 (繼承自 settings.yaml)</li>
+</ol>
+<h3 id="83">8.3 測試檔案</h3>
+<ol start="8">
+<li><code>tests/test_integration_full_pipeline.py</code> - 全鏈路整合測試 (INT-SYS-001~008)</li>
+<li><code>tests/test_container.py</code> - DI 容器單元測試</li>
+</ol>
+<h3 id="84">8.4 文件檔案</h3>
+<ol start="10">
+<li><code>docs/integration/PRD_SYSTEM_INTEGRATION_v1.0.md</code> - 本文件</li>
+<li><code>docs/integration/UPGRADE_GUIDE_v1.0.md</code> - 版本升級指引</li>
+<li><code>README.md</code> (更新) - 快速開始與 CLI 使用說明</li>
+</ol>
+<hr />
+<h2 id="9-action-items">9. 執行檢查清單 (Action Items)</h2>
+<h3 id="phase-1-ssot-day-1">Phase 1: SSOT 建立 (Day 1)</h3>
+<ul>
+<li>[ ] 建立 <code>src/etl/config_models.py</code>，定義 <code>VALID_QUALITY_FLAGS</code> (6項)</li>
+<li>[ ] 定義 <code>ETLConfig</code> Pydantic 模型，包含所有子模組配置</li>
+<li>[ ] 實作 <code>ConfigLoader</code> 與 SSOT 一致性驗證</li>
+</ul>
+<h3 id="phase-2-di-day-2">Phase 2: DI 容器 (Day 2)</h3>
+<ul>
+<li>[ ] 實作 <code>ETLContainer</code> (Singleton 模式)</li>
+<li>[ ] 實作 <code>run_full_pipeline()</code> 方法</li>
+<li>[ ] 整合錯誤處理與傳播邏輯</li>
+</ul>
+<h3 id="phase-3-cli-day-3">Phase 3: CLI 與入口 (Day 3)</h3>
+<ul>
+<li>[ ] 實作 <code>HVACCLI</code> (Fire 框架)</li>
+<li>[ ] 實作 <code>run_etl</code> 命令</li>
+<li>[ ] 全域錯誤處理與使用者訊息</li>
+</ul>
+<h3 id="phase-4-day-4">Phase 4: 整合測試 (Day 4)</h3>
+<ul>
+<li>[ ] 執行 INT-SYS-001~008 全鏈路測試</li>
+<li>[ ] 驗證版本相容性矩陣</li>
+<li>[ ] 效能測試 (大檔案處理)</li>
+</ul>
+<hr />
+<h2 id="10-sign-off-checklist">10. 驗收簽核 (Sign-off Checklist)</h2>
+<ul>
+<li>[ ] <strong>SSOT 一致性</strong>: <code>VALID_QUALITY_FLAGS</code> 單一定義，所有模組引用</li>
+<li>[ ] <strong>配置載入</strong>: <code>ConfigLoader</code> 正確驗證 SSOT，阻擋不一致配置</li>
+<li>[ ] <strong>DI 容器</strong>: <code>ETLContainer</code> 正確管理模組生命周期，Singleton 生效</li>
+<li>[ ] <strong>全鏈路執行</strong>: <code>run_full_pipeline()</code> 成功執行 Parser → Cleaner → BP → FE</li>
+<li>[ ] <strong>錯誤傳播</strong>: <code>ContractViolationError</code> 正確終止流程並提供明確訊息</li>
+<li>[ ] <strong>時區一致性</strong>: 全鏈路時間戳為 UTC (ns)，無 Asia/Taipei 殘留</li>
+<li>[ ] <strong>Metadata 傳遞</strong>: <code>feature_metadata</code> 正確從 Cleaner 傳遞至 FE (GAP #3)</li>
+<li>[ ] <strong>CLI 功能</strong>: <code>python main.py run_etl</code> 成功執行並輸出 Feature Matrix</li>
+<li>[ ] <strong>版本相容</strong>: 相容性矩陣測試通過，舊版模組正確拒絕或降級</li>
+</ul>
+<hr />
+</body>
+</html>

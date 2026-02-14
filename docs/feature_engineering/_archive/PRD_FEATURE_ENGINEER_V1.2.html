@@ -1,64 +1,97 @@
-
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Feature Engineering PRD v1.2</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            background-color: #f8f9fa;
-        }
-        .container {
-            background-color: #fff;
-            padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        h1, h2, h3 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-        h2 { margin-top: 2em; }
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 20px 0;
-        }
-        th, td {
-            border: 1px solid #dfe2e5;
-            padding: 12px;
-            text-align: left;
-        }
-        th { background-color: #f6f8fa; font-weight: bold; }
-        tr:nth-child(even) { background-color: #fdfdfd; }
-        code {
-            background-color: #f3f3f3;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 85%;
-        }
-        pre {
-            background-color: #f6f8fa;
-            padding: 16px;
-            overflow: auto;
-            border-radius: 6px;
-        }
-        blockquote {
-            margin: 0;
-            padding: 0 1em;
-            color: #6a737d;
-            border-left: 0.25em solid #dfe2e5;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_FEATURE_ENGINEER_V1.2</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
 </head>
 <body>
-    <div class="container">
-        <h1 id="prd-v12-feature-engineering-implementation-guide">PRD v1.2: 特徵工程強健性實作指南 (Feature Engineering Implementation Guide)</h1>
+<h1 id="prd-v12-feature-engineering-implementation-guide">PRD v1.2: 特徵工程強健性實作指南 (Feature Engineering Implementation Guide)</h1>
 <p><strong>文件版本:</strong> v1.2<br />
 <strong>日期:</strong> 2026-02-12<br />
 <strong>負責人:</strong> Oscar Chang<br />
@@ -69,10 +102,10 @@
 <h2 id="1">1. 執行總綱與設計原則</h2>
 <h3 id="11">1.1 核心職責</h3>
 <p>本模組專注於 <strong>「加法與創造」</strong>，嚴格禁止執行資料清洗或過濾。所有輸入資料必須先經過 <code>DataCleaner</code> 處理。</p>
-<p><strong>設計原則：</strong>
-1. <strong>防禦式設計</strong>：即使 Cleaner 輸出異常（含 Null、空缺），仍不拋出致命錯誤
-2. <strong>冪等性 (Idempotency)</strong>：相同輸入執行多次，輸出必須完全一致
-3. <strong>記憶體安全</strong>：V1.0 明確鎖定 <strong>In-Memory 批次處理</strong>（但介面預留 LazyFrame 彈性）
+<p><strong>設計原則：</strong><br />
+1. <strong>防禦式設計</strong>：即使 Cleaner 輸出異常（含 Null、空缺），仍不拋出致命錯誤<br />
+2. <strong>冪等性 (Idempotency)</strong>：相同輸入執行多次，輸出必須完全一致<br />
+3. <strong>記憶體安全</strong>：V1.0 明確鎖定 <strong>In-Memory 批次處理</strong>（但介面預留 LazyFrame 彈性）<br />
 4. <strong>防 Data Leakage</strong>：所有 Rolling/Lag 特徵嚴格排除「當前時間點」</p>
 <h3 id="12-inputoutput-contract">1.2 輸入輸出契約（Input/Output Contract）</h3>
 <pre><code class="language-python">class FeatureEngineerInputContract:
@@ -515,6 +548,5 @@ def calculate_wet_bulb_temp(
 <li><code>config/settings.yaml</code>: 更新範本（示範 Group Policy 寫法）</li>
 <li><code>docs/feature_engineering_guide.md</code>: 更新說明（強調「過去資料-only」原則）</li>
 </ol>
-    </div>
 </body>
 </html>

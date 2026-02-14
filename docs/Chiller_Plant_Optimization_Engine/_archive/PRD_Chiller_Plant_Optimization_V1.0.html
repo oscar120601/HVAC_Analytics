@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_Chiller_Plant_Optimization_V1.0</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="prd-v10-chiller-plant-optimization-engine">PRD v1.0: 冰水主機房最佳化引擎 (Chiller Plant Optimization Engine)</h1>
+<h1 id="_1">離線建議模式：設備組合最佳化與節能評估</h1>
+<p><strong>文件版本:</strong> v1.0 (Offline Recommendation &amp; Configuration Optimization)<br />
+<strong>日期:</strong> 2026-02-13<br />
+<strong>負責人:</strong> Oscar Chang<br />
+<strong>目標模組:</strong> <code>src/optimization/engine.py</code>, <code>src/optimization/constraints.py</code>, <code>src/optimization/scenarios.py</code><br />
+<strong>上游契約:</strong> <code>src/modeling/training_pipeline.py</code> (v1.1+, MultiModelArtifact)<br />
+<strong>關鍵相依:</strong> <code>src/features/annotation_manager.py</code> (v1.2+, 提供物理限制與設備角色)<br />
+<strong>預估工時:</strong> 6 ~ 7 個工程天（含邏輯約束引擎、多案場配置、節能評估報告）</p>
+<hr />
+<h2 id="1">1. 執行總綱與設計哲學</h2>
+<h3 id="11">1.1 核心目標</h3>
+<p>建立<strong>離線配置最佳化引擎</strong>，支援兩種工程決策模式：</p>
+<ol>
+<li><strong>負載驅動模式 (Load-Driven)</strong>：給定目標冷凍噸 RT，輸出最佳設備組合（開幾台主機、水泵頻率、冷卻水塔轉速）以達到最低總耗電 kW</li>
+<li><strong>效率驅動模式 (Efficiency-Driven)</strong>：給定目標效率 kW/RT，反推設備參數配置，並提供改善前後節能量評估</li>
+</ol>
+<h3 id="12">1.2 設計原則</h3>
+<ol>
+<li><strong>混合整數規劃 (MIP) + 連續優化</strong>：設備啟停為離散變數（0/1），頻率轉速為連續變數（Hz/%）</li>
+<li><strong>邏輯約束優先</strong>：設備啟停需符合物理依賴關係（如開主機必須開對應冷卻水塔），再進行能耗優化</li>
+<li><strong>多案場繼承</strong>：支援 <code>base.yaml</code> → <code>site.yaml</code> 的設定繼承，不同案場可覆寫設備數量、效率曲線、約束條件</li>
+<li><strong>模型版本綁定</strong>：載入 Model Training v1.1 輸出的模型時，強制驗證與當前 Feature Annotation v1.2 的相容性</li>
+<li><strong>離線報告輸出</strong>：產生工程師可讀的優化建議報告（Markdown + JSON 雙格式），非即時控制介面</li>
+</ol>
+<h3 id="13">1.3 與上游模組的關係</h3>
+<pre><code class="language-mermaid">graph LR
+    A[Model Training v1.1&lt;br/&gt;MultiModelArtifact] --&gt;|載入預測模型| B[Optimization Engine v1.0]
+    C[Feature Annotation v1.2&lt;br/&gt;physical_types.yaml] --&gt;|物理限制&lt;br/&gt;valid_range| B
+    D[Optimization Config&lt;br/&gt;sites/{site_id}.yaml] --&gt;|邏輯約束&lt;br/&gt;設備依賴關係| B
+    E[工程師輸入&lt;br/&gt;RT 或 kW/RT 目標] --&gt;|最佳化目標| B
+    B --&gt;|配置建議| F[離線報告&lt;br/&gt;改善前/後評估]
+
+    style B fill:#f9f,stroke:#333,stroke-width:4px
+    style F fill:#bbf,stroke:#00f,stroke-width:2px
+</code></pre>
+<hr />
+<h2 id="2-interface-contracts">2. 介面契約規範 (Interface Contracts)</h2>
+<h3 id="21-input-contract-from-model-training-v11">2.1 輸入契約 (Input Contract from Model Training v1.1)</h3>
+<p><strong>檢查點 #8: Model Training → Optimization Engine</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">檢查項</th>
+<th style="text-align: left;">規格</th>
+<th style="text-align: center;">錯誤代碼</th>
+<th style="text-align: left;">處理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>模型檔案存在</strong></td>
+<td style="text-align: left;"><code>{timestamp}_{model_name}_model.joblib</code></td>
+<td style="text-align: center;">E801</td>
+<td style="text-align: left;">拒絕載入</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Manifest 完整性</strong></td>
+<td style="text-align: left;"><code>ensemble_manifest.json</code> checksum 驗證</td>
+<td style="text-align: center;">E801</td>
+<td style="text-align: left;">拒絕載入</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Annotation 版本相容</strong></td>
+<td style="text-align: left;"><code>annotation_context.yaml_checksum</code> 比對當前</td>
+<td style="text-align: center;">E802</td>
+<td style="text-align: left;">拒絕載入</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>特徵對齊</strong></td>
+<td style="text-align: left;">模型特徵數量/順序與 Optimization Config 一致</td>
+<td style="text-align: center;">E803</td>
+<td style="text-align: left;">拒絕載入</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>設備角色一致性</strong></td>
+<td style="text-align: left;">模型訓練時的 <code>device_role</code> 與 Config 一致</td>
+<td style="text-align: center;">E804</td>
+<td style="text-align: left;">警告</td>
+</tr>
+</tbody>
+</table>
+<h3 id="22">2.2 約束條件來源（雙軌制）</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">約束類型</th>
+<th style="text-align: left;">來源</th>
+<th style="text-align: left;">內容範例</th>
+<th style="text-align: center;">嚴格度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>物理限制</strong></td>
+<td style="text-align: left;">Feature Annotation v1.2</td>
+<td style="text-align: left;"><code>chiller_out_temp &gt;= 6.5</code> (°C), <code>pump_hz &lt;= 60</code></td>
+<td style="text-align: center;">硬約束 (Hard)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>邏輯約束</strong></td>
+<td style="text-align: left;">Optimization Config v1.0</td>
+<td style="text-align: left;"><code>chiller_1_on → ct_1_on</code> (開主機1必須開冷卻塔1)</td>
+<td style="text-align: center;">硬約束 (Hard)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>運行邊界</strong></td>
+<td style="text-align: left;">Optimization Config v1.0</td>
+<td style="text-align: left;"><code>min_chiller_load = 30%</code> (最低載率限制)</td>
+<td style="text-align: center;">硬約束 (Hard)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>偏好約束</strong></td>
+<td style="text-align: left;">Optimization Config v1.0</td>
+<td style="text-align: left;"><code>prefer_backup = true</code> (優先使用備用機組)</td>
+<td style="text-align: center;">軟約束 (Soft)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="23">2.3 工程師輸入介面</h3>
+<pre><code class="language-python">class OptimizationRequest(BaseModel):
+    &quot;&quot;&quot;最佳化請求（離線模式）&quot;&quot;&quot;
+
+    # 案場識別
+    site_id: str
+
+    # 模式選擇（互斥）
+    mode: Literal[&quot;load_driven&quot;, &quot;efficiency_driven&quot;]
+
+    # 模式 A：負載驅動
+    target_rt: Optional[float] = None  # 目標冷凍噸，例如 500.0 RT
+
+    # 模式 B：效率驅動
+    target_kw_per_rt: Optional[float] = None  # 目標效率，例如 0.65 kW/RT
+
+    # 運行邊界（可選，覆寫 Config 預設）
+    constraints_override: Optional[Dict] = None
+
+    # 當前狀態（用於改善前後比較）
+    current_config: Optional[Dict] = None  # 例如 {&quot;chiller_count&quot;: 2, &quot;pump_hz&quot;: 45, ...}
+
+class OptimizationResponse(BaseModel):
+    &quot;&quot;&quot;最佳化回應&quot;&quot;&quot;
+
+    # 最佳化結果
+    recommended_config: Dict  # 設備組合與參數
+    predicted_kw: float       # 預測總耗電
+    predicted_kw_per_rt: float  # 預測效率
+
+    # 改善評估（若提供 current_config）
+    baseline_kw: Optional[float] = None
+    savings_kw: Optional[float] = None
+    savings_percent: Optional[float] = None
+    annual_savings_estimate: Optional[float] = None  # 年度預估節電量 (kWh)
+
+    # 約束狀態
+    constraint_violations: List[str]  # 若有軟約束違反
+    binding_constraints: List[str]    # 起作用的有效約束
+
+    # 報告
+    recommendation_text: str  # 工程師可讀的建議說明
+    scenario_analysis: Optional[Dict] = None  # 多情境比較（如開1台vs2台）
+</code></pre>
+<hr />
+<h2 id="3">3. 系統架構與核心模組</h2>
+<h3 id="31-feature-annotation-v12">3.1 多案場配置系統（繼承 Feature Annotation v1.2 模式）</h3>
+<p><strong>檔案結構</strong>：</p>
+<pre><code>config/optimization/
+├── base.yaml                    # 基礎設備模型與通用約束
+├── sites/
+│   ├── cgmh_ty.yaml            # 長庚醫院桃園院區（繼承 base）
+│   └── farglory_o3.yaml        # 遠雄 O3（繼承 base）
+└── schemas/
+    └── optimization_schema.json # JSON Schema 驗證
+</code></pre>
+<p><strong>base.yaml 範例</strong>：</p>
+<pre><code class="language-yaml">schema_version: &quot;1.0&quot;
+inherit: &quot;none&quot;
+
+# 設備清單與模型對應
+equipment:
+  chillers:
+    - id: chiller_1
+      type: centrifugal
+      capacity_rt: 300
+      min_load_percent: 30  # 最低載率 30%
+      model_file: &quot;chiller_1_model.joblib&quot;  # 對應 Model Training 輸出
+      dependencies: [&quot;chw_pump_1&quot;, &quot;ct_1&quot;]  # 邏輯約束：開機需開啟的輔助設備
+      device_role: primary
+
+    - id: chiller_2
+      type: screw
+      capacity_rt: 200
+      min_load_percent: 25
+      model_file: &quot;chiller_2_model.joblib&quot;
+      dependencies: [&quot;chw_pump_2&quot;, &quot;ct_2&quot;]
+      device_role: backup  # 優化時可優先考慮備用機組（依偏好設定）
+
+  pumps:
+    - id: chw_pump_1
+      type: chilled_water
+      max_hz: 60
+      min_hz: 30
+      efficiency_curve: &quot;pump_curve_1.json&quot;
+
+  cooling_towers:
+    - id: ct_1
+      type: induced_draft
+      capacity_kw: 1500
+      fan_speed_min: 30  # %
+      fan_speed_max: 100
+
+# 邏輯約束定義（Logic Constraints）
+logic_constraints:
+  # 互鎖約束（Interlock）
+  - type: requires
+    if: &quot;chiller_1_on&quot;
+    then: [&quot;chw_pump_1_on&quot;, &quot;ct_1_on&quot;]
+
+  - type: requires
+    if: &quot;chiller_2_on&quot;
+    then: [&quot;chw_pump_2_on&quot;, &quot;ct_2_on&quot;]
+
+  # 互斥約束（Mutual Exclusion）- 可選
+  - type: mutex
+    devices: [&quot;chiller_1&quot;, &quot;chiller_2&quot;]
+    reason: &quot;電力容量限制，不可同時滿載&quot;
+
+  # 順序約束（Sequence）- 開機順序
+  - type: sequence
+    startup: [&quot;ct_1&quot;, &quot;chw_pump_1&quot;, &quot;chiller_1&quot;]
+    shutdown: [&quot;chiller_1&quot;, &quot;chw_pump_1&quot;, &quot;ct_1&quot;]
+
+# 優化參數
+optimization:
+  algorithm: &quot;differential_evolution&quot;  # 或 &quot;slsqp&quot;（僅連續變數）
+  max_iter: 1000
+  population_size: 50  # 遺傳演算法參數
+  constraint_tolerance: 0.01
+
+  # 目標函數權重（多目標時使用）
+  objectives:
+    - name: &quot;total_kw&quot;
+      weight: 0.7
+    - name: &quot;equipment_wear&quot;
+      weight: 0.3  # 設備磨耗懲罰（減少頻繁啟停）
+
+# 物理限制（可覆寫 Annotation 的值，但建議保持一致）
+physical_constraints:
+  chiller_out_temp:
+    min: 6.5  # °C，覆寫 Annotation 若存在
+    max: 8.0
+</code></pre>
+<h3 id="32-constraint-engine">3.2 約束引擎（Constraint Engine）</h3>
+<p><strong>檔案</strong>: <code>src/optimization/constraints.py</code></p>
+<p><strong>核心類別</strong>：</p>
+<pre><code class="language-python">class ConstraintEngine:
+    &quot;&quot;&quot;
+    統一約束管理器
+    整合物理限制（來自 Annotation）與邏輯約束（來自 Config）
+    &quot;&quot;&quot;
+
+    def __init__(self, site_config: OptimizationConfig, annotation_manager: FeatureAnnotationManager):
+        self.physical_limits = self._load_physical_limits(annotation_manager)
+        self.logic_constraints = LogicConstraintGraph(site_config.logic_constraints)
+        self.equipment_specs = site_config.equipment
+
+    def validate_configuration(self, config: Dict) -&gt; Tuple[bool, List[str]]:
+        &quot;&quot;&quot;
+        驗證給定配置是否滿足所有硬約束
+        回傳: (是否可行, 違反的約束列表)
+        &quot;&quot;&quot;
+        violations = []
+
+        # 1. 邏輯約束檢查
+        if not self.logic_constraints.check(config):
+            violations.extend(self.logic_constraints.get_violations())
+
+        # 2. 物理限制檢查
+        for device_id, params in config.items():
+            limits = self.physical_limits.get(device_id, {})
+            if not self._check_limits(params, limits):
+                violations.append(f&quot;Physical limit violated: {device_id}&quot;)
+
+        # 3. 設備規格檢查（載率、頻率範圍）
+        for eq_type, devices in self.equipment_specs.items():
+            for device in devices:
+                if not self._check_equipment_spec(config, device):
+                    violations.append(f&quot;Equipment spec violated: {device.id}&quot;)
+
+        return len(violations) == 0, violations
+
+    def get_feasible_regions(self, target_rt: float) -&gt; List[Dict]:
+        &quot;&quot;&quot;
+        預篩選：給定目標 RT，找出所有可行的設備組合（離散變數枚舉）
+        回傳: 可行的設備啟停組合列表（連續變數尚未決定）
+        &quot;&quot;&quot;
+        # 使用 MIP 或簡單枚舉（若設備數量少）
+        pass
+</code></pre>
+<p><strong>邏輯約束圖（LogicConstraintGraph）</strong>：</p>
+<pre><code class="language-python">class LogicConstraintGraph:
+    &quot;&quot;&quot;
+    設備依賴關係圖
+    支援 requires, mutex, sequence 三種約束
+    &quot;&quot;&quot;
+
+    def __init__(self, constraints: List[Dict]):
+        self.graph = nx.DiGraph()  # NetworkX
+        self.mutex_groups = []
+        self.sequences = {}
+
+        for c in constraints:
+            if c['type'] == 'requires':
+                self.graph.add_edge(c['if'], c['then'])
+            elif c['type'] == 'mutex':
+                self.mutex_groups.append(set(c['devices']))
+            elif c['type'] == 'sequence':
+                self.sequences[c['startup']] = c.get('shutdown', [])
+
+    def check(self, config: Dict) -&gt; bool:
+        # 檢查 requires：若 if 為 True，則 then 必須都為 True
+        # 檢查 mutex：同一組內不可同時為 True（或根據容量限制）
+        pass
+</code></pre>
+<hr />
+<h2 id="4-phase-based-implementation">4. 分階段實作計畫 (Phase-Based Implementation)</h2>
+<h3 id="phase-0-day-1">Phase 0: 模型載入與相容性驗證 (Day 1)</h3>
+<p><strong>Step 0.1: ModelRegistry 實作</strong></p>
+<pre><code class="language-python">class ModelRegistry:
+    &quot;&quot;&quot;
+    模型註冊表：載入與驗證 Model Training v1.1 輸出
+    &quot;&quot;&quot;
+
+    def load_ensemble(self, manifest_path: Path, site_id: str) -&gt; Dict[str, Any]:
+        &quot;&quot;&quot;
+        載入 MultiModelArtifact，驗證與 Optimization Config 的相容性
+        &quot;&quot;&quot;
+        # 1. 驗證 Manifest 完整性
+        # 2. 比對 annotation_context.yaml_checksum 與當前 FeatureAnnotationManager
+        # 3. 載入各設備模型（Chiller、Pump、CT 分別的模型或整體模型）
+        # 4. 驗證特徵對齊
+        pass
+
+    def predict_consumption(self, config: Dict, ambient_conditions: Dict) -&gt; float:
+        &quot;&quot;&quot;
+        預測給定配置下的總耗電
+        &quot;&quot;&quot;
+        # 使用載入的模型預測
+        # 若為分設備模型，個別預測後加總；若為整體模型，直接預測
+        pass
+</code></pre>
+<p><strong>錯誤碼定義</strong>：<br />
+- <strong>E801</strong>: <code>MODEL_MANIFEST_INVALID</code> - Manifest 損毀或找不到<br />
+- <strong>E802</strong>: <code>ANNOTATION_VERSION_MISMATCH</code> - 模型訓練時的 Annotation 版本與當前不同<br />
+- <strong>E803</strong>: <code>FEATURE_DIMENSION_MISMATCH</code> - 特徵數量不符（模型重訓練後未更新 Config）<br />
+- <strong>E804</strong>: <code>DEVICE_ROLE_CHANGED</code> - 設備角色（primary/backup）與訓練時不同，可能影響預測準確度</p>
+<h3 id="phase-1-day-2-3">Phase 1: 約束引擎與可行解空間 (Day 2-3)</h3>
+<p><strong>Step 1.1: 物理限制載入</strong><br />
+- 從 <code>FeatureAnnotationManager</code> 讀取 <code>physical_types</code> 的 <code>valid_range</code><br />
+- 與 Optimization Config 中的 <code>physical_constraints</code> 合併（Config 優先）</p>
+<p><strong>Step 1.2: 邏輯約束引擎</strong><br />
+- 實作 <code>LogicConstraintGraph</code>，支援 requires/mutex/sequence<br />
+- 實作 <code>get_feasible_combinations()</code>：枚舉所有滿足邏輯約束的設備啟停組合</p>
+<p><strong>Step 1.3: 可行解預篩選</strong></p>
+<pre><code class="language-python">def enumerate_feasible_combinations(target_rt: float, site_config: OptimizationConfig) -&gt; List[Dict]:
+    &quot;&quot;&quot;
+    給定目標 RT，找出所有可行的設備啟停組合
+    策略：
+    1. 計算需要的總容量（target_rt / 總可用容量）
+    2. 枚舉所有組合（若設備數 &lt;= 8，可用窮舉；否則用啟發式）
+    3. 用邏輯約束過濾
+    4. 用物理限制過濾（如最低載率）
+    &quot;&quot;&quot;
+    pass
+</code></pre>
+<h3 id="phase-2-day-3-4">Phase 2: 最佳化核心 (Day 3-4)</h3>
+<p><strong>Step 2.1: 目標函數封裝</strong></p>
+<pre><code class="language-python">class ObjectiveFunction:
+    &quot;&quot;&quot;
+    支援兩種模式的目标函数
+    &quot;&quot;&quot;
+
+    def __init__(self, mode: str, target_value: float, model_registry: ModelRegistry):
+        self.mode = mode
+        self.target = target_value
+        self.models = model_registry
+
+    def evaluate(self, continuous_vars: Dict, discrete_vars: Dict, ambient: Dict) -&gt; float:
+        &quot;&quot;&quot;
+        回傳損失值（越小越好）
+        &quot;&quot;&quot;
+        config = {**discrete_vars, **continuous_vars}
+
+        if self.mode == &quot;load_driven&quot;:
+            # 目標：滿足 RT 的前提下，最小化 kW
+            predicted_rt = self.models.predict_rt(config, ambient)
+            predicted_kw = self.models.predict_kw(config, ambient)
+
+            # 懲罰項：若無法滿足 RT
+            rt_penalty = max(0, self.target - predicted_rt) ** 2 * 1000
+
+            return predicted_kw + rt_penalty
+
+        elif self.mode == &quot;efficiency_driven&quot;:
+            # 目標：達到 target kW/RT，最小化與目標的差距
+            predicted_kw = self.models.predict_kw(config, ambient)
+            predicted_rt = self.models.predict_rt(config, ambient)
+            actual_kw_rt = predicted_kw / predicted_rt if predicted_rt &gt; 0 else float('inf')
+
+            return (actual_kw_rt - self.target) ** 2
+</code></pre>
+<p><strong>Step 2.2: 混合優化策略</strong></p>
+<p>由於同時存在離散（設備啟停）與連續（頻率）變數，採用<strong>兩階段策略</strong>：</p>
+<pre><code class="language-python">class HybridOptimizer:
+    &quot;&quot;&quot;
+    混合整數規劃 + 連續優化
+    &quot;&quot;&quot;
+
+    def optimize(self, request: OptimizationRequest) -&gt; OptimizationResponse:
+        # Phase 1：枚舉所有可行的設備組合（離散變數）
+        feasible_combos = self.constraint_engine.get_feasible_combinations(request.target_rt)
+
+        best_result = None
+        best_score = float('inf')
+
+        # Phase 2：對每個組合，優化連續變數（頻率、轉速）
+        for combo in feasible_combos:
+            # 使用 SLSQP 或 Differential Evolution 優化連續變數
+            result = self._optimize_continuous(combo, request)
+
+            if result.score &lt; best_score:
+                best_score = result.score
+                best_result = result
+
+        return self._build_response(best_result, request)
+
+    def _optimize_continuous(self, discrete_combo: Dict, request: OptimizationRequest):
+        &quot;&quot;&quot;
+        對固定設備組合，優化連續參數
+        &quot;&quot;&quot;
+        from scipy.optimize import differential_evolution
+
+        # 定義變數邊界（來自 Config 的 min_hz, max_hz 等）
+        bounds = self._get_variable_bounds(discrete_combo)
+
+        # 目標函數
+        def objective(x):
+            continuous_vars = self._unpack_variables(x)
+            return self.objective_func.evaluate(continuous_vars, discrete_combo, self.ambient)
+
+        # 執行優化
+        result = differential_evolution(
+            objective,
+            bounds,
+            maxiter=self.config.optimization.max_iter,
+            popsize=self.config.optimization.population_size,
+            polish=True  # 最後用 L-BFGS-B 精修
+        )
+
+        return result
+</code></pre>
+<h3 id="phase-3-day-4-5">Phase 3: 報告生成與節能評估 (Day 4-5)</h3>
+<p><strong>Step 3.1: 改善前後比較邏輯</strong></p>
+<pre><code class="language-python">class SavingsCalculator:
+    &quot;&quot;&quot;
+    計算節能量與改善評估
+    &quot;&quot;&quot;
+
+    def calculate(self, recommended: Dict, current: Optional[Dict], operating_hours: int = 8760) -&gt; Dict:
+        &quot;&quot;&quot;
+        回傳：
+        - 當前能耗（若提供 current_config，否則用預設值或模型推估）
+        - 建議能耗
+        - 節省 kW、kWh/年、百分比
+        - 投資回收期（若有設備投資成本）
+        &quot;&quot;&quot;
+        if current:
+            baseline_kw = self.models.predict_kw(current, self.ambient)
+        else:
+            # 若未提供，使用「所有設備全開 + 固定頻率」作為基線
+            baseline_kw = self._calculate_baseline(recommended['target_rt'])
+
+        recommended_kw = recommended['predicted_kw']
+
+        savings_kw = baseline_kw - recommended_kw
+        savings_percent = (savings_kw / baseline_kw) * 100 if baseline_kw &gt; 0 else 0
+        annual_savings_kwh = savings_kw * operating_hours
+
+        return {
+            'baseline_kw': baseline_kw,
+            'recommended_kw': recommended_kw,
+            'savings_kw': savings_kw,
+            'savings_percent': savings_percent,
+            'annual_savings_kwh': annual_savings_kwh,
+            'co2_reduction_tons': annual_savings_kwh * 0.0005  # 假設每度電 0.5kg CO2
+        }
+</code></pre>
+<p><strong>Step 3.2: 報告生成器</strong></p>
+<pre><code class="language-python">class OptimizationReportGenerator:
+    &quot;&quot;&quot;
+    生成工程師可讀的優化報告
+    &quot;&quot;&quot;
+
+    def generate(self, response: OptimizationResponse, request: OptimizationRequest) -&gt; str:
+        &quot;&quot;&quot;
+        產生 Markdown 格式報告
+        &quot;&quot;&quot;
+        report = f&quot;&quot;&quot;
+# 冰水主機房最佳化建議報告
+
+## 案場資訊
+- 案場 ID：{request.site_id}
+- 優化模式：{'負載驅動' if request.mode == 'load_driven' else '效率驅動'}
+- 目標值：{request.target_rt or request.target_kw_per_rt} {'RT' if request.mode == 'load_driven' else 'kW/RT'}
+- 分析時間：{datetime.now().isoformat()}
+
+## 建議配置
+
+### 設備啟停狀態
+| 設備名稱 | 建議狀態 | 容量 (RT) | 備註 |
+|---------|---------|----------|------|
+&quot;&quot;&quot;
+
+        # 填入設備表格...
+
+        report += f&quot;&quot;&quot;
+### 運轉參數
+- 冷凍水泵頻率：{response.recommended_config.get('chw_pump_hz', 'N/A')} Hz
+- 冷卻水泵頻率：{response.recommended_config.get('cw_pump_hz', 'N/A')} Hz  
+- 冷卻水塔風扇轉速：{response.recommended_config.get('ct_fan_speed', 'N/A')} %
+
+## 能耗評估
+
+| 指標 | 改善前 (基線) | 改善後 (建議) | 節省量 | 節省率 |
+|-----|--------------|--------------|--------|--------|
+| 總耗電 (kW) | {response.baseline_kw:.1f} | {response.predicted_kw:.1f} | {response.savings_kw:.1f} | {response.savings_percent:.1f}% |
+| 效率 (kW/RT) | {response.baseline_kw/response.target_rt:.2f} | {response.predicted_kw_per_rt:.2f} | - | - |
+| 預估年節電量 (kWh) | - | - | {response.annual_savings_estimate:,.0f} | - |
+| 預估年減碳量 (噸 CO2) | - | - | {response.annual_savings_estimate * 0.0005:.1f} | - |
+
+## 約束檢查
+- 物理限制檢查：{'通過' if not response.constraint_violations else '警告'}
+- 邏輯約束檢查：{'通過' if not response.constraint_violations else '警告'}
+- 起作用約束：{', '.join(response.binding_constraints)}
+
+## 執行建議
+{response.recommendation_text}
+
+## 風險提示
+- 若室外溫度超過 35°C，建議配置可能無法達到目標效率
+- 備用機組 (Chiller 2) 建議定期運轉測試，避免長期停機
+&quot;&quot;&quot;
+        return report
+</code></pre>
+<h3 id="phase-4-cli-day-5-6">Phase 4: CLI 與多案場支援 (Day 5-6)</h3>
+<p><strong>Step 4.1: OptimizationCLI</strong></p>
+<pre><code class="language-python">class OptimizationCLI:
+    def optimize(self, site: str, mode: str, target: float, 
+                 current_config: Optional[str] = None,
+                 output_format: str = &quot;markdown&quot;):
+        &quot;&quot;&quot;
+        CLI 指令：
+        python main.py optimization optimize \
+            --site cgmh_ty \
+            --mode load_driven \
+            --target 500 \
+            --current-config current_status.json \
+            --output report.md
+        &quot;&quot;&quot;
+        pass
+
+    def batch_scenarios(self, site: str, rt_range: str, step: float):
+        &quot;&quot;&quot;
+        批次分析多個負載情境（產生效率曲線）
+        python main.py optimization batch-scenarios \
+            --site cgmh_ty \
+            --rt-range 100-1000 \
+            --step 100
+        &quot;&quot;&quot;
+        pass
+</code></pre>
+<p><strong>Step 4.2: 多案場配置繼承</strong></p>
+<p>沿用 Feature Annotation v1.2 的繼承機制：</p>
+<pre><code class="language-python">class OptimizationConfigLoader:
+    def load(self, site_id: str) -&gt; OptimizationConfig:
+        &quot;&quot;&quot;
+        載入案場設定，支援 inherit: base
+        &quot;&quot;&quot;
+        # 類似 FeatureAnnotationManager._load_with_inheritance()
+        pass
+</code></pre>
+<hr />
+<h2 id="5-error-codes">5. 錯誤代碼對照表 (Error Codes)</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">錯誤代碼</th>
+<th style="text-align: left;">名稱</th>
+<th style="text-align: center;">發生階段</th>
+<th style="text-align: left;">說明</th>
+<th style="text-align: left;">處理建議</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>E800</strong></td>
+<td style="text-align: left;"><code>CONFIG_VALIDATION_ERROR</code></td>
+<td style="text-align: center;">Phase 0</td>
+<td style="text-align: left;">Optimization Config YAML 格式錯誤</td>
+<td style="text-align: left;">檢查 config/optimization/sites/{site}.yaml</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E801</strong></td>
+<td style="text-align: left;"><code>MODEL_MANIFEST_INVALID</code></td>
+<td style="text-align: center;">Phase 0</td>
+<td style="text-align: left;">無法載入 Model Training 輸出的 Manifest</td>
+<td style="text-align: left;">確認模型訓練已完成，檔案路徑正確</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E802</strong></td>
+<td style="text-align: left;"><code>ANNOTATION_VERSION_MISMATCH</code></td>
+<td style="text-align: center;">Phase 0</td>
+<td style="text-align: left;">模型訓練時的 Annotation checksum 與當前不符</td>
+<td style="text-align: left;">Feature Annotation 已更新，需重新訓練模型</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E803</strong></td>
+<td style="text-align: left;"><code>FEATURE_DIMENSION_MISMATCH</code></td>
+<td style="text-align: center;">Phase 0</td>
+<td style="text-align: left;">模型特徵數與 Optimization Config 不一致</td>
+<td style="text-align: left;">檢查 Config 中的 features 列表是否與模型相符</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E804</strong></td>
+<td style="text-align: left;"><code>DEVICE_ROLE_CHANGED</code></td>
+<td style="text-align: center;">Phase 0</td>
+<td style="text-align: left;">設備角色（primary/backup）與訓練時不同</td>
+<td style="text-align: left;">警告：預測準確度可能下降，建議重訓練</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E805</strong></td>
+<td style="text-align: left;"><code>NO_FEASIBLE_SOLUTION</code></td>
+<td style="text-align: center;">Phase 1</td>
+<td style="text-align: left;">無法找到滿足所有硬約束的設備組合</td>
+<td style="text-align: left;">放寬約束條件（如提高溫度上限）或增加設備</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E806</strong></td>
+<td style="text-align: left;"><code>OPTIMIZATION_TIMEOUT</code></td>
+<td style="text-align: center;">Phase 2</td>
+<td style="text-align: left;">優化算法超時未收斂</td>
+<td style="text-align: left;">增加 max_iter 或改用啟發式算法</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E807</strong></td>
+<td style="text-align: left;"><code>RT_NOT_ACHIEVABLE</code></td>
+<td style="text-align: center;">Phase 2</td>
+<td style="text-align: left;">無法達到目標冷凍噸（設備容量不足）</td>
+<td style="text-align: left;">檢查目標 RT 是否超過總裝置容量</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E808</strong></td>
+<td style="text-align: left;"><code>EFFICIENCY_NOT_ACHIEVABLE</code></td>
+<td style="text-align: center;">Phase 2</td>
+<td style="text-align: left;">無法達到目標 kW/RT（可能過於激進）</td>
+<td style="text-align: left;">檢查目標效率是否低於理論最小值</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E809</strong></td>
+<td style="text-align: left;"><code>LOGIC_CONSTRAINT_VIOLATION</code></td>
+<td style="text-align: center;">Phase 1</td>
+<td style="text-align: left;">建議配置違反邏輯約束（如開主機未開泵）</td>
+<td style="text-align: left;">內部錯誤，檢查 ConstraintEngine</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>W801</strong></td>
+<td style="text-align: left;"><code>SOFT_CONSTRAINT_VIOLATED</code></td>
+<td style="text-align: center;">Phase 2</td>
+<td style="text-align: left;">違反軟約束（如建議開啟備用機組）</td>
+<td style="text-align: left;">建議接受，但記錄偏好衝突</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-version-compatibility">6. 版本相容性矩陣 (Version Compatibility)</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Model Training</th>
+<th style="text-align: center;">Feature Annotation</th>
+<th style="text-align: center;">Optimization Engine</th>
+<th style="text-align: center;">相容性</th>
+<th style="text-align: left;">說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">v1.1+</td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;"><strong>v1.0</strong></td>
+<td style="text-align: center;">✅ <strong>完全相容</strong></td>
+<td style="text-align: left;">推薦配置，支援多案場與邏輯約束</td>
+</tr>
+<tr>
+<td style="text-align: center;">v1.1+</td>
+<td style="text-align: center;">v1.1</td>
+<td style="text-align: center;"><strong>v1.0</strong></td>
+<td style="text-align: center;">⚠️ <strong>部分相容</strong></td>
+<td style="text-align: left;">缺少 device_role 資訊，可能影響備用機組策略</td>
+</tr>
+<tr>
+<td style="text-align: center;">v1.0</td>
+<td style="text-align: center;">任意</td>
+<td style="text-align: center;"><strong>v1.0</strong></td>
+<td style="text-align: center;">❌ <strong>不相容</strong></td>
+<td style="text-align: left;">Model Training v1.0 輸出格式不同，無法載入</td>
+</tr>
+<tr>
+<td style="text-align: center;">任意</td>
+<td style="text-align: center;">v1.0</td>
+<td style="text-align: center;"><strong>v1.0</strong></td>
+<td style="text-align: center;">❌ <strong>不相容</strong></td>
+<td style="text-align: left;">Feature Annotation v1.0 缺少 physical_types</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-test-plan">7. 測試與驗證計畫 (Test Plan)</h2>
+<h3 id="71">7.1 單元測試</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">測試案例 ID</th>
+<th style="text-align: left;">描述</th>
+<th style="text-align: left;">輸入</th>
+<th style="text-align: left;">預期結果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">OPT-001</td>
+<td style="text-align: left;">邏輯約束驗證</td>
+<td style="text-align: left;">chiller_1_on=True, chw_pump_1_on=False</td>
+<td style="text-align: left;">違反 requires 約束，回傳 False</td>
+</tr>
+<tr>
+<td style="text-align: left;">OPT-002</td>
+<td style="text-align: left;">可行組合枚舉</td>
+<td style="text-align: left;">target_rt=500, 2台主機各300RT</td>
+<td style="text-align: left;">回傳：[開1台+載率83%], [開2台+各載率42%]</td>
+</tr>
+<tr>
+<td style="text-align: left;">OPT-003</td>
+<td style="text-align: left;">負載驅動優化</td>
+<td style="text-align: left;">target_rt=400, ambient=30°C</td>
+<td style="text-align: left;">選擇效率最佳的設備組合與頻率</td>
+</tr>
+<tr>
+<td style="text-align: left;">OPT-004</td>
+<td style="text-align: left;">效率驅動優化</td>
+<td style="text-align: left;">target_kw_per_rt=0.6</td>
+<td style="text-align: left;">調整頻率與台數，使效率最接近0.6</td>
+</tr>
+<tr>
+<td style="text-align: left;">OPT-005</td>
+<td style="text-align: left;">節能計算</td>
+<td style="text-align: left;">baseline=500kW, recommended=400kW</td>
+<td style="text-align: left;">savings_kw=100, savings_percent=20%</td>
+</tr>
+<tr>
+<td style="text-align: left;">OPT-006</td>
+<td style="text-align: left;">繼承機制</td>
+<td style="text-align: left;">cgmh_ty 繼承 base</td>
+<td style="text-align: left;">正確合併 equipment 與 constraints</td>
+</tr>
+<tr>
+<td style="text-align: left;">OPT-007</td>
+<td style="text-align: left;">版本檢查</td>
+<td style="text-align: left;">模型 checksum 不符</td>
+<td style="text-align: left;">拋出 E802</td>
+</tr>
+</tbody>
+</table>
+<h3 id="72">7.2 整合測試</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">測試案例 ID</th>
+<th style="text-align: left;">描述</th>
+<th style="text-align: left;">驗證目標</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">INT-OPT-001</td>
+<td style="text-align: left;">端到端優化流程</td>
+<td style="text-align: left;">從 Request 到 Report 完整流程</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-OPT-002</td>
+<td style="text-align: left;">多案場切換</td>
+<td style="text-align: left;">切換 cgmh_ty 與 farglory_o3，配置正確載入</td>
+</tr>
+<tr>
+<td style="text-align: left;">INT-OPT-003</td>
+<td style="text-align: left;">與 Model Training 銜接</td>
+<td style="text-align: left;">使用實際訓練好的模型進行預測與優化</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-deliverables">8. 交付物清單 (Deliverables)</h2>
+<h3 id="81">8.1 程式碼檔案</h3>
+<ol>
+<li><code>src/optimization/engine.py</code> - 最佳化主引擎</li>
+<li><code>src/optimization/constraints.py</code> - 約束引擎（物理+邏輯）</li>
+<li><code>src/optimization/scenarios.py</code> - 情境分析與批次處理</li>
+<li><code>src/optimization/models.py</code> - Model Registry 與預測介面</li>
+<li><code>src/optimization/report.py</code> - 報告生成器</li>
+<li><code>src/optimization/config.py</code> - OptimizationConfig 與繼承載入</li>
+</ol>
+<h3 id="82">8.2 配置文件</h3>
+<ol start="7">
+<li><code>config/optimization/base.yaml</code> - 基礎設備模型與約束</li>
+<li><code>config/optimization/sites/cgmh_ty.yaml</code> - 長庚醫院範例</li>
+<li><code>config/optimization/schemas/optimization_schema.json</code> - JSON Schema</li>
+</ol>
+<h3 id="83">8.3 測試檔案</h3>
+<ol start="10">
+<li><code>tests/test_optimization_engine.py</code> - 引擎單元測試</li>
+<li><code>tests/test_constraints.py</code> - 約束引擎測試</li>
+<li><code>tests/test_optimization_integration.py</code> - 整合測試</li>
+</ol>
+<h3 id="84">8.4 文件檔案</h3>
+<ol start="13">
+<li><code>docs/optimization/PRD_OPTIMIZATION_ENGINE_v1.0.md</code> - 本文件</li>
+<li><code>docs/optimization/USER_GUIDE.md</code> - 工程師使用手冊（含範例）</li>
+</ol>
+<hr />
+<h2 id="9-sign-off-checklist">9. 驗收簽核 (Sign-off Checklist)</h2>
+<ul>
+<li>[ ] <strong>模型載入</strong>：正確載入 Model Training v1.1 的 MultiModelArtifact，驗證 E802</li>
+<li>[ ] <strong>物理約束</strong>：正確從 Feature Annotation v1.2 讀取 valid_range（如冰水溫度 ≥6.5°C）</li>
+<li>[ ] <strong>邏輯約束</strong>：實作 requires/mutex/sequence 三種約束，並正確驗證</li>
+<li>[ ] <strong>負載驅動模式</strong>：給定 RT=500，輸出最佳設備組合（台數、頻率、轉速）</li>
+<li>[ ] <strong>效率驅動模式</strong>：給定 kW/RT=0.65，反推設備參數，達成目標效率</li>
+<li>[ ] <strong>可行解檢查</strong>：若目標 RT 超過總容量，正確拋出 E807</li>
+<li>[ ] <strong>節能評估</strong>：正確計算改善前後差異、年節電量、減碳量</li>
+<li>[ ] <strong>報告生成</strong>：產生工程師可讀的 Markdown 報告，包含建議說明</li>
+<li>[ ] <strong>多案場支援</strong>：支援 base.yaml → site.yaml 繼承，設備參數可覆寫</li>
+<li>[ ] <strong>CLI 介面</strong>：<code>python main.py optimization optimize</code> 指令可用</li>
+<li>[ ] <strong>批次分析</strong>：支援多 RT 情境批次分析，產生效率曲線</li>
+</ul>
+<hr />
+<h2 id="10">10. 附錄：使用範例</h2>
+<h3 id="1-500-rt">範例 1：負載驅動（知道要供應 500 RT，問怎麼開最省電）</h3>
+<pre><code class="language-bash">python main.py optimization optimize \
+    --site cgmh_ty \
+    --mode load_driven \
+    --target 500 \
+    --ambient '{&quot;temp_wb&quot;: 26.5, &quot;temp_db&quot;: 32.0}' \
+    --output report_500rt.md
+</code></pre>
+<p><strong>預期輸出</strong>：</p>
+<pre><code>建議開啟：Chiller 1 (Primary, 300RT) + Chiller 2 (Backup, 200RT)
+載率分配：60% / 40%
+冷凍水泵：45 Hz / 40 Hz
+冷卻水塔：80% 轉速
+預測總耗電：325 kW (0.65 kW/RT)
+相較於全開基線 (400 kW)：節省 18.75%，年節電 657,000 kWh
+</code></pre>
+<h3 id="2-060-kwrt">範例 2：效率驅動（希望達到 0.60 kW/RT，問參數怎麼調）</h3>
+<pre><code class="language-bash">python main.py optimization optimize \
+    --site cgmh_ty \
+    --mode efficiency_driven \
+    --target 0.60 \
+    --current-config current_operation.json \
+    --output report_efficiency.md
+</code></pre>
+<p><strong>預期輸出</strong>：</p>
+<pre><code>當前效率：0.72 kW/RT (400 kW / 555 RT)
+建議調整：
+  1. 關閉 Chiller 2，僅使用 Chiller 1 (載率提升至 92%)
+  2. 降低冷卻水塔轉速至 65%（減少風機耗電）
+  3. 調整冷凍水泵至 42 Hz（平衡流量與功耗）
+預期效率：0.60 kW/RT (300 kW / 500 RT)
+節省電力：100 kW (25%)
+</code></pre>
+<hr />
+<p><strong>關鍵設計確認</strong>：<br />
+1. <strong>離線模式</strong>：不設計即時 Control System 介面，專注於工程師決策支援<br />
+2. <strong>約束雙軌</strong>：物理限制來自 Annotation，邏輯約束來自 Optimization Config<br />
+3. <strong>多案場</strong>：沿用 Feature Annotation v1.2 的繼承機制，降低配置維護成本<br />
+4. <strong>混合優化</strong>：離散（設備啟停）+ 連續（頻率轉速）分階段處理，兼顧效率與求解品質<br />
+```</p>
+<hr />
+<p>這份 PRD 已經完整涵蓋了你的四點需求：</p>
+<p>✅ <strong>無 Control System 介面</strong> → 設計為離線報告模式（Markdown/JSON）<br />
+✅ <strong>離線建議模式</strong> → CLI 驅動，工程師手動觸動，可承受較長計算時間<br />
+✅ <strong>邏輯約束</strong> → 定義 <code>requires</code>（開主機必開泵）、<code>mutex</code>（互斥）、<code>sequence</code>（順序）三種約束<br />
+✅ <strong>多案場支援</strong> → 沿用 Feature Annotation 的 <code>base.yaml</code> → <code>site.yaml</code> 繼承機制  </p>
+<p>以及你提到的兩個核心場景：<br />
+- <strong>RT 給定</strong> → 輸出設備組合（幾台、頻率、轉速）<br />
+- <strong>kW/RT 目標</strong> → 反推參數調整，提供改善前後節能量評估</p>
+<p>是否需要我針對任何章節進行擴充或調整？例如：<br />
+1. 增加<strong>設備投資成本模型</strong>（CAPEX 與 OPEX 平衡）？<br />
+2. 增加<strong>部分負載效率曲線</strong>的詳細處理邏輯？<br />
+3. 調整<strong>優化算法</strong>（例如改用 NSGA-II 多目標優化）？</p>
+</body>
+</html>

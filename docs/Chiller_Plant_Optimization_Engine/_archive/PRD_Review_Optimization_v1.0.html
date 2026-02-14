@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_Review_Optimization_v1.0</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="optimization-engine-prd-v10">Optimization Engine PRD (v1.0) 審查報告</h1>
+<p><strong>審查對象</strong>: <code>docs/Chiller_Plant_Optimization_Engine/PRD_Chiller_Plant_Optimization_V1.0.md</code><br />
+<strong>參考文件</strong>: <br />
+- <code>docs/Model_Training/PRD_Model_Training_v1.1.md</code><br />
+- <code>docs/Feature_Annotation_Specification/PRD_Feature_Annotation_Specification_V1.2.md</code><br />
+<strong>審查者</strong>: Senior System Architect<br />
+<strong>日期</strong>: 2026-02-13<br />
+<strong>總體評級</strong>: <strong>A- (Architectural Mismatch Identified)</strong> - 架構設計完善，但在模型顆粒度上與上游 Training PRD 存在關鍵落差。</p>
+<hr />
+<h2 id="1-overall-assessment">1. 總體評鑑 (Overall Assessment)</h2>
+<p>Optimization PRD v1.0 提出了一個強大的混合優化架構（MIP + 連續優化），並正確引用了 Feature Annotation 的物理限制與多案場配置概念。邏輯約束引擎（Logic Constraint Engine）的設計尤為出色，能有效處理冰水主機房複雜的設備依賴關係。</p>
+<p>然而，<strong>模型訓練 (Training)</strong> 與 <strong>最佳化 (Optimization)</strong> 之間存在一個關鍵的<strong>介面/顆粒度落差</strong>，若不解決將導致系統無法運作。</p>
+<h3 id="strengths">✅ 強項 (Strengths)</h3>
+<ol>
+<li><strong>邏輯約束優先</strong>: 將物理開關機邏輯（Requires, Mutex, Sequence）與能耗優化分離，確保建議具備工程可行性。</li>
+<li><strong>混合優化策略</strong>: 針對離散變數（啟停）與連續變數（頻率）分階段處理，兼顧了求解效率。</li>
+<li><strong>離線報告模式</strong>: 清楚定義了 Input/Output，避免了與即時控制系統 (DDC) 整合的高風險。</li>
+<li><strong>配置繼承機制</strong>: 沿用 Feature Annotation 的繼承模式，利於多案場維護。</li>
+</ol>
+<hr />
+<h2 id="2-the-granularity-gap">2. 關鍵風險：模型顆粒度不匹配 (The Granularity Gap)</h2>
+<p>這是本次審查發現的最嚴重問題，必須在實作前修正。</p>
+<h3 id="21">2.1 問題描述</h3>
+<ul>
+<li><strong>Model Training PRD v1.1</strong>: 設計為 <strong>"Single Target, Multi-Algorithm"</strong>。<ul>
+<li>它訓練的是<strong>一個目標變數</strong>（例如 <code>System Total Power</code> 或 <code>Chiller 1 Power</code>），使用三種演算法（XGB, LGB, RF）進行 Ensemble。</li>
+<li>產出物 <code>MultiModelArtifact</code> 代表<strong>一個預測目標</strong>的最佳模型組合。</li>
+</ul>
+</li>
+<li><strong>Optimization PRD v1.0</strong>: 假設擁有 <strong>"Component-Level Models"</strong>。<ul>
+<li>Config 範例 (Line 147, 155) 引用了 <code>model_file: "chiller_1_model.joblib"</code>, <code>model_file: "chiller_2_model.joblib"</code>。</li>
+<li>這暗示優化引擎需要分別預測每台設備的能耗，然後加總。</li>
+</ul>
+</li>
+</ul>
+<h3 id="22">2.2 衝突點</h3>
+<p>若我們只跑一次 Training Pipeline 訓練 <code>Total Power</code>，則 Optimization Engine 無法載入個別設備模型。若我們要分別預測，則需要針對每台設備<strong>分別執行</strong> Training Pipeline，並產生多個 Artifacts。</p>
+<h3 id="23">2.3 建議解決方案 (二選一)</h3>
+<h4 id="a-system-level-blackbox-">方案 A：系統級黑盒優化 (System-Level Blackbox) - <strong>推薦</strong></h4>
+<ul>
+<li><strong>概念</strong>: 訓練<strong>單一</strong>模型預測 <code>Total System kW</code>。</li>
+<li><strong>特徵</strong>: 輸入特徵必須包含所有控制變數（如 <code>chiller_1_status</code>, <code>pump_1_hz</code>, <code>ct_1_speed</code>）。</li>
+<li><strong>修改點</strong>: <ol>
+<li>Optimization Config 移除個別設備的 <code>model_file</code> 欄位。</li>
+<li><code>ModelRegistry</code> 載入單一 <code>MultiModelArtifact</code>。</li>
+<li>目標函數直接呼叫該模型預測總耗電。</li>
+</ol>
+</li>
+<li><strong>優點</strong>: 簡單，符合 Training PRD 現狀，考慮了設備間的交互作用（Copula effect）。</li>
+<li><strong>缺點</strong>: 無法得知單機細節耗電（除非模型有做多輸出，但目前沒有）。</li>
+</ul>
+<h4 id="b-component-level-summation">方案 B：組件級加總優化 (Component-Level Summation)</h4>
+<ul>
+<li><strong>概念</strong>: 對每台 Chiller, Pump, CT <strong>分別訓練</strong>模型。</li>
+<li><strong>修改點</strong>:<ol>
+<li>Training Pipeline 需支援批次訓練多個 Targets。</li>
+<li>Artifacts 儲存結構需改為 <code>models/{site_id}/{target_name}/...</code>。</li>
+</ol>
+</li>
+<li><strong>優點</strong>: 可針對個別設備效率進行診斷。</li>
+<li><strong>缺點</strong>: 忽略了系統耦合效應，維護成本高（N 個設備 = N 個模型）。</li>
+</ul>
+<p><strong>架構師建議</strong>: 採用 <strong>方案 A</strong>。對於總耗電優化，系統級模型通常更準確且易於維護。</p>
+<hr />
+<h2 id="3">3. 其他優化建議</h2>
+<h3 id="31">3.1 輸入數據來源不明確</h3>
+<ul>
+<li><strong>問題</strong>: 優化需要 <code>ambient_conditions</code>（外氣濕球/乾球溫度）。PRD 若為「離線建議」，這些數據從何而來？</li>
+<li><strong>建議</strong>: <ul>
+<li>增加 <code>ScenarioLoader</code>，支援從歷史 CSV 讀取一段時間的外氣條件進行批次模擬。</li>
+<li>或在 CLI 支援 <code>--ambient-file weather.csv</code>。</li>
+</ul>
+</li>
+</ul>
+<h3 id="32-efficiency-curve">3.2 效率曲線 (Efficiency Curve) 的角色</h3>
+<ul>
+<li><strong>問題</strong>: Config 中定義了 <code>efficiency_curve</code> (Line 164)，但同時又有 ML 模型。</li>
+<li><strong>建議</strong>: 明確定義優先級。通常 ML 模型準確度高於原廠曲線。建議將 <code>efficiency_curve</code> 作為 <strong>Fallback</strong>（當 ML 模型預測信心不足或超出範圍時使用），或作為物理約束的邊界參考。</li>
+</ul>
+<h3 id="33">3.3 設備啟停頻率懲罰</h3>
+<ul>
+<li><strong>問題</strong>: 純數學優化可能會建議頻繁啟停（例如這小時開，下小時關）。</li>
+<li><strong>建議</strong>: 在目標函數中加入 <code>switching_penalty</code>（切換懲罰項），或在邏輯約束中加入 <code>min_runtime</code> / <code>min_downtime</code>（最小運行/停機時間）。</li>
+</ul>
+<hr />
+<h2 id="4-action-items">4. 修正行動清單 (Action Items)</h2>
+<p>請在開始 Coding 前更新 PRD v1.0：</p>
+<ol>
+<li><strong>[Critical] 修正模型載入邏輯</strong>: <ul>
+<li>確認採用「方案 A（系統級模型）」或「方案 B（組件級模型）」。</li>
+<li>若選 A，修改 Config 結構，將 <code>model_file</code> 移至全域設定，並註明模型輸入特徵需求。</li>
+</ul>
+</li>
+<li><strong>[Major] 增強輸入介面</strong>: <ul>
+<li>在 <code>OptimizationCLI</code> 增加批次天氣資料輸入支援。</li>
+</ul>
+</li>
+<li><strong>[Minor] 補充啟停約束</strong>: <ul>
+<li>在 <code>LogicConstraintGraph</code> 增加 <code>min_runtime</code> 支援。</li>
+</ul>
+</li>
+</ol>
+<hr />
+<p><strong>結論</strong>: <br />
+此 PRD 邏輯清晰，但在與 Training 模組的銜接點上有架構落差。請針對 <strong>Section 2.3</strong> 做出決策並更新文件後，即可批准執行。</p>
+</body>
+</html>

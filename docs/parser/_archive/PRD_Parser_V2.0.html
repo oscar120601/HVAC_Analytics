@@ -1,73 +1,101 @@
-
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HVAC Analytics PRD</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-            line-height: 1.6;
-            color: #333;
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            background-color: #f8f9fa;
-        }
-        .container {
-            background-color: #fff;
-            padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        h1, h2, h3 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin-bottom: 20px;
-        }
-        th, td {
-            border: 1px solid #dfe2e5;
-            padding: 12px;
-            text-align: left;
-        }
-        th { background-color: #f6f8fa; }
-        tr:nth-child(even) { background-color: #fdfdfd; }
-        code {
-            background-color: #f3f3f3;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
-            font-size: 85%;
-        }
-        pre {
-            background-color: #f6f8fa;
-            padding: 16px;
-            overflow: auto;
-            border-radius: 6px;
-        }
-        blockquote {
-            margin: 0;
-            padding: 0 1em;
-            color: #6a737d;
-            border-left: 0.25em solid #dfe2e5;
-        }
-        .important {
-            background-color: #fff9db;
-            padding: 10px;
-            border-left: 5px solid #fcc419;
-            margin: 10px 0;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_Parser_V2.0</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
 </head>
 <body>
-    <div class="container">
-        <h1 id="prd-reportparser-robustness-refactoring">PRD：報表解析器強健性重構 (ReportParser Robustness Refactoring)</h1>
-<p><strong>文件版本:</strong> v2.0 (整合同儕審查建議)
-<strong>日期:</strong> 2026-02-12
-<strong>負責人:</strong> Oscar Chang
-<strong>目標模組:</strong> <a href="file:///d:/12.任務/HVAC-1/src/etl/parser.py">parser.py</a>
+<h1 id="prd-reportparser-robustness-refactoring">PRD：報表解析器強健性重構 (ReportParser Robustness Refactoring)</h1>
+<p><strong>文件版本:</strong> v2.0 (整合同儕審查建議)<br />
+<strong>日期:</strong> 2026-02-12<br />
+<strong>負責人:</strong> Oscar Chang<br />
+<strong>目標模組:</strong> <a href="file:///d:/12.任務/HVAC-1/src/etl/parser.py">parser.py</a><br />
 <strong>預估工時:</strong> 2.5 ~ 3 個工程天</p>
 <hr />
 <h2 id="1">1. 背景與問題陳述</h2>
@@ -139,7 +167,7 @@
 </tbody>
 </table>
 <blockquote>
-<p>[!CAUTION]
+<p>[!CAUTION]<br />
 問題 P1 的業務影響最大：台灣大多數 BAS 系統匯出報表為 Big5 編碼，現況下每新增一個案場都可能需要工程師手動介入。</p>
 </blockquote>
 <hr />
@@ -214,13 +242,13 @@
 <h4 id="task-12-bom">Task 1.2 — 實作編碼自動偵測 (含 BOM 處理)</h4>
 <ul>
 <li><strong>檔案:</strong> <code>src/etl/parser.py</code> → <code>_detect_encoding()</code> 方法</li>
-<li><strong>邏輯:</strong></li>
-<li>讀取檔案前 4096 bytes</li>
-<li><strong>優先偵測 UTF-8 BOM</strong> (<code>\xef\xbb\xbf</code>) → 若存在則回傳 <code>'utf-8-sig'</code></li>
-<li>嘗試以 <code>utf-8</code> 解碼 → 成功則回傳 <code>'utf-8'</code></li>
-<li>失敗則嘗試 <code>cp950</code> (Big5) → 成功則回傳 <code>'cp950'</code></li>
-<li>再失敗則嘗試 <code>utf-16</code></li>
-<li>全部失敗 → 拋出 <code>EncodingDetectionError</code></li>
+<li><strong>邏輯:</strong><br />
+  1. 讀取檔案前 4096 bytes<br />
+  2. <strong>優先偵測 UTF-8 BOM</strong> (<code>\xef\xbb\xbf</code>) → 若存在則回傳 <code>'utf-8-sig'</code><br />
+  3. 嘗試以 <code>utf-8</code> 解碼 → 成功則回傳 <code>'utf-8'</code><br />
+  4. 失敗則嘗試 <code>cp950</code> (Big5) → 成功則回傳 <code>'cp950'</code><br />
+  5. 再失敗則嘗試 <code>utf-16</code><br />
+  6. 全部失敗 → 拋出 <code>EncodingDetectionError</code></li>
 <li><strong>修改範圍:</strong> <code>_find_header_line()</code> 和 <code>parse_metadata()</code> 中的 <code>open()</code> 呼叫改用偵測到的編碼</li>
 <li><strong>驗收:</strong> Big5 壓力測試通過；UTF-8 BOM 檔案不會出現 <code>\xef\xbb\xbf</code> 殘留字元</li>
 </ul>
@@ -235,16 +263,16 @@
 <h4 id="task-21-_find_header_line">Task 2.1 — 重構 <code>_find_header_line()</code> 方法 (含多語系與一致性驗證)</h4>
 <ul>
 <li><strong>檔案:</strong> <code>src/etl/parser.py</code></li>
-<li><strong>改動:</strong></li>
-<li><strong>移除</strong> 硬編碼 Fallback <code>return 211</code></li>
-<li><strong>多語系關鍵字匹配</strong>：掃描前 500 行，尋找同時包含以下任一組合的行：<ul>
+<li><strong>改動:</strong><br />
+  1. <strong>移除</strong> 硬編碼 Fallback <code>return 211</code><br />
+  2. <strong>多語系關鍵字匹配</strong>：掃描前 500 行，尋找同時包含以下任一組合的行：<ul>
 <li>英文：<code>Date</code> + <code>Time</code></li>
 <li>中文：<code>日期</code> + <code>時間</code></li>
-<li>通用：<code>DateTime</code> 或 <code>Timestamp</code></li>
+<li>通用：<code>DateTime</code> 或 <code>Timestamp</code><br />
+  3. <strong>分隔符一致性驗證</strong>：找到候選標頭行後，檢查<strong>下一行的分隔符數量是否與標頭行一致</strong>。若不一致，跳過此行繼續搜尋（防止中繼資料誤觸）<br />
+  4. 若找不到，拋出 <code>InvalidReportFormatError</code> 並附上已掃描的前 5 行內容供除錯</li>
 </ul>
 </li>
-<li><strong>分隔符一致性驗證</strong>：找到候選標頭行後，檢查<strong>下一行的分隔符數量是否與標頭行一致</strong>。若不一致，跳過此行繼續搜尋（防止中繼資料誤觸）</li>
-<li>若找不到，拋出 <code>InvalidReportFormatError</code> 並附上已掃描的前 5 行內容供除錯</li>
 <li><strong>驗收:</strong> Missing Header 壓力測試拋出明確例外；中文標頭報表可正確定位</li>
 </ul>
 <h4 id="task-22">Task 2.2 — 增加標頭格式正規化</h4>
@@ -262,26 +290,26 @@
 <h4 id="task-31-_validate_schema">Task 3.1 — 實作 <code>_validate_schema()</code> 方法</h4>
 <ul>
 <li><strong>檔案:</strong> <code>src/etl/parser.py</code></li>
-<li><strong>邏輯:</strong></li>
-<li>檢查 <code>timestamp</code> 欄位是否存在且非全 null</li>
-<li>檢查至少有 3 個以上的數值型欄位</li>
-<li>若不通過，拋出 <code>DataValidationError</code> 並列出缺少的欄位</li>
+<li><strong>邏輯:</strong><br />
+  1. 檢查 <code>timestamp</code> 欄位是否存在且非全 null<br />
+  2. 檢查至少有 3 個以上的數值型欄位<br />
+  3. 若不通過，拋出 <code>DataValidationError</code> 並列出缺少的欄位</li>
 <li><strong>呼叫時機:</strong> 在 <code>parse_file()</code> 的 <code>return df</code> 之前</li>
 <li><strong>驗收:</strong> 餵入只有標頭沒有數據的檔案時，收到明確的驗證錯誤</li>
 </ul>
 <h4 id="task-32">Task 3.2 — 髒資料處理與強制數值轉型</h4>
 <ul>
 <li><strong>檔案:</strong> <code>src/etl/parser.py</code></li>
-<li><strong>邏輯:</strong></li>
-<li><strong>擴充 Null 值定義</strong>：在 <code>pl.read_csv()</code> 的 <code>null_values</code> 參數中加入 BAS 常見的非數值字串：
-     <code>python
-     null_values=["", "NA", "null", "---", "Error", "N/A", "OFF", "OFFLINE", "#VALUE!"]</code></li>
-<li><strong>單位清理</strong>：在 cast 之前，對所有非 Date/Time/timestamp 的字串欄位執行正則清洗：
-     <code>python
+<li><strong>邏輯:</strong><br />
+  1. <strong>擴充 Null 值定義</strong>：在 <code>pl.read_csv()</code> 的 <code>null_values</code> 參數中加入 BAS 常見的非數值字串：<br />
+<code>python
+     null_values=["", "NA", "null", "---", "Error", "N/A", "OFF", "OFFLINE", "#VALUE!"]</code><br />
+  2. <strong>單位清理</strong>：在 cast 之前，對所有非 Date/Time/timestamp 的字串欄位執行正則清洗：<br />
+<code>python
      # 移除數值後的非數字字元 (例如 "25.3 C" → "25.3", "100%" → "100")
-     pl.col(c).str.replace_all(r"[^\d.\-+eE]", "")</code></li>
-<li><strong>強制轉型</strong>：
-     <code>python
+     pl.col(c).str.replace_all(r"[^\d.\-+eE]", "")</code><br />
+  3. <strong>強制轉型</strong>：<br />
+<code>python
      df = df.with_columns([
          pl.col(c).cast(pl.Float64, strict=False)
          for c in df.columns
@@ -292,15 +320,15 @@
 <h4 id="task-33">Task 3.3 — 增加解析摘要日誌</h4>
 <ul>
 <li><strong>檔案:</strong> <code>src/etl/parser.py</code></li>
-<li><strong>邏輯:</strong> 在 <code>parse_file()</code> 結尾增加結構化日誌：
-  <code>INFO: Parse Summary | file=xxx.csv | encoding=utf-8 | rows=1440 | cols=207 | nulls_pct=2.3% | header_line=212</code></li>
+<li><strong>邏輯:</strong> 在 <code>parse_file()</code> 結尾增加結構化日誌：<br />
+<code>INFO: Parse Summary | file=xxx.csv | encoding=utf-8 | rows=1440 | cols=207 | nulls_pct=2.3% | header_line=212</code></li>
 <li><strong>驗收:</strong> 每次解析都輸出一行結構化摘要</li>
 </ul>
 <h4 id="task-34">Task 3.4 — 時區標準化</h4>
 <ul>
 <li><strong>檔案:</strong> <code>src/etl/parser.py</code></li>
-<li><strong>邏輯:</strong> 在 timestamp 建立後，賦予 <code>Asia/Taipei</code> (UTC+8) 時區資訊：
-  <code>python
+<li><strong>邏輯:</strong> 在 timestamp 建立後，賦予 <code>Asia/Taipei</code> (UTC+8) 時區資訊：<br />
+<code>python
   df = df.with_columns(
       pl.col("timestamp").dt.replace_time_zone("Asia/Taipei")
   )</code></li>
@@ -311,34 +339,34 @@
 <h4 id="task-41">Task 4.1 — 建立案場設定檔</h4>
 <ul>
 <li><strong>檔案:</strong> <code>config/site_templates.yaml</code> [NEW]</li>
-<li><strong>內容範例:</strong>
-  ```yaml
-  default:
-    encoding: auto          # auto | utf-8 | cp950 | utf-16
-    delimiter: ","
-    header_keywords: ["Date", "Time", "日期", "時間"]
-    null_values: ["", "NA", "null", "---", "Error", "N/A", "OFF"]
+<li><strong>內容範例:</strong><br />
+  ```yaml<br />
+  default:<br />
+    encoding: auto          # auto | utf-8 | cp950 | utf-16<br />
+    delimiter: ","<br />
+    header_keywords: ["Date", "Time", "日期", "時間"]<br />
+    null_values: ["", "NA", "null", "---", "Error", "N/A", "OFF"]<br />
     timezone: "Asia/Taipei"</li>
 </ul>
-<p>cgmh_ty:
-    inherit: default
+<p>cgmh_ty:<br />
+    inherit: default<br />
     header_prefix: "&lt;&gt;"     # 特殊前綴 "&lt;&gt;Date"</p>
-<p>farglory_o3:
-    inherit: default
+<p>farglory_o3:<br />
+    inherit: default<br />
     # 待分析後填入特殊規則</p>
-<p>kmuh:
-    inherit: default
-    # 待分析後填入特殊規則
-  <code>``
+<p>kmuh:<br />
+    inherit: default<br />
+    # 待分析後填入特殊規則<br />
+<code>``
 - **驗收:** YAML 檔案可被</code>parser.py` 正確讀取</p>
 <h4 id="task-42-reportparser">Task 4.2 — 整合設定檔至 ReportParser</h4>
 <ul>
 <li><strong>檔案:</strong> <code>src/etl/parser.py</code></li>
-<li><strong>邏輯:</strong></li>
-<li><code>ReportParser.__init__()</code> 增加 <code>site_id</code> 參數 (預設 <code>'default'</code>)</li>
-<li>讀取 <code>config/site_templates.yaml</code>，載入對應的解析規則</li>
-<li>各方法（編碼偵測、標頭搜尋、null 值定義）改為從設定檔取值</li>
-<li><code>inherit</code> 關鍵字支援繼承預設值</li>
+<li><strong>邏輯:</strong><br />
+  1. <code>ReportParser.__init__()</code> 增加 <code>site_id</code> 參數 (預設 <code>'default'</code>)<br />
+  2. 讀取 <code>config/site_templates.yaml</code>，載入對應的解析規則<br />
+  3. 各方法（編碼偵測、標頭搜尋、null 值定義）改為從設定檔取值<br />
+  4. <code>inherit</code> 關鍵字支援繼承預設值</li>
 <li><strong>向後相容:</strong> 不傳 <code>site_id</code> 時行為與原本一致</li>
 <li><strong>驗收:</strong> <code>ReportParser(site_id='cgmh_ty')</code> 可正確套用案場專屬規則</li>
 </ul>
@@ -347,15 +375,15 @@
 <h4 id="task-51">Task 5.1 — 更新壓力測試</h4>
 <ul>
 <li><strong>檔案:</strong> <code>tests/stress_test_parser.py</code></li>
-<li><strong>改動:</strong></li>
-<li>增加 UTF-8 BOM 編碼測試案例</li>
-<li>增加 UTF-16 編碼測試案例</li>
-<li>增加「混合行結尾」測試案例</li>
-<li>增加「全空值欄位」測試案例</li>
-<li>增加「中文標頭」測試案例</li>
-<li>增加「髒資料 (---/N/A/帶單位)」測試案例</li>
-<li>增加「分隔符不一致 (Tab vs Comma)」測試案例</li>
-<li>修改預期結果（Missing Header 應拋出例外而非靜默）</li>
+<li><strong>改動:</strong><br />
+  1. 增加 UTF-8 BOM 編碼測試案例<br />
+  2. 增加 UTF-16 編碼測試案例<br />
+  3. 增加「混合行結尾」測試案例<br />
+  4. 增加「全空值欄位」測試案例<br />
+  5. 增加「中文標頭」測試案例<br />
+  6. 增加「髒資料 (---/N/A/帶單位)」測試案例<br />
+  7. 增加「分隔符不一致 (Tab vs Comma)」測試案例<br />
+  8. 修改預期結果（Missing Header 應拋出例外而非靜默）</li>
 <li><strong>驗收:</strong> 全部 12+ 個壓力測試案例通過</li>
 </ul>
 <h4 id="task-52">Task 5.2 — 回歸測試</h4>
@@ -380,7 +408,7 @@
     T5_1 --&gt; T5_2[&quot;Task 5.2&lt;br/&gt;回歸測試&quot;]
 </code></pre>
 <blockquote>
-<p>[!IMPORTANT]
+<p>[!IMPORTANT]<br />
 每完成一個 Task 後，應立即執行 <code>python -m pytest tests/test_etl.py -v</code> 確保不破壞現有功能。</p>
 </blockquote>
 <hr />
@@ -482,6 +510,5 @@
 </tr>
 </tbody>
 </table>
-    </div>
 </body>
 </html>

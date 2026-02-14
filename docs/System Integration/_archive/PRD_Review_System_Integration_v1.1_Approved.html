@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_Review_System_Integration_v1.1_Approved</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="system-integration-prd-v11-revised">System Integration PRD (v1.1-REVISED) 審查通過報告</h1>
+<p><strong>審查對象</strong>: <code>docs/System Integration/PRD_System_Integration_v1.1.md</code><br />
+<strong>審查結果</strong>: <strong>✅ 審查通過 (Approved)</strong><br />
+<strong>文件版本</strong>: v1.1-REVISED<br />
+<strong>日期</strong>: 2026-02-13</p>
+<hr />
+<h2 id="1-fix-verification">1. 修正確認 (Fix Verification)</h2>
+<p>經過詳細比對，您提交的修訂版已完整解決了上一輪審查中指出的所有風險點：</p>
+<h3 id="1-cleaner-cleaner-responsibility">✅ 1. Cleaner 職責邊界 (Cleaner Responsibility)</h3>
+<ul>
+<li><strong>修正驗證</strong>: <code>ETLContainer.get_cleaner()</code> 現在注入的是 <code>FeatureAnnotationManager</code> 的引用，且明確註釋「不寫入 DataFrame metadata」。</li>
+<li><strong>影響</strong>: 成功解耦了 Cleaner 與 Feature Annotation 的儲存層，Cleaner 僅在 Runtime 讀取 <code>device_role</code> 來調整清洗邏輯（如放寬備用設備的凍結檢測），保持了 Cleaner 的純粹性。</li>
+</ul>
+<h3 id="2-inheritance-implementation">✅ 2. 繼承架構實作 (Inheritance Implementation)</h3>
+<ul>
+<li><strong>修正驗證</strong>: <code>FeatureAnnotationManager</code> 新增了 <code>_load_with_inheritance()</code> 與 <code>_deep_merge()</code> 方法。</li>
+<li><strong>邏輯確認</strong>:<ul>
+<li><strong>遞迴載入</strong>: 正確處理 <code>inherit: base</code>。</li>
+<li><strong>深度合併</strong>: 子設定 (Site) 正確覆蓋 父設定 (Base)。</li>
+<li><strong>循環防護</strong>: 加入了 <code>visited</code> 集合來檢測並拋出 <code>E407</code> 循環繼承錯誤。</li>
+<li><strong>繼承鏈</strong>: 新增 <code>inheritance_chain</code> 屬性，方便 CLI 顯示與除錯。</li>
+</ul>
+</li>
+</ul>
+<h3 id="3-default-value-trap">✅ 3. 預設值陷阱 (Default Value Trap)</h3>
+<ul>
+<li><strong>修正驗證</strong>: <code>CleanerConfig</code> 移除了危險的 <code>default_device_role = "primary"</code>。</li>
+<li><strong>新增機制</strong>: 加入了 <code>unannotated_column_policy</code> ("error"/"skip"/"warn")，讓未定義欄位的處理更加顯性且安全。</li>
+</ul>
+<hr />
+<h2 id="2-next-steps">2. 建議下一步 (Next Steps)</h2>
+<p>由於 PRD 已相當完善，建議直接進入開發階段。請依據 PRD 第 9 章的執行順序進行：</p>
+<ol>
+<li><strong>Phase 1 (SSOT 基礎)</strong>: 優先實作 <code>ConfigLoader</code> 與 <code>FeatureAnnotationManager</code> 的繼承邏輯，這是地基。</li>
+<li><strong>Phase 2 (Cleaner)</strong>: 修改 Cleaner 以支援新的 <code>AnnotationManager</code> 注入方式。</li>
+<li><strong>Phase 5 (CLI)</strong>: 盡快提供 <code>features wizard</code> 與 <code>check-sync</code> 工具，讓團隊能開始建立正確的 Excel 標註檔。</li>
+</ol>
+<p>這份文件現在可以作為開發的 Single Source of Truth。</p>
+</body>
+</html>

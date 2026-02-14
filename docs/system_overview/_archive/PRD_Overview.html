@@ -1,119 +1,121 @@
-
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PRD_Overview</title>
-    
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_Overview</title>
+
 <style>
-    body { 
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
-        line-height: 1.6; 
-        max-width: 900px; 
-        margin: 0 auto; 
-        padding: 40px 20px; 
-        color: #24292e; 
-        background-color: #ffffff;
-    }
-    h1, h2, h3, h4, h5, h6 { 
-        margin-top: 24px; 
-        margin-bottom: 16px; 
-        font-weight: 600; 
-        color: #24292e;
-    }
-    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-    h3 { font-size: 1.25em; }
-    p { margin-top: 0; margin-bottom: 16px; }
-    a { color: #0366d6; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    table { 
-        display: block; 
-        width: 100%; 
-        overflow: auto; 
-        border-spacing: 0; 
-        border-collapse: collapse; 
-        margin-bottom: 16px; 
-    }
-    table th, table td { 
-        padding: 6px 13px; 
-        border: 1px solid #dfe2e5; 
-    }
-    table th { 
-        font-weight: 600; 
-        background-color: #f6f8fa; 
-    }
-    table tr:nth-child(2n) { 
-        background-color: #f6f8fa; 
-    }
-    code { 
-        font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; 
-        background-color: #f6f8fa; 
-        padding: 0.2em 0.4em; 
-        border-radius: 3px; 
-        font-size: 85%; 
-    }
-    pre { 
-        background-color: #f6f8fa; 
-        padding: 16px; 
-        overflow: auto; 
-        border-radius: 3px; 
-        line-height: 1.45; 
-    }
-    pre code { 
-        background-color: transparent; 
-        padding: 0; 
-        border-radius: 0; 
-    }
-    blockquote { 
-        border-left: 0.25em solid #dfe2e5; 
-        color: #6a737d; 
-        padding: 0 1em; 
-        margin: 0 0 16px 0; 
-    }
-    hr {
-        height: 0.25em;
-        padding: 0;
-        margin: 24px 0;
-        background-color: #e1e4e8;
-        border: 0;
-    }
-    .mermaid {
-        display: flex;
-        justify-content: center;
-        margin: 20px 0;
-    }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
 </style>
 
 </head>
 <body>
-    <h1 id="prd-prd-system-overview">PRD 系統總覽與導讀 (PRD System Overview)</h1>
+<h1 id="prd-prd-system-overview">PRD 系統總覽與導讀 (PRD System Overview)</h1>
 <p>本文件旨在為開發者提供與專案 PRD 相關的導航地圖，說明各模組的功能、相依性以及執行順序。</p>
 <h2 id="1">1. 系統架構與相依關係圖</h2>
 <p>整個系統由底層往上層構建，呈現嚴格的單向依賴：</p>
-<div class="codehilite"><pre><span></span><code><span class="n">graph</span><span class="w"> </span><span class="n">TD</span>
-<span class="w">    </span><span class="n">A</span><span class="p">[</span><span class="n">Feature</span><span class="w"> </span><span class="n">Annotation</span><span class="w"> </span><span class="n">V1</span><span class="mf">.2</span><span class="o">&lt;</span><span class="n">br</span><span class="o">/&gt;</span><span class="p">(</span><span class="n">Excel</span><span class="o">/</span><span class="n">YAML</span><span class="w"> </span><span class="n">SSOT</span><span class="p">)]</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">提供</span><span class="w"> </span><span class="n">Schema</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">物理限制</span><span class="o">|</span><span class="w"> </span><span class="n">C</span><span class="p">[</span><span class="n">Cleaner</span><span class="w"> </span><span class="n">V2</span><span class="mf">.2</span><span class="p">]</span>
-<span class="w">    </span><span class="n">Z</span><span class="p">[</span><span class="n">Raw</span><span class="w"> </span><span class="n">Files</span><span class="p">]</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">解析</span><span class="o">|</span><span class="w"> </span><span class="n">B</span><span class="p">[</span><span class="n">Parser</span><span class="w"> </span><span class="n">V2</span><span class="mf">.1</span><span class="p">]</span>
-<span class="w">    </span><span class="n">B</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">UTC</span><span class="w"> </span><span class="n">DataFrame</span><span class="o">|</span><span class="w"> </span><span class="n">C</span>
-<span class="w">    </span><span class="n">C</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">Cleaned</span><span class="w"> </span><span class="n">DataFrame</span><span class="o">|</span><span class="w"> </span><span class="n">D</span><span class="p">[</span><span class="n">Batch</span><span class="w"> </span><span class="n">Processor</span><span class="w"> </span><span class="n">V1</span><span class="mf">.3</span><span class="p">]</span>
-<span class="w">    </span><span class="n">D</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">Manifest</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">Parquet</span><span class="o">|</span><span class="w"> </span><span class="n">E</span><span class="p">[</span><span class="n">Feature</span><span class="w"> </span><span class="n">Engineer</span><span class="w"> </span><span class="n">V1</span><span class="mf">.3</span><span class="p">]</span>
-<span class="w">    </span><span class="n">A</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">提供</span><span class="w"> </span><span class="n">device_role</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">規則</span><span class="o">|</span><span class="w"> </span><span class="n">E</span>
-<span class="w">    </span><span class="n">E</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">Feature</span><span class="w"> </span><span class="n">Matrix</span><span class="o">|</span><span class="w"> </span><span class="n">F</span><span class="p">[</span><span class="n">Model</span><span class="w"> </span><span class="n">Training</span><span class="w"> </span><span class="n">V1</span><span class="mf">.2</span><span class="p">]</span>
-<span class="w">    </span><span class="n">F</span><span class="w"> </span><span class="o">&lt;--&gt;|</span><span class="n">一致性驗證</span><span class="o">|</span><span class="w"> </span><span class="n">G</span><span class="p">[</span><span class="n">Hybrid</span><span class="w"> </span><span class="n">Consistency</span><span class="w"> </span><span class="n">V1</span><span class="mf">.0</span><span class="p">]</span>
-<span class="w">    </span><span class="n">F</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">Model</span><span class="w"> </span><span class="n">Registry</span><span class="o">|</span><span class="w"> </span><span class="n">H</span><span class="p">[</span><span class="n">Optimization</span><span class="w"> </span><span class="n">Engine</span><span class="w"> </span><span class="n">V1</span><span class="mf">.1</span><span class="p">]</span>
-<span class="w">    </span><span class="n">A</span><span class="w"> </span><span class="o">--&gt;|</span><span class="n">提供限制條件</span><span class="o">|</span><span class="w"> </span><span class="n">H</span>
+<pre><code class="language-mermaid">graph TD
+    A[Feature Annotation V1.2&lt;br/&gt;(Excel/YAML SSOT)] --&gt;|提供 Schema &amp; 物理限制| C[Cleaner V2.2]
+    Z[Raw Files] --&gt;|解析| B[Parser V2.1]
+    B --&gt;|UTC DataFrame| C
+    C --&gt;|Cleaned DataFrame| D[Batch Processor V1.3]
+    D --&gt;|Manifest + Parquet| E[Feature Engineer V1.3]
+    A --&gt;|提供 device_role &amp; 規則| E
+    E --&gt;|Feature Matrix| F[Model Training V1.2]
+    F &lt;--&gt;|一致性驗證| G[Hybrid Consistency V1.0]
+    F --&gt;|Model Registry| H[Optimization Engine V1.1]
+    A --&gt;|提供限制條件| H
 
-<span class="w">    </span><span class="n">style</span><span class="w"> </span><span class="n">A</span><span class="w"> </span><span class="n">fill</span><span class="o">:</span><span class="err">#</span><span class="n">f9f</span><span class="p">,</span><span class="n">stroke</span><span class="o">:</span><span class="err">#</span><span class="mi">333</span><span class="p">,</span><span class="n">stroke</span><span class="o">-</span><span class="n">width</span><span class="o">:</span><span class="mi">4</span><span class="n">px</span>
-<span class="w">    </span><span class="n">style</span><span class="w"> </span><span class="n">B</span><span class="w"> </span><span class="n">fill</span><span class="o">:</span><span class="err">#</span><span class="n">eef</span><span class="p">,</span><span class="n">stroke</span><span class="o">:</span><span class="err">#</span><span class="mi">333</span><span class="p">,</span><span class="n">stroke</span><span class="o">-</span><span class="n">width</span><span class="o">:</span><span class="mi">2</span><span class="n">px</span>
-<span class="w">    </span><span class="n">style</span><span class="w"> </span><span class="n">C</span><span class="w"> </span><span class="n">fill</span><span class="o">:</span><span class="err">#</span><span class="n">bbf</span><span class="p">,</span><span class="n">stroke</span><span class="o">:</span><span class="err">#</span><span class="mi">333</span><span class="p">,</span><span class="n">stroke</span><span class="o">-</span><span class="n">width</span><span class="o">:</span><span class="mi">2</span><span class="n">px</span>
-<span class="w">    </span><span class="n">style</span><span class="w"> </span><span class="n">D</span><span class="w"> </span><span class="n">fill</span><span class="o">:</span><span class="err">#</span><span class="n">ddf</span><span class="p">,</span><span class="n">stroke</span><span class="o">:</span><span class="err">#</span><span class="mi">333</span><span class="p">,</span><span class="n">stroke</span><span class="o">-</span><span class="n">width</span><span class="o">:</span><span class="mi">2</span><span class="n">px</span>
-<span class="w">    </span><span class="n">style</span><span class="w"> </span><span class="n">E</span><span class="w"> </span><span class="n">fill</span><span class="o">:</span><span class="err">#</span><span class="n">bfb</span><span class="p">,</span><span class="n">stroke</span><span class="o">:</span><span class="err">#</span><span class="mi">333</span><span class="p">,</span><span class="n">stroke</span><span class="o">-</span><span class="n">width</span><span class="o">:</span><span class="mi">2</span><span class="n">px</span>
-<span class="w">    </span><span class="n">style</span><span class="w"> </span><span class="n">F</span><span class="w"> </span><span class="n">fill</span><span class="o">:</span><span class="err">#</span><span class="n">fbb</span><span class="p">,</span><span class="n">stroke</span><span class="o">:</span><span class="err">#</span><span class="mi">333</span><span class="p">,</span><span class="n">stroke</span><span class="o">-</span><span class="n">width</span><span class="o">:</span><span class="mi">2</span><span class="n">px</span>
-<span class="w">    </span><span class="n">style</span><span class="w"> </span><span class="n">G</span><span class="w"> </span><span class="n">fill</span><span class="o">:</span><span class="err">#</span><span class="n">fdd</span><span class="p">,</span><span class="n">stroke</span><span class="o">:</span><span class="err">#</span><span class="mi">333</span><span class="p">,</span><span class="n">stroke</span><span class="o">-</span><span class="n">width</span><span class="o">:</span><span class="mi">2</span><span class="n">px</span>
-<span class="w">    </span><span class="n">style</span><span class="w"> </span><span class="n">H</span><span class="w"> </span><span class="n">fill</span><span class="o">:</span><span class="err">#</span><span class="n">eef</span><span class="p">,</span><span class="n">stroke</span><span class="o">:</span><span class="err">#</span><span class="mi">333</span><span class="p">,</span><span class="n">stroke</span><span class="o">-</span><span class="n">width</span><span class="o">:</span><span class="mi">2</span><span class="n">px</span>
-</code></pre></div>
-
+    style A fill:#f9f,stroke:#333,stroke-width:4px
+    style B fill:#eef,stroke:#333,stroke-width:2px
+    style C fill:#bbf,stroke:#333,stroke-width:2px
+    style D fill:#ddf,stroke:#333,stroke-width:2px
+    style E fill:#bfb,stroke:#333,stroke-width:2px
+    style F fill:#fbb,stroke:#333,stroke-width:2px
+    style G fill:#fdd,stroke:#333,stroke-width:2px
+    style H fill:#eef,stroke:#333,stroke-width:2px
+</code></pre>
 <h2 id="2-prd">2. 各 PRD 功能詳解</h2>
 <h3 id="21-feature-annotation-specification-v12">2.1 [基礎設施] Feature Annotation Specification (V1.2)</h3>
 <ul>
@@ -177,11 +179,5 @@
 <li><strong>Model Training</strong>: 訓練模型。</li>
 <li><strong>Optimization Engine</strong>: 實現業務價值。</li>
 </ol>
-    
-<script type="module">
-    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-    mermaid.initialize({ startOnLoad: true });
-</script>
-
 </body>
 </html>

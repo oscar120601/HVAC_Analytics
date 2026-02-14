@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>project_review_report_v1.0</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="project-structure-optimization-review-report-v10">Project Structure &amp; Optimization Review Report v1.0</h1>
+<p><strong>日期:</strong> 2026-02-13<br />
+<strong>審閱對象:</strong> HVAC-1 Project Structure vs Updated PRDs (v1.2/v2.1)</p>
+<hr />
+<h2 id="1-executive-summary">1. 執行總結 (Executive Summary)</h2>
+<p>經過與最新 PRD 文檔（特別是 <code>PRD_System_Integration_v1.2.md</code> 與 <code>PRD_INTERFACE_CONTRACT_v1.0.md</code>）的比對，專案目前處於 <strong>「架構轉型中」 (Transition Phase)</strong> 的狀態。</p>
+<ul>
+<li>
+<p><strong>✅ 已符合項目</strong>:</p>
+<ul>
+<li><code>src/</code> 目錄結構已建立（區分 <code>etl</code>, <code>optimization</code>, <code>models</code>, <code>config</code>）。</li>
+<li><code>interface.py</code> 與 <code>schemas.py</code> 已存在，符合重構建議書的 Facade 設計。</li>
+<li>文檔庫 (<code>docs/</code>) 已全面更新並具備 HTML 版本，舊檔已歸檔至 <code>_archive</code>。</li>
+</ul>
+</li>
+<li>
+<p><strong>❌ 關鍵缺失 (Critical Gaps)</strong>:</p>
+<ul>
+<li><strong>系統整合核心缺失</strong>: <code>PRD_System_Integration_v1.2.md</code> 定義的 <strong>DI Container (<code>container.py</code>)</strong>、<strong>Pipeline Context (<code>context.py</code>)</strong> 與 <strong>Feature Annotation Manager</strong> 尚未實作。</li>
+<li><strong>ETL 模組缺漏</strong>: <code>src/etl/</code> 缺少 <code>feature_engineer.py</code>，且現有的 <code>parser.py</code>/<code>cleaner.py</code> 尚未升級至支援新的 Error Code (E1xx/E2xx) 與時間基準機制。</li>
+<li><strong>配置管理</strong>: <code>src/utils/config_loader.py</code> 缺失，且 <code>config/</code> 目錄尚未建立 <code>sites/</code> 子目錄來存放 YAML SSOT。</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2 id="2">2. 詳細差異分析</h2>
+<h3 id="21-vs-prd-system-integration-v12">2.1 程式碼結構 vs PRD System Integration v1.2</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">模組</th>
+<th style="text-align: left;">預期檔案 (PRD v1.2)</th>
+<th style="text-align: left;">實際狀態</th>
+<th style="text-align: center;">嚴重性</th>
+<th style="text-align: left;">說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Core</strong></td>
+<td style="text-align: left;"><code>src/container.py</code></td>
+<td style="text-align: left;">🔴 <strong>Missing</strong></td>
+<td style="text-align: center;">High</td>
+<td style="text-align: left;">缺乏依賴注入容器，無法管控初始化順序</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Core</strong></td>
+<td style="text-align: left;"><code>src/context.py</code></td>
+<td style="text-align: left;">🔴 <strong>Missing</strong></td>
+<td style="text-align: center;">High</td>
+<td style="text-align: left;">缺乏全域時間基準 <code>PipelineContext</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Config</strong></td>
+<td style="text-align: left;"><code>src/utils/config_loader.py</code></td>
+<td style="text-align: left;">🔴 <strong>Missing</strong></td>
+<td style="text-align: center;">High</td>
+<td style="text-align: left;">無法載入新的 YAML 配置與 Annotation</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Features</strong></td>
+<td style="text-align: left;"><code>src/features/annotation_manager.py</code></td>
+<td style="text-align: left;">🔴 <strong>Missing</strong></td>
+<td style="text-align: center;">High</td>
+<td style="text-align: left;">缺乏 Excel/YAML 同步與繼承邏輯</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>ETL</strong></td>
+<td style="text-align: left;"><code>src/etl/feature_engineer.py</code></td>
+<td style="text-align: left;">🔴 <strong>Missing</strong></td>
+<td style="text-align: center;">High</td>
+<td style="text-align: left;">特徵工程模組未整合至 ETL 流程</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Config</strong></td>
+<td style="text-align: left;"><code>config/features/sites/*.yaml</code></td>
+<td style="text-align: left;">🔴 <strong>Missing</strong></td>
+<td style="text-align: center;">Med</td>
+<td style="text-align: left;">尚未從 Excel 生成 YAML SSOT</td>
+</tr>
+</tbody>
+</table>
+<h3 id="22-review_restructuring_proposalmd">2.2 重構建議書 (<code>review_restructuring_proposal.md</code>) 審閱</h3>
+<p>您的同事提出的重構建議書 <strong>方向正確</strong>，但對照最新的 PRD v1.2 需求，有以下優化建議：</p>
+<ol>
+<li><strong>Interface 層級不足</strong>: 建議書僅提到 <code>interface.py</code>，但在 v1.2 設計中，<strong><code>ETLContainer</code></strong> 才是真正的系統入口與組裝者。<code>interface.py</code> 應作為對外部（如 API 或 CLI）的 Facade，內部呼叫 <code>ETLContainer</code>。</li>
+<li><strong>忽略了時間一致性</strong>: 建議書未提及「時間基準 (Temporal Baseline)」問題，這是 v1.2 解決 Data Leakage 的核心機制 (<code>PipelineContext</code>)。</li>
+<li><strong>配置管理過於簡化</strong>: 建議書建議將配置改為 YAML，但未考慮到 HVAC 案場的「特徵標註 (Feature Annotation)」複雜度（Excel -&gt; YAML 機制）。</li>
+</ol>
+<hr />
+<h2 id="3-documentation-status">3. 文檔庫狀態 (Documentation Status)</h2>
+<p>所有 PRD 文檔已完成更新與歸檔：</p>
+<ul>
+<li><strong>最新版本</strong>: 存放於各子目錄根目錄 (如 <code>docs/parser/PRD_Parser_V2.1.md</code>)。</li>
+<li><strong>HTML 版本</strong>: 已全數生成，方便非技術人員閱讀。</li>
+<li><strong>舊版歸檔</strong>: 所有 v1.0/v1.1 或 Review 報告已移至對應的 <code>_archive</code> 子目錄。</li>
+</ul>
+<hr />
+<h2 id="4-action-plan">4. 下一步行動建議 (Action Plan)</h2>
+<p>建議立即啟動 <strong>Phase 2: Code Implementation</strong>，按以下順序補齊缺失：</p>
+<ol>
+<li>
+<p><strong>基礎建設 (Infrastructure)</strong>:</p>
+<ul>
+<li>實作 <code>src/context.py</code> (PipelineContext)</li>
+<li>實作 <code>src/utils/config_loader.py</code></li>
+<li>實作 <code>src/container.py</code> (ETLContainer - 這是系統的心臟)</li>
+</ul>
+</li>
+<li>
+<p><strong>特徵管理 (Feature Management)</strong>:</p>
+<ul>
+<li>建立 <code>src/features/</code> 目錄</li>
+<li>實作 <code>annotation_manager.py</code></li>
+<li>執行 <code>excel_to_yaml</code> 轉換，產出首版 <code>config/features/sites/*.yaml</code></li>
+</ul>
+</li>
+<li>
+<p><strong>ETL 模組升級</strong>:</p>
+<ul>
+<li>重構 <code>src/etl/parser.py</code> (對接 E1xx 錯誤碼)</li>
+<li>重構 <code>src/etl/cleaner.py</code> (對接 E2xx 錯誤碼 &amp; Context)</li>
+<li>新增 <code>src/etl/feature_engineer.py</code></li>
+</ul>
+</li>
+</ol>
+<p>此順序確保了「依賴先行」(Dependencies First)，避免後續整合時發生重寫。</p>
+</body>
+</html>

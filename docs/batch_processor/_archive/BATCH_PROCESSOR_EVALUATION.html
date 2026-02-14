@@ -1,71 +1,100 @@
-
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Batch Processor Technical Evaluation</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            background-color: #f8f9fa;
-        }
-        .container {
-            background-color: #fff;
-            padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        h1, h2, h3 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-        h2 { margin-top: 2em; }
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 20px 0;
-        }
-        th, td {
-            border: 1px solid #dfe2e5;
-            padding: 12px;
-            text-align: left;
-        }
-        th { background-color: #f6f8fa; font-weight: bold; }
-        tr:nth-child(even) { background-color: #fdfdfd; }
-        code {
-            background-color: #f3f3f3;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 85%;
-        }
-        pre {
-            background-color: #f6f8fa;
-            padding: 16px;
-            overflow: auto;
-            border-radius: 6px;
-        }
-        blockquote {
-            margin: 0;
-            padding: 0 1em;
-            color: #6a737d;
-            border-left: 0.25em solid #dfe2e5;
-        }
-        .risk-critical {
-            color: #d73a49;
-            font-weight: bold;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BATCH_PROCESSOR_EVALUATION</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
 </head>
 <body>
-    <div class="container">
-        <h1 id="batchprocessor">BatchProcessor 技術評估與風險報告</h1>
-<p><strong>評估對象:</strong> <code>src/etl/batch_processor.py</code>
-<strong>評估日期:</strong> 2026-02-12
-<strong>評估人員:</strong> Antigravity (AI Architect)
+<h1 id="batchprocessor">BatchProcessor 技術評估與風險報告</h1>
+<p><strong>評估對象:</strong> <code>src/etl/batch_processor.py</code><br />
+<strong>評估日期:</strong> 2026-02-12<br />
+<strong>評估人員:</strong> Antigravity (AI Architect)<br />
 <strong>嚴重性等級:</strong> 🔴 Critical (需立即修正)</p>
 <hr />
 <h2 id="1-executive-summary">1. 執行摘要 (Executive Summary)</h2>
@@ -141,11 +170,11 @@ merged_df = merged_df.with_columns(pl.col(col).cast(pl.Float64, strict=False))
     W
     end
 </code></pre>
-<p><strong>協作細節:</strong>
-1.  <strong>Parser</strong>: 負責將原始 CSV 的雜亂格式（Metadata/Header 分離）轉為標準 Polars DataFrame。
-2.  <strong>Cleaner</strong>: 接收 Raw DataFrame，執行物理檢查、重採樣，並附加上 <code>quality_flags</code>。
-3.  <strong>BatchProcessor</strong>: 
-    - <strong>不應該做資料處理</strong>（不管是 Schema 正規化還是型別強制）。
+<p><strong>協作細節:</strong><br />
+1.  <strong>Parser</strong>: 負責將原始 CSV 的雜亂格式（Metadata/Header 分離）轉為標準 Polars DataFrame。<br />
+2.  <strong>Cleaner</strong>: 接收 Raw DataFrame，執行物理檢查、重採樣，並附加上 <code>quality_flags</code>。<br />
+3.  <strong>BatchProcessor</strong>: <br />
+    - <strong>不應該做資料處理</strong>（不管是 Schema 正規化還是型別強制）。<br />
     - 它的職責應該只是 <strong>Orchestrator (指揮官)</strong>：由它讀取檔案列表，依序呼叫 Parser -&gt; Cleaner，然後將結果<strong>落地</strong>。</p>
 <h2 id="4">4. 具體建議行動</h2>
 <ol>
@@ -155,6 +184,5 @@ merged_df = merged_df.with_columns(pl.col(col).cast(pl.Float64, strict=False))
 </ol>
 <hr />
 <p><strong>結論</strong>: 這支程式目前是專案中的「短板 (Singleton Point of Failure)」。若不重寫，您的 Cleaner v2.1 功能將完全無法發揮。</p>
-    </div>
 </body>
 </html>

@@ -1,94 +1,97 @@
-
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PRD_FEATURE_ENGINEER_V1.3</title>
-    
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_FEATURE_ENGINEER_V1.3</title>
+
 <style>
-    body { 
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
-        line-height: 1.6; 
-        max-width: 900px; 
-        margin: 0 auto; 
-        padding: 40px 20px; 
-        color: #24292e; 
-        background-color: #ffffff;
-    }
-    h1, h2, h3, h4, h5, h6 { 
-        margin-top: 24px; 
-        margin-bottom: 16px; 
-        font-weight: 600; 
-        color: #24292e;
-    }
-    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-    h3 { font-size: 1.25em; }
-    p { margin-top: 0; margin-bottom: 16px; }
-    a { color: #0366d6; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    table { 
-        display: block; 
-        width: 100%; 
-        overflow: auto; 
-        border-spacing: 0; 
-        border-collapse: collapse; 
-        margin-bottom: 16px; 
-    }
-    table th, table td { 
-        padding: 6px 13px; 
-        border: 1px solid #dfe2e5; 
-    }
-    table th { 
-        font-weight: 600; 
-        background-color: #f6f8fa; 
-    }
-    table tr:nth-child(2n) { 
-        background-color: #f6f8fa; 
-    }
-    code { 
-        font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; 
-        background-color: #f6f8fa; 
-        padding: 0.2em 0.4em; 
-        border-radius: 3px; 
-        font-size: 85%; 
-    }
-    pre { 
-        background-color: #f6f8fa; 
-        padding: 16px; 
-        overflow: auto; 
-        border-radius: 3px; 
-        line-height: 1.45; 
-    }
-    pre code { 
-        background-color: transparent; 
-        padding: 0; 
-        border-radius: 0; 
-    }
-    blockquote { 
-        border-left: 0.25em solid #dfe2e5; 
-        color: #6a737d; 
-        padding: 0 1em; 
-        margin: 0 0 16px 0; 
-    }
-    hr {
-        height: 0.25em;
-        padding: 0;
-        margin: 24px 0;
-        background-color: #e1e4e8;
-        border: 0;
-    }
-    .mermaid {
-        display: flex;
-        justify-content: center;
-        margin: 20px 0;
-    }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
 </style>
 
 </head>
 <body>
-    <h1 id="prd-v13-feature-engineering-implementation-guide">PRD v1.3: 特徵工程強健性實作指南 (Feature Engineering Implementation Guide)</h1>
+<h1 id="prd-v13-feature-engineering-implementation-guide">PRD v1.3: 特徵工程強健性實作指南 (Feature Engineering Implementation Guide)</h1>
 <h1 id="feature-annotation-v12metadata-group-policy">整合 Feature Annotation v1.2：Metadata 消費與 Group Policy 重構</h1>
 <p><strong>文件版本:</strong> v1.3-FA (Feature Annotation Consumption &amp; Device Role Awareness)<br />
 <strong>日期:</strong> 2026-02-13<br />
@@ -158,9 +161,9 @@
 <h3 id="12">1.2 核心設計原則</h3>
 <ol>
 <li><strong>SSOT 嚴格遵守</strong>: 所有 quality flags 操作引用 <code>VALID_QUALITY_FLAGS</code>；所有 physical_type 與 device_role 決策引用 FeatureAnnotationManager</li>
-<li><strong>Metadata 分層消費</strong>:</li>
-<li><strong>物理屬性</strong> (physical_type, unit)：從 BatchProcessor Manifest 的 <code>feature_metadata</code> 讀取</li>
-<li><strong>設備角色</strong> (device_role, ignore_warnings)：直接查詢 FeatureAnnotationManager (YAML SSOT)</li>
+<li><strong>Metadata 分層消費</strong>:<br />
+   - <strong>物理屬性</strong> (physical_type, unit)：從 BatchProcessor Manifest 的 <code>feature_metadata</code> 讀取<br />
+   - <strong>設備角色</strong> (device_role, ignore_warnings)：直接查詢 FeatureAnnotationManager (YAML SSOT)</li>
 <li><strong>職責分離尊重</strong>: 不期待 Cleaner/BatchProcessor 傳遞 device_role，主動從 Annotation 層查詢</li>
 <li><strong>Group Policy 語意感知</strong>: 根據 device_role (primary/backup/seasonal) 調整統計特徵生成策略（如備用設備使用不同窗口）</li>
 <li><strong>繼承鏈相容</strong>: 正確處理 <code>inheritance_chain</code>，支援 base → site 的設定覆蓋</li>
@@ -169,41 +172,40 @@
 <h2 id="2-interface-contracts">2. 介面契約規範 (Interface Contracts)</h2>
 <h3 id="21-input-contract-from-batchprocessor-v13-fa">2.1 輸入契約 (Input Contract from BatchProcessor v1.3-FA)</h3>
 <p><strong>檢查點 #3: BatchProcessor → Feature Engineer</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># 標準讀取範例 (必須實作)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">load_from_batch_processor</span><span class="p">(</span><span class="n">manifest_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">pl</span><span class="o">.</span><span class="n">LazyFrame</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Returns:</span>
-<span class="sd">        df: LazyFrame (Parquet 資料，INT64/UTC 驗證通過，不含 device_role)</span>
-<span class="sd">        feature_metadata: Dict (column_name -&gt; physical_type/unit，不含 device_role)</span>
-<span class="sd">        annotation_audit_trail: Dict (schema_version, inheritance_chain, yaml_checksum)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">manifest</span> <span class="o">=</span> <span class="n">Manifest</span><span class="o">.</span><span class="n">parse_file</span><span class="p">(</span><span class="n">manifest_path</span><span class="p">)</span>
+<pre><code class="language-python"># 標準讀取範例 (必須實作)
+def load_from_batch_processor(manifest_path: Path) -&gt; Tuple[pl.LazyFrame, Dict, Dict]:
+    &quot;&quot;&quot;
+    Returns:
+        df: LazyFrame (Parquet 資料，INT64/UTC 驗證通過，不含 device_role)
+        feature_metadata: Dict (column_name -&gt; physical_type/unit，不含 device_role)
+        annotation_audit_trail: Dict (schema_version, inheritance_chain, yaml_checksum)
+    &quot;&quot;&quot;
+    manifest = Manifest.parse_file(manifest_path)
 
-    <span class="c1"># 1. 驗證 Manifest 完整性 (E301)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">manifest</span><span class="o">.</span><span class="n">validate_checksum</span><span class="p">():</span>
-        <span class="k">raise</span> <span class="n">ContractViolationError</span><span class="p">(</span><span class="s2">&quot;E301: Manifest 損毀&quot;</span><span class="p">)</span>
+    # 1. 驗證 Manifest 完整性 (E301)
+    if not manifest.validate_checksum():
+        raise ContractViolationError(&quot;E301: Manifest 損毀&quot;)
 
-    <span class="c1"># 2. 【新增】驗證 Annotation 稽核軌跡 (E400)</span>
-    <span class="n">audit</span> <span class="o">=</span> <span class="n">manifest</span><span class="o">.</span><span class="n">annotation_audit_trail</span>
-    <span class="k">if</span> <span class="n">audit</span><span class="p">:</span>
-        <span class="n">expected_ver</span> <span class="o">=</span> <span class="n">FEATURE_ANNOTATION_CONSTANTS</span><span class="p">[</span><span class="s1">&#39;expected_schema_version&#39;</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">audit</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;schema_version&#39;</span><span class="p">)</span> <span class="o">!=</span> <span class="n">expected_ver</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;E400: Manifest 的 Annotation 版本過舊 &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">audit</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;schema_version&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2"> vs </span><span class="si">{</span><span class="n">expected_ver</span><span class="si">}</span><span class="s2">)&quot;</span>
-            <span class="p">)</span>
+    # 2. 【新增】驗證 Annotation 稽核軌跡 (E400)
+    audit = manifest.annotation_audit_trail
+    if audit:
+        expected_ver = FEATURE_ANNOTATION_CONSTANTS['expected_schema_version']
+        if audit.get('schema_version') != expected_ver:
+            raise ConfigurationError(
+                f&quot;E400: Manifest 的 Annotation 版本過舊 &quot;
+                f&quot;({audit.get('schema_version')} vs {expected_ver})&quot;
+            )
 
-    <span class="c1"># 3. 讀取資料與 Metadata</span>
-    <span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="n">manifest_path</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">manifest</span><span class="o">.</span><span class="n">output_files</span><span class="p">]</span>
-    <span class="n">df</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">scan_parquet</span><span class="p">(</span><span class="n">files</span><span class="p">)</span>
+    # 3. 讀取資料與 Metadata
+    files = [manifest_path.parent / f for f in manifest.output_files]
+    df = pl.scan_parquet(files)
 
-    <span class="k">return</span> <span class="p">(</span>
-        <span class="n">df</span><span class="p">,</span> 
-        <span class="n">manifest</span><span class="o">.</span><span class="n">feature_metadata</span><span class="p">,</span>  <span class="c1"># 僅含物理屬性</span>
-        <span class="n">audit</span>  <span class="c1"># 稽核資訊</span>
-    <span class="p">)</span>
-</code></pre></div>
-
+    return (
+        df, 
+        manifest.feature_metadata,  # 僅含物理屬性
+        audit  # 稽核資訊
+    )
+</code></pre>
 <table>
 <thead>
 <tr>
@@ -254,452 +256,443 @@
 </table>
 <h3 id="22-annotation">2.2 Annotation 直接查詢契約</h3>
 <p><strong>Feature Engineer 直接實例化 FeatureAnnotationManager</strong>:</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># 在 FeatureEngineer.__init__ 或 transform 中</span>
-<span class="bp">self</span><span class="o">.</span><span class="n">annotation_manager</span> <span class="o">=</span> <span class="n">FeatureAnnotationManager</span><span class="p">(</span>
-    <span class="n">site_id</span><span class="o">=</span><span class="n">site_id</span><span class="p">,</span>
-    <span class="n">yaml_base_dir</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">feature_annotation</span><span class="o">.</span><span class="n">yaml_base_dir</span>
-<span class="p">)</span>
+<pre><code class="language-python"># 在 FeatureEngineer.__init__ 或 transform 中
+self.annotation_manager = FeatureAnnotationManager(
+    site_id=site_id,
+    yaml_base_dir=config.feature_annotation.yaml_base_dir
+)
 
-<span class="c1"># 查詢 device_role (因 Cleaner 未傳遞)</span>
-<span class="n">device_role</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation_manager</span><span class="o">.</span><span class="n">get_column_config</span><span class="p">(</span><span class="n">col</span><span class="p">)</span><span class="o">.</span><span class="n">device_role</span>
+# 查詢 device_role (因 Cleaner 未傳遞)
+device_role = self.annotation_manager.get_column_config(col).device_role
 
-<span class="c1"># 查詢是否抑制警告</span>
-<span class="n">should_ignore</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation_manager</span><span class="o">.</span><span class="n">should_ignore_warning</span><span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="s2">&quot;W403&quot;</span><span class="p">)</span>
-</code></pre></div>
-
+# 查詢是否抑制警告
+should_ignore = self.annotation_manager.should_ignore_warning(col, &quot;W403&quot;)
+</code></pre>
 <h3 id="23-output-contract-to-model-training">2.3 輸出契約 (Output Contract to Model Training)</h3>
 <p><strong>填補 GAP #5: Feature Engineer → Model Training</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FeatureEngineerOutputContract</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Feature Engineer v1.3-FA 輸出規範&quot;&quot;&quot;</span>
+<pre><code class="language-python">class FeatureEngineerOutputContract:
+    &quot;&quot;&quot;Feature Engineer v1.3-FA 輸出規範&quot;&quot;&quot;
 
-    <span class="c1"># 1. 特徵矩陣 (Parquet 格式)</span>
-    <span class="n">feature_matrix</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span>
+    # 1. 特徵矩陣 (Parquet 格式)
+    feature_matrix: pl.DataFrame
 
-    <span class="c1"># 2. 目標變數資訊</span>
-    <span class="n">target_variable</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
-    <span class="n">target_metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">FeatureMetadata</span><span class="p">]</span>
+    # 2. 目標變數資訊
+    target_variable: Optional[str]
+    target_metadata: Optional[FeatureMetadata]
 
-    <span class="c1"># 3. Quality Flag 特徵 (SSOT 同步)</span>
-    <span class="n">quality_flag_features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    # 3. Quality Flag 特徵 (SSOT 同步)
+    quality_flag_features: List[str]
 
-    <span class="c1"># 4. 【新增】Annotation 稽核資訊 (供 Training Pipeline 記錄)</span>
-    <span class="n">annotation_context</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;schema_version&quot;</span><span class="p">:</span> <span class="s2">&quot;1.2&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;inheritance_chain&quot;</span><span class="p">:</span> <span class="s2">&quot;base -&gt; cgmh_ty&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;yaml_checksum&quot;</span><span class="p">:</span> <span class="s2">&quot;sha256:...&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;group_policies_applied&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;chillers&quot;</span><span class="p">,</span> <span class="s2">&quot;towers&quot;</span><span class="p">]</span>
-    <span class="p">}</span>
+    # 4. 【新增】Annotation 稽核資訊 (供 Training Pipeline 記錄)
+    annotation_context: Dict = {
+        &quot;schema_version&quot;: &quot;1.2&quot;,
+        &quot;inheritance_chain&quot;: &quot;base -&gt; cgmh_ty&quot;,
+        &quot;yaml_checksum&quot;: &quot;sha256:...&quot;,
+        &quot;group_policies_applied&quot;: [&quot;chillers&quot;, &quot;towers&quot;]
+    }
 
-    <span class="c1"># 5. 防 Data Leakage 資訊</span>
-    <span class="n">train_test_split_info</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;temporal_cutoff&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span>
-        <span class="s2">&quot;strict_past_only&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-        <span class="s2">&quot;excluded_future_rows&quot;</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="p">}</span>
+    # 5. 防 Data Leakage 資訊
+    train_test_split_info: Dict = {
+        &quot;temporal_cutoff&quot;: datetime,
+        &quot;strict_past_only&quot;: True,
+        &quot;excluded_future_rows&quot;: int
+    }
 
-    <span class="c1"># 6. 特徵元資料 (供 Model 解釋性使用)</span>
-    <span class="n">feature_metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">FeatureMetadata</span><span class="p">]</span>
+    # 6. 特徵元資料 (供 Model 解釋性使用)
+    feature_metadata: Dict[str, FeatureMetadata]
 
-    <span class="c1"># 7. 版本追蹤</span>
-    <span class="n">feature_engineer_version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;1.3-FA&quot;</span>
-    <span class="n">upstream_manifest_id</span><span class="p">:</span> <span class="nb">str</span>
-</code></pre></div>
-
+    # 7. 版本追蹤
+    feature_engineer_version: str = &quot;1.3-FA&quot;
+    upstream_manifest_id: str
+</code></pre>
 <hr />
 <h2 id="3-phase-based-implementation">3. 分階段實作計畫 (Phase-Based Implementation)</h2>
 <h3 id="phase-0-annotation-manager-day-1">Phase 0: Annotation Manager 整合基礎建設 (Day 1, 新增)</h3>
 <h4 id="step-01-ssot-manager">Step 0.1: SSOT 嚴格引用與 Manager 注入</h4>
 <p><strong>檔案</strong>: <code>src/etl/feature_engineer.py</code> (頂部)</p>
 <p><strong>實作內容</strong>:</p>
-<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Final</span><span class="p">,</span> <span class="n">Tuple</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">polars</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pl</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
+<pre><code class="language-python">from typing import Dict, List, Optional, Union, Final, Tuple
+from datetime import datetime
+from pathlib import Path
+import polars as pl
+import numpy as np
+from pydantic import BaseModel
 
-<span class="c1"># 【關鍵】SSOT 嚴格引用</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">src.etl.config_models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">VALID_QUALITY_FLAGS</span><span class="p">,</span>      <span class="c1"># SSOT: 6個標準品質標記</span>
-    <span class="n">TIMESTAMP_CONFIG</span><span class="p">,</span>         <span class="c1"># SSOT: UTC, ns</span>
-    <span class="n">FeatureMetadata</span><span class="p">,</span>          <span class="c1"># SSOT: 欄位元資料 (物理屬性)</span>
-    <span class="n">FeatureEngineeringConfig</span><span class="p">,</span>
-    <span class="n">FEATURE_ANNOTATION_CONSTANTS</span>
-<span class="p">)</span>
+# 【關鍵】SSOT 嚴格引用
+from src.etl.config_models import (
+    VALID_QUALITY_FLAGS,      # SSOT: 6個標準品質標記
+    TIMESTAMP_CONFIG,         # SSOT: UTC, ns
+    FeatureMetadata,          # SSOT: 欄位元資料 (物理屬性)
+    FeatureEngineeringConfig,
+    FEATURE_ANNOTATION_CONSTANTS
+)
 
-<span class="c1"># 【新增】直接查詢 Annotation SSOT</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">src.features.annotation_manager</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeatureAnnotationManager</span><span class="p">,</span> <span class="n">ColumnAnnotation</span>
+# 【新增】直接查詢 Annotation SSOT
+from src.features.annotation_manager import FeatureAnnotationManager, ColumnAnnotation
 
-<span class="c1"># 錯誤代碼 (Interface Contract v1.0)</span>
-<span class="n">ERROR_CODES</span><span class="p">:</span> <span class="n">Final</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;E301&quot;</span><span class="p">:</span> <span class="s2">&quot;MANIFEST_INTEGRITY_FAILED&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;E302&quot;</span><span class="p">:</span> <span class="s2">&quot;SCHEMA_MISMATCH&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;E303&quot;</span><span class="p">:</span> <span class="s2">&quot;UNKNOWN_QUALITY_FLAG&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;E304&quot;</span><span class="p">:</span> <span class="s2">&quot;METADATA_MISSING&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;E305&quot;</span><span class="p">:</span> <span class="s2">&quot;DATA_LEAKAGE_DETECTED&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;E400&quot;</span><span class="p">:</span> <span class="s2">&quot;ANNOTATION_VERSION_MISMATCH&quot;</span><span class="p">,</span>  <span class="c1"># 【新增】</span>
-    <span class="s2">&quot;E402&quot;</span><span class="p">:</span> <span class="s2">&quot;ANNOTATION_NOT_FOUND&quot;</span><span class="p">,</span>         <span class="c1"># 【新增】</span>
-    <span class="s2">&quot;E500&quot;</span><span class="p">:</span> <span class="s2">&quot;DEVICE_ROLE_LEAKAGE&quot;</span>           <span class="c1"># 【新增】</span>
-<span class="p">}</span>
-</code></pre></div>
-
+# 錯誤代碼 (Interface Contract v1.0)
+ERROR_CODES: Final[Dict[str, str]] = {
+    &quot;E301&quot;: &quot;MANIFEST_INTEGRITY_FAILED&quot;,
+    &quot;E302&quot;: &quot;SCHEMA_MISMATCH&quot;,
+    &quot;E303&quot;: &quot;UNKNOWN_QUALITY_FLAG&quot;,
+    &quot;E304&quot;: &quot;METADATA_MISSING&quot;,
+    &quot;E305&quot;: &quot;DATA_LEAKAGE_DETECTED&quot;,
+    &quot;E400&quot;: &quot;ANNOTATION_VERSION_MISMATCH&quot;,  # 【新增】
+    &quot;E402&quot;: &quot;ANNOTATION_NOT_FOUND&quot;,         # 【新增】
+    &quot;E500&quot;: &quot;DEVICE_ROLE_LEAKAGE&quot;           # 【新增】
+}
+</code></pre>
 <h4 id="step-02-annotationmanager">Step 0.2: 建構子與 AnnotationManager 初始化</h4>
 <p><strong>檔案</strong>: <code>src/etl/feature_engineer.py</code> (<code>FeatureEngineer.__init__</code>)</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FeatureEngineer</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Feature Engineer v1.3-FA - 整合 Feature Annotation 消費</span>
+<pre><code class="language-python">class FeatureEngineer:
+    &quot;&quot;&quot;
+    Feature Engineer v1.3-FA - 整合 Feature Annotation 消費
 
-<span class="sd">    核心職責：</span>
-<span class="sd">    1. 從 Manifest 讀取物理屬性 (physical_type, unit)</span>
-<span class="sd">    2. 【新增】直接查詢 Annotation SSOT 取得 device_role 與 ignore_warnings</span>
-<span class="sd">    3. 應用語意感知的 Group Policy (根據 device_role 調整策略)</span>
-<span class="sd">    4. 確保不產生 Data Leakage</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+    核心職責：
+    1. 從 Manifest 讀取物理屬性 (physical_type, unit)
+    2. 【新增】直接查詢 Annotation SSOT 取得 device_role 與 ignore_warnings
+    3. 應用語意感知的 Group Policy (根據 device_role 調整策略)
+    4. 確保不產生 Data Leakage
+    &quot;&quot;&quot;
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> 
-        <span class="n">config</span><span class="p">:</span> <span class="n">FeatureEngineeringConfig</span><span class="p">,</span>
-        <span class="n">site_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">yaml_base_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;config/features/sites&quot;</span>  <span class="c1"># 【新增】Annotation 路徑</span>
-    <span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">site_id</span> <span class="o">=</span> <span class="n">site_id</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="s2">&quot;FeatureEngineer&quot;</span><span class="p">)</span>
+    def __init__(
+        self, 
+        config: FeatureEngineeringConfig,
+        site_id: str,
+        yaml_base_dir: str = &quot;config/features/sites&quot;  # 【新增】Annotation 路徑
+    ):
+        self.config = config
+        self.site_id = site_id
+        self.logger = get_logger(&quot;FeatureEngineer&quot;)
 
-        <span class="c1"># 【關鍵】直接初始化 AnnotationManager (職責分離：不依赖 Cleaner 傳遞)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">annotation_manager</span> <span class="o">=</span> <span class="n">FeatureAnnotationManager</span><span class="p">(</span>
-            <span class="n">site_id</span><span class="o">=</span><span class="n">site_id</span><span class="p">,</span>
-            <span class="n">yaml_base_dir</span><span class="o">=</span><span class="n">yaml_base_dir</span>
-        <span class="p">)</span>
+        # 【關鍵】直接初始化 AnnotationManager (職責分離：不依赖 Cleaner 傳遞)
+        self.annotation_manager = FeatureAnnotationManager(
+            site_id=site_id,
+            yaml_base_dir=yaml_base_dir
+        )
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;初始化 FeatureEngineer (Schema: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">annotation_manager</span><span class="o">.</span><span class="n">schema_version</span><span class="si">}</span><span class="s2">, &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;繼承鏈: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">annotation_manager</span><span class="o">.</span><span class="n">inheritance_chain</span><span class="si">}</span><span class="s2">)&quot;</span>
-        <span class="p">)</span>
+        self.logger.info(
+            f&quot;初始化 FeatureEngineer (Schema: {self.annotation_manager.schema_version}, &quot;
+            f&quot;繼承鏈: {self.annotation_manager.inheritance_chain})&quot;
+        )
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">validate_annotation_compatibility</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">audit_trail</span><span class="p">:</span> <span class="n">Dict</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        驗證 Annotation 版本相容性 (E400)</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">audit_trail</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Manifest 缺少 annotation_audit_trail&quot;</span><span class="p">)</span>
-            <span class="k">return</span>
+    def validate_annotation_compatibility(self, audit_trail: Dict):
+        &quot;&quot;&quot;
+        驗證 Annotation 版本相容性 (E400)
+        &quot;&quot;&quot;
+        if not audit_trail:
+            self.logger.warning(&quot;Manifest 缺少 annotation_audit_trail&quot;)
+            return
 
-        <span class="n">schema_ver</span> <span class="o">=</span> <span class="n">audit_trail</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;schema_version&#39;</span><span class="p">)</span>
-        <span class="n">expected</span> <span class="o">=</span> <span class="n">FEATURE_ANNOTATION_CONSTANTS</span><span class="p">[</span><span class="s1">&#39;expected_schema_version&#39;</span><span class="p">]</span>
+        schema_ver = audit_trail.get('schema_version')
+        expected = FEATURE_ANNOTATION_CONSTANTS['expected_schema_version']
 
-        <span class="k">if</span> <span class="n">schema_ver</span> <span class="o">!=</span> <span class="n">expected</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">ConfigurationError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;E400: Annotation Schema 版本不符。期望: </span><span class="si">{</span><span class="n">expected</span><span class="si">}</span><span class="s2">, 實際: </span><span class="si">{</span><span class="n">schema_ver</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span>
+        if schema_ver != expected:
+            raise ConfigurationError(
+                f&quot;E400: Annotation Schema 版本不符。期望: {expected}, 實際: {schema_ver}&quot;
+            )
 
-        <span class="c1"># 驗證繼承鏈一致性 (可選，用於除錯)</span>
-        <span class="n">manifest_chain</span> <span class="o">=</span> <span class="n">audit_trail</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;inheritance_chain&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
-        <span class="n">manager_chain</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation_manager</span><span class="o">.</span><span class="n">inheritance_chain</span>
-        <span class="k">if</span> <span class="n">manifest_chain</span> <span class="o">!=</span> <span class="n">manager_chain</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;繼承鏈不一致: Manifest=</span><span class="si">{</span><span class="n">manifest_chain</span><span class="si">}</span><span class="s2">, Manager=</span><span class="si">{</span><span class="n">manager_chain</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span>
-</code></pre></div>
-
+        # 驗證繼承鏈一致性 (可選，用於除錯)
+        manifest_chain = audit_trail.get('inheritance_chain', '')
+        manager_chain = self.annotation_manager.inheritance_chain
+        if manifest_chain != manager_chain:
+            self.logger.warning(
+                f&quot;繼承鏈不一致: Manifest={manifest_chain}, Manager={manager_chain}&quot;
+            )
+</code></pre>
 <hr />
 <h3 id="phase-1-manifest-day-1-2">Phase 1: 輸入驗證與 Manifest 讀取 (Day 1-2)</h3>
 <h4 id="step-11">Step 1.1: 讀取與驗證（更新版）</h4>
 <p><strong>方法</strong>: <code>load_from_manifest(manifest_path: Path) -&gt; Tuple[...]</code></p>
 <p><strong>詳細邏輯</strong>:</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load_from_manifest</span><span class="p">(</span>
-    <span class="bp">self</span><span class="p">,</span> 
-    <span class="n">manifest_path</span><span class="p">:</span> <span class="n">Path</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">pl</span><span class="o">.</span><span class="n">LazyFrame</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">FeatureMetadata</span><span class="p">],</span> <span class="n">Dict</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    從 BatchProcessor v1.3-FA Manifest 讀取資料與 Metadata</span>
+<pre><code class="language-python">def load_from_manifest(
+    self, 
+    manifest_path: Path
+) -&gt; Tuple[pl.LazyFrame, Dict[str, FeatureMetadata], Dict]:
+    &quot;&quot;&quot;
+    從 BatchProcessor v1.3-FA Manifest 讀取資料與 Metadata
 
-<span class="sd">    【關鍵】回傳 annotation_audit_trail 供後續驗證</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">src.etl.manifest</span><span class="w"> </span><span class="kn">import</span> <span class="n">Manifest</span>
+    【關鍵】回傳 annotation_audit_trail 供後續驗證
+    &quot;&quot;&quot;
+    from src.etl.manifest import Manifest
 
-    <span class="n">manifest</span> <span class="o">=</span> <span class="n">Manifest</span><span class="o">.</span><span class="n">parse_file</span><span class="p">(</span><span class="n">manifest_path</span><span class="p">)</span>
+    manifest = Manifest.parse_file(manifest_path)
 
-    <span class="c1"># 1. 驗證 Manifest 完整性 (E301)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">manifest</span><span class="o">.</span><span class="n">validate_checksum</span><span class="p">():</span>
-        <span class="k">raise</span> <span class="n">ContractViolationError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;E301: Manifest 完整性驗證失敗: </span><span class="si">{</span><span class="n">manifest_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    # 1. 驗證 Manifest 完整性 (E301)
+    if not manifest.validate_checksum():
+        raise ContractViolationError(f&quot;E301: Manifest 完整性驗證失敗: {manifest_path}&quot;)
 
-    <span class="c1"># 2. 驗證 Annotation 稽核軌跡 (E400)</span>
-    <span class="n">audit_trail</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">manifest</span><span class="p">,</span> <span class="s1">&#39;annotation_audit_trail&#39;</span><span class="p">,</span> <span class="p">{})</span>
-    <span class="k">if</span> <span class="n">audit_trail</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">validate_annotation_compatibility</span><span class="p">(</span><span class="n">audit_trail</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Manifest 缺少 annotation_audit_trail，跳過版本檢查&quot;</span><span class="p">)</span>
+    # 2. 驗證 Annotation 稽核軌跡 (E400)
+    audit_trail = getattr(manifest, 'annotation_audit_trail', {})
+    if audit_trail:
+        self.validate_annotation_compatibility(audit_trail)
+    else:
+        self.logger.warning(&quot;Manifest 缺少 annotation_audit_trail，跳過版本檢查&quot;)
 
-    <span class="c1"># 3. 驗證 SSOT 版本相容性 (quality_flags)</span>
-    <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">manifest</span><span class="o">.</span><span class="n">quality_flags_schema</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">set</span><span class="p">(</span><span class="n">VALID_QUALITY_FLAGS</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Manifest flags 版本與 SSOT 不同: &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;Manifest=</span><span class="si">{</span><span class="n">manifest</span><span class="o">.</span><span class="n">quality_flags_schema</span><span class="si">}</span><span class="s2">, SSOT=</span><span class="si">{</span><span class="n">VALID_QUALITY_FLAGS</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="p">)</span>
+    # 3. 驗證 SSOT 版本相容性 (quality_flags)
+    if set(manifest.quality_flags_schema) != set(VALID_QUALITY_FLAGS):
+        self.logger.warning(
+            f&quot;Manifest flags 版本與 SSOT 不同: &quot;
+            f&quot;Manifest={manifest.quality_flags_schema}, SSOT={VALID_QUALITY_FLAGS}&quot;
+        )
 
-    <span class="c1"># 4. 驗證 timestamp Schema (E302)</span>
-    <span class="n">ts_schema</span> <span class="o">=</span> <span class="n">manifest</span><span class="o">.</span><span class="n">timestamp_schema</span>
-    <span class="k">if</span> <span class="n">ts_schema</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;format&quot;</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">&quot;INT64&quot;</span> <span class="ow">or</span> <span class="n">ts_schema</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;timezone&quot;</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">&quot;UTC&quot;</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">ContractViolationError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;E302: Timestamp schema 不符: </span><span class="si">{</span><span class="n">ts_schema</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    # 4. 驗證 timestamp Schema (E302)
+    ts_schema = manifest.timestamp_schema
+    if ts_schema.get(&quot;format&quot;) != &quot;INT64&quot; or ts_schema.get(&quot;timezone&quot;) != &quot;UTC&quot;:
+        raise ContractViolationError(f&quot;E302: Timestamp schema 不符: {ts_schema}&quot;)
 
-    <span class="c1"># 5. 讀取 Parquet</span>
-    <span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="n">manifest_path</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">manifest</span><span class="o">.</span><span class="n">output_files</span><span class="p">]</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">files</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">DataValidationError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Manifest 未包含輸出檔案: </span><span class="si">{</span><span class="n">manifest_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    # 5. 讀取 Parquet
+    files = [manifest_path.parent / f for f in manifest.output_files]
+    if not files:
+        raise DataValidationError(f&quot;Manifest 未包含輸出檔案: {manifest_path}&quot;)
 
-    <span class="n">df</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">scan_parquet</span><span class="p">(</span><span class="n">files</span><span class="p">)</span>
+    df = pl.scan_parquet(files)
 
-    <span class="c1"># 6. 【關鍵】驗證 DataFrame 不含 device_role (E500)</span>
-    <span class="k">if</span> <span class="s2">&quot;device_role&quot;</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">ContractViolationError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;E500: DataFrame 包含禁止欄位 &#39;device_role&#39;。 &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;Cleaner 不應傳遞 device_role，Feature Engineer 應直接查詢 Annotation。&quot;</span>
-        <span class="p">)</span>
+    # 6. 【關鍵】驗證 DataFrame 不含 device_role (E500)
+    if &quot;device_role&quot; in df.columns:
+        raise ContractViolationError(
+            f&quot;E500: DataFrame 包含禁止欄位 'device_role'。 &quot;
+            f&quot;Cleaner 不應傳遞 device_role，Feature Engineer 應直接查詢 Annotation。&quot;
+        )
 
-    <span class="c1"># 7. 檢查 feature_metadata (E304)</span>
-    <span class="n">metadata</span> <span class="o">=</span> <span class="n">manifest</span><span class="o">.</span><span class="n">feature_metadata</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">metadata</span><span class="p">:</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">input_contract</span><span class="o">.</span><span class="n">enforce_manifest_metadata</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">ContractViolationError</span><span class="p">(</span><span class="s2">&quot;E304: Manifest 缺少 feature_metadata&quot;</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;E304: 使用保守預設&quot;</span><span class="p">)</span>
-            <span class="n">metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_infer_metadata_conservative</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+    # 7. 檢查 feature_metadata (E304)
+    metadata = manifest.feature_metadata
+    if not metadata:
+        if self.config.input_contract.enforce_manifest_metadata:
+            raise ContractViolationError(&quot;E304: Manifest 缺少 feature_metadata&quot;)
+        else:
+            self.logger.warning(&quot;E304: 使用保守預設&quot;)
+            metadata = self._infer_metadata_conservative(df)
 
-    <span class="k">return</span> <span class="n">df</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">audit_trail</span>
-</code></pre></div>
-
+    return df, metadata, audit_trail
+</code></pre>
 <hr />
 <h3 id="phase-2-ssot-flags-day-2">Phase 2: SSOT 合規的 Flags 處理 (Day 2)</h3>
 <h4 id="step-21-quality-flags-ssot">Step 2.1: Quality Flags 處理（SSOT 引用）</h4>
 <p><strong>方法</strong>: <code>_handle_quality_flags(df: pl.DataFrame) -&gt; pl.DataFrame</code></p>
 <p><strong>詳細邏輯</strong>:</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_handle_quality_flags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    處理 Quality Flags (SSOT 合規版本)</span>
+<pre><code class="language-python">def _handle_quality_flags(self, df: pl.DataFrame) -&gt; pl.DataFrame:
+    &quot;&quot;&quot;
+    處理 Quality Flags (SSOT 合規版本)
 
-<span class="sd">    【關鍵】引用 VALID_QUALITY_FLAGS，無硬編碼</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">strategy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">input_contract</span><span class="o">.</span><span class="n">quality_flags_handling</span>
+    【關鍵】引用 VALID_QUALITY_FLAGS，無硬編碼
+    &quot;&quot;&quot;
+    strategy = self.config.input_contract.quality_flags_handling
 
-    <span class="k">if</span> <span class="n">strategy</span> <span class="o">==</span> <span class="s2">&quot;drop&quot;</span><span class="p">:</span>
-        <span class="n">has_flags</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;quality_flags&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">list</span><span class="o">.</span><span class="n">len</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span>
-        <span class="k">return</span> <span class="n">df</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="o">~</span><span class="n">has_flags</span><span class="p">)</span>
+    if strategy == &quot;drop&quot;:
+        has_flags = pl.col(&quot;quality_flags&quot;).list.len() &gt; 0
+        return df.filter(~has_flags)
 
-    <span class="k">elif</span> <span class="n">strategy</span> <span class="o">==</span> <span class="s2">&quot;onehot&quot;</span><span class="p">:</span>
-        <span class="c1"># 【SSOT 引用】動態獲取所有合法 flags</span>
-        <span class="n">all_flags</span> <span class="o">=</span> <span class="n">VALID_QUALITY_FLAGS</span>  <span class="c1"># ✅ 正確: 引用 SSOT</span>
+    elif strategy == &quot;onehot&quot;:
+        # 【SSOT 引用】動態獲取所有合法 flags
+        all_flags = VALID_QUALITY_FLAGS  # ✅ 正確: 引用 SSOT
 
-        <span class="n">generated_flags</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">flag</span> <span class="ow">in</span> <span class="n">all_flags</span><span class="p">:</span>
-            <span class="n">col_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;is_</span><span class="si">{</span><span class="n">flag</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">_flag&quot;</span>
-            <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span>
-                <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;quality_flags&quot;</span><span class="p">)</span>
-                <span class="o">.</span><span class="n">list</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">flag</span><span class="p">)</span>
-                <span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="n">col_name</span><span class="p">)</span>
-            <span class="p">)</span>
-            <span class="n">generated_flags</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">col_name</span><span class="p">)</span>
+        generated_flags = []
+        for flag in all_flags:
+            col_name = f&quot;is_{flag.lower()}_flag&quot;
+            df = df.with_columns(
+                pl.col(&quot;quality_flags&quot;)
+                .list.contains(flag)
+                .alias(col_name)
+            )
+            generated_flags.append(col_name)
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">quality_flag_features</span> <span class="o">=</span> <span class="n">generated_flags</span>
-        <span class="k">return</span> <span class="n">df</span>
+        self.quality_flag_features = generated_flags
+        return df
 
-    <span class="k">return</span> <span class="n">df</span>
-</code></pre></div>
-
+    return df
+</code></pre>
 <hr />
 <h3 id="phase-3-group-policy-day-3-4">Phase 3: 語意感知 Group Policy (Day 3-4, 核心更新)</h3>
 <h4 id="step-31-group-policy-annotation-ssot">Step 3.1: Group Policy 解析（使用 Annotation SSOT）</h4>
 <p><strong>方法</strong>: <code>_resolve_group_policies(metadata: Dict) -&gt; Dict[str, StatsRule]</code></p>
 <p><strong>詳細邏輯</strong>:</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_resolve_group_policies</span><span class="p">(</span>
-    <span class="bp">self</span><span class="p">,</span> 
-    <span class="n">manifest_metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">FeatureMetadata</span><span class="p">]</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">StatsRule</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    解析 Group Policies，使用 Annotation SSOT (physical_type + device_role)</span>
+<pre><code class="language-python">def _resolve_group_policies(
+    self, 
+    manifest_metadata: Dict[str, FeatureMetadata]
+) -&gt; Dict[str, StatsRule]:
+    &quot;&quot;&quot;
+    解析 Group Policies，使用 Annotation SSOT (physical_type + device_role)
 
-<span class="sd">    【關鍵修正】v1.2 僅使用 physical_type；v1.3-FA 增加 device_role 感知</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">resolved</span> <span class="o">=</span> <span class="p">{}</span>
+    【關鍵修正】v1.2 僅使用 physical_type；v1.3-FA 增加 device_role 感知
+    &quot;&quot;&quot;
+    resolved = {}
 
-    <span class="k">for</span> <span class="n">policy</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">stats_features</span><span class="o">.</span><span class="n">group_policies</span><span class="p">:</span>
-        <span class="n">target_cols</span> <span class="o">=</span> <span class="p">[]</span>
+    for policy in self.config.stats_features.group_policies:
+        target_cols = []
 
-        <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">meta</span> <span class="ow">in</span> <span class="n">manifest_metadata</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="c1"># 1. 匹配 physical_type (來自 Manifest)</span>
-            <span class="k">if</span> <span class="n">meta</span><span class="o">.</span><span class="n">physical_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">policy</span><span class="o">.</span><span class="n">apply_to_types</span><span class="p">:</span>
-                <span class="k">continue</span>
+        for col, meta in manifest_metadata.items():
+            # 1. 匹配 physical_type (來自 Manifest)
+            if meta.physical_type not in policy.apply_to_types:
+                continue
 
-            <span class="c1"># 2. 【新增】查詢 device_role (來自 AnnotationManager)</span>
-            <span class="n">col_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation_manager</span><span class="o">.</span><span class="n">get_column_config</span><span class="p">(</span><span class="n">col</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">col_config</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;欄位 </span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s2"> 在 Annotation 中未定義，跳過 Group Policy&quot;</span><span class="p">)</span>
-                <span class="k">continue</span>
+            # 2. 【新增】查詢 device_role (來自 AnnotationManager)
+            col_config = self.annotation_manager.get_column_config(col)
+            if not col_config:
+                self.logger.warning(f&quot;欄位 {col} 在 Annotation 中未定義，跳過 Group Policy&quot;)
+                continue
 
-            <span class="n">device_role</span> <span class="o">=</span> <span class="n">col_config</span><span class="o">.</span><span class="n">device_role</span>
+            device_role = col_config.device_role
 
-            <span class="c1"># 3. 【新增】根據 device_role 調整策略</span>
-            <span class="k">if</span> <span class="n">device_role</span> <span class="o">==</span> <span class="s2">&quot;backup&quot;</span> <span class="ow">and</span> <span class="n">policy</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;High_Freq&quot;</span><span class="p">:</span>
-                <span class="c1"># 備用設備不使用高頻採樣策略（可能長期停機）</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;欄位 </span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s2"> (backup) 跳過 High_Freq 策略&quot;</span><span class="p">)</span>
-                <span class="k">continue</span>
+            # 3. 【新增】根據 device_role 調整策略
+            if device_role == &quot;backup&quot; and policy.name == &quot;High_Freq&quot;:
+                # 備用設備不使用高頻採樣策略（可能長期停機）
+                self.logger.debug(f&quot;欄位 {col} (backup) 跳過 High_Freq 策略&quot;)
+                continue
 
-            <span class="k">if</span> <span class="n">device_role</span> <span class="o">==</span> <span class="s2">&quot;seasonal&quot;</span> <span class="ow">and</span> <span class="n">policy</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;Strict_Balance&quot;</span><span class="p">:</span>
-                <span class="c1"># 季節性設備放寬平衡檢查</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;欄位 </span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s2"> (seasonal) 放寬 Strict_Balance&quot;</span><span class="p">)</span>
+            if device_role == &quot;seasonal&quot; and policy.name == &quot;Strict_Balance&quot;:
+                # 季節性設備放寬平衡檢查
+                self.logger.debug(f&quot;欄位 {col} (seasonal) 放寬 Strict_Balance&quot;)
 
-            <span class="c1"># 4. 排除目標變數 (Data Leakage 防護)</span>
-            <span class="k">if</span> <span class="n">meta</span><span class="o">.</span><span class="n">is_target</span><span class="p">:</span>
-                <span class="k">continue</span>
+            # 4. 排除目標變數 (Data Leakage 防護)
+            if meta.is_target:
+                continue
 
-            <span class="n">target_cols</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">col</span><span class="p">)</span>
+            target_cols.append(col)
 
-        <span class="c1"># 5. 應用規則 (含繼承處理)</span>
-        <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">target_cols</span><span class="p">:</span>
-            <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">stats_features</span><span class="o">.</span><span class="n">column_overrides</span> <span class="ow">and</span> 
-                <span class="n">col</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">stats_features</span><span class="o">.</span><span class="n">column_overrides</span><span class="p">):</span>
-                <span class="n">resolved</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">stats_features</span><span class="o">.</span><span class="n">column_overrides</span><span class="p">[</span><span class="n">col</span><span class="p">]</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="c1"># 【新增】根據 device_role 調整窗口大小</span>
-                <span class="n">col_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation_manager</span><span class="o">.</span><span class="n">get_column_config</span><span class="p">(</span><span class="n">col</span><span class="p">)</span>
-                <span class="n">base_rule</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">rules</span>
+        # 5. 應用規則 (含繼承處理)
+        for col in target_cols:
+            if (self.config.stats_features.column_overrides and 
+                col in self.config.stats_features.column_overrides):
+                resolved[col] = self.config.stats_features.column_overrides[col]
+            else:
+                # 【新增】根據 device_role 調整窗口大小
+                col_config = self.annotation_manager.get_column_config(col)
+                base_rule = policy.rules
 
-                <span class="k">if</span> <span class="n">col_config</span> <span class="ow">and</span> <span class="n">col_config</span><span class="o">.</span><span class="n">device_role</span> <span class="o">==</span> <span class="s2">&quot;backup&quot;</span><span class="p">:</span>
-                    <span class="c1"># 備用設備使用較大窗口（平滑長期停機影響）</span>
-                    <span class="n">adjusted_rule</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_adjust_rule_for_backup</span><span class="p">(</span><span class="n">base_rule</span><span class="p">)</span>
-                    <span class="n">resolved</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">adjusted_rule</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">resolved</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">base_rule</span>
+                if col_config and col_config.device_role == &quot;backup&quot;:
+                    # 備用設備使用較大窗口（平滑長期停機影響）
+                    adjusted_rule = self._adjust_rule_for_backup(base_rule)
+                    resolved[col] = adjusted_rule
+                else:
+                    resolved[col] = base_rule
 
-    <span class="k">return</span> <span class="n">resolved</span>
+    return resolved
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_adjust_rule_for_backup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base_rule</span><span class="p">:</span> <span class="n">StatsRule</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StatsRule</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    為備用設備調整統計規則 (設備角色感知)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># 備用設備：增大 rolling window，減少 lag 數量</span>
-    <span class="n">adjusted</span> <span class="o">=</span> <span class="n">base_rule</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+def _adjust_rule_for_backup(self, base_rule: StatsRule) -&gt; StatsRule:
+    &quot;&quot;&quot;
+    為備用設備調整統計規則 (設備角色感知)
+    &quot;&quot;&quot;
+    # 備用設備：增大 rolling window，減少 lag 數量
+    adjusted = base_rule.copy()
 
-    <span class="k">if</span> <span class="n">adjusted</span><span class="o">.</span><span class="n">rolling_windows</span><span class="p">:</span>
-        <span class="c1"># 窗口增大 2 倍（但不超过 96）</span>
-        <span class="n">adjusted</span><span class="o">.</span><span class="n">rolling_windows</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="nb">min</span><span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">96</span><span class="p">)</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">adjusted</span><span class="o">.</span><span class="n">rolling_windows</span>
-        <span class="p">]</span>
+    if adjusted.rolling_windows:
+        # 窗口增大 2 倍（但不超过 96）
+        adjusted.rolling_windows = [
+            min(w * 2, 96) for w in adjusted.rolling_windows
+        ]
 
-    <span class="k">if</span> <span class="n">adjusted</span><span class="o">.</span><span class="n">lag_intervals</span><span class="p">:</span>
-        <span class="c1"># 只保留前 2 個 lag</span>
-        <span class="n">adjusted</span><span class="o">.</span><span class="n">lag_intervals</span> <span class="o">=</span> <span class="n">adjusted</span><span class="o">.</span><span class="n">lag_intervals</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+    if adjusted.lag_intervals:
+        # 只保留前 2 個 lag
+        adjusted.lag_intervals = adjusted.lag_intervals[:2]
 
-    <span class="k">return</span> <span class="n">adjusted</span>
-</code></pre></div>
-
+    return adjusted
+</code></pre>
 <h4 id="step-32-data-leakage">Step 3.2: 統計特徵生成（Data Leakage 防護 + 警告抑制）</h4>
 <p><strong>方法</strong>: <code>_generate_stats_features(df: pl.DataFrame, column_rules: Dict) -&gt; pl.DataFrame</code></p>
 <p><strong>詳細邏輯</strong>:</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_generate_stats_features</span><span class="p">(</span>
-    <span class="bp">self</span><span class="p">,</span> 
-    <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> 
-    <span class="n">column_rules</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">StatsRule</span><span class="p">]</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    生成統計特徵，支援 device_role 感知與 ignore_warnings</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">expressions</span> <span class="o">=</span> <span class="p">[]</span>
+<pre><code class="language-python">def _generate_stats_features(
+    self, 
+    df: pl.DataFrame, 
+    column_rules: Dict[str, StatsRule]
+) -&gt; pl.DataFrame:
+    &quot;&quot;&quot;
+    生成統計特徵，支援 device_role 感知與 ignore_warnings
+    &quot;&quot;&quot;
+    expressions = []
 
-    <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">rules</span> <span class="ow">in</span> <span class="n">column_rules</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="k">if</span> <span class="n">col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
-            <span class="k">continue</span>
+    for col, rules in column_rules.items():
+        if col not in df.columns:
+            continue
 
-        <span class="c1"># 【新增】查詢 ignore_warnings (來自 Annotation)</span>
-        <span class="n">col_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation_manager</span><span class="o">.</span><span class="n">get_column_config</span><span class="p">(</span><span class="n">col</span><span class="p">)</span>
-        <span class="n">ignore_warnings</span> <span class="o">=</span> <span class="n">col_config</span><span class="o">.</span><span class="n">ignore_warnings</span> <span class="k">if</span> <span class="n">col_config</span> <span class="k">else</span> <span class="p">[]</span>
+        # 【新增】查詢 ignore_warnings (來自 Annotation)
+        col_config = self.annotation_manager.get_column_config(col)
+        ignore_warnings = col_config.ignore_warnings if col_config else []
 
-        <span class="c1"># Lag 特徵 (Data Leakage 防護：shift)</span>
-        <span class="k">for</span> <span class="n">lag</span> <span class="ow">in</span> <span class="n">rules</span><span class="o">.</span><span class="n">lag_intervals</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">lag</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">:</span>
-                <span class="c1"># 【新增】檢查是否應忽略 W402 (窗口過大警告)</span>
-                <span class="k">if</span> <span class="s2">&quot;W402&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ignore_warnings</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;W402: 欄位 </span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s2"> lag </span><span class="si">{</span><span class="n">lag</span><span class="si">}</span><span class="s2"> 超過資料長度 50%&quot;</span><span class="p">)</span>
-                <span class="k">continue</span>
+        # Lag 特徵 (Data Leakage 防護：shift)
+        for lag in rules.lag_intervals:
+            if lag &gt; len(df) * 0.5:
+                # 【新增】檢查是否應忽略 W402 (窗口過大警告)
+                if &quot;W402&quot; not in ignore_warnings:
+                    self.logger.warning(f&quot;W402: 欄位 {col} lag {lag} 超過資料長度 50%&quot;)
+                continue
 
-            <span class="n">expressions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="n">col</span><span class="p">)</span><span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="n">lag</span><span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s2">_lag_</span><span class="si">{</span><span class="n">lag</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="p">)</span>
+            expressions.append(
+                pl.col(col).shift(lag).alias(f&quot;{col}_lag_{lag}&quot;)
+            )
 
-        <span class="c1"># Rolling 特徵 (嚴格 shift(1) 防護)</span>
-        <span class="k">for</span> <span class="n">window</span> <span class="ow">in</span> <span class="n">rules</span><span class="o">.</span><span class="n">rolling_windows</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">window</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">:</span>
-                <span class="k">if</span> <span class="s2">&quot;W402&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ignore_warnings</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;W402: 欄位 </span><span class="si">{</span><span class="n">col</span><span class="si">}</span><span class="s2"> window </span><span class="si">{</span><span class="n">window</span><span class="si">}</span><span class="s2"> 超過 50%&quot;</span><span class="p">)</span>
-                <span class="k">continue</span>
+        # Rolling 特徵 (嚴格 shift(1) 防護)
+        for window in rules.rolling_windows:
+            if window &gt; len(df) * 0.5:
+                if &quot;W402&quot; not in ignore_warnings:
+                    self.logger.warning(f&quot;W402: 欄位 {col} window {window} 超過 50%&quot;)
+                continue
 
-            <span class="c1"># 這裡省略具體 rolling 計算，與原邏輯相同</span>
-            <span class="c1"># ...</span>
+            # 這裡省略具體 rolling 計算，與原邏輯相同
+            # ...
 
-    <span class="k">return</span> <span class="n">df</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">expressions</span><span class="p">)</span> <span class="k">if</span> <span class="n">expressions</span> <span class="k">else</span> <span class="n">df</span>
-</code></pre></div>
-
+    return df.with_columns(expressions) if expressions else df
+</code></pre>
 <hr />
 <h3 id="phase-4-model-training-day-4-5">Phase 4: 輸出準備與 Model Training 銜接 (Day 4-5)</h3>
 <h4 id="step-41">Step 4.1: 輸出契約建構（更新版）</h4>
 <p><strong>方法</strong>: <code>_build_output_contract(...) -&gt; FeatureEngineerOutputContract</code></p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_build_output_contract</span><span class="p">(</span>
-    <span class="bp">self</span><span class="p">,</span> 
-    <span class="n">df</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> 
-    <span class="n">manifest</span><span class="p">:</span> <span class="n">Manifest</span><span class="p">,</span>
-    <span class="n">audit_trail</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
-    <span class="n">target_col</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FeatureEngineerOutputContract</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    建構輸出契約，包含 Annotation 上下文</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># 目標變數處理</span>
-    <span class="n">target_metadata</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">if</span> <span class="n">target_col</span> <span class="ow">and</span> <span class="n">target_col</span> <span class="ow">in</span> <span class="n">manifest</span><span class="o">.</span><span class="n">feature_metadata</span><span class="p">:</span>
-        <span class="n">target_metadata</span> <span class="o">=</span> <span class="n">manifest</span><span class="o">.</span><span class="n">feature_metadata</span><span class="p">[</span><span class="n">target_col</span><span class="p">]</span>
+<pre><code class="language-python">def _build_output_contract(
+    self, 
+    df: pl.DataFrame, 
+    manifest: Manifest,
+    audit_trail: Dict,
+    target_col: Optional[str] = None
+) -&gt; FeatureEngineerOutputContract:
+    &quot;&quot;&quot;
+    建構輸出契約，包含 Annotation 上下文
+    &quot;&quot;&quot;
+    # 目標變數處理
+    target_metadata = None
+    if target_col and target_col in manifest.feature_metadata:
+        target_metadata = manifest.feature_metadata[target_col]
 
-    <span class="c1"># 特徵元資料 (標記 derived)</span>
-    <span class="n">feature_metadata</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;timestamp&quot;</span><span class="p">,</span> <span class="n">target_col</span><span class="p">]:</span>
-            <span class="k">continue</span>
+    # 特徵元資料 (標記 derived)
+    feature_metadata = {}
+    for col in df.columns:
+        if col in [&quot;timestamp&quot;, target_col]:
+            continue
 
-        <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">manifest</span><span class="o">.</span><span class="n">feature_metadata</span><span class="p">:</span>
-            <span class="n">feature_metadata</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">manifest</span><span class="o">.</span><span class="n">feature_metadata</span><span class="p">[</span><span class="n">col</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">feature_metadata</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">FeatureMetadata</span><span class="p">(</span>
-                <span class="n">column_name</span><span class="o">=</span><span class="n">col</span><span class="p">,</span>
-                <span class="n">physical_type</span><span class="o">=</span><span class="s2">&quot;derived&quot;</span><span class="p">,</span>
-                <span class="n">is_target</span><span class="o">=</span><span class="kc">False</span>
-            <span class="p">)</span>
+        if col in manifest.feature_metadata:
+            feature_metadata[col] = manifest.feature_metadata[col]
+        else:
+            feature_metadata[col] = FeatureMetadata(
+                column_name=col,
+                physical_type=&quot;derived&quot;,
+                is_target=False
+            )
 
-    <span class="c1"># 【新增】Annotation 上下文 (供 Training Pipeline 記錄)</span>
-    <span class="n">annotation_context</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;schema_version&quot;</span><span class="p">:</span> <span class="n">audit_trail</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;schema_version&#39;</span><span class="p">,</span> <span class="s1">&#39;unknown&#39;</span><span class="p">),</span>
-        <span class="s2">&quot;inheritance_chain&quot;</span><span class="p">:</span> <span class="n">audit_trail</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;inheritance_chain&#39;</span><span class="p">,</span> <span class="s1">&#39;none&#39;</span><span class="p">),</span>
-        <span class="s2">&quot;yaml_checksum&quot;</span><span class="p">:</span> <span class="n">audit_trail</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;yaml_checksum&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">),</span>
-        <span class="s2">&quot;group_policies_applied&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">stats_features</span><span class="o">.</span><span class="n">group_policies</span>
-        <span class="p">],</span>
-        <span class="s2">&quot;device_role_aware&quot;</span><span class="p">:</span> <span class="kc">True</span>  <span class="c1"># 標記已應用設備角色感知</span>
-    <span class="p">}</span>
+    # 【新增】Annotation 上下文 (供 Training Pipeline 記錄)
+    annotation_context = {
+        &quot;schema_version&quot;: audit_trail.get('schema_version', 'unknown'),
+        &quot;inheritance_chain&quot;: audit_trail.get('inheritance_chain', 'none'),
+        &quot;yaml_checksum&quot;: audit_trail.get('yaml_checksum', ''),
+        &quot;group_policies_applied&quot;: [
+            p.name for p in self.config.stats_features.group_policies
+        ],
+        &quot;device_role_aware&quot;: True  # 標記已應用設備角色感知
+    }
 
-    <span class="k">return</span> <span class="n">FeatureEngineerOutputContract</span><span class="p">(</span>
-        <span class="n">feature_matrix</span><span class="o">=</span><span class="n">df</span><span class="p">,</span>
-        <span class="n">target_variable</span><span class="o">=</span><span class="n">target_col</span><span class="p">,</span>
-        <span class="n">target_metadata</span><span class="o">=</span><span class="n">target_metadata</span><span class="p">,</span>
-        <span class="n">quality_flag_features</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;quality_flag_features&#39;</span><span class="p">,</span> <span class="p">[]),</span>
-        <span class="n">annotation_context</span><span class="o">=</span><span class="n">annotation_context</span><span class="p">,</span>  <span class="c1"># 【新增】</span>
-        <span class="n">train_test_split_info</span><span class="o">=</span><span class="p">{</span>
-            <span class="s2">&quot;temporal_cutoff&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">cutoff_timestamp</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">cutoff_timestamp</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="s2">&quot;strict_past_only&quot;</span><span class="p">:</span> <span class="kc">True</span>
-        <span class="p">},</span>
-        <span class="n">feature_metadata</span><span class="o">=</span><span class="n">feature_metadata</span><span class="p">,</span>
-        <span class="n">upstream_manifest_id</span><span class="o">=</span><span class="n">manifest</span><span class="o">.</span><span class="n">batch_id</span><span class="p">,</span>
-        <span class="n">feature_engineer_version</span><span class="o">=</span><span class="s2">&quot;1.3-FA&quot;</span>
-    <span class="p">)</span>
-</code></pre></div>
-
+    return FeatureEngineerOutputContract(
+        feature_matrix=df,
+        target_variable=target_col,
+        target_metadata=target_metadata,
+        quality_flag_features=getattr(self, 'quality_flag_features', []),
+        annotation_context=annotation_context,  # 【新增】
+        train_test_split_info={
+            &quot;temporal_cutoff&quot;: self.config.cutoff_timestamp.isoformat() if self.config.cutoff_timestamp else None,
+            &quot;strict_past_only&quot;: True
+        },
+        feature_metadata=feature_metadata,
+        upstream_manifest_id=manifest.batch_id,
+        feature_engineer_version=&quot;1.3-FA&quot;
+    )
+</code></pre>
 <hr />
 <h2 id="4-error-codes">4. 錯誤代碼對照表 (Error Codes)</h2>
 <table>
@@ -981,13 +974,13 @@
 <li><code>src/etl/manifest.py</code> - 更新 Manifest 模型 (接收 annotation_audit_trail)</li>
 </ol>
 <h3 id="82">8.2 測試檔案</h3>
-<ol>
+<ol start="4">
 <li><code>tests/test_feature_engineer_v13_fa.py</code> - v1.3-FA 專屬測試 (device_role 感知)</li>
 <li><code>tests/test_group_policy_device_role.py</code> - Group Policy 設備角色測試</li>
 <li><code>tests/test_annotation_integration_fe.py</code> - 與 AnnotationManager 整合測試</li>
 </ol>
 <h3 id="83">8.3 文件檔案</h3>
-<ol>
+<ol start="7">
 <li><code>docs/feature_engineering/PRD_FEATURE_ENGINEER_v1.3-FA.md</code> - 本文件</li>
 <li><code>docs/feature_engineering/DEVICE_ROLE_GUIDE.md</code> - device_role 與 Group Policy 使用說明</li>
 </ol>
@@ -1010,16 +1003,10 @@
 <li>[ ] <strong>下游銜接</strong>: Model Training 可正確讀取輸出，包含設備角色資訊</li>
 </ul>
 <hr />
-<p><strong>關鍵設計確認</strong>：
-1. Feature Engineer <strong>主動查詢</strong> device_role (因 Cleaner 不傳遞)
-2. Group Policy 同時使用 <strong>physical_type</strong> (Manifest) 與 <strong>device_role</strong> (Annotation)
-3. <strong>ignore_warnings</strong> 直接查詢 Annotation，不經由 Manifest 傳遞
+<p><strong>關鍵設計確認</strong>：<br />
+1. Feature Engineer <strong>主動查詢</strong> device_role (因 Cleaner 不傳遞)<br />
+2. Group Policy 同時使用 <strong>physical_type</strong> (Manifest) 與 <strong>device_role</strong> (Annotation)<br />
+3. <strong>ignore_warnings</strong> 直接查詢 Annotation，不經由 Manifest 傳遞<br />
 4. <strong>繼承鏈</strong> 透過 AnnotationManager 處理，與 Manifest 的 audit_trail 交叉驗證</p>
-    
-<script type="module">
-    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-    mermaid.initialize({ startOnLoad: true });
-</script>
-
 </body>
 </html>

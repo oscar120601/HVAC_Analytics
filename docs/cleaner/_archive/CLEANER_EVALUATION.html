@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLEANER_EVALUATION</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="cleaner-refactoring-proposal">清洗器優化評估與重構建議 (Cleaner Refactoring Proposal)</h1>
+<p><strong>日期:</strong> 2026-02-12<br />
+<strong>目標模組:</strong> <a href="file:///d:/12.任務/HVAC-1/src/etl/cleaner.py">cleaner.py</a><br />
+<strong>文件狀態:</strong> 草案 (Draft)</p>
+<hr />
+<h2 id="1">1. 嚴謹性審查與問題分析</h2>
+<p>經過對 <code>DataCleaner</code> 程式碼的深度審查，目前實作存在多項<strong>架構性缺陷</strong>與<strong>邏輯漏洞</strong>，無法滿足生產環境與多案場擴展的需求。以下是關鍵問題分析：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">編號</th>
+<th style="text-align: center;">問題分類</th>
+<th style="text-align: left;">問題描述</th>
+<th style="text-align: center;">嚴重程度</th>
+<th style="text-align: left;">潛在後果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">C1</td>
+<td style="text-align: center;"><strong>單位依賴 (Unit Dependency)</strong></td>
+<td style="text-align: left;"><code>validate_heat_balance</code> 強制使用英制公式 <code>(GPM * dT) / 24</code>，完全未考慮公制單位 (LPM, °C)。</td>
+<td style="text-align: center;"><strong>Critical</strong></td>
+<td style="text-align: left;">非美規案場的熱平衡驗證將全數失敗或誤判。</td>
+</tr>
+<tr>
+<td style="text-align: center;">C2</td>
+<td style="text-align: center;"><strong>邏輯脆弱 (Fragile Logic)</strong></td>
+<td style="text-align: left;">重採樣 (Resampling) 的聚合邏輯依賴 <code>endswith("KWH")</code> 等硬編碼後綴。</td>
+<td style="text-align: center;"><strong>High</strong></td>
+<td style="text-align: left;">若欄位命名不符慣例 (如 <code>Power_Consumption</code>)，將錯誤地使用 <code>mean()</code> 導致計數器數據損毀。</td>
+</tr>
+<tr>
+<td style="text-align: center;">C3</td>
+<td style="text-align: center;"><strong>精度不足 (Low Accuracy)</strong></td>
+<td style="text-align: left;">濕球溫度計算使用 Magnus-Tetens 簡化近似公式，誤差隨極端條件放達。</td>
+<td style="text-align: center;"><strong>Medium</strong></td>
+<td style="text-align: left;">影響依賴焓值 (Enthalpy) 的精密節能計算準確度。</td>
+</tr>
+<tr>
+<td style="text-align: center;">C4</td>
+<td style="text-align: center;"><strong>循環論證 (Circular Logic)</strong></td>
+<td style="text-align: left;">親和律驗證 (Affinity Law) 以「當前資料集的流量/功率中位數」為基準。</td>
+<td style="text-align: center;"><strong>High</strong></td>
+<td style="text-align: left;">若整個資料集都是異常運轉數據 (如變頻器設定錯誤)，驗證機制將失效並「自我合理化」。</td>
+</tr>
+<tr>
+<td style="text-align: center;">C5</td>
+<td style="text-align: center;"><strong>缺乏配置 (Lack of Config)</strong></td>
+<td style="text-align: left;">COP 範圍、穩定態判定窗口、容許誤差等閾值皆為硬編碼預設值。</td>
+<td style="text-align: center;"><strong>Medium</strong></td>
+<td style="text-align: left;">無法針對不同冰機型號或案場特性進行微調。</td>
+</tr>
+<tr>
+<td style="text-align: center;">C6</td>
+<td style="text-align: center;"><strong>副作用 (Side Effects)</strong></td>
+<td style="text-align: left;"><code>detect_frozen_data</code> 等方法產生大量中間欄位 (<code>_frozen</code>, <code>_flag</code>) 污染 DataFrame。</td>
+<td style="text-align: center;"><strong>Low</strong></td>
+<td style="text-align: left;">增加記憶體消耗，混淆後續特徵選取。</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2-to-be-state">2. 重構目標 (To-Be State)</h2>
+<p>將 <code>DataCleaner</code> 轉型為<strong>單元感知 (Unit-Aware)</strong>、<strong>配置驅動 (Configuration-Driven)</strong> 且<strong>無狀態副作用</strong>的清洗引擎。</p>
+<h3 id="_1">核心原則</h3>
+<ol>
+<li><strong>顯式優於隱式</strong>：聚合規則與驗證邏輯應由配置檔定義，而非依賴欄位名稱猜測。</li>
+<li><strong>物理一致性</strong>：所有物理計算需先標準化單位 (SI制) 再執行。</li>
+<li><strong>可追溯性</strong>：清洗過程應產生詳細的品質報告 (Quality Report)，而非僅僅丟棄資料。</li>
+</ol>
+<hr />
+<h2 id="3">3. 分階段重構計畫</h2>
+<h3 id="phase-1-foundation">Phase 1: 基礎架構與配置化 (Foundation)</h3>
+<h4 id="task-11-schema">Task 1.1: 引入清洗配置 Schema</h4>
+<p>建立 <code>CleanerConfig</code> (Pydantic)，取代散落在 <code>__init__</code> 的參數：<br />
+- <strong>聚合規則</strong>: 定義哪些欄位用 <code>sum</code>, <code>max</code>, <code>last</code>, <code>mean</code>。<br />
+- <strong>物理參數</strong>: 定義該案場的單位系統 (Metric/Imperial)、冰機額定規格 (Design Capacity)。<br />
+- <strong>閾值設定</strong>: COP 合理範圍、穩定態判定標準 (ex: 5% / 15min)。</p>
+<h4 id="task-12">Task 1.2: 標準化重採樣引擎</h4>
+<p>重寫 <code>resample_to_intervals</code>，移除硬編碼的 <code>if/else</code> 判斷，改由配置檔驅動聚合策略。<br />
+- 若無配置，則僅對明確的數值型欄位做 <code>mean</code>，字串型做 <code>first</code>，避免對不明欄位胡亂運算。</p>
+<h3 id="phase-2-physics-validation">Phase 2: 物理邏輯增強 (Physics &amp; Validation)</h3>
+<h4 id="task-21">Task 2.1: 單元感知的熱平衡驗證</h4>
+<p>重構 <code>validate_heat_balance</code>：<br />
+- 支援單位輸入：<code>flow_unit</code> (LPM/GPM), <code>temp_unit</code> (C/F), <code>power_unit</code> (RT/kW)。<br />
+- 內部統一轉為 SI 單位計算：$Q = \dot{m} \cdot C_p \cdot \Delta T$。<br />
+- 引入水的比熱 ($C_p$) 修正因子 (依溫度變動)。</p>
+<h4 id="task-22">Task 2.2: 基準線驅動的親和律驗證</h4>
+<p>重構 <code>validate_affinity_laws</code>：<br />
+- <strong>移除中位數基準</strong>。<br />
+- 改為接受「額定工況點」(Design Point: $Hz_{ref}, kW_{ref}$) 作為基準。<br />
+- 驗證公式：$kW_{act} \approx kW_{ref} \cdot (\frac{Hz_{act}}{Hz_{ref}})^3$。</p>
+<h4 id="task-23">Task 2.3: 精密濕球溫度計算</h4>
+<ul>
+<li>引入 <code>psychrolib</code> 或實作 ASHRAE 標準公式，替換現有的簡化公式。</li>
+<li>增加輸入邊界檢查 (RH &gt; 100% 或 T &lt; -273°C 的異常處理)。</li>
+</ul>
+<h3 id="phase-3-data-governance">Phase 3: 資料品質治理 (Data Governance)</h3>
+<h4 id="task-31">Task 3.1: 無副作用的標記機制</h4>
+<ul>
+<li>清洗方法不再直接修改原始 DataFrame 增加垃圾欄位。</li>
+<li>改為回傳 <code>QualityReport</code> 物件或僅增加一個 <code>quality_flags</code> 結構化欄位 (Bitmask 或 List)，標記每一列的問題 (e.g., <code>["FROZEN", "UNBALANCED"]</code>)。</li>
+</ul>
+<h4 id="task-32">Task 3.2: 異常處理策略</h4>
+<ul>
+<li>實作策略模式：</li>
+<li><code>Strategy.DROP</code>: 直接丟棄 (現有邏輯)。</li>
+<li><code>Strategy.FLAG_ONLY</code>: 保留但標記 (適用於訓練資料不足時)。</li>
+<li><code>Strategy.IMPUTE</code>: 插補 (線性/前向填充)。</li>
+</ul>
+<hr />
+<h2 id="4-refactoring-preview">4. 程式碼示範 (Refactoring Preview)</h2>
+<p><strong>重構後的介面概念：</strong></p>
+<pre><code class="language-python">class CleanerConfig(BaseModel):
+    units: UnitSystem = UnitSystem.METRIC  # or IMPERIAL
+    aggregation_rules: Dict[str, str] = {
+        &quot;*_KWH&quot;: &quot;last&quot;,
+        &quot;*_STATUS&quot;: &quot;max&quot;,
+        &quot;default&quot;: &quot;mean&quot;
+    }
+    limits: OperationalLimits = OperationalLimits(cop_min=1.5, cop_max=10.0)
+
+class PhysicsCleaner:
+    def __init__(self, config: CleanerConfig):
+        self.config = config
+
+    def validate_heat_balance(self, df: pl.DataFrame) -&gt; pl.Series:
+        # 1. 自動轉換單位至 SI
+        # 2. 執行物理計算
+        # 3. 回傳 Boolean Series (Valid/Invalid)，不汙染原 DF
+        pass
+</code></pre>
+<h2 id="5">5. 建議行動</h2>
+<ol>
+<li><strong>批准此評估方向</strong>：確認是否同意針對上述 C1-C5 問題進行修復。</li>
+<li><strong>建立測試案例</strong>：在修改程式碼前，先建立一個包含「公制單位」與「異常親和律」的測試資料集，證明目前程式碼會失敗 (Test-Driven Fix)。</li>
+<li><strong>執行重構</strong>：優先處理 <strong>Phase 2 (物理邏輯)</strong>，解決最嚴重的單位錯誤問題。</li>
+</ol>
+</body>
+</html>

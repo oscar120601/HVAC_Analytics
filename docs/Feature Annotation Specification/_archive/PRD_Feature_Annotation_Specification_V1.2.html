@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_Feature_Annotation_Specification_V1.2</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="prd-v12-contract-aligned-feature-annotation-specification">PRD v1.2-Contract-Aligned: 特徵標註系統規範 (Feature Annotation Specification)</h1>
+<p><strong>文件版本:</strong> v1.2-Contract-Aligned (Interface Contract v1.1 Compliance &amp; Equipment Validation Integration)<br />
+<strong>日期:</strong> 2026-02-14<br />
+<strong>負責人:</strong> Oscar Chang<br />
+<strong>目標:</strong> 建立以 Excel 為唯一編輯入口的特徵定義系統，透過嚴格的單向流程避免競態條件，並提供完整的版本控制與遷移機制<br />
+<strong>相依模組:</strong> Cleaner v2.2+, BatchProcessor v1.3+, Feature Engineer v1.3+, Interface Contract v1.1+<br />
+<strong>預估工時:</strong> 6 ~ 7 個工程天（含 Wizard 重構、版本控制、遷移工具、API 實作）</p>
+<hr />
+<h2 id="1">1. 執行總綱與設計哲學</h2>
+<h3 id="11">1.1 核心目標與架構原則</h3>
+<ol>
+<li><strong>Excel 唯一編輯原則</strong>: Excel 檔案 (<code>.xlsx</code>) 是<strong>唯一</strong>允許人工編輯的介面，YAML 僅為機器讀取的 SSOT，禁止直接修改</li>
+<li><strong>單向同步流程</strong>: 所有變更必須遵循 <code>Excel → YAML → Git</code> 的單向路徑，禁止任何工具（包括 Wizard）直接寫入 YAML</li>
+<li><strong>靜態驗證策略</strong>: Excel 僅提供基礎格式與靜態選單，所有業務邏輯驗證（如單位相容性）移至 Python 轉換層執行</li>
+<li><strong>競態條件防護</strong>: 透過時間戳檢查與版本鎖定，防止 Excel 與 YAML 不同步導致的設定覆蓋</li>
+<li><strong>設備角色感知</strong>: 透過 <code>device_role</code> 標記區分主設備與備用設備，抑制備用設備的統計誤報</li>
+<li><strong>災難恢復就緒</strong>: 建立 Git 真相源與本地備份雙重防護，確保誤刪操作可回退</li>
+<li><strong>物理邏輯一致性</strong>: 定義設備限制條件於 Annotation SSOT，供 Cleaner 與 Optimization 共用（解耦防護）</li>
+</ol>
+<h3 id="12-sprint-1">1.2 實作優先順序聲明（Sprint 1 優先）</h3>
+<blockquote>
+<p>⚠️ <strong>基礎設施優先聲明（Foundation First Policy）</strong><br />
+根據專案執行評估報告（Project Execution Evaluation Report），本模組為 <strong>Sprint 1 優先實作項目（Foundation Sprint）</strong>。<br />
+在 <code>FeatureAnnotationManager</code> 與 <code>Wizard</code> 未就緒前，禁止開發 Cleaner v2.2 與 Feature Engineer v1.3 的業務邏輯，以避免 <strong>Dependency Deadlock</strong> 風險。<br />
+所有下游模組（Cleaner、Feature Engineer、BatchProcessor）必須透過本文件定義的 API 介面存取特徵標註，禁止 Hardcoded 邏輯。</p>
+</blockquote>
+<h3 id="13">1.3 嚴格流程架構（關鍵修正）</h3>
+<pre><code class="language-mermaid">graph TD
+    subgraph &quot;編輯層 (唯一入口)&quot;
+        A[Excel Template&lt;br/&gt;.xlsx] --&gt;|編輯| B[設備工程師&lt;br/&gt;空調技師]
+        C[Wizard CLI] --&gt;|生成/更新| A
+    end
+
+    subgraph &quot;驗證與轉換層&quot;
+        A --&gt;|手動觸發| D[excel_to_yaml.py]
+        D --&gt;|語意驗證| E{驗證通過?}
+        E --&gt;|否| F[返回 Excel 修正]
+        E --&gt;|是| G[生成 YAML&lt;br/&gt;config/features/]
+    end
+
+    subgraph &quot;真相源層 (SSOT)&quot;
+        G --&gt;|Git PR| H[Git Repository]
+        H --&gt;|CI/CD| I[Config Server&lt;br/&gt;唯讀部署]
+    end
+
+    subgraph &quot;運行時層 (Runtime)&quot;
+        I --&gt;|載入| J[FeatureAnnotationManager&lt;br/&gt;唯讀介面]
+        J --&gt;|查詢| K[Cleaner v2.2&lt;br/&gt;語意感知清洗]
+        J --&gt;|查詢| L[Feature Engineer v1.3&lt;br/&gt;特徵工程]
+        J --&gt;|查詢| M[Optimization v1.1&lt;br/&gt;設備限制約束]
+    end
+
+    subgraph &quot;災難恢復層&quot;
+        N[yaml_to_excel.py&lt;br/&gt;--mode recovery] --&gt;|Git 回退後重建| A
+        O[.backups/ 目錄] --&gt;|本地備份還原| A
+        P[git checkout] --&gt;|還原歷史版本| H
+    end
+
+    style A fill:#f9f,stroke:#333,stroke-width:4px
+    style G fill:#bbf,stroke:#333,stroke-width:2px
+    style C fill:#ff9,stroke:#f00,stroke-width:2px
+    style J fill:#bfb,stroke:#333,stroke-width:3px
+    style N fill:#bfb,stroke:#333,stroke-width:2px
+</code></pre>
+<p><strong>關鍵約束</strong>：<br />
+- 🔴 <strong>Wizard 禁止直接寫入 YAML</strong>（解決 v1.1 競態條件）<br />
+- 🔴 <strong>禁止直接修改 YAML 檔案</strong>（所有變更必須透過 Excel）<br />
+- 🟢 <strong>Git 作為最終真相源</strong>（YAML 進 Git，Excel 不進 Git）<br />
+- 🟡 <strong>逆向同步 (yaml_to_excel) 僅用於初始化與災難恢復</strong>，不可作為常態編輯流程<br />
+- 🟡 <strong>本地備份保留最近 10 個版本</strong>（Wizard 自動管理）<br />
+- 🔴 <strong>FeatureAnnotationManager 為唯讀介面</strong>（下游模組禁止修改 SSOT）</p>
+<hr />
+<h2 id="2">2. 文件架構與版本控制</h2>
+<h3 id="21">2.1 目錄結構（更新）</h3>
+<pre><code>config/features/                    # SSOT 目錄（唯讀部署，Git 管控）
+├── schema.json                     # JSON Schema 驗證
+├── base.yaml                       # 基礎定義
+├── physical_types.yaml             # 物理類型規範
+└── sites/                          # 案場定義（僅由 Excel 生成，必須進 Git）
+    ├── cgmh_ty.yaml
+    └── kmuh.yaml
+
+tools/features/                     # 編輯工具
+├── templates/                      # Excel 範本（版本控制）
+│   ├── Feature_Template_v1.2.xlsx  # 當前版本
+│   └── Feature_Template_v1.1.xlsx  # 舊版（供遷移）
+├── wizard.py                       # Wizard CLI（僅更新 Excel，含自動備份）
+├── excel_to_yaml.py                # 轉換器（含驗證）
+├── yaml_to_excel.py                # 逆向轉換（僅初始化/災難恢復）
+└── migrate_excel.py                # 範本升級工具
+
+data/features/                      # 使用者編輯區（Gitignored）
+├── cgmh_ty/
+│   ├── cgmh_ty.xlsx               # 工作檔案（唯一編輯入口，不進 Git）
+│   ├── .backups/                  # 自動備份目錄（保留最近 10 個版本）
+│   │   ├── cgmh_ty.backup.20260213_143022.xlsx
+│   │   ├── cgmh_ty.backup.20260213_120015.xlsx
+│   │   └── ...
+│   └── cgmh_ty.yaml               # 生成檔（禁止手動編輯，不進 Git）
+└── kmuh/
+    └── kmuh.xlsx
+</code></pre>
+<h3 id="22-git-git-as-ssot-policy">2.2 Git 真相源管理策略（Git as SSOT Policy）</h3>
+<p><strong>核心原則</strong>：YAML 為唯一真相源，Excel 為本地工作檔案。</p>
+<table>
+<thead>
+<tr>
+<th>檔案類型</th>
+<th>Git 管理</th>
+<th>說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.yaml</code> (sites/)</td>
+<td><strong>納入版本控制</strong></td>
+<td>所有生成的 YAML 必須進入 Git，作為部署與回退的唯一依據</td>
+</tr>
+<tr>
+<td><code>.xlsx</code></td>
+<td><strong>Gitignored</strong></td>
+<td>Excel 為二進位格式，不納入 Git。工程師間透過「YAML → yaml_to_excel」重建</td>
+</tr>
+<tr>
+<td><code>.xlsx.backup.*</code></td>
+<td><strong>本地保留</strong></td>
+<td>Wizard 自動生成的備份，保留最近 10 個版本，不進 Git</td>
+</tr>
+<tr>
+<td><code>Feature_Template_*.xlsx</code></td>
+<td><strong>納入版本控制</strong></td>
+<td>範本檔案需版本化，確保不同工程師使用相同結構</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>.gitignore</code> 範例</strong>（放置於專案根目錄）：</p>
+<pre><code class="language-gitignore"># Excel 工作檔案（由 YAML 生成或 Wizard 建立）
+data/features/**/*.xlsx
+data/features/**/*.xlsx.backup.*
+data/features/**/.backups/
+
+# 臨時檔案
+*.tmp
+*.xlsx~
+*.yaml.tmp
+__pycache__/
+</code></pre>
+<p><strong>分支策略建議</strong>：<br />
+- <code>main</code>: 僅包含通過驗證的 YAML，代表生產環境配置<br />
+- <code>feature/annotation-{site_id}</code>: 新增案場或修改特徵時的工作分支<br />
+- 禁止直接推送 <code>.xlsx</code> 檔案，CI/CD 會檢查是否誤將二進位檔案納入版本控制</p>
+<h3 id="23-excel">2.3 Excel 範本版本控制機制（新增）</h3>
+<p><strong>問題</strong>: 當 PRD 更新（如新增欄位），舊版 Excel 範本可能產生結構錯誤的 YAML。</p>
+<p><strong>解決方案</strong>:<br />
+1. <strong>Hidden Sheet <code>System</code></strong> 儲存版本資訊：<br />
+   - <code>A1</code> (template_version): "1.2"<br />
+   - <code>A2</code> (schema_hash): "sha256:abc123..."<br />
+   - <code>A3</code> (last_generated_by): "wizard_v1.2"<br />
+   - <code>A4</code> (yaml_last_sync_timestamp): "2026-02-13T10:00:00"</p>
+<ol start="2">
+<li><strong>轉換時強制檢查</strong>:<br />
+   ```python<br />
+   # excel_to_yaml.py<br />
+   EXPECTED_TEMPLATE_VERSION = "1.2"</li>
+</ol>
+<p>def validate_template_version(wb: Workbook):<br />
+       system_sheet = wb['System']<br />
+       version = system_sheet['B1'].value<br />
+       if version != EXPECTED_TEMPLATE_VERSION:<br />
+           raise CompatibilityError(<br />
+               f"Excel 範本版本過舊 (v{version})，請執行:\n"<br />
+               f"  python migrate_excel.py --from {version} --to {EXPECTED_TEMPLATE_VERSION} "<br />
+               f"  --input your_file.xlsx"<br />
+           )<br />
+   ```</p>
+<ol start="3">
+<li><strong>遷移工具 (migrate_excel.py)</strong>:<br />
+   - 自動將 v1.1 範本升級至 v1.2（新增欄位、調整公式）<br />
+   - 保留既有資料，僅更新結構</li>
+</ol>
+<hr />
+<h2 id="3-excel">3. Excel 範本結構（靜態驗證版）</h2>
+<h3 id="31-sheet-1-columns">3.1 Sheet 1: Columns（主要編輯區）</h3>
+<p><strong>設計變更</strong>: 放棄動態下拉 (<code>INDIRECT</code>)，改用<strong>靜態分群選單</strong> + <strong>Python 層驗證</strong>。</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">欄位名稱 (A)</th>
+<th style="text-align: center;">物理類型 (B)</th>
+<th style="text-align: center;">單位 (C)</th>
+<th style="text-align: center;">設備角色 (D)</th>
+<th style="text-align: center;">是否目標 (E)</th>
+<th style="text-align: center;">啟用 Lag (F)</th>
+<th style="text-align: center;">Lag 間隔 (G)</th>
+<th style="text-align: center;">忽略警告 (H)</th>
+<th style="text-align: center;">描述 (I)</th>
+<th style="text-align: center;">狀態 (J)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">chiller_1_temp</td>
+<td style="text-align: center;">temperature</td>
+<td style="text-align: center;">°C</td>
+<td style="text-align: center;">primary</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">TRUE</td>
+<td style="text-align: center;">1,4,96</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">一號機溫度</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+<tr>
+<td style="text-align: center;">chiller_2_temp</td>
+<td style="text-align: center;">temperature</td>
+<td style="text-align: center;">°C</td>
+<td style="text-align: center;">backup</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">TRUE</td>
+<td style="text-align: center;">1,4</td>
+<td style="text-align: center;">W403</td>
+<td style="text-align: center;">二號機溫度(備用)</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+<tr>
+<td style="text-align: center;">total_power_kw</td>
+<td style="text-align: center;">power</td>
+<td style="text-align: center;">kW</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">TRUE</td>
+<td style="text-align: center;">FALSE</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: center;">總耗電</td>
+<td style="text-align: center;">confirmed</td>
+</tr>
+</tbody>
+</table>
+<p><strong>欄位規格與防呆</strong>:</p>
+<p><strong>A. 欄位名稱 (Column Name)</strong><br />
+- <strong>驗證</strong>: 必填，必須與 CSV 欄位名稱<strong>完全匹配</strong>（含大小寫，經 Parser Header Standardization 後）<br />
+- <strong>格式</strong>: 文字，建議使用 snake_case（與 Interface Contract v1.1 Header Standardization 對齊）<br />
+- <strong>對齊</strong>: 必須與 Parser 正規化後的標頭一致（見 Interface Contract 第 10 章）</p>
+<p><strong>B. 物理類型 (Physical Type)</strong><br />
+- <strong>輸入</strong>: 靜態下拉選單（值來自 <code>physical_types.yaml</code> 的 keys）<br />
+- <strong>選項</strong>: <code>temperature</code>, <code>pressure</code>, <code>flow_rate</code>, <code>power</code>, <code>chiller_load</code>, <code>status</code>, <code>gauge</code><br />
+- <strong>變更</strong>: 當此欄變更時，<strong>不</strong>自動連動 C 欄（避免 INDIRECT 脆弱性）</p>
+<p><strong>C. 單位 (Unit)</strong><br />
+- <strong>輸入</strong>: 靜態長選單（包含所有物理類型的所有單位，分群顯示）<br />
+- <strong>選項範例</strong>:<br />
+<code>[溫度類] °C, °F, K
+  [壓力類] bar, psi, kPa, MPa
+  [流量類] LPM, GPM, m³/h
+  [功率類] kW, W, RT, HP</code><br />
+- <strong>驗證</strong>: 由 <code>excel_to_yaml.py</code> 檢查與 B 欄的相容性（非 Excel 層）</p>
+<p><strong>D. 設備角色 (Device Role)</strong>（新增）<br />
+- <strong>輸入</strong>: 下拉選單 (<code>primary</code>, <code>backup</code>, <code>seasonal</code>)<br />
+- <strong>預設</strong>: <code>primary</code><br />
+- <strong>影響</strong>: <br />
+  - <code>backup</code>: 抑制 W403 (高零值比例) 警告<br />
+  - <code>seasonal</code>: 抑制 W401 (均值異常) 警告（季節性設備可能長期停機）<br />
+  - 供 Cleaner 進行語意感知清洗時調整閾值（見 Cleaner v2.2 PRD）</p>
+<p><strong>E. 是否目標 (Is Target)</strong><br />
+- <strong>輸入</strong>: 勾選框 (TRUE/FALSE)<br />
+- <strong>連動</strong>: 當設為 TRUE 時，F 欄 (<code>啟用 Lag</code>) 自動設為 FALSE 並<strong>鎖定編輯</strong>（Excel 條件格式灰化）</p>
+<p><strong>F. 啟用 Lag (Enable Lag)</strong><br />
+- <strong>輸入</strong>: 勾選框<br />
+- <strong>驗證</strong>: 若 E 欄為 TRUE，此欄強制為 FALSE</p>
+<p><strong>G. Lag 間隔 (Lag Intervals)</strong><br />
+- <strong>輸入</strong>: 文字格式，逗號分隔數字（如 <code>1,4,96</code>）<br />
+- <strong>驗證</strong>: Python 層檢查為正整數且遞增</p>
+<p><strong>H. 忽略警告 (Ignore Warnings)</strong>（新增）<br />
+- <strong>輸入</strong>: 多選下拉（<code>W401</code>, <code>W402</code>, <code>W403</code>, <code>-</code>）<br />
+- <strong>格式</strong>: 逗號分隔（如 <code>W401,W403</code>）<br />
+- <strong>用途</strong>: 允許領域專家顯式標記「此欄位允許特定統計異常」</p>
+<p><strong>I. 描述 (Description)</strong><br />
+- <strong>輸入</strong>: 自由文字，建議填寫設備位置或用途</p>
+<p><strong>J. 狀態 (Status)</strong><br />
+- <strong>輸入</strong>: 下拉選單 (<code>pending_review</code>, <code>confirmed</code>, <code>deprecated</code>)<br />
+- <strong>Wizard 生成</strong>: 新欄位預設為 <code>pending_review</code></p>
+<h3 id="32-sheet-2-group-policies">3.2 Sheet 2: Group Policies（群組策略）</h3>
+<p>簡化語法，無需 Regex：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">策略名稱</th>
+<th style="text-align: center;">匹配類型</th>
+<th style="text-align: center;">匹配值</th>
+<th style="text-align: center;">物理類型</th>
+<th style="text-align: center;">預設樣板</th>
+<th style="text-align: center;">自定義 Lag</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">chillers</td>
+<td style="text-align: center;">prefix</td>
+<td style="text-align: center;">chiller_</td>
+<td style="text-align: center;">chiller_load</td>
+<td style="text-align: center;">Standard_Chiller</td>
+<td style="text-align: center;">-</td>
+</tr>
+<tr>
+<td style="text-align: center;">towers</td>
+<td style="text-align: center;">prefix</td>
+<td style="text-align: center;">ct_</td>
+<td style="text-align: center;">temperature</td>
+<td style="text-align: center;">Standard_Tower</td>
+<td style="text-align: center;">1,8</td>
+</tr>
+<tr>
+<td style="text-align: center;">custom_pumps</td>
+<td style="text-align: center;">contains</td>
+<td style="text-align: center;">pump</td>
+<td style="text-align: center;">flow_rate</td>
+<td style="text-align: center;">Custom</td>
+<td style="text-align: center;">1,4,12</td>
+</tr>
+</tbody>
+</table>
+<p><strong>欄位規格</strong>:</p>
+<ul>
+<li><strong>匹配類型</strong>: <code>prefix</code>（前綴）, <code>suffix</code>（後綴）, <code>contains</code>（包含）, <code>regex</code>（進階）</li>
+<li><strong>預設樣板</strong>: 下拉選單 (<code>Standard_Chiller</code>, <code>Standard_Tower</code>, <code>High_Freq</code>, <code>Custom</code>)</li>
+<li>選擇預設樣板時，「自定義 Lag」欄位鎖定</li>
+<li>選擇 <code>Custom</code> 時，可手動輸入 Lag 間隔</li>
+</ul>
+<h3 id="33-sheet-3-metadata">3.3 Sheet 3: Metadata（文件資訊）</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">屬性</th>
+<th style="text-align: left;">值</th>
+<th style="text-align: left;">說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">schema_version</td>
+<td style="text-align: left;">1.2</td>
+<td style="text-align: left;">文件格式版本</td>
+</tr>
+<tr>
+<td style="text-align: left;">template_version</td>
+<td style="text-align: left;">1.2</td>
+<td style="text-align: left;">Excel 範本版本（系統檢查用）</td>
+</tr>
+<tr>
+<td style="text-align: left;">site_id</td>
+<td style="text-align: left;">cgmh_ty</td>
+<td style="text-align: left;">案場識別</td>
+</tr>
+<tr>
+<td style="text-align: left;">inherit</td>
+<td style="text-align: left;">base</td>
+<td style="text-align: left;">繼承來源</td>
+</tr>
+<tr>
+<td style="text-align: left;">description</td>
+<td style="text-align: left;">長庚醫院...</td>
+<td style="text-align: left;">文件描述</td>
+</tr>
+<tr>
+<td style="text-align: left;">editor</td>
+<td style="text-align: left;">王工程師</td>
+<td style="text-align: left;">編輯者</td>
+</tr>
+<tr>
+<td style="text-align: left;">last_updated</td>
+<td style="text-align: left;">2026-02-13</td>
+<td style="text-align: left;">最後更新（自動生成）</td>
+</tr>
+<tr>
+<td style="text-align: left;">yaml_checksum</td>
+<td style="text-align: left;">sha256:...</td>
+<td style="text-align: left;">對應 YAML 的雜湊（同步檢查用）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>系統欄位（Hidden Sheet <code>System</code>）</strong>:<br />
+- <code>A1</code>: template_version<br />
+- <code>A2</code>: schema_hash<br />
+- <code>A3</code>: last_generated_by<br />
+- <code>A4</code>: yaml_last_sync_timestamp</p>
+<hr />
+<h2 id="4-yaml-schema-ssot">4. YAML Schema 詳細規範（SSOT 層）</h2>
+<h3 id="41">4.1 頂層結構（更新）</h3>
+<pre><code class="language-yaml">schema_version: &quot;1.2&quot;              # 文件格式版本
+description: &quot;長庚醫院特徵定義&quot;
+inherit: &quot;base&quot;
+
+meta:                              # 文件元資料
+  site_id: &quot;cgmh_ty&quot;
+  editor: &quot;王工程師&quot;
+  last_updated: &quot;2026-02-13T10:00:00&quot;
+  source_excel: &quot;cgmh_ty.xlsx&quot;     # 來源 Excel 檔名
+  excel_checksum: &quot;sha256:def456...&quot; # Excel 檔案雜湊（同步驗證用）
+  template_version: &quot;1.2&quot;          # 生成時的範本版本
+  ssot_flags_version: &quot;1.0&quot;        # 【新增】對應 config_models.py 的 VALID_QUALITY_FLAGS 版本
+
+physical_types:                    # 可覆蓋 SSOT
+  [physical_type_id]: PhysicalTypeDefinition
+
+columns:
+  [column_name]: ColumnAnnotation
+
+group_policies:
+  [policy_name]: GroupPolicyRule
+
+equipment_constraints:               # 【新增】設備邏輯限制條件（SSOT）
+  [constraint_id]: EquipmentConstraint
+
+validation:
+  strict_mode: true
+  allow_unannotated: false
+  enable_distribution_check: true
+  enforce_equipment_validation_sync: false  # 【新增】是否啟用設備邏輯預檢
+</code></pre>
+<h3 id="42-column-annotation">4.2 Column Annotation（更新）</h3>
+<pre><code class="language-yaml">columns:
+  chiller_1_temp:
+    column_name: &quot;chiller_1_temp&quot;
+    physical_type: &quot;temperature&quot;
+    unit: &quot;°C&quot;
+    device_role: &quot;primary&quot;         # 新增：設備角色
+    description: &quot;一號冰機溫度&quot;
+    is_target: false
+    enable_lag: true
+    enable_rolling: true
+    lag_intervals: [1, 4, 96]
+    rolling_windows: [4, 96]
+    tags: [&quot;critical&quot;]
+    ignore_warnings: []            # 新增：忽略的警告列表
+    status: &quot;confirmed&quot;
+
+  chiller_2_temp:
+    column_name: &quot;chiller_2_temp&quot;
+    physical_type: &quot;temperature&quot;
+    unit: &quot;°C&quot;
+    device_role: &quot;backup&quot;          # 備用設備
+    description: &quot;二號機溫度(備用)&quot;
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4]
+    ignore_warnings: [&quot;W403&quot;]      # 抑制高零值警告
+    status: &quot;confirmed&quot;
+</code></pre>
+<h3 id="43-physical-type">4.3 Physical Type 定義（含統計參數）</h3>
+<pre><code class="language-yaml">physical_types:
+  temperature:
+    description: &quot;溫度感測器&quot;
+    unit: &quot;°C&quot;
+    si_unit: &quot;celsius&quot;
+    valid_range: [-40.0, 100.0]
+    agg_method: &quot;mean&quot;
+    distribution_check:            # 統計驗證參數
+      expected_mean_range: [10, 35]
+      max_std_threshold: 50
+      zero_ratio_warning: 0.1      # 10% 零值觸發警告
+      zero_ratio_critical: 0.5     # 50% 零值觸發錯誤（即使 backup 也檢查）
+</code></pre>
+<h3 id="44-equipment-constraint-interface-contract-v11-11">4.4 Equipment Constraint 定義（新增，對齊 Interface Contract v1.1 第 11 章）</h3>
+<p>為解決評估報告識別的 <strong>Physics Logic Decoupling</strong> 風險，在 Feature Annotation SSOT 中定義設備邏輯限制條件，供 Cleaner（預檢）與 Optimization（約束）共用：</p>
+<pre><code class="language-yaml">equipment_constraints:
+  chiller_pump_mutex:
+    description: &quot;主機開啟時必須有至少一台冷卻水泵運轉&quot;
+    check_type: &quot;requires&quot;
+    check_phase: &quot;precheck&quot;        # precheck: Cleaner 階段檢查；optimization: 僅優化階段
+    trigger_status: [&quot;chiller_1_status&quot;, &quot;chiller_2_status&quot;]  # 任一為 1 時觸發
+    required_status: [&quot;pump_1_status&quot;, &quot;pump_2_status&quot;]       # 至少一個必須為 1
+    severity: &quot;critical&quot;           # critical: 標記 PHYSICAL_IMPOSSIBLE；warning: 標記 EQUIPMENT_VIOLATION
+    applicable_roles: [&quot;primary&quot;, &quot;backup&quot;]  # 適用的設備角色
+
+  min_runtime_15min:
+    description: &quot;主機開啟後至少運轉 15 分鐘才能關閉&quot;
+    check_type: &quot;sequence&quot;
+    check_phase: &quot;optimization&quot;    # 時序檢查較複雜，僅在優化階段執行
+    min_duration_minutes: 15
+    applies_to: [&quot;chiller_1_status&quot;, &quot;chiller_2_status&quot;]
+    severity: &quot;warning&quot;
+
+  min_downtime_10min:
+    description: &quot;主機關閉後至少停機 10 分鐘才能開啟&quot;
+    check_type: &quot;sequence&quot;
+    check_phase: &quot;optimization&quot;
+    min_duration_minutes: 10
+    applies_to: [&quot;chiller_1_status&quot;, &quot;chiller_2_status&quot;]
+    severity: &quot;warning&quot;
+
+  chiller_mutual_exclusion:
+    description: &quot;備用主機與主主機不可同時開啟（視情況而定）&quot;
+    check_type: &quot;mutex&quot;
+    check_phase: &quot;precheck&quot;
+    mutex_pairs: [[&quot;chiller_1_status&quot;, &quot;chiller_2_status&quot;]]
+    condition: &quot;device_role == 'backup'&quot;  # 僅當角色為 backup 時檢查
+    severity: &quot;warning&quot;
+</code></pre>
+<p><strong>關鍵設計</strong>：<br />
+- <strong>單一真相源 (SSOT)</strong>: 設備限制條件定義於 Feature Annotation YAML，而非分散在 Cleaner 與 Optimization 程式碼中<br />
+- <strong>分階段檢查</strong>: <code>check_phase</code> 區分 Cleaner 階段（precheck，基礎邏輯）與 Optimization 階段（複雜時序）<br />
+- <strong>角色感知</strong>: <code>applicable_roles</code> 與 <code>condition</code> 支援依設備角色調整檢查邏輯</p>
+<hr />
+<h2 id="5">5. 三層防護與驗證機制（更新）</h2>
+<h3 id="51-excel">5.1 第一層：Excel 靜態防呆</h3>
+<p><strong>移除</strong>：動態下拉 (<code>INDIRECT</code>)<br />
+<strong>保留</strong>：<br />
+- 靜態下拉選單（物理類型、單位分群、設備角色）<br />
+- 條件格式（目標變數自動灰化 Lag 欄位）<br />
+- 必填欄位檢查（紅色標記空白欄位）</p>
+<h3 id="52-python">5.2 第二層：Python 轉換驗證（強化）</h3>
+<p><strong>excel_to_yaml.py 驗證流程</strong>：</p>
+<pre><code class="language-python">def convert_excel_to_yaml(excel_path: Path, output_path: Path) -&gt; dict:
+    &quot;&quot;&quot;
+    Excel 轉 YAML，含完整驗證
+    &quot;&quot;&quot;
+    # 1. 範本版本檢查（阻擋舊版）
+    wb = load_workbook(excel_path)
+    validate_template_version(wb)  # 檢查 System sheet
+
+    # 2. 讀取資料
+    df = read_excel_sheets(wb)
+
+    # 3. 語法驗證
+    errors = []
+
+    # 3.1 單位相容性檢查（關鍵驗證）
+    for _, row in df.iterrows():
+        ptype = row['physical_type']
+        unit = row['unit']
+        valid_units = PHYSICAL_TYPES[ptype]['units']
+        if unit not in valid_units:
+            errors.append(
+                f&quot;❌ {row['column_name']}: &quot;
+                f&quot;物理類型 '{ptype}' 不支援單位 '{unit}'，&quot;
+                f&quot;有效選項: {valid_units}&quot;
+            )
+
+    # 3.2 數值格式檢查
+    for _, row in df.iterrows():
+        lag_str = row.get('lag_intervals', '')
+        if pd.notna(lag_str) and lag_str != '-':
+            try:
+                intervals = [int(x.strip()) for x in str(lag_str).split(',')]
+                if intervals != sorted(intervals):
+                    errors.append(f&quot;❌ {row['column_name']}: Lag 間隔必須遞增&quot;)
+            except ValueError:
+                errors.append(f&quot;❌ {row['column_name']}: Lag 間隔格式錯誤，必須為逗號分隔整數&quot;)
+
+    # 3.3 統計分佈驗證（若提供 sample CSV）
+    if sample_csv_path:
+        warnings = validate_distribution(df, sample_csv_path)
+        # 檢查 ignore_warnings 設定
+        for w in warnings:
+            col = w.column_name
+            ignore_list = df[df['column_name']==col]['ignore_warnings'].iloc[0]
+            if w.code not in ignore_list:
+                errors.append(f&quot;⚠️  {w.code}: {w.message}&quot;)
+
+    # 4. 處理結果
+    if errors:
+        print(&quot;驗證失敗，請修正以下錯誤：&quot;)
+        for e in errors:
+            print(f&quot;  {e}&quot;)
+        raise ValidationError(&quot;Excel 驗證失敗，未生成 YAML&quot;)
+
+    # 5. 生成 YAML
+    yaml_data = build_yaml_structure(df)
+    yaml_data['meta']['excel_checksum'] = compute_file_hash(excel_path)
+    yaml_data['meta']['last_updated'] = datetime.now().isoformat()
+
+    # 6. 寫入（原子操作）
+    temp_path = output_path.with_suffix('.tmp')
+    temp_path.write_text(yaml.dump(yaml_data), encoding='utf-8')
+    temp_path.rename(output_path)  # 原子移動
+
+    print(f&quot;✅ 成功生成: {output_path}&quot;)
+    return {&quot;status&quot;: &quot;success&quot;, &quot;warnings&quot;: []}
+</code></pre>
+<h3 id="53-cicd">5.3 第三層：CI/CD 契約驗證</h3>
+<pre><code class="language-yaml"># .github/workflows/feature-annotation.yml
+- name: Excel-to-YAML Consistency Check
+  run: |
+    # 確保提交的是 Excel，而非直接修改的 YAML
+    for excel in config/features/sites/*.xlsx; do
+      yaml=&quot;${excel%.xlsx}.yaml&quot;
+
+      # 檢查 YAML 是否由 Excel 生成（比對 checksum）
+      python -m src.features.validate_sync --excel $excel --yaml $yaml
+
+      # 重新生成並比對（確保無手動修改）
+      python tools/features/excel_to_yaml.py --input $excel --output /tmp/generated.yaml
+      diff /tmp/generated.yaml $yaml || {
+        echo &quot;錯誤: $yaml 與 $excel 不同步，請重新執行 excel_to_yaml.py&quot;
+        exit 1
+      }
+    done
+</code></pre>
+<h3 id="54-import-guard">5.4 第四層：Import Guard 技術機制（新增）</h3>
+<p>為落實「禁止直接修改 YAML」原則，建立三層技術防護：</p>
+<h4 id="541">5.4.1 檔案系統層級防護（部署時）</h4>
+<pre><code class="language-bash"># deploy.sh 或 Dockerfile 中設定
+chmod 444 config/features/sites/*.yaml
+chattr +i config/features/sites/*.yaml  # Linux 不可變屬性（僅 root 可解除）
+</code></pre>
+<h4 id="542-python-import-hook">5.4.2 Python Import Hook 防護（運行時）</h4>
+<pre><code class="language-python"># src/features/yaml_write_guard.py
+import sys
+import builtins
+from pathlib import Path
+
+FORBIDDEN_YAML_PATHS = [
+    Path(&quot;config/features/sites&quot;),
+    Path(&quot;config/features/base.yaml&quot;),
+]
+
+_original_open = builtins.open
+
+def guarded_open(file, mode='r', *args, **kwargs):
+    &quot;&quot;&quot;
+    攔截所有檔案開啟操作，禁止寫入 SSOT YAML 目錄
+    &quot;&quot;&quot;
+    if isinstance(file, (str, Path)):
+        path = Path(file).resolve()
+
+        # 檢查是否試圖寫入受保護的 YAML 路徑
+        if any(forbidden in path.parents or path == forbidden for forbidden in FORBIDDEN_YAML_PATHS):
+            if 'w' in mode or 'a' in mode or '+' in mode:
+                raise PermissionError(
+                    f&quot;E501: 禁止直接寫入 YAML SSOT 路徑: {path}\n&quot;
+                    f&quot;所有變更必須透過 Excel → excel_to_yaml.py 流程。\n&quot;
+                    f&quot;若為測試需求，請使用 --force-yaml-write 標誌（僅限開發環境）。&quot;
+                )
+
+    return _original_open(file, mode, *args, **kwargs)
+
+def install_yaml_write_guard():
+    &quot;&quot;&quot;安裝寫入防護（在 Container 初始化時呼叫）&quot;&quot;&quot;
+    builtins.open = guarded_open
+    print(&quot;🔒 YAML Write Guard 已啟用&quot;)
+
+# 在 src/features/__init__.py 中自動安裝
+install_yaml_write_guard()
+</code></pre>
+<h4 id="543">5.4.3 模組級別防護（開發時）</h4>
+<pre><code class="language-python"># src/features/annotation_manager.py
+class FeatureAnnotationManager:
+    &quot;&quot;&quot;
+    特徵標註管理器（唯讀介面）
+    禁止透過此類別修改 YAML 內容
+    &quot;&quot;&quot;
+
+    def __init__(self, config_path: Path):
+        self._config_path = config_path
+        self._data = self._load_yaml()
+        self._read_only = True  # 標記唯讀模式
+
+    def _load_yaml(self) -&gt; dict:
+        &quot;&quot;&quot;載入 YAML（唯讀模式）&quot;&quot;&quot;
+        with open(self._config_path, 'r', encoding='utf-8') as f:
+            return yaml.safe_load(f)
+
+    def __setattr__(self, name, value):
+        &quot;&quot;&quot;禁止動態設定屬性（防止意外修改）&quot;&quot;&quot;
+        if name.startswith('_'):
+            super().__setattr__(name, value)
+        else:
+            raise AttributeError(
+                &quot;E501: FeatureAnnotationManager 為唯讀介面，&quot;
+                &quot;禁止修改屬性。請使用 Excel 編輯後重新生成 YAML。&quot;
+            )
+
+    def save(self):
+        &quot;&quot;&quot;明確禁止儲存操作&quot;&quot;&quot;
+        raise NotImplementedError(
+            &quot;E501: 禁止透過 FeatureAnnotationManager 儲存變更。&quot;
+            &quot;請使用: python tools/features/excel_to_yaml.py&quot;
+        )
+</code></pre>
+<hr />
+<h2 id="6-wizard-cli">6. Wizard 交互式 CLI（關鍵修正）</h2>
+<h3 id="61">6.1 架構修正（解決競態條件）</h3>
+<p><strong>v1.1 錯誤</strong>: Wizard 直接更新 YAML<br />
+<strong>v1.2 修正</strong>: Wizard <strong>僅</strong>更新 Excel，YAML 由使用者手動觸發生成</p>
+<pre><code class="language-bash"># 正確流程（v1.2）
+python main.py features wizard \
+  --site cgmh_ty \
+  --from-csv data/cgmh_ty_latest.csv \
+  --excel data/features/cgmh_ty/cgmh_ty.xlsx  # 輸出目標：Excel
+
+# Wizard 執行後，使用者必須手動執行：
+python tools/features/excel_to_yaml.py \
+  --input data/features/cgmh_ty/cgmh_ty.xlsx \
+  --output config/features/sites/cgmh_ty.yaml
+</code></pre>
+<h3 id="62-wizard">6.2 Wizard 詳細流程（含自動備份機制）</h3>
+<pre><code class="language-python">def wizard_update_excel(
+    site_id: str,
+    csv_path: Path,
+    excel_path: Path,
+    template_version: str = &quot;1.2&quot;
+):
+    &quot;&quot;&quot;
+    Wizard：偵測新欄位並追加至 Excel（不直接寫 YAML）
+    包含自動備份機制（Undo 防護）
+    &quot;&quot;&quot;
+    # 0. 自動備份機制（災難恢復防護）
+    if excel_path.exists():
+        backup_dir = excel_path.parent / &quot;.backups&quot;
+        backup_dir.mkdir(exist_ok=True)
+
+        # 生成時間戳備份檔名（精確到秒，避免覆蓋）
+        timestamp = datetime.now().strftime(&quot;%Y%m%d_%H%M%S&quot;)
+        backup_filename = f&quot;{excel_path.stem}.backup.{timestamp}{excel_path.suffix}&quot;
+        backup_path = backup_dir / backup_filename
+
+        # 複製現有 Excel 到備份目錄（保留元資料）
+        import shutil
+        shutil.copy2(excel_path, backup_path)
+
+        # 清理舊備份（保留最近 10 個版本，依修改時間排序）
+        backup_pattern = f&quot;{excel_path.stem}.backup.*&quot;
+        all_backups = sorted(
+            backup_dir.glob(backup_pattern), 
+            key=lambda x: x.stat().st_mtime,
+            reverse=True
+        )
+
+        # 刪除超過 10 個版本的舊備份
+        for old_backup in all_backups[10:]:
+            try:
+                old_backup.unlink()
+                print(f&quot;🗑️  清理舊備份: {old_backup.name}&quot;)
+            except Exception as e:
+                print(f&quot;⚠️  無法清理舊備份 {old_backup.name}: {e}&quot;)
+
+        print(f&quot;💾 已自動備份: {backup_path.name}（保留最近 10 個版本）&quot;)
+
+    # 1. 檢查 Excel 版本相容性
+    if excel_path.exists():
+        wb = load_workbook(excel_path)
+        current_ver = wb['System']['B1'].value
+        if current_ver != template_version:
+            raise CompatibilityError(
+                f&quot;Excel 範本過舊 (v{current_ver})，請先執行：\n&quot;
+                f&quot;python migrate_excel.py --from {current_ver} --to {template_version}&quot;
+            )
+    else:
+        # 初始化新 Excel 從範本
+        wb = load_workbook(f&quot;tools/features/templates/Feature_Template_v{template_version}.xlsx&quot;)
+        print(f&quot;🆕 初始化新 Excel 檔案: {excel_path}&quot;)
+
+    # 2. 讀取 CSV 欄位
+    df_csv = pl.read_csv(csv_path, n_rows=1000)
+    existing_cols = get_existing_columns(wb)
+    new_cols = set(df_csv.columns) - existing_cols - {'timestamp'}
+
+    if not new_cols:
+        print(&quot;✅ 無新欄位需要標註&quot;)
+        return
+
+    print(f&quot;🔍 發現 {len(new_cols)} 個新欄位待標註&quot;)
+
+    # 3. 交互式確認（逐欄）
+    ws = wb['Columns']
+    start_row = ws.max_row + 1
+
+    for col in sorted(new_cols):
+        stats = calculate_stats(df_csv[col])
+
+        print(f&quot;\n{'='*50}&quot;)
+        print(f&quot;🔍 新欄位: {col}&quot;)
+        print(f&quot;   統計摘要: 均值={stats['mean']:.2f}, 標準差={stats['std']:.2f}, 零值比例={stats['zero_ratio']:.1%}&quot;)
+        print(f&quot;   樣本值: {stats['samples'][:5]}...&quot;)
+
+        # 推測建議
+        suggestion = guess_physical_type(col, stats)
+        print(f&quot;   系統推測: {suggestion['physical_type']}/{suggestion['unit']}&quot;)
+
+        # 使用者確認（防呆設計）
+        while True:
+            choice = input(
+                &quot;[Y] 確認建議  [N] 修改  [S] 跳過  [D] 查看分佈圖  [Q] 退出\n&gt; &quot;
+            ).strip().upper()
+
+            if choice == 'Q':
+                print(&quot;🛑 使用者中斷，已處理的欄位已儲存至 Excel&quot;)
+                break
+            elif choice == 'S':
+                print(&quot;⏭️  跳過此欄位&quot;)
+                continue
+            elif choice == 'D':
+                plot_distribution(df_csv[col])
+                continue
+            elif choice in ['Y', 'N']:
+                break
+            else:
+                print(&quot;❌ 無效選項，請重新輸入&quot;)
+
+        if choice == 'Q':
+            break
+        elif choice == 'S':
+            continue
+
+        # 收集使用者輸入
+        if choice == 'Y':
+            physical_type = suggestion['physical_type']
+            unit = suggestion['unit']
+        else:
+            physical_type = input(&quot;請輸入物理類型: &quot;).strip()
+            unit = input(&quot;請輸入單位: &quot;).strip()
+
+        description = input(f&quot;請輸入描述（預設: {col}）: &quot;).strip() or f&quot;{col} (Wizard 生成)&quot;
+
+        # 寫入 Excel（而非 YAML）
+        row_data = {
+            'column_name': col,
+            'physical_type': physical_type,
+            'unit': unit,
+            'device_role': 'primary',  # 預設為主設備
+            'is_target': False,
+            'enable_lag': True,
+            'lag_intervals': '1,4',
+            'ignore_warnings': '',
+            'description': description,
+            'status': 'pending_review'  # 標記待確認
+        }
+
+        write_to_excel_row(ws, start_row, row_data)
+        start_row += 1
+        print(f&quot;✅ 已寫入 Excel 第 {start_row-1} 行&quot;)
+
+    # 4. 更新 Metadata 與 System Sheet
+    ws_meta = wb['Metadata']
+    ws_meta['B7'] = datetime.now().isoformat()
+    ws_meta['B8'] = 'pending_sync'  # yaml_checksum 標記為待同步
+
+    ws_system = wb['System']
+    ws_system['B3'] = 'wizard_v1.2'
+    ws_system['B4'] = datetime.now().isoformat()
+
+    # 5. 儲存 Excel（原子寫入）
+    excel_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_excel = excel_path.with_suffix('.tmp.xlsx')
+    wb.save(temp_excel)
+    temp_excel.replace(excel_path)  # 原子替換
+
+    print(f&quot;\n{'='*50}&quot;)
+    print(f&quot;✅ 已更新 Excel: {excel_path}&quot;)
+    print(f&quot;💾 備份位置: {excel_path.parent / '.backups'}&quot;)
+    print(&quot;\n⚠️  重要提醒：&quot;)
+    print(&quot;   1. 請開啟 Excel 檢視並確認標註內容&quot;)
+    print(&quot;   2. 確認後請執行以下指令生成 YAML：&quot;)
+    print(f&quot;      python tools/features/excel_to_yaml.py \\&quot;)
+    print(f&quot;        --input {excel_path} \\&quot;)
+    print(f&quot;        --output config/features/sites/{site_id}.yaml&quot;)
+    print(&quot;   3. 若發現錯誤，可從 .backups/ 目錄還原上一版本&quot;)
+</code></pre>
+<p><strong>關於備份還原</strong>：<br />
+若 Wizard 更新後發現誤刪欄位，可手動還原至上一個備份：</p>
+<pre><code class="language-bash"># 列出可用備份（依時間排序）
+ls -lt data/features/{site_id}/.backups/*.backup.*
+
+# 手動還原（覆蓋現有工作檔）
+cp data/features/{site_id}/.backups/cgmh_ty.backup.20260213_143022.xlsx \
+   data/features/{site_id}/cgmh_ty.xlsx
+
+# 還原後必須重新執行 excel_to_yaml 以更新 YAML
+python tools/features/excel_to_yaml.py \
+  --input data/features/{site_id}/cgmh_ty.xlsx \
+  --output config/features/sites/{site_id}.yaml
+</code></pre>
+<p>⚠️ <strong>注意</strong>：手動還原 Excel 後，必須重新執行 <code>excel_to_yaml.py</code> 以更新 YAML，否則會觸發 <strong>E406（EXCEL_YAML_OUT_OF_SYNC）</strong> 錯誤。</p>
+<h3 id="63">6.3 同步狀態檢查</h3>
+<p>防止「Wizard 更新 Excel 後，使用者忘記生成 YAML」：</p>
+<pre><code class="language-python">def check_sync_status(excel_path: Path, yaml_path: Path) -&gt; dict:
+    &quot;&quot;&quot;
+    檢查 Excel 與 YAML 是否同步
+    &quot;&quot;&quot;
+    wb = load_workbook(excel_path)
+    excel_sync_time = wb['Metadata']['B7'].value  # last_updated
+    excel_status = wb['Metadata']['B8'].value     # yaml_checksum or 'pending_sync'
+
+    if not yaml_path.exists():
+        return {
+            &quot;synced&quot;: False, 
+            &quot;reason&quot;: &quot;YAML 不存在，請執行 excel_to_yaml.py&quot;,
+            &quot;recovery&quot;: f&quot;python tools/features/excel_to_yaml.py --input {excel_path} --output {yaml_path}&quot;
+        }
+
+    yaml_mtime = datetime.fromtimestamp(yaml_path.stat().st_mtime)
+    excel_mtime = datetime.fromtimestamp(excel_path.stat().st_mtime)
+
+    if excel_mtime &gt; yaml_mtime:
+        return {
+            &quot;synced&quot;: False, 
+            &quot;reason&quot;: f&quot;Excel 較新 ({excel_mtime.isoformat()})，YAML 較舊 ({yaml_mtime.isoformat()})&quot;,
+            &quot;time_diff_minutes&quot;: (excel_mtime - yaml_mtime).total_seconds() / 60,
+            &quot;action&quot;: &quot;請重新執行 excel_to_yaml.py&quot;
+        }
+
+    # 額外檢查 checksum（如果 Excel 儲存了上次的 checksum）
+    if excel_status != 'pending_sync':
+        current_yaml_checksum = compute_file_hash(yaml_path)
+        if excel_status != current_yaml_checksum:
+            return {
+                &quot;synced&quot;: False,
+                &quot;reason&quot;: &quot;YAML 內容與 Excel 生成時不一致（可能被手動修改）&quot;,
+                &quot;warning&quot;: &quot;請勿手動修改 YAML，建議從 Git 還原或重新生成&quot;
+            }
+
+    return {&quot;synced&quot;: True, &quot;last_sync&quot;: yaml_mtime.isoformat()}
+</code></pre>
+<hr />
+<h2 id="7-undo-recovery">7. 版本回退與災難恢復機制（Undo &amp; Recovery）</h2>
+<p>本節定義三種異常情境的恢復流程：<strong>Wizard 誤更新</strong>、<strong>Excel 手動誤刪</strong>、<strong>YAML 手動誤改</strong>。</p>
+<h3 id="71-git">7.1 核心原則：Git 作為最終真相源</h3>
+<p><strong>回退機制（Rollback SOP）</strong>：<br />
+當發生「誤刪 Excel 欄位並已生成 YAML」時，依以下步驟回退：</p>
+<ol>
+<li><strong>還原 YAML</strong>：透過 Git 回退到上一個正確版本<br />
+   ```bash<br />
+   # 還原到上一版本<br />
+   git checkout HEAD~1 config/features/sites/{site_id}.yaml</li>
+</ol>
+<p># 或還原到特定 commit（推薦，需先查詢 log）<br />
+   git log --oneline config/features/sites/{site_id}.yaml<br />
+   git checkout <commit_hash> config/features/sites/{site_id}.yaml<br />
+   ```</p>
+<ol start="2">
+<li>
+<p><strong>重建 Excel</strong>：執行逆向轉換（recovery 模式）<br />
+<code>bash
+   python tools/features/yaml_to_excel.py \
+     --yaml config/features/sites/{site_id}.yaml \
+     --output data/features/{site_id}/{site_id}.xlsx \
+     --mode recovery \
+     --force  # 覆蓋現有 Excel</code></p>
+</li>
+<li>
+<p><strong>驗證同步</strong>：確認 Excel 已還原後，重新執行正向流程<br />
+   ```bash<br />
+   python tools/features/excel_to_yaml.py \<br />
+     --input data/features/{site_id}/{site_id}.xlsx \<br />
+     --output config/features/sites/{site_id}.yaml</p>
+</li>
+</ol>
+<p># 確認無誤後提交<br />
+   git add config/features/sites/{site_id}.yaml<br />
+   git commit -m "fix: 回復誤刪的欄位定義至 <commit_hash>"<br />
+   ```</p>
+<p>⚠️ <strong>警告</strong>：<code>--mode recovery</code> 會覆蓋現有 Excel，請確保已備份或已嘗試其他復原方式。</p>
+<h3 id="72-awizard-excel">7.2 情境 A：Wizard 誤刪欄位（Excel 層錯誤）</h3>
+<p><strong>觸發條件</strong>：Wizard 更新時誤判欄位為過期並移除，或使用者誤操作導致資料遺失。</p>
+<p><strong>恢復流程</strong>（優先使用本地備份，速度快且保留工作狀態）：</p>
+<ol>
+<li><strong>檢查本地備份</strong>（推薦首選）：<br />
+   ```bash<br />
+   # 查看 Wizard 自動備份（依時間排序，最新在前）<br />
+   ls -lt data/features/{site_id}/.backups/<em>.backup.</em></li>
+</ol>
+<p># 確認備份時間點（Wizard 執行前）<br />
+   ls -l data/features/{site_id}/.backups/ | grep "backup"</p>
+<p># 還原到 Wizard 執行前的版本（替換 {timestamp}）<br />
+   cp data/features/{site_id}/.backups/{site_id}.backup.{timestamp}.xlsx \<br />
+      data/features/{site_id}/{site_id}.xlsx</p>
+<p>echo "✅ 已還原至 Wizard 執行前的版本"<br />
+   ```</p>
+<ol start="2">
+<li><strong>若無本地備份，使用 Git 回退</strong>：<br />
+   - 遵循「7.1 核心原則」的三步驟流程<br />
+   - 注意：Git 回退會遺失 Wizard 執行後的所有 Excel 手動修改</li>
+</ol>
+<h3 id="73-bexcel-yaml">7.3 情境 B：Excel 手動誤刪欄位（已生成 YAML）</h3>
+<p><strong>觸發條件</strong>：工程師手動刪除 Excel 欄位後執行了 <code>excel_to_yaml.py</code>，甚至已 Git commit，發現誤刪。</p>
+<p><strong>恢復流程</strong>（Git 主導）：</p>
+<p>由於 YAML 已生成（且可能已 Git commit），必須透過 Git 回退：</p>
+<pre><code class="language-bash"># 步驟 1：確認最後正確的 commit（查看 YAML 歷史）
+git log --oneline config/features/sites/{site_id}.yaml
+# 輸出範例：
+# a1b2c3d  feat: 新增冷卻水塔欄位
+# e4f5g6h  fix: 修正單位錯誤  &lt;-- 假設這是最後正確版本
+# i7j8k9l  feat: 誤刪重要欄位（錯誤提交）
+
+# 步驟 2：還原 YAML（軟還原，保留工作區其他修改）
+git checkout e4f5g6h -- config/features/sites/{site_id}.yaml
+
+# 步驟 3：重建 Excel（recovery 模式，強制覆蓋）
+python tools/features/yaml_to_excel.py \
+  --yaml config/features/sites/{site_id}.yaml \
+  --output data/features/{site_id}/{site_id}.xlsx \
+  --mode recovery \
+  --force
+
+echo &quot;✅ Excel 已從 Git 歷史版本重建&quot;
+
+# 步驟 4：重新生成 YAML（確保格式正確，checksum 更新）
+python tools/features/excel_to_yaml.py \
+  --input data/features/{site_id}/{site_id}.xlsx \
+  --output config/features/sites/{site_id}.yaml
+
+# 步驟 5：提交修正（如果錯誤已推送至遠端，使用 revert 而非 reset）
+git add config/features/sites/{site_id}.yaml
+git commit -m &quot;fix: 回復誤刪的欄位定義至 e4f5g6h&quot;
+
+# 若已推送錯誤版本，建議使用 revert 建立反向提交而非 force push
+# git revert i7j8k9l --no-commit
+# git commit -m &quot;revert: 撤銷誤刪欄位的提交&quot;
+</code></pre>
+<h3 id="74-cexcel">7.4 情境 C：Excel 檔案損毀（硬體/軟體錯誤）</h3>
+<p><strong>觸發條件</strong>：Excel 檔案損毀無法開啟（如磁碟錯誤、軟體崩潰導致檔案格式錯誤）。</p>
+<p><strong>恢復流程</strong>：</p>
+<p>直接從 YAML 重建（無需 Git 操作，因 YAML 未損毀）：</p>
+<pre><code class="language-bash"># 檢查 YAML 是否存在且有效
+ls -lh config/features/sites/{site_id}.yaml
+
+# 使用 recovery 模式重建（無需 Git 歷史）
+python tools/features/yaml_to_excel.py \
+  --yaml config/features/sites/{site_id}.yaml \
+  --output data/features/{site_id}/{site_id}_recovered.xlsx \
+  --mode recovery
+
+# 驗證重建的 Excel
+python tools/features/excel_to_yaml.py \
+  --input data/features/{site_id}/{site_id}_recovered.xlsx \
+  --output /tmp/validation.yaml
+
+diff config/features/sites/{site_id}.yaml /tmp/validation.yaml &amp;&amp; \
+  echo &quot;✅ 重建驗證通過&quot; || \
+  echo &quot;⚠️ 重建後內容有差異，請檢查&quot;
+
+# 確認無誤後，將 recovered 檔案改為正式名稱
+mv data/features/{site_id}/{site_id}_recovered.xlsx \
+   data/features/{site_id}/{site_id}.xlsx
+</code></pre>
+<h3 id="75-dyaml">7.5 情境 D：YAML 被手動修改（違反規範）</h3>
+<p><strong>觸發條件</strong>：有人直接編輯 YAML 檔案，導致與 Excel 不同步。</p>
+<p><strong>檢測方式</strong>：<br />
+- CI/CD 比對 checksum 失敗<br />
+- 手動執行 <code>check_sync_status()</code> 發現不一致</p>
+<p><strong>恢復流程</strong>：</p>
+<pre><code class="language-bash"># 如果 YAML 被手動修改且未提交 Git（建議直接捨棄）
+git checkout HEAD -- config/features/sites/{site_id}.yaml
+
+# 如果已提交，查看差異決定保留哪個版本
+git diff HEAD~1 config/features/sites/{site_id}.yaml
+
+# 決定捨棄手動修改，回復至 Excel 生成的版本（遵循 SSOT）
+git revert &lt;錯誤的_commit_hash&gt;
+
+# 然後重新從 Excel 生成（確保 Excel 為最新正確狀態）
+python tools/features/excel_to_yaml.py \
+  --input data/features/{site_id}/{site_id}.xlsx \
+  --output config/features/sites/{site_id}.yaml
+</code></pre>
+<h3 id="76-yaml_to_excel">7.6 模式說明：<code>yaml_to_excel</code> 的兩種模式</h3>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>使用時機</th>
+<th>行為差異</th>
+<th>風險等級</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>init</code></td>
+<td>新案場導入、初始化</td>
+<td>檢查目標 Excel <strong>不存在</strong>，若存在則報錯（防誤覆蓋）</td>
+<td>低</td>
+</tr>
+<tr>
+<td><code>recovery</code></td>
+<td>災難恢復、版本回退</td>
+<td>允許覆蓋現有 Excel，不檢查版本同步狀態，強制重建</td>
+<td><strong>高</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>強制覆蓋參數</strong>：<code>--force</code>（在 <code>recovery</code> 模式下必須使用，會覆蓋現有 <code>.xlsx</code> 且不提示）</p>
+<p><strong>Recovery 模式使用警告</strong>：</p>
+<pre><code class="language-python">if mode == 'recovery' and excel_path.exists() and not force:
+    raise PermissionError(
+        &quot;Recovery 模式將覆蓋現有 Excel，請確認已備份或這是預期行為。\n&quot;
+        &quot;若確認，請加上 --force 參數執行。&quot;
+    )
+</code></pre>
+<hr />
+<h2 id="8-featureannotationmanager-api">8. FeatureAnnotationManager API 規範（新增）</h2>
+<p>為解決評估報告識別的 <strong>Dependency Deadlock</strong> 風險，明確定義下游模組（Cleaner、Feature Engineer、Optimization）如何透過標準 API 存取特徵標註，禁止 Hardcoded 邏輯。</p>
+<h3 id="81">8.1 類別定義與初始化</h3>
+<pre><code class="language-python"># src/features/annotation_manager.py
+from typing import Dict, List, Optional, Any, Set
+from pathlib import Path
+import yaml
+from pydantic import BaseModel, validator
+
+class ColumnAnnotation(BaseModel):
+    &quot;&quot;&quot;欄位標註資料模型（對齊 YAML Schema）&quot;&quot;&quot;
+    column_name: str
+    physical_type: str
+    unit: Optional[str]
+    device_role: str = &quot;primary&quot;           # primary, backup, seasonal
+    description: Optional[str]
+    is_target: bool = False
+    enable_lag: bool = True
+    lag_intervals: List[int] = []
+    rolling_windows: List[int] = []
+    ignore_warnings: List[str] = []        # W401, W402, W403
+    status: str = &quot;pending_review&quot;         # pending_review, confirmed, deprecated
+
+    @validator('device_role')
+    def validate_role(cls, v):
+        if v not in ['primary', 'backup', 'seasonal']:
+            raise ValueError(f&quot;Invalid device_role: {v}&quot;)
+        return v
+
+class EquipmentConstraint(BaseModel):
+    &quot;&quot;&quot;設備限制條件模型（對齊 Interface Contract v1.1）&quot;&quot;&quot;
+    constraint_id: str
+    description: str
+    check_type: str                      # requires, mutex, sequence
+    check_phase: str                     # precheck, optimization
+    trigger_status: Optional[List[str]]
+    required_status: Optional[List[str]]
+    min_duration_minutes: Optional[int]
+    severity: str                        # critical, warning
+    applicable_roles: List[str] = [&quot;primary&quot;, &quot;backup&quot;]
+
+class FeatureAnnotationManager:
+    &quot;&quot;&quot;
+    特徵標註管理器（FeatureAnnotationManager）
+
+    設計原則：
+    1. 唯讀介面：提供查詢方法，禁止修改 YAML
+    2. SSOT 存取：所有資料來自 config/features/sites/{site_id}.yaml
+    3. 快取機制：YAML 載入後快取於記憶體，避免重複 I/O
+    4. 嚴格驗證：使用 Pydantic 模型確保資料完整性
+
+    使用範例：
+        manager = FeatureAnnotationManager(&quot;cgmh_ty&quot;)
+        annotation = manager.get_column_annotation(&quot;chiller_1_temp&quot;)
+        role = manager.get_device_role(&quot;chiller_1_temp&quot;)  # &quot;primary&quot;
+    &quot;&quot;&quot;
+
+    def __init__(self, site_id: str, config_root: Path = Path(&quot;config/features&quot;)):
+        &quot;&quot;&quot;
+        初始化管理器
+
+        Args:
+            site_id: 案場識別碼（對應 sites/{site_id}.yaml）
+            config_root: 配置檔根目錄（預設 config/features）
+
+        Raises:
+            FileNotFoundError: 若 YAML 檔案不存在
+            ValidationError: 若 YAML 格式不符合 Schema
+        &quot;&quot;&quot;
+        self.site_id = site_id
+        self.config_path = config_root / &quot;sites&quot; / f&quot;{site_id}.yaml&quot;
+        self._cache: Optional[Dict[str, Any]] = None
+        self._annotations: Dict[str, ColumnAnnotation] = {}
+        self._constraints: Dict[str, EquipmentConstraint] = {}
+
+        self._load_and_validate()
+
+    def _load_and_validate(self):
+        &quot;&quot;&quot;載入 YAML 並驗證（私有方法）&quot;&quot;&quot;
+        if not self.config_path.exists():
+            raise FileNotFoundError(
+                f&quot;E402: 找不到案場標註檔案: {self.config_path}\n&quot;
+                f&quot;請確認已執行: python tools/features/excel_to_yaml.py --site {self.site_id}&quot;
+            )
+
+        with open(self.config_path, 'r', encoding='utf-8') as f:
+            raw_data = yaml.safe_load(f)
+
+        # 驗證 Schema 版本
+        schema_version = raw_data.get('schema_version', 'unknown')
+        if schema_version != &quot;1.2&quot;:
+            raise CompatibilityError(
+                f&quot;E400: 不支援的 Schema 版本: {schema_version}，預期: 1.2\n&quot;
+                f&quot;請執行 migrate 工具升級: python migrate_excel.py --site {self.site_id}&quot;
+            )
+
+        # 解析 Columns
+        for col_name, col_data in raw_data.get('columns', {}).items():
+            self._annotations[col_name] = ColumnAnnotation(**col_data)
+
+        # 解析 Equipment Constraints（新增）
+        for const_id, const_data in raw_data.get('equipment_constraints', {}).items():
+            const_data['constraint_id'] = const_id
+            self._constraints[const_id] = EquipmentConstraint(**const_data)
+
+        self._cache = raw_data
+
+    # ==================== 核心查詢 API ====================
+
+    def get_column_annotation(self, column_name: str) -&gt; Optional[ColumnAnnotation]:
+        &quot;&quot;&quot;
+        取得欄位完整標註
+
+        Args:
+            column_name: 欄位名稱（必須與 CSV 經 Parser 正規化後一致）
+
+        Returns:
+            ColumnAnnotation 物件，若不存在則回傳 None（觸發 E402）
+
+        Usage:
+            Cleaner v2.2 使用此 API 讀取 device_role 進行語意感知清洗
+        &quot;&quot;&quot;
+        return self._annotations.get(column_name)
+
+    def is_column_annotated(self, column_name: str) -&gt; bool:
+        &quot;&quot;&quot;
+        檢查欄位是否已定義（供 E402 檢查）
+
+        Returns:
+            True 若欄位存在於 Annotation，False 否則
+        &quot;&quot;&quot;
+        return column_name in self._annotations
+
+    def get_device_role(self, column_name: str) -&gt; Optional[str]:
+        &quot;&quot;&quot;
+        取得設備角色（primary/backup/seasonal）
+
+        關鍵約束：
+        - 供 Cleaner v2.2 進行語意感知清洗（調整閾值）
+        - **禁止**將此值寫入輸出 DataFrame（E500 防護）
+
+        Returns:
+            device_role 字串，若欄位不存在則回傳 None
+        &quot;&quot;&quot;
+        anno = self._annotations.get(column_name)
+        return anno.device_role if anno else None
+
+    def get_physical_type(self, column_name: str) -&gt; Optional[str]:
+        &quot;&quot;&quot;取得物理類型（temperature, pressure 等）&quot;&quot;&quot;
+        anno = self._annotations.get(column_name)
+        return anno.physical_type if anno else None
+
+    def get_unit(self, column_name: str) -&gt; Optional[str]:
+        &quot;&quot;&quot;取得單位（°C, kW 等）&quot;&quot;&quot;
+        anno = self._annotations.get(column_name)
+        return anno.unit if anno else None
+
+    def get_target_columns(self) -&gt; List[str]:
+        &quot;&quot;&quot;
+        取得所有目標變數欄位（is_target=True）
+
+        Usage:
+            Feature Engineer 使用此 API 識別目標變數，避免 Data Leakage
+        &quot;&quot;&quot;
+        return [
+            name for name, anno in self._annotations.items() 
+            if anno.is_target
+        ]
+
+    def get_columns_by_role(self, role: str) -&gt; List[str]:
+        &quot;&quot;&quot;
+        依設備角色取得欄位清單
+
+        Args:
+            role: &quot;primary&quot;, &quot;backup&quot;, 或 &quot;seasonal&quot;
+
+        Usage:
+            Cleaner 分別處理主設備與備用設備的異常偵測閾值
+        &quot;&quot;&quot;
+        return [
+            name for name, anno in self._annotations.items()
+            if anno.device_role == role
+        ]
+
+    def get_lag_config(self, column_name: str) -&gt; Optional[Dict[str, Any]]:
+        &quot;&quot;&quot;
+        取得 Lag 特徵配置
+
+        Returns:
+            {&quot;enabled&quot;: bool, &quot;intervals&quot;: List[int]} 或 None
+        &quot;&quot;&quot;
+        anno = self._annotations.get(column_name)
+        if not anno:
+            return None
+        return {
+            &quot;enabled&quot;: anno.enable_lag and not anno.is_target,  # 目標變數禁止 Lag
+            &quot;intervals&quot;: anno.lag_intervals
+        }
+
+    # ==================== Equipment Validation API（新增）====================
+
+    def get_equipment_constraints(self, phase: Optional[str] = None) -&gt; List[EquipmentConstraint]:
+        &quot;&quot;&quot;
+        取得設備邏輯限制條件（對齊 Interface Contract v1.1 第 11 章）
+
+        Args:
+            phase: 篩選檢查階段 (&quot;precheck&quot; 或 &quot;optimization&quot;)，None 則回傳全部
+
+        Returns:
+            EquipmentConstraint 物件列表
+
+        Usage:
+            - Cleaner v2.2: 使用 phase=&quot;precheck&quot; 取得基礎邏輯檢查（E350）
+            - Optimization v1.1: 使用 phase=&quot;optimization&quot; 取得複雜時序約束
+        &quot;&quot;&quot;
+        constraints = list(self._constraints.values())
+        if phase:
+            constraints = [c for c in constraints if c.check_phase == phase]
+        return constraints
+
+    def get_constraints_for_column(self, column_name: str) -&gt; List[EquipmentConstraint]:
+        &quot;&quot;&quot;
+        取得適用於特定欄位的限制條件
+
+        邏輯：
+        - 檢查欄位是否為 trigger_status 或 required_status 的成員
+        - 檢查欄位的 device_role 是否在 applicable_roles 中
+        &quot;&quot;&quot;
+        anno = self._annotations.get(column_name)
+        if not anno:
+            return []
+
+        applicable = []
+        for const in self._constraints.values():
+            # 檢查欄位是否參與此限制條件
+            involved = False
+            if const.trigger_status and column_name in const.trigger_status:
+                involved = True
+            if const.required_status and column_name in const.required_status:
+                involved = True
+
+            # 檢查角色適用性
+            if involved and anno.device_role in const.applicable_roles:
+                applicable.append(const)
+
+        return applicable
+
+    # ==================== SSOT 驗證 API ====================
+
+    def validate_against_csv_headers(self, csv_headers: List[str]) -&gt; Tuple[List[str], List[str]]:
+        &quot;&quot;&quot;
+        驗證 CSV 標頭與 Annotation 的匹配性（E409 檢查）
+
+        Args:
+            csv_headers: Parser 正規化後的 CSV 標頭列表
+
+        Returns:
+            (matched, unmatched) - 匹配與未匹配的欄位清單
+
+        Raises:
+            AnnotationSyncError: 若存在未標註欄位且 strict_mode=True
+        &quot;&quot;&quot;
+        annotated_cols = set(self._annotations.keys())
+        csv_cols = set(csv_headers)
+
+        matched = list(annotated_cols &amp; csv_cols)
+        unmatched = list(csv_cols - annotated_cols - {'timestamp'})  # 排除 timestamp
+
+        return matched, unmatched
+
+    def get_quality_flags_reference(self) -&gt; str:
+        &quot;&quot;&quot;
+        取得 YAML 中記錄的 SSOT 版本（供 E408 檢查）
+
+        Returns:
+            ssot_flags_version 字串（應與 config_models.VALID_QUALITY_FLAGS 版本一致）
+        &quot;&quot;&quot;
+        return self._cache.get('meta', {}).get('ssot_flags_version', 'unknown')
+
+    # ==================== 禁止寫入防護 ====================
+
+    def __setattr__(self, name, value):
+        &quot;&quot;&quot;禁止動態修改屬性&quot;&quot;&quot;
+        if name.startswith('_') or name in ['site_id', 'config_path']:
+            super().__setattr__(name, value)
+        else:
+            raise PermissionError(
+                f&quot;E501: FeatureAnnotationManager 為唯讀介面，&quot;
+                f&quot;禁止修改屬性 '{name}'。請使用 Excel 編輯後重新生成 YAML。&quot;
+            )
+
+    def save(self, *args, **kwargs):
+        &quot;&quot;&quot;明確禁止儲存操作&quot;&quot;&quot;
+        raise NotImplementedError(
+            &quot;E501: 禁止透過 FeatureAnnotationManager 儲存變更。\n&quot;
+            &quot;正確流程: Excel → excel_to_yaml.py → Git Commit&quot;
+        )
+</code></pre>
+<h3 id="82">8.2 使用範例與下游模組整合</h3>
+<h4 id="821-cleaner-v22">8.2.1 Cleaner v2.2 整合範例</h4>
+<pre><code class="language-python"># src/etl/cleaner.py (v2.2)
+from src.features.annotation_manager import FeatureAnnotationManager
+
+class DataCleaner:
+    def __init__(self, config, annotation_manager: FeatureAnnotationManager):
+        self.config = config
+        self.annotation = annotation_manager  # 注入而非自行載入
+
+    def _semantic_aware_cleaning(self, df: pl.DataFrame) -&gt; pl.DataFrame:
+        &quot;&quot;&quot;語意感知清洗（使用 device_role）&quot;&quot;&quot;
+        for col in df.columns:
+            if col == &quot;timestamp&quot;:
+                continue
+
+            # 查詢設備角色（不寫入輸出）
+            role = self.annotation.get_device_role(col)
+
+            if role == &quot;backup&quot;:
+                # 備用設備：放寬零值檢查閾值
+                df = self._apply_backup_threshold(df, col)
+            elif role == &quot;seasonal&quot;:
+                # 季節性設備：允許長期離線
+                df = self._apply_seasonal_policy(df, col)
+
+        return df
+
+    def _apply_equipment_validation_precheck(self, df: pl.DataFrame) -&gt; pl.DataFrame:
+        &quot;&quot;&quot;設備邏輯預檢（E350）&quot;&quot;&quot;
+        # 取得 Cleaner 階段需檢查的限制（precheck）
+        constraints = self.annotation.get_equipment_constraints(phase=&quot;precheck&quot;)
+
+        for const in constraints:
+            # 執行檢查邏輯（見 Interface Contract v1.1 第 11 章）
+            violations = self._check_constraint(df, const)
+            if violations:
+                df = self._mark_violation_flags(df, violations, const.severity)
+
+        return df
+</code></pre>
+<h4 id="822-feature-engineer">8.2.2 Feature Engineer 整合範例</h4>
+<pre><code class="language-python"># src/features/feature_engineer.py
+class FeatureEngineer:
+    def __init__(self, annotation_manager: FeatureAnnotationManager):
+        self.annotation = annotation_manager
+
+    def build_feature_matrix(self, df: pl.DataFrame) -&gt; pl.DataFrame:
+        &quot;&quot;&quot;建立特徵矩陣（含 Lag 特徵）&quot;&quot;&quot;
+        result = df
+
+        for col in df.columns:
+            lag_config = self.annotation.get_lag_config(col)
+
+            if lag_config and lag_config[&quot;enabled&quot;]:
+                # 檢查是否為目標變數（防止 Data Leakage）
+                if self.annotation.get_column_annotation(col).is_target:
+                    raise ValueError(f&quot;E405: 目標變數 {col} 不可啟用 Lag&quot;)
+
+                # 建立 Lag 特徵
+                for lag in lag_config[&quot;intervals&quot;]:
+                    result = result.with_columns(
+                        pl.col(col).shift(lag).alias(f&quot;{col}_lag_{lag}&quot;)
+                    )
+
+        return result
+</code></pre>
+<hr />
+<h2 id="9">9. 錯誤與警告代碼對照表（更新）</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">代碼</th>
+<th style="text-align: left;">名稱</th>
+<th style="text-align: center;">層級</th>
+<th style="text-align: left;">觸發條件</th>
+<th style="text-align: left;">處理方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><strong>E400</strong></td>
+<td style="text-align: left;"><code>ANNOTATION_VERSION_MISMATCH</code></td>
+<td style="text-align: center;">Error</td>
+<td style="text-align: left;">Excel 範本版本不符（System sheet 顯示非 1.2）</td>
+<td style="text-align: left;">執行 migrate_excel.py 升級</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E401</strong></td>
+<td style="text-align: left;"><code>ORPHAN_COLUMN</code></td>
+<td style="text-align: center;">Warning</td>
+<td style="text-align: left;">標註欄位不存在於資料（Excel 有但 CSV 沒有）</td>
+<td style="text-align: left;">記錄日誌，繼續執行</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E402</strong></td>
+<td style="text-align: left;"><code>UNANNOTATED_COLUMN</code></td>
+<td style="text-align: center;">Error/Warning</td>
+<td style="text-align: left;">資料欄位未定義於 Annotation（CSV 有但 Excel 沒有）</td>
+<td style="text-align: left;">Error: 阻擋流程；Warning: 自動推斷並標記 pending_review</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E403</strong></td>
+<td style="text-align: left;"><code>UNIT_INCOMPATIBLE</code></td>
+<td style="text-align: center;">Error</td>
+<td style="text-align: left;">單位與物理類型不匹配（如溫度選 Bar）</td>
+<td style="text-align: left;">阻擋生成，返回 Excel 修正</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E404</strong></td>
+<td style="text-align: left;"><code>LAG_FORMAT_INVALID</code></td>
+<td style="text-align: center;">Error</td>
+<td style="text-align: left;">Lag 間隔格式錯誤（非逗號分隔整數）</td>
+<td style="text-align: left;">阻擋生成</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E405</strong></td>
+<td style="text-align: left;"><code>TARGET_LEAKAGE_RISK</code></td>
+<td style="text-align: center;">Error</td>
+<td style="text-align: left;">is_target=True 但 enable_lag=True（Pydantic 自動攔截）</td>
+<td style="text-align: left;">阻擋生成</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E406</strong></td>
+<td style="text-align: left;"><code>EXCEL_YAML_OUT_OF_SYNC</code></td>
+<td style="text-align: center;">Error</td>
+<td style="text-align: left;">Excel 修改時間晚於 YAML，或 checksum 不符</td>
+<td style="text-align: left;">提示重新執行 excel_to_yaml.py</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E407</strong></td>
+<td style="text-align: left;"><code>CIRCULAR_INHERITANCE</code></td>
+<td style="text-align: center;">Error</td>
+<td style="text-align: left;">YAML 繼承鏈存在循環參照</td>
+<td style="text-align: left;">阻擋載入，檢查 inherit 欄位</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E408</strong></td>
+<td style="text-align: left;"><code>SSOT_QUALITY_FLAGS_MISMATCH</code></td>
+<td style="text-align: center;">Error</td>
+<td style="text-align: left;">YAML 中的 <code>ssot_flags_version</code> 與 <code>config_models.VALID_QUALITY_FLAGS</code> 版本不一致</td>
+<td style="text-align: left;">阻擋 Container 啟動，要求同步 config_models.py（見 Interface Contract v1.1 第 3.5 節）</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E409</strong></td>
+<td style="text-align: left;"><code>HEADER_ANNOTATION_MISMATCH</code></td>
+<td style="text-align: center;">Error</td>
+<td style="text-align: left;">CSV 標頭（經 Parser 正規化後）與 Annotation 中的 <code>column_name</code> 無法匹配</td>
+<td style="text-align: left;">提示檢查 Excel 標註或執行 Wizard（見 Interface Contract v1.1 第 3.5 節）</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>E501</strong></td>
+<td style="text-align: left;"><code>DIRECT_WRITE_ATTEMPT</code></td>
+<td style="text-align: center;">Error</td>
+<td style="text-align: left;">Python 程式碼試圖直接修改 YAML（透過 open/write 或 FeatureAnnotationManager.save）</td>
+<td style="text-align: left;">立即終止流程，記錄安全性違規（見第 5.4 節 Import Guard）</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>W401</strong></td>
+<td style="text-align: left;"><code>MEAN_OUT_OF_RANGE</code></td>
+<td style="text-align: center;">Warning</td>
+<td style="text-align: left;">平均值超出預期範圍（distribution_check）</td>
+<td style="text-align: left;">標記 pending_review，可透過 ignore_warnings 忽略</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>W402</strong></td>
+<td style="text-align: left;"><code>LOW_VARIANCE</code></td>
+<td style="text-align: center;">Warning</td>
+<td style="text-align: left;">標準差接近零（可能為凍結資料）</td>
+<td style="text-align: left;">檢查感測器狀態</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>W403</strong></td>
+<td style="text-align: left;"><code>HIGH_ZERO_RATIO</code></td>
+<td style="text-align: center;">Warning</td>
+<td style="text-align: left;">零值比例過高（主設備 &gt; 10%）</td>
+<td style="text-align: left;">備用設備（backup role）自動抑制此警告</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>W404</strong></td>
+<td style="text-align: left;"><code>BACKUP_CLEANUP_FAILED</code></td>
+<td style="text-align: center;">Warning</td>
+<td style="text-align: left;">清理舊備份時權限不足</td>
+<td style="text-align: left;">通知系統管理員，不阻擋流程</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>W405</strong></td>
+<td style="text-align: left;"><code>EQUIPMENT_CONSTRAINT_DEPRECATED</code></td>
+<td style="text-align: center;">Warning</td>
+<td style="text-align: left;">使用了標記為 deprecated 的設備限制條件</td>
+<td style="text-align: left;">建議更新至新版限制條件定義</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="10-v12-contract-aligned">10. 交付物清單（v1.2-Contract-Aligned）</h2>
+<h3 id="101">10.1 配置文件</h3>
+<ol>
+<li><code>config/features/schema.json</code> - JSON Schema（更新至 v1.2，含 equipment_constraints 定義）</li>
+<li><code>config/features/physical_types.yaml</code> - 物理類型定義（含統計參數）</li>
+<li><code>config/features/sites/*.yaml</code> - 案場標註（含 equipment_constraints 區段）</li>
+<li><code>.gitignore</code> - 更新排除 Excel 工作檔案</li>
+</ol>
+<h3 id="102-excel">10.2 Excel 工具鏈（更新）</h3>
+<ol start="5">
+<li><code>tools/features/templates/Feature_Template_v1.2.xlsx</code> - 靜態驗證範本（含 System Sheet）</li>
+<li><code>tools/features/wizard.py</code> - <strong>僅更新 Excel</strong>，含自動備份機制（保留 10 版本）</li>
+<li><code>tools/features/excel_to_yaml.py</code> - 強化單位相容性驗證、equipment_constraints 生成、E408/E409 前驗證</li>
+<li><code>tools/features/yaml_to_excel.py</code> - 逆向轉換（支援 init 與 recovery 模式，含 equipment_constraints 解析）</li>
+<li><code>tools/features/migrate_excel.py</code> - 範本升級工具（v1.1→v1.2，新增 device_role 與 ignore_warnings 欄位）</li>
+</ol>
+<h3 id="103-python-api">10.3 Python API 與防護（新增/強化）</h3>
+<ol start="10">
+<li><code>src/features/annotation_manager.py</code> - <strong>FeatureAnnotationManager 類別（唯讀介面）</strong>，含 EquipmentConstraint 模型</li>
+<li><code>src/features/yaml_write_guard.py</code> - <strong>Import Hook 防護機制</strong>（E501 檢查）</li>
+<li><code>src/features/sync_checker.py</code> - Excel/YAML 同步狀態檢查（含 checksum 比對、E408/E409 檢查）</li>
+<li><code>src/features/annotation_validator.py</code> - Pydantic 模型（更新 device_role, ignore_warnings, equipment_constraints）</li>
+<li><code>src/features/backup_manager.py</code> - 備份清理與管理（保留策略實作）</li>
+</ol>
+<h3 id="104">10.4 整合測試（新增）</h3>
+<ol start="15">
+<li><code>tests/features/test_annotation_manager_api.py</code> - FeatureAnnotationManager API 單元測試（唯讀驗證、E501 防護測試）</li>
+<li><code>tests/features/test_equipment_constraints.py</code> - 設備限制條件載入與查詢測試（對齊 Cleaner v2.2 預檢邏輯）</li>
+<li><code>tests/features/test_yaml_write_guard.py</code> - Import Hook 攔截測試（確保無法直接寫入 YAML）</li>
+<li><code>tests/features/test_error_codes.py</code> - E408/E409 錯誤碼觸發測試（與 Interface Contract v1.1 對齊）</li>
+</ol>
+<h3 id="105">10.5 文件</h3>
+<ol start="19">
+<li><code>docs/features/FEATURE_ANNOTATION_v1.2-Contract-Aligned.md</code> - <strong>本文件</strong></li>
+<li><code>docs/features/MIGRATION_GUIDE_v1.1_to_v1.2.md</code> - 升級指引（含 device_role 與 equipment_constraints 遷移步驟）</li>
+<li><code>docs/features/EXCEL_TUTORIAL.md</code> - 空調技師操作手冊（含 Wizard 流程與災難恢復 SOP）</li>
+<li><code>docs/features/DISASTER_RECOVERY_RUNBOOK.md</code> - 災難恢復操作手冊（快速查閱版）</li>
+<li><code>docs/features/API_REFERENCE.md</code> - FeatureAnnotationManager API 參考文件（供 Cleaner/FE/Optimization 開發者使用）</li>
+</ol>
+<hr />
+<h2 id="11-v12-contract-aligned">11. 驗收簽核（v1.2-Contract-Aligned 重點）</h2>
+<h3 id="111-v12">11.1 基礎功能驗收（原有 v1.2）</h3>
+<ul>
+<li>[ ] <strong>Wizard 僅更新 Excel</strong>: 確認 Wizard 無法直接寫入 YAML（技術阻擋）</li>
+<li>[ ] <strong>競態條件測試</strong>: Wizard 更新 Excel → 手動修改 Excel → 執行 excel_to_yaml → 確認 YAML 正確反映手動修改（而非 Wizard 舊值）</li>
+<li>[ ] <strong>版本阻擋</strong>: 使用 v1.1 Excel 範本執行 excel_to_yaml 時，正確報錯 E400 並提示升級</li>
+<li>[ ] <strong>單位驗證</strong>: 在 Excel 選擇 <code>temperature</code> + <code>bar</code>，執行轉換時正確報錯 E403</li>
+<li>[ ] <strong>設備角色</strong>: 標記 <code>device_role=backup</code> 的欄位，統計零值比例 80% 時不觸發 W403</li>
+<li>[ ] <strong>同步檢查</strong>: Excel 修改後未重新生成 YAML，執行 Pipeline 時正確報錯 E406</li>
+<li>[ ] <strong>自動備份</strong>: Wizard 執行時正確生成 <code>.backup.{timestamp}</code> 檔案，並保留最近 10 個版本</li>
+<li>[ ] <strong>備份還原</strong>: 手動刪除 Excel 欄位後，能從 <code>.backups/</code> 成功還原並重新生成 YAML</li>
+<li>[ ] <strong>Git 回退</strong>: 模擬「誤刪欄位並已 commit」，能透過 <code>git checkout</code> + <code>yaml_to_excel --mode recovery</code> 完整恢復</li>
+<li>[ ] <strong>Recovery 模式保護</strong>: 未加 <code>--force</code> 執行 recovery 模式時，正確阻止覆蓋現有 Excel（防誤操作）</li>
+</ul>
+<h3 id="112-contract-aligned">11.2 Contract-Aligned 新增驗收（關鍵）</h3>
+<ul>
+<li>[ ] <strong>E408 檢查</strong>: 當 YAML 中的 <code>ssot_flags_version</code> 與 <code>config_models.py</code> 不一致時，Container 正確拋出 E408 並終止</li>
+<li>[ ] <strong>E409 檢查</strong>: 當 CSV 標頭（經 Parser 正規化後）與 Annotation <code>column_name</code> 不匹配時，正確拋出 E409</li>
+<li>[ ] <strong>FeatureAnnotationManager 唯讀</strong>: 嘗試呼叫 <code>manager.save()</code> 或 <code>manager.column_name = "xxx"</code> 時正確拋出 E501</li>
+<li>[ ] <strong>Import Guard 攔截</strong>: 嘗試在程式碼中執行 <code>open("config/features/sites/xxx.yaml", "w")</code> 時，正確拋出 E501（需安裝 yaml_write_guard）</li>
+<li>[ ] <strong>Equipment Constraints 載入</strong>: <code>manager.get_equipment_constraints(phase="precheck")</code> 正確回傳 Cleaner 階段需檢查的限制條件</li>
+<li>[ ] <strong>跨模組一致性</strong>: Cleaner v2.2 與 Optimization v1.1 透過 FeatureAnnotationManager 取得的 <code>chiller_pump_mutex</code> 限制條件內容完全一致（SSOT 驗證）</li>
+<li>[ ] <strong>API 文件完整性</strong>: Cleaner、Feature Engineer、Optimization 開發者能透過 <code>docs/features/API_REFERENCE.md</code> 理解如何正確使用 FeatureAnnotationManager</li>
+</ul>
+<hr />
+<p><strong>重要提醒</strong>：本版本已將 <strong>FeatureAnnotationManager API 規範</strong>、<strong>Import Guard 技術機制</strong>、<strong>Equipment Validation 整合</strong> 與 <strong>E408/E409 錯誤代碼</strong> 提升為強制要求，與 Interface Contract v1.1 完全對齊，並回應專案執行評估報告識別的 <strong>Dependency Deadlock</strong> 與 <strong>Physics Logic Decoupling</strong> 風險。</p>
+<p><strong>文件結束</strong><br />
+```</p>
+</body>
+</html>

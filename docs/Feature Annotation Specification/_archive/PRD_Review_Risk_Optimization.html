@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_Review_Risk_Optimization</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="prd-v10">特徵標註 PRD (v1.0) 風險評估與優化建議報告</h1>
+<p><strong>評估對象</strong>: <code>PRD_Feature_Annotation_Specification_V1.0.md</code><br />
+<strong>評估重點</strong>: 人工標註作業流程 (Manual Annotation Workflow)<br />
+<strong>文件版本</strong>: Review v1.0<br />
+<strong>日期</strong>: 2026-02-13</p>
+<hr />
+<h2 id="1-executive-summary">1. 執行摘要 (Executive Summary)</h2>
+<p>本 PRD 確立了「人機分離」的核心架構，將特徵定義權下放至領域專家（空調技師），設計理念先進且符合 MLOps 最佳實踐。然而，針對<strong>人工介入</strong>環節，目前的 YAML 方案對非技術人員存在顯著的<strong>操作門檻</strong>與<strong>人為錯誤風險</strong>。</p>
+<p>雖然系統層面有完善的 <code>Validator</code> 與 <code>Schema</code> 防護，但「防呆」不等於「好用」。若標註過程過於繁瑣或易錯，將導致領域專家抗拒使用，最終回歸到工程師代勞，違背「非工程師可維護」的初衷。</p>
+<p>建議引入<strong>中間層工具 (Excel/GUI)</strong> 與 <strong>交互式驗證流程</strong> 來對沖這些風險。</p>
+<hr />
+<h2 id="2-risk-assessment">2. 潛在風險評估 (Risk Assessment)</h2>
+<h3 id="21-human-factors-critical">2.1 人為操作風險 (Human Factors) - <strong>CRITICAL</strong></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">風險點</th>
+<th style="text-align: left;">說明</th>
+<th style="text-align: left;">影響</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>YAML 語法門檻</strong></td>
+<td style="text-align: left;">空調技師/設備工程師通常不熟悉 YAML 縮排、冒號與列表格式。</td>
+<td style="text-align: left;">導致大量 <code>SCHEMA_VALIDATION_FAILED</code> (E400)，挫折感高，效率低落。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>正則表達式 (Regex) 困難</strong></td>
+<td style="text-align: left;"><code>Group Policy</code> 依賴 Regex (<code>^chiller_\d+_.*$</code>) 進行自動匹配。</td>
+<td style="text-align: left;">領域專家無法編寫或維護 Regex，導致 Group Policy 形同虛設，退化為逐行設定。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>物理意義誤植</strong></td>
+<td style="text-align: left;">誤將「壓力 (Bar)」標註為「溫度 (C)」。</td>
+<td style="text-align: left;">Cleaner 的 <code>valid_range</code> 檢查失效（例如壓力的 0-10 Bar 在溫度 -40~100 範圍內是合法的），導致髒數據流入模型。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>版本號混亂</strong></td>
+<td style="text-align: left;">人工需手動維護 <code>schema_version</code> 與檔案版本。</td>
+<td style="text-align: left;">容易發生 Copy-Paste 錯誤，導致版本號與內容不符。</td>
+</tr>
+</tbody>
+</table>
+<h3 id="22-process-integration-high">2.2 流程整合風險 (Process Integration) - <strong>HIGH</strong></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">風險點</th>
+<th style="text-align: left;">說明</th>
+<th style="text-align: left;">影響</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>CSV 與 YAML 不同步</strong></td>
+<td style="text-align: left;">現場 IoT Gateway 變更點位名稱，但 CSV 欄位變更後，YAML 未及時更新。</td>
+<td style="text-align: left;">嚴格模式下觸發 <code>E402_UNANNOTATED_COLUMN</code> 導致 Pipeline 中斷；非嚴格模式下導致資料遺失。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>繼承邏輯黑盒</strong></td>
+<td style="text-align: left;">多層繼承 (<code>Site</code> -&gt; <code>Base</code> -&gt; <code>Physics</code>) 的最終結果對人類不可見。</td>
+<td style="text-align: left;">使用者在子檔案修改屬性時，不確定是否正確覆蓋了父檔案，需依賴 CLI <code>diff</code> 工具才能確認。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>缺乏即時反饋</strong></td>
+<td style="text-align: left;">目前依賴 CLI (<code>python main.py features validate</code>) 進行檢查。</td>
+<td style="text-align: left;">標註過程中無法即時得知錯誤（如 Excel 的資料驗證），需等到執行 CLI 才知道失敗。</td>
+</tr>
+</tbody>
+</table>
+<h3 id="23-technical-implementation-medium">2.3 技術實作風險 (Technical Implementation) - <strong>MEDIUM</strong></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">風險點</th>
+<th style="text-align: left;">說明</th>
+<th style="text-align: left;">影響</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Lag/Rolling 盲點</strong></td>
+<td style="text-align: left;">即便有 E405 防護 (Target Leakage)，但對於非 Target 的欄位，使用者可能不理解 <code>lag_intervals</code> 的統計意義。</td>
+<td style="text-align: left;">產生無意義的特徵（如對「機型編號」做 Rolling Mean），造成運算資源浪費。</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>檔案命名規範</strong></td>
+<td style="text-align: left;">依賴檔名 (<code>cgmh_ty.yaml</code>) 作為 Site ID。</td>
+<td style="text-align: left;">若檔名更改但內容未變，或大小寫不一致，可能導致 ConfigLoader 載入失敗。</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-optimization-strategy">3. 優化建議與解決方案 (Optimization Strategy)</h2>
+<p>針對上述風險，建議從<strong>工具鏈 (Tooling)</strong> 與 <strong>流程 (Workflow)</strong> 兩個維度進行優化。</p>
+<h3 id="31-excel-excel-as-interface">3.1 工具鏈優化：引入 Excel 作為中間層 (Excel-as-Interface)</h3>
+<p>YAML 適合機器讀取與版本控制，但不適合人類編輯。建議開發 <strong>CSV/Excel 轉換器</strong>。</p>
+<ul>
+<li><strong>方案</strong>: 設計一個標準化的 Excel 範本 (<code>Feature_Definition_Template.xlsx</code>)。<ul>
+<li><strong>Sheet 1 (Columns)</strong>: 表格化列出所有欄位，下拉式選單選擇 <code>Physical Type</code>。</li>
+<li><strong>Sheet 2 (Physical Types)</strong>: 唯讀參考，列出所有可用類型與單位。</li>
+<li><strong>Sheet 3 (Group Policy)</strong>: 簡單的規則設定（非 Regex，改用「包含字串」或「前綴」）。</li>
+</ul>
+</li>
+<li><strong>優勢</strong>: <ol>
+<li>領域專家熟悉 Excel。</li>
+<li>可利用 Excel 的「資料驗證 (Data Validation)」做第一層防呆（如下拉選單）。</li>
+<li>透過 Python Script (<code>excel_to_yaml.py</code>) 自動轉換為規範的 YAML，解決縮排問題。</li>
+</ol>
+</li>
+</ul>
+<h3 id="32-cli-interactive-cli">3.2 驗證流程優化：交互式 CLI (Interactive CLI)</h3>
+<p>現有的 <code>init</code> 指令僅能產生草稿，建議增強為 <strong>Wizard 模式</strong>。</p>
+<ul>
+<li><strong>新增指令</strong>: <code>python main.py features wizard --csv data.csv</code></li>
+<li><strong>功能</strong>:<ol>
+<li>讀取 CSV，逐一列出未定義欄位。</li>
+<li>顯示：「發現新欄位 <code>chiller_1_kwh</code>，系統推測為 <code>Energy</code>，是否確認？(Y/n/Edit)」</li>
+<li>自動更新 YAML 檔案，無需人工開啟編輯器。</li>
+</ol>
+</li>
+</ul>
+<h3 id="33-distribution-check">3.3 物理意義驗證：數據分佈檢查 (Distribution Check)</h3>
+<p>在 <code>validate_against_dataframe</code> 中加入<strong>統計驗證</strong>，而非僅檢查型別。</p>
+<ul>
+<li><strong>邏輯</strong>: <ul>
+<li>若標註為 <code>Temperature</code> (範圍 -40~100)，但實際數據 <code>mean=400</code>，則發出 <strong>Warning (W40x)</strong>。</li>
+<li>這能抓出「標註錯誤」或「單位錯誤」（如攝氏誤為華氏，或壓力誤為溫度）。</li>
+</ul>
+</li>
+</ul>
+<h3 id="34-inheritance-visualization">3.4 繼承視覺化 (Inheritance Visualization)</h3>
+<ul>
+<li><strong>新增指令</strong>: <code>python main.py features inspect cgmh_ty --column chiller_1_temp</code></li>
+<li><strong>輸出</strong>:<br />
+    ```text<br />
+    Column: chiller_1_temp<br />
+    Final Config:<ul>
+<li>physical_type: temperature (from BASE)</li>
+<li>enable_lag: false (OVERRIDDEN by SITE)</li>
+<li>unit: C (from PHYSICS)<br />
+```</li>
+</ul>
+</li>
+<li>這能幫助使用者理解繼承的最終結果。</li>
+</ul>
+<hr />
+<h2 id="4-specific-revisions-to-prd">4. 具體修訂建議 (Specific Revisions to PRD)</h2>
+<p>建議在 PRD v1.1 中加入以下章節或修改：</p>
+<ol>
+<li><strong>修改 3.1 頂層結構</strong>:<ul>
+<li>增加 <code>meta</code> 欄位，紀錄 <code>editor</code> (編輯者) 與 <code>last_updated</code>，便於追溯責任。</li>
+</ul>
+</li>
+<li><strong>增強 6. CLI 工具規格</strong>:<ul>
+<li>將 <code>init</code> 升級為 <code>wizard</code> 或支援 Excel 導入 (<code>--from-excel</code>)。</li>
+</ul>
+</li>
+<li><strong>新增 4.4 統計分佈驗證</strong>:<ul>
+<li>定義 Warning 級別的錯誤，允許 Pipeline 繼續執行但產出警告報告。</li>
+</ul>
+</li>
+<li><strong>Group Policy 簡化</strong>:<ul>
+<li>除了 Regex <code>match_pattern</code>，增加 <code>starts_with</code>, <code>ends_with</code>, <code>contains</code> 等簡單字串匹配規則，降低門檻。</li>
+</ul>
+</li>
+</ol>
+<hr />
+<h2 id="5">5. 結論</h2>
+<p>目前的 PRD 在架構設計上非常嚴謹（SSOT, Pydantic, Composition），是高品質的工程規範。<br />
+<strong>唯一的缺口在於「User Interface」</strong>。</p>
+<p>若能補足 <strong>Excel 轉譯工具</strong> 或 <strong>交互式 CLI</strong>，將能大幅降低推動阻力，確保該系統真正能被空調技師所用，達成「人機分離」的最終目標。</p>
+</body>
+</html>

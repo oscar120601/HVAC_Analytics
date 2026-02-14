@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_Feature_Annotation_Specification_V1.0</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="prd-v10-feature-annotation-specification">PRD v1.0: 特徵標註系統規範 (Feature Annotation Specification)</h1>
+<p><strong>文件版本:</strong> v1.0 (Human-Configurable Feature Metadata)<br />
+<strong>日期:</strong> 2026-02-13<br />
+<strong>負責人:</strong> Oscar Chang<br />
+<strong>目標:</strong> 建立非工程師可維護的特徵定義系統，作為 Data Team 與 Domain Expert（空調技師）之間的正式契約<br />
+<strong>相依模組:</strong> Cleaner v2.2+, BatchProcessor v1.3+, Feature Engineer v1.3+<br />
+<strong>預估工時:</strong> 3 ~ 4 個工程天（含 CLI 工具與驗證邏輯）</p>
+<hr />
+<h2 id="1">1. 執行總綱與設計哲學</h2>
+<h3 id="11">1.1 核心目標</h3>
+<ol>
+<li><strong>人機分離</strong>: 設備工程師透過 YAML 定義特徵，無需修改 Python 程式碼</li>
+<li><strong>多案場管理</strong>: 支援「基礎定義 + 案場覆蓋」的繼承架構，避免重複維護</li>
+<li><strong>防呆設計</strong>: 透過 JSON Schema 與 Pydantic 雙重驗證，防止矛盾設定（如對目標變數生成 Lag）</li>
+<li><strong>版本綁定</strong>: 特徵定義版本與模型版本、ETL 版本嚴格綁定，確保可追溯性</li>
+</ol>
+<h3 id="12">1.2 設計原則</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">原則</th>
+<th style="text-align: left;">說明</th>
+<th style="text-align: left;">實現方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>SSOT 延伸</strong></td>
+<td style="text-align: left;">特徵標註是 SSOT 的「可編輯視圖」</td>
+<td style="text-align: left;"><code>config/features/</code> 目錄為唯一編輯入口，程式碼僅唯讀</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>顯式優於隱式</strong></td>
+<td style="text-align: left;">禁止自動推斷（Auto-inference），所有欄位必須顯式定義或明確標記為 <code>auto_detect</code></td>
+<td style="text-align: left;">嚴格模式下，未定義欄位觸發 <code>E401_UNANNOTATED_COLUMN</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>繼承與覆蓋</strong></td>
+<td style="text-align: left;">支援多層繼承（Base → Site → Device），避免複製貼上</td>
+<td style="text-align: left;"><code>inherit</code> 關鍵字與深度合併演算法</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>驗證左移</strong></td>
+<td style="text-align: left;">在 Cleaner 階段就驗證標註，而非等到 Feature Engineer 才發現錯誤</td>
+<td style="text-align: left;"><code>FeatureAnnotationValidator</code> 類別在 <code>ConfigLoader</code> 階段執行</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2">2. 文件架構與繼承機制</h2>
+<h3 id="21">2.1 目錄結構</h3>
+<pre><code>config/features/                    # 特徵標註根目錄
+├── schema.json                     # JSON Schema 驗證規則
+├── base.yaml                       # 基礎定義（所有案場共用）
+├── physical_types.yaml             # 物理類型規範（可選獨立）
+└── sites/                          # 案場特定定義
+    ├── cgmh_ty.yaml               # 長庚醫院桃園院區
+    ├── farglory_o3.yaml           # 遠雄 O3
+    └── kmuh.yaml                  # 高醫
+</code></pre>
+<h3 id="22">2.2 繼承機制規範</h3>
+<p><strong>繼承鏈</strong>（由底向上解析）：</p>
+<pre><code>sites/cgmh_ty.yaml 
+    → base.yaml 
+        → physical_types.yaml (若獨立)
+            → 程式碼 SSOT (VALID_PHYSICAL_TYPES)
+</code></pre>
+<p><strong>深度合併規則</strong>：<br />
+1. <strong>欄位級覆蓋</strong>: 子檔案定義的欄位完全覆蓋父檔案同名列<br />
+2. <strong>屬性級合併</strong>: 欄位內屬性（如 <code>tags</code>）採用「子檔案優先，但合併列表」<br />
+3. <strong>刪除標記</strong>: 使用 <code>null</code> 或 <code>~</code> 刪除繼承的欄位</p>
+<p><strong>範例</strong>：</p>
+<pre><code class="language-yaml"># base.yaml
+columns:
+  chiller_1_load:
+    physical_type: &quot;chiller_load&quot;
+    enable_lag: true
+
+# sites/cgmh_ty.yaml
+inherit: base
+columns:
+  chiller_1_load:
+    # 完全覆蓋 base 的定義，仅保留以下
+    physical_type: &quot;chiller_load&quot;  
+    enable_lag: false              # 覆蓋為 false
+    description: &quot;一號機負載（客製）&quot; # 新增屬性
+</code></pre>
+<hr />
+<h2 id="3-yaml-schema">3. YAML Schema 詳細規範</h2>
+<h3 id="31-root-schema">3.1 頂層結構 (Root Schema)</h3>
+<pre><code class="language-yaml">schema_version: &quot;1.0&quot;              # 必須，用於版本相容性檢查
+description: &quot;長庚醫院特徵定義&quot;     # 選填，文件說明
+inherit: &quot;base&quot;                    # 選填，繼承目標（檔名不含副檔名）
+
+# 物理類型定義（可覆蓋或擴充 SSOT）
+physical_types:
+  [physical_type_id]: PhysicalTypeDefinition
+
+# 欄位標註（核心）
+columns:
+  [column_name]: ColumnAnnotation
+
+# Group Policy 自動匹配規則（可選）
+group_policies:
+  [policy_name]: GroupPolicyRule
+
+# 驗證規則覆蓋（可選）
+validation:
+  strict_mode: true                # 預設 true
+  allow_unannotated: false         # 是否允許未定義欄位（自動推斷）
+</code></pre>
+<h3 id="32-physical-type">3.2 Physical Type 定義</h3>
+<pre><code class="language-yaml">physical_types:
+  temperature:
+    description: &quot;溫度感測器&quot;
+    unit: &quot;°C&quot;                     # 顯示單位，影響報表輸出
+    si_unit: &quot;celsius&quot;             # 內部標準化單位（轉換用）
+    valid_range: [-40.0, 100.0]    # 物理限制（Cleaner 驗證用）
+    agg_method: &quot;mean&quot;             # 預設聚合方法（resample 用）
+    default_tags: [&quot;sensor&quot;, &quot;hvac&quot;] # 分類標籤
+
+  chiller_load:
+    description: &quot;冰機負載&quot;
+    unit: &quot;RT&quot;                     # 冷凍噸
+    si_unit: &quot;kw&quot;                  # 內部換算為 kW（1 RT = 3.517 kW）
+    valid_range: [0.0, 2000.0]
+    agg_method: &quot;mean&quot;
+    enable_lag: true               # 物理類型層級預設
+    enable_rolling: true
+    group_policy: &quot;chiller_assets&quot; # 自動套用至匹配的欄位
+
+  power:                           # 目標變數類型
+    description: &quot;電力&quot;
+    unit: &quot;kW&quot;
+    is_target: true                # 標記為目標變數類型
+    enable_lag: false              # 強制禁止（自動檢查）
+    enable_rolling: false
+</code></pre>
+<h3 id="33-column-annotation">3.3 Column Annotation 定義（核心）</h3>
+<pre><code class="language-yaml">columns:
+  # 範例 1：標準感測器
+  chiller_1_temp:
+    column_name: &quot;chiller_1_temp&quot;  # 必須，與 CSV 欄位名稱完全匹配
+    physical_type: &quot;temperature&quot;   # 必須，引用 physical_types 或 SSOT
+    description: &quot;一號冰機出水溫度&quot; # 建議填寫，用於文件產生
+    is_target: false               # 預設 false
+    enable_lag: true               # 預設繼承 physical_type，可覆蓋
+    enable_rolling: true           # 預設繼承 physical_type
+    lag_intervals: [1, 4, 96]      # 可選，覆蓋預設 [1, 4]
+    rolling_windows: [4, 96]       # 可選，覆蓋預設
+    tags: [&quot;critical&quot;, &quot;chiller_1&quot;] # 可選，用於篩選與分組
+
+  # 範例 2：目標變數（嚴格檢查）
+  total_power_kw:
+    column_name: &quot;total_power_kw&quot;
+    physical_type: &quot;power&quot;
+    is_target: true
+    # enable_lag 與 enable_rolling 必須為 false（驗證器檢查）
+
+  # 範例 3：狀態欄位（不生成統計特徵）
+  chiller_1_status:
+    column_name: &quot;chiller_1_status&quot;
+    physical_type: &quot;status&quot;        # 離散狀態（on/off/fault）
+    enable_lag: false              # 狀態通常不做 lag（或僅做 one-hot）
+    enable_rolling: false
+    encoding: &quot;onehot&quot;             # 分類編碼方式
+
+  # 範例 4：時間戳（特殊處理）
+  timestamp:
+    column_name: &quot;timestamp&quot;
+    physical_type: &quot;timestamp&quot;
+    is_required: true              # 必須存在，否則報錯
+    timezone: &quot;UTC&quot;                # 預期時區（驗證用）
+</code></pre>
+<h3 id="34-group-policy">3.4 Group Policy 自動匹配</h3>
+<pre><code class="language-yaml">group_policies:
+  chiller_assets:
+    description: &quot;所有冰機相關欄位&quot;
+    match_pattern: &quot;^chiller_\\d+_(load|temp|flow)$&quot;  # Regex
+    physical_type: &quot;chiller_load&quot;  # 匹配後預設 physical_type
+    rules:
+      lag_intervals: [1, 4]
+      rolling_windows: [4, 96, 288]
+      aggregations: [&quot;mean&quot;, &quot;std&quot;]
+
+  cooling_tower_assets:
+    match_pattern: &quot;^ct_\\d+_.*$&quot;
+    physical_type: &quot;temperature&quot;
+    rules:
+      lag_intervals: [1, 4]
+      rolling_windows: [4, 96]
+</code></pre>
+<hr />
+<h2 id="4-validation-rules">4. 驗證規則與防呆設計 (Validation Rules)</h2>
+<h3 id="41-json-schema">4.1 語法驗證 (JSON Schema)</h3>
+<p><strong>檔案</strong>: <code>config/features/schema.json</code></p>
+<pre><code class="language-json">{
+  &quot;$schema&quot;: &quot;http://json-schema.org/draft-07/schema#&quot;,
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [&quot;schema_version&quot;],
+  &quot;properties&quot;: {
+    &quot;schema_version&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [&quot;1.0&quot;]
+    },
+    &quot;inherit&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;pattern&quot;: &quot;^[a-zA-Z0-9_-]+$&quot;
+    },
+    &quot;columns&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;patternProperties&quot;: {
+        &quot;^[a-zA-Z_][a-zA-Z0-9_]*$&quot;: {
+          &quot;type&quot;: &quot;object&quot;,
+          &quot;required&quot;: [&quot;column_name&quot;, &quot;physical_type&quot;],
+          &quot;properties&quot;: {
+            &quot;is_target&quot;: { &quot;type&quot;: &quot;boolean&quot; },
+            &quot;enable_lag&quot;: { &quot;type&quot;: &quot;boolean&quot; },
+            &quot;enable_rolling&quot;: { &quot;type&quot;: &quot;boolean&quot; }
+          },
+          &quot;allOf&quot;: [
+            {
+              &quot;if&quot;: {
+                &quot;properties&quot;: { &quot;is_target&quot;: { &quot;const&quot;: true } }
+              },
+              &quot;then&quot;: {
+                &quot;properties&quot;: {
+                  &quot;enable_lag&quot;: { &quot;const&quot;: false },
+                  &quot;enable_rolling&quot;: { &quot;const&quot;: false }
+                },
+                &quot;errorMessage&quot;: &quot;目標變數不可啟用 Lag 或 Rolling（會導致 Data Leakage）&quot;
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+</code></pre>
+<h3 id="42-pydantic-validator">4.2 語意驗證 (Pydantic Validator)</h3>
+<p><strong>檔案</strong>: <code>src/features/annotation_validator.py</code></p>
+<pre><code class="language-python">from typing import Dict, List, Set
+import re
+from pydantic import BaseModel, validator, root_validator
+
+class ColumnAnnotation(BaseModel):
+    column_name: str
+    physical_type: str
+    is_target: bool = False
+    enable_lag: bool = True
+    enable_rolling: bool = True
+    lag_intervals: Optional[List[int]] = None
+    rolling_windows: Optional[List[int]] = None
+
+    @validator('physical_type')
+    def validate_physical_type(cls, v):
+        allowed = VALID_PHYSICAL_TYPES.keys()  # 從 SSOT 載入
+        if v not in allowed and v != &quot;timestamp&quot;:
+            raise ValueError(f&quot;未定義的 physical_type: {v}，可用的: {allowed}&quot;)
+        return v
+
+    @root_validator
+    def validate_target_constraints(cls, values):
+        &quot;&quot;&quot;防止 Data Leakage：目標變數不可有滯後特徵&quot;&quot;&quot;
+        is_target = values.get('is_target', False)
+        enable_lag = values.get('enable_lag', True)
+        enable_rolling = values.get('enable_rolling', True)
+
+        if is_target:
+            if enable_lag or enable_rolling:
+                raise ValueError(
+                    f&quot;欄位 {values.get('column_name')} 標記為 is_target=true，&quot;
+                    f&quot;但 enable_lag={enable_lag}, enable_rolling={enable_rolling}。&quot;
+                    f&quot;這會導致 Data Leakage，必須設為 false。&quot;
+                )
+            # 強制設定為 false（即使使用者沒寫）
+            values['enable_lag'] = False
+            values['enable_rolling'] = False
+        return values
+
+    @validator('lag_intervals')
+    def validate_lag_intervals(cls, v, values):
+        &quot;&quot;&quot;驗證 lag 間隔為正整數且遞增&quot;&quot;&quot;
+        if v is None:
+            return v
+        if not all(isinstance(x, int) and x &gt; 0 for x in v):
+            raise ValueError(&quot;lag_intervals 必須為正整數列表&quot;)
+        if v != sorted(v):
+            raise ValueError(&quot;lag_intervals 必須遞增排序&quot;)
+        return v
+
+class FeatureAnnotation(BaseModel):
+    schema_version: str
+    inherit: Optional[str] = None
+    columns: Dict[str, ColumnAnnotation]
+
+    @validator('schema_version')
+    def validate_version(cls, v):
+        if v != &quot;1.0&quot;:
+            raise ValueError(f&quot;不支援的 schema_version: {v}，目前僅支援 1.0&quot;)
+        return v
+
+    def merge_with_parent(self, parent: 'FeatureAnnotation') -&gt; 'FeatureAnnotation':
+        &quot;&quot;&quot;執行深度合併（子覆蓋父）&quot;&quot;&quot;
+        merged_columns = parent.columns.copy()
+        merged_columns.update(self.columns)  # 子覆蓋父
+
+        return FeatureAnnotation(
+            schema_version=self.schema_version,
+            inherit=self.inherit,
+            columns=merged_columns
+        )
+</code></pre>
+<h3 id="43">4.3 與實際資料一致性驗證</h3>
+<p><strong>時機</strong>: Cleaner 階段（讀取 CSV 後，清洗前）</p>
+<pre><code class="language-python">def validate_against_dataframe(
+    annotation: FeatureAnnotation, 
+    df: pl.DataFrame
+) -&gt; None:
+    &quot;&quot;&quot;
+    驗證標註與實際資料的一致性
+
+    錯誤代碼:
+    - E401: 有標註但資料中不存在（orphan columns）
+    - E402: 有資料但無標註（unannotated columns，嚴格模式報錯）
+    - E403: 型別不匹配（如標註 Float64，實際為 Utf8）
+    &quot;&quot;&quot;
+    annotated_cols = set(annotation.columns.keys())
+    actual_cols = set(df.columns)
+
+    # 檢查必要欄位
+    required = [
+        name for name, col in annotation.columns.items() 
+        if getattr(col, 'is_required', False)
+    ]
+    missing_required = set(required) - actual_cols
+    if missing_required:
+        raise ConfigurationError(f&quot;E404: 缺少必要欄位: {missing_required}&quot;)
+
+    # 嚴格模式：禁止未定義欄位
+    unannotated = actual_cols - annotated_cols - {'timestamp'}
+    if unannotated and annotation.validation.get('allow_unannotated', False) is False:
+        raise ConfigurationError(
+            f&quot;E402: 資料中存在未定義的欄位: {unannotated}。&quot;
+            f&quot;請在 feature annotation 中定義，或設定 allow_unannotated: true&quot;
+        )
+
+    # 型別驗證
+    for col_name, col_meta in annotation.columns.items():
+        if col_name not in actual_cols:
+            continue
+        expected_dtype = get_expected_dtype(col_meta.physical_type)
+        actual_dtype = df[col_name].dtype
+        if not is_compatible(actual_dtype, expected_dtype):
+            raise TypeError(
+                f&quot;E403: 欄位 {col_name} 型別不匹配: &quot;
+                f&quot;標註預期 {expected_dtype}, 實際 {actual_dtype}&quot;
+            )
+</code></pre>
+<hr />
+<h2 id="5-etl-pipeline">5. 與 ETL Pipeline 的整合點</h2>
+<h3 id="51">5.1 整合流程圖</h3>
+<pre><code>config/features/sites/cgmh_ty.yaml
+        ↓
+ConfigLoader.load_feature_annotation(&quot;cgmh_ty&quot;)
+    - 解析繼承鏈
+    - 執行深度合併
+    - Pydantic 驗證
+        ↓
+ETLContainer (傳遞至各模組)
+    ↓                   ↓                   ↓                   ↓
+Cleaner v2.2      BatchProcessor v1.3  Feature Engineer v1.3  Model Training
+(欄位驗證)          (寫入 Manifest)      (Group Policy)       (特徵解釋)
+- E402 檢查        - feature_metadata   - 匹配 physical_type  - SHAP 解釋用
+- 單位轉換         - annotation_version - 決定 Lag/Rolling    - 特徵重要性
+</code></pre>
+<h3 id="52-cleaner-v22">5.2 Cleaner v2.2 整合點</h3>
+<p><strong>修改</strong>: <code>Cleaner._build_column_metadata()</code> 改為讀取 Annotation</p>
+<pre><code class="language-python">def _build_column_metadata(self, df: pl.DataFrame) -&gt; Dict[str, FeatureMetadata]:
+    &quot;&quot;&quot;從 Feature Annotation 讀取 Metadata（取代自動推斷）&quot;&quot;&quot;
+    annotation = self.config.feature_annotation  # 由 Container 注入
+
+    metadata = {}
+    for col_name in df.columns:
+        if col_name == &quot;timestamp&quot;:
+            continue
+
+        if col_name not in annotation.columns:
+            if self.config.strict_mode:
+                raise ConfigurationError(f&quot;E402: 未定義欄位 {col_name}&quot;)
+            # 保守預設（僅嚴格模式關閉時）
+            metadata[col_name] = FeatureMetadata(
+                column_name=col_name,
+                physical_type=&quot;gauge&quot;
+            )
+            continue
+
+        col_ann = annotation.columns[col_name]
+        metadata[col_name] = FeatureMetadata(
+            column_name=col_name,
+            physical_type=col_ann.physical_type,
+            unit=col_ann.unit,
+            is_target=col_ann.is_target,
+            enable_lag=col_ann.enable_lag,
+            enable_rolling=col_ann.enable_rolling
+        )
+
+    return metadata
+</code></pre>
+<h3 id="53-batchprocessor-v13">5.3 BatchProcessor v1.3 整合點</h3>
+<p><strong>修改</strong>: Manifest 寫入 Annotation 版本資訊</p>
+<pre><code class="language-python">def _generate_manifest(self, ...):
+    return Manifest(
+        # ... 其他欄位
+        feature_metadata=column_metadata,
+        annotation_version=self.config.feature_annotation.get_version(),  # 新增
+        annotation_checksum=self.config.feature_annotation.compute_checksum()  # 新增
+    )
+</code></pre>
+<h3 id="54-feature-engineer-v13">5.4 Feature Engineer v1.3 整合點</h3>
+<p><strong>修改</strong>: Group Policy 使用 Annotation 定義的 physical_type</p>
+<pre><code class="language-python">def _resolve_group_policies(self, df, manifest_metadata):
+    # manifest_metadata 實際來源是 Feature Annotation
+    # 因此 Group Policy 完全依照人類專家的設定執行，而非自動推斷
+    ...
+</code></pre>
+<hr />
+<h2 id="6-cli">6. CLI 工具規格</h2>
+<h3 id="61">6.1 命令列表</h3>
+<pre><code class="language-bash"># 驗證標註文件語法
+python main.py features validate config/features/sites/cgmh_ty.yaml
+
+# 從 CSV 自動產生標註草稿（輔助工具）
+python main.py features init --from-csv data/raw/sample.csv --output config/features/sites/new_site.yaml
+
+# 檢查標註與實際資料一致性
+python main.py features check --annotation cgmh_ty --data data/raw/cgmh_ty_20250213.csv
+
+# 比較兩版標註差異（用於版本升級）
+python main.py features diff config/features/v1.0/base.yaml config/features/v1.1/base.yaml
+</code></pre>
+<h3 id="62-init">6.2 <code>init</code> 命令詳細邏輯</h3>
+<pre><code class="language-python">def init_annotation_from_csv(
+    csv_path: Path, 
+    output_path: Path,
+    site_id: str
+) -&gt; None:
+    &quot;&quot;&quot;
+    從 CSV 自動產生標註草稿（輔助工具，非自動推斷）
+
+    邏輯:
+    1. 讀取 CSV 欄位名稱
+    2. 嘗試匹配 common patterns（如 .*temp.* → temperature）
+    3. 產生 YAML 草稿，所有欄位標記為 &quot;pending_review&quot;
+    4. 人工確認後改為正式定義
+    &quot;&quot;&quot;
+    df = pl.read_csv(csv_path, n_rows=1000)
+
+    template = {
+        &quot;schema_version&quot;: &quot;1.0&quot;,
+        &quot;description&quot;: f&quot;Auto-generated draft for {site_id}&quot;,
+        &quot;inherit&quot;: &quot;base&quot;,
+        &quot;columns&quot;: {}
+    }
+
+    for col in df.columns:
+        if col == &quot;timestamp&quot;:
+            template[&quot;columns&quot;][col] = {
+                &quot;column_name&quot;: col,
+                &quot;physical_type&quot;: &quot;timestamp&quot;,
+                &quot;is_required&quot;: True
+            }
+        else:
+            # 簡易推斷僅用於草稿，需人工確認
+            guessed_type = guess_physical_type(col)  # 基於名稱推斷
+            template[&quot;columns&quot;][col] = {
+                &quot;column_name&quot;: col,
+                &quot;physical_type&quot;: guessed_type,
+                &quot;description&quot;: &quot;TODO: Please review and confirm&quot;,
+                &quot;tags&quot;: [&quot;auto_generated&quot;, &quot;pending_review&quot;]
+            }
+
+    output_path.write_text(yaml.dump(template, sort_keys=False, allow_unicode=True))
+    print(f&quot;Draft annotation saved to {output_path}&quot;)
+    print(&quot;WARNING: Please review all 'pending_review' tags before production use&quot;)
+</code></pre>
+<hr />
+<h2 id="7">7. 版本控制與相容性</h2>
+<h3 id="71">7.1 版本宣告與檢查</h3>
+<pre><code class="language-yaml"># 文件內必須宣告
+schema_version: &quot;1.0&quot;
+
+# 程式碼檢查
+if annotation.schema_version != SUPPORTED_VERSION:
+    raise CompatibilityError(
+        f&quot;Feature Annotation version {annotation.schema_version} &quot;
+        f&quot;not supported by this code version (supports {SUPPORTED_VERSION})&quot;
+    )
+</code></pre>
+<h3 id="72">7.2 與模型版本綁定</h3>
+<p><strong>Model Registry 必須記錄</strong>：</p>
+<pre><code class="language-json">{
+  &quot;model_version&quot;: &quot;1.2.3&quot;,
+  &quot;feature_annotation_version&quot;: &quot;cgmh_ty_v2.1&quot;,
+  &quot;feature_annotation_checksum&quot;: &quot;sha256:abc123...&quot;,
+  &quot;column_count&quot;: 47,
+  &quot;physical_types_distribution&quot;: {
+    &quot;temperature&quot;: 12,
+    &quot;chiller_load&quot;: 3,
+    &quot;power&quot;: 1
+  }
+}
+</code></pre>
+<hr />
+<h2 id="8">8. 錯誤代碼對照表</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">錯誤代碼</th>
+<th style="text-align: left;">名稱</th>
+<th style="text-align: center;">階段</th>
+<th style="text-align: left;">說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>E400</strong></td>
+<td style="text-align: left;"><code>SCHEMA_VALIDATION_FAILED</code></td>
+<td style="text-align: center;">載入時</td>
+<td style="text-align: left;">YAML 語法不符合 schema.json</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E401</strong></td>
+<td style="text-align: left;"><code>ORPHAN_COLUMN</code></td>
+<td style="text-align: center;">驗證時</td>
+<td style="text-align: left;">標註檔案中有欄位在實際資料中不存在（Warning）</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E402</strong></td>
+<td style="text-align: left;"><code>UNANNOTATED_COLUMN</code></td>
+<td style="text-align: center;">Cleaner</td>
+<td style="text-align: left;">實際資料中有欄位未定義（嚴格模式報錯）</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E403</strong></td>
+<td style="text-align: left;"><code>TYPE_MISMATCH</code></td>
+<td style="text-align: center;">Cleaner</td>
+<td style="text-align: left;">欄位型別與 physical_type 預期不符</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E404</strong></td>
+<td style="text-align: left;"><code>REQUIRED_COLUMN_MISSING</code></td>
+<td style="text-align: center;">Cleaner</td>
+<td style="text-align: left;">標記 is_required 的欄位不存在</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E405</strong></td>
+<td style="text-align: left;"><code>TARGET_LEAKAGE_RISK</code></td>
+<td style="text-align: center;">驗證時</td>
+<td style="text-align: left;">is_target=true 但 enable_lag/rolling 未設為 false</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E406</strong></td>
+<td style="text-align: left;"><code>INHERITANCE_ERROR</code></td>
+<td style="text-align: center;">載入時</td>
+<td style="text-align: left;">繼承的父檔案不存在或循環繼承</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>E407</strong></td>
+<td style="text-align: left;"><code>VERSION_MISMATCH</code></td>
+<td style="text-align: center;">載入時</td>
+<td style="text-align: left;">schema_version 不被支援</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9">9. 交付物清單</h2>
+<h3 id="91">9.1 配置文件</h3>
+<ol>
+<li><code>config/features/schema.json</code> - JSON Schema 驗證規則</li>
+<li><code>config/features/base.yaml</code> - 基礎特徵定義範本</li>
+<li><code>config/features/physical_types.yaml</code> - 物理類型規範（可選獨立）</li>
+<li><code>config/features/sites/cgmh_ty.yaml</code> - 長庚醫院範例</li>
+<li><code>config/features/sites/farglory_o3.yaml</code> - 遠雄範例</li>
+</ol>
+<h3 id="92">9.2 程式碼檔案</h3>
+<ol start="6">
+<li><code>src/features/annotation_models.py</code> - Pydantic 模型（ColumnAnnotation, FeatureAnnotation）</li>
+<li><code>src/features/annotation_loader.py</code> - 載入器（含繼承解析）</li>
+<li><code>src/features/annotation_validator.py</code> - 驗證器（語意檢查）</li>
+<li><code>src/utils/config_loader.py</code> - 擴充 <code>load_feature_annotation()</code> 方法</li>
+</ol>
+<h3 id="93-cli">9.3 CLI 工具</h3>
+<ol start="10">
+<li><code>src/cli/features_cli.py</code> - <code>main.py features</code> 子命令實作</li>
+</ol>
+<h3 id="94">9.4 文件</h3>
+<ol start="11">
+<li><code>docs/features/FEATURE_ANNOTATION_v1.0.md</code> - 本文件</li>
+<li><code>docs/features/TROUBLESHOOTING.md</code> - 常見錯誤排解</li>
+</ol>
+<hr />
+<h2 id="10-sign-off-checklist">10. 驗收簽核 (Sign-off Checklist)</h2>
+<ul>
+<li>[ ] <strong>YAML Schema</strong>: <code>schema.json</code> 正確驗證欄位型別與結構</li>
+<li>[ ] <strong>繼承機制</strong>: <code>sites/cgmh_ty.yaml</code> 正確繼承並覆蓋 <code>base.yaml</code></li>
+<li>[ ] <strong>防呆驗證</strong>: <code>is_target=true</code> 且 <code>enable_lag=true</code> 時正確拋出 E405</li>
+<li>[ ] <strong>Cleaner 整合</strong>: 未定義欄位在嚴格模式下正確拋出 E402</li>
+<li>[ ] <strong>Manifest 傳遞</strong>: BatchProcessor 正確寫入 annotation_version 與 checksum</li>
+<li>[ ] <strong>Group Policy</strong>: Feature Engineer 依照 annotation 的 physical_type 正確匹配</li>
+<li>[ ] <strong>CLI 工具</strong>: <code>features validate</code>, <code>init</code>, <code>check</code>, <code>diff</code> 命令可用</li>
+<li>[ ] <strong>版本綁定</strong>: Model Registry 正確記錄 feature_annotation_checksum</li>
+</ul>
+<hr />
+</body>
+</html>

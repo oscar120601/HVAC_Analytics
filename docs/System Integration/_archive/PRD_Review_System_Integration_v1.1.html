@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD_Review_System_Integration_v1.1</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="system-integration-prd-v11">System Integration PRD (v1.1) 審查報告</h1>
+<p><strong>審查對象</strong>: <code>docs/System Integration/PRD_System_Integration_v1.1.md</code><br />
+<strong>審查基準</strong>: <code>Feature Annotation Specification v1.2</code> (Excel為核心 SSOT)<br />
+<strong>文件版本</strong>: System Integration v1.1 Review<br />
+<strong>日期</strong>: 2026-02-13</p>
+<hr />
+<h2 id="1-general-assessment">1. 總體評價 (General Assessment)</h2>
+<p>該份 System Integration PRD (v1.1) <strong>高度符合</strong> Feature Annotation v1.2 的核心精神。</p>
+<p>文件成功將 Feature Annotation 定義為 Pipeline 的上游依賴，並正確實作了：<br />
+1.  <strong>單向資料流</strong>: 明確定義了 Excel → YAML → Pipeline 的流向。<br />
+2.  <strong>依賴注入</strong>: 透過 <code>ETLContainer</code> 將 <code>FeatureAnnotationManager</code> 注入給 Cleaner 與 Feature Engineer，解決了「模組如何取得特徵定義」的問題。<br />
+3.  <strong>同步防護 (Safety Guard)</strong>: 在 Pipeline 入口處 (CLI) 與執行層 (Container) 都加入了 E406 同步檢查，這是防止運維災難的關鍵設計。</p>
+<p>然而，在 <strong>Cleaner 的整合細節</strong> 與 <strong>Wizard 的職責邊界</strong> 上，仍有細微的邏輯漏洞需要修正。</p>
+<hr />
+<h2 id="2-detailed-findings">2. 詳細審查發現 (Detailed Findings)</h2>
+<h3 id="21-good-practices">2.1 ✅ 正確的設計 (Good Practices)</h3>
+<ul>
+<li><strong>配置結構 (Config Models)</strong>: <ul>
+<li><code>FeatureMetadata</code> 正確新增了 <code>device_role</code> 與 <code>ignore_warnings</code>。</li>
+<li><code>CleanerConfig</code> 與 <code>FeatureEngineeringConfig</code> 正確新增了對應的開關 (<code>respect_device_role</code>)。</li>
+</ul>
+</li>
+<li><strong>載入器 (ConfigLoader)</strong>:<ul>
+<li><code>load_feature_annotation</code> 與 <code>validate_annotation_sync</code> 的邏輯正確，特別是 Checksum 的比對機制。</li>
+</ul>
+</li>
+<li><strong>CLI 架構</strong>:<ul>
+<li>將 <code>features wizard</code> 獨立為子命令，且明確標示「僅更新 Excel」，這符合 v1.2 的核心約束。</li>
+</ul>
+</li>
+</ul>
+<h3 id="22-risks-recommendations">2.2 ⚠️ 潛在風險與修正建議 (Risks &amp; Recommendations)</h3>
+<h4 id="1-cleaner-cleaner-responsibility">1. Cleaner 的職責邊界模糊 (Cleaner Responsibility)</h4>
+<p>在 <code>PRD 3.1 ETLContainer.get_cleaner()</code> 中提到：</p>
+<blockquote>
+<p>Cleaner v2.2+ 會: 2. 將 device_role 寫入 metadata</p>
+</blockquote>
+<p><strong>風險</strong>: Cleaner 的職責應專注於「資料清洗 (Cleaning)」。將 <code>device_role</code> 寫入 metadata 雖然可行，但這其實是「特徵增強 (Enrichment)」的一環。<br />
+<strong>建議</strong>: <br />
+*   Cleaner 僅需負責「讀取 <code>ignore_warnings</code>」來決定是否過濾掉特定的品質標記 (Quality Flags)。<br />
+*   <code>device_role</code> 的主要消費者是 <strong>Feature Engineer</strong> (用於抑制統計警告) 與 <strong>Batch Processor</strong> (用於分群)。不需要在 Cleaner 階段就寫入 dataframe metadata，這會增加耦合。建議改為由 <code>AnnotationManager</code> 直接提供給需要的模組即可。</p>
+<h4 id="2-wizard-guess_physical_type">2. Wizard 的 <code>guess_physical_type</code> 邏輯缺漏</h4>
+<p>在 <code>PRD 6.2 Wizard</code> 範例代碼中：</p>
+<pre><code class="language-python">suggestion = guess_physical_type(col, stats)
+</code></pre>
+<p><strong>風險</strong>: 該函數未在 PRD 中定義。<br />
+<strong>建議</strong>: 應補充說明 <code>guess_physical_type</code> 的判斷邏輯（例如：欄位名稱包含 <code>temp</code> -&gt; <code>temperature</code>），或是明確標示這是一個待實作的 utility function。</p>
+<h4 id="3-inheritance-gap">3. 繼承架構的遺漏 (Inheritance Gap)</h4>
+<p>Feature Annotation v1.2 提到了 <code>inherit: base</code> 的概念，但在 System Integration PRD 的 <code>load_feature_annotation</code> 中，似乎只載入了 <code>site_id.yaml</code>，<strong>沒有看到合併 <code>base.yaml</code> 的邏輯</strong>。<br />
+<strong>風險</strong>: 如果 <code>site_id.yaml</code> 只包含差異 (Delta)，那載入的設定將不完整。<br />
+<strong>建議</strong>: <code>FeatureAnnotationManager._load()</code> 必須實作「遞迴載入與合併 (Recursive Load &amp; Merge)」邏輯：<br />
+1. 讀取 <code>site.yaml</code>，檢查 <code>inherit</code> 欄位。<br />
+2. 若有 <code>inherit</code>，載入父 YAML。<br />
+3. 將子設定覆蓋 (Override) 父設定。</p>
+<h3 id="23-errors-to-fix">2.3 ❌ 需要修正的錯誤 (Errors to Fix)</h3>
+<h4 id="1-device-role">1. Device Role 的預設值衝突</h4>
+<ul>
+<li>在 <code>Config Models</code> (2.1) 中，<code>CleanerConfig.default_device_role = "primary"</code>。</li>
+<li>在 <code>Feature Annotation v1.2</code> Excel 中，<code>backup</code> 是明確標示的，未標示則為 <code>primary</code>。</li>
+<li><strong>衝突</strong>: 系統不應有全域的 <code>default_device_role</code> 設定。每個欄位的 role 應完全取決於 Annotation。若 Annotation 未定義該欄位，則該欄位根本不應參與 Pipeline (除非是 raw data)。</li>
+<li><strong>修正</strong>: 移除 <code>CleanerConfig.default_device_role</code>，避免隱性錯誤。</li>
+</ul>
+<hr />
+<h2 id="3-conclusion">3. 結論與行動 (Conclusion)</h2>
+<p>這份 System Integration PRD 架構穩健，但在「繼承合併」與「設定預設值」上有小瑕疵。</p>
+<p><strong>行動建議</strong>:<br />
+1.  <strong>修正 <code>FeatureAnnotationManager</code></strong>: 必須明文規定實作 YAML Merge (Base + Site) 的邏輯，否則繼承功能將失效。<br />
+2.  <strong>移除 Cleaner 的 Default Role</strong>: 讓 Annotation 成為真正的 SSOT，不要在 Config 中藏預設值。</p>
+<p>除此之外，該文件可作為開發依據。</p>
+</body>
+</html>
