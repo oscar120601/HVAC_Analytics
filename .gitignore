@@ -40,3 +40,7 @@ fix_*.py
 # Models (if large)
 models/*.pkl
 models/*.joblib
+
+# Lock files
+.locks/
+

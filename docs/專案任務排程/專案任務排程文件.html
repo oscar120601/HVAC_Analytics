@@ -1,0 +1,1514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>專案任務排程文件</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    color: #24292e;
+    background-color: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+}
+pre code {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: initial;
+    border: 0;
+}
+blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0;
+}
+table {
+    display: block;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 16px;
+    overflow: auto;
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+table th, table td {
+    padding: 6px 13px;
+    border: 1px solid #dfe2e5;
+}
+table tr {
+    background-color: #fff;
+    border-top: 1px solid #c6cbd1;
+}
+table tr:nth-child(2n) {
+    background-color: #f6f8fa;
+}
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #e1e4e8;
+    border: 0;
+}
+</style>
+
+</head>
+<body>
+<h1 id="hvac-1">HVAC-1 專案任務排程文件</h1>
+<p><strong>文件版本:</strong> v1.1<br />
+<strong>建立日期:</strong> 2026-02-19<br />
+<strong>最後更新:</strong> 2026-02-19<br />
+<strong>文件狀態:</strong> 🚧 <strong>進行中</strong>（Sprint 1: 基礎建設 2/3 完成）</p>
+<hr />
+<h2 id="_1">一、專案概述</h2>
+<h3 id="11">1.1 系統目標</h3>
+<p>HVAC-1 是一個<strong>空調節能系統</strong>，專注於資料清洗與離線能源最佳化建議。系統採用<strong>嚴格契約導向設計 (Contract-First Design)</strong> 與 <strong>SSOT (Single Source of Truth)</strong> 原則。</p>
+<h3 id="12">1.2 核心資料流</h3>
+<pre><code>Raw Data → Parser → Cleaner → BatchProcessor → FeatureEngineer → ModelTraining → Optimization
+                ↑                                                               ↓
+        Feature Annotation (Excel → YAML SSOT)                        Model Registry Index
+</code></pre>
+<h3 id="13">1.3 總預估工時</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">階段</th>
+<th style="text-align: center;">工時</th>
+<th style="text-align: center;">累計</th>
+<th style="text-align: center;">狀態</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">Sprint 1: 基礎建設</td>
+<td style="text-align: center;">12-14 天</td>
+<td style="text-align: center;">12-14 天</td>
+<td style="text-align: center;">🚧 進行中 (2/3)</td>
+</tr>
+<tr>
+<td style="text-align: center;">Sprint 2: 核心 ETL</td>
+<td style="text-align: center;">15-17 天</td>
+<td style="text-align: center;">27-31 天</td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+<tr>
+<td style="text-align: center;">Sprint 3: 特徵與模型</td>
+<td style="text-align: center;">18-22 天</td>
+<td style="text-align: center;">45-53 天</td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+<tr>
+<td style="text-align: center;">Sprint 4: 最佳化</td>
+<td style="text-align: center;">10-12 天</td>
+<td style="text-align: center;">55-65 天</td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+<tr>
+<td style="text-align: center;">Sprint 5: 整合測試</td>
+<td style="text-align: center;">8-10 天</td>
+<td style="text-align: center;"><strong>63-75 天</strong></td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+</tbody>
+</table>
+<p><strong>建議總工期:</strong> 約 12-15 週（含緩衝與測試）</p>
+<hr />
+<h2 id="_2">二、依賴關係圖</h2>
+<pre><code class="language-mermaid">graph TD
+    subgraph &quot;Sprint 1: 基礎建設 ✅ 2/3 完成&quot;
+        IC[Interface Contract v1.1&lt;br/&gt;✅ 已完成] --&gt; SI[System Integration v1.2&lt;br/&gt;✅ 已完成]
+        FA[Feature Annotation v1.2&lt;br/&gt;⏳ 進行中] --&gt; SI
+    end
+
+    subgraph &quot;Sprint 2: 核心 ETL&quot;
+        SI --&gt; Parser[Parser v2.1&lt;br/&gt;4-5天]
+        FA --&gt; Cleaner[Cleaner v2.2&lt;br/&gt;6-7天]
+        Parser --&gt; Cleaner
+        Cleaner --&gt; BP[BatchProcessor v1.3&lt;br/&gt;5-6天]
+    end
+
+    subgraph &quot;Sprint 3: ML 流程&quot;
+        BP --&gt; FE[Feature Engineer v1.3&lt;br/&gt;5-6天]
+        FA --&gt; FE
+        FE --&gt; MT[Model Training v1.3&lt;br/&gt;10-12天]
+        HC[Hybrid Consistency v1.0&lt;br/&gt;3-4天] --&gt; MT
+    end
+
+    subgraph &quot;Sprint 4: 最佳化&quot;
+        MT --&gt; OPT[Optimization v1.2&lt;br/&gt;8-9天]
+        FA --&gt; OPT
+        EV[Equipment Validation v1.0&lt;br/&gt;4-5天] --&gt; OPT
+        ED[Equipment Dependency v1.0&lt;br/&gt;4-5天] --&gt; OPT
+    end
+
+    subgraph &quot;Sprint 5: 安全防護&quot;
+        WTB[Wizard Blockade v1.0&lt;br/&gt;3-4天]
+    end
+
+    style IC fill:#9c9,stroke:#090,stroke-width:4px
+    style SI fill:#9c9,stroke:#090,stroke-width:4px
+    style FA fill:#ff6,stroke:#f60,stroke-width:4px
+    style Parser fill:#9cf,stroke:#06f,stroke-width:2px
+    style Cleaner fill:#9cf,stroke:#06f,stroke-width:2px
+    style BP fill:#9cf,stroke:#06f,stroke-width:2px
+    style FE fill:#9c9,stroke:#090,stroke-width:2px
+    style MT fill:#9c9,stroke:#090,stroke-width:2px
+    style OPT fill:#f9c,stroke:#c60,stroke-width:2px
+</code></pre>
+<hr />
+<h2 id="sprint">三、Sprint 任務排程</h2>
+<hr />
+<h3 id="sprint-1-1-2">Sprint 1: 基礎建設 (第 1-2 週)</h3>
+<p><strong>目標:</strong> 建立系統基礎設施、配置管理、錯誤代碼體系<br />
+<strong>狀態:</strong> 🚧 <strong>進行中</strong> (2/3 完成)<br />
+<strong>關鍵成功因素:</strong> 所有下游模組依賴這些基礎，必須優先完成</p>
+<h4 id="11-interface-contract-v11-3-4">1.1 Interface Contract v1.1 (3-4天) ✅ 已完成</h4>
+<p><strong>完成日期:</strong> 2026-02-19<br />
+<strong>負責人:</strong> Claude Code<br />
+<strong>測試狀態:</strong> 已通過驗證</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">任務 ID</th>
+<th style="text-align: left;">任務描述</th>
+<th style="text-align: center;">預估工時</th>
+<th style="text-align: center;">優先級</th>
+<th style="text-align: left;">驗收標準</th>
+<th style="text-align: center;">狀態</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">IC-001</td>
+<td style="text-align: left;">錯誤代碼分層定義 (E000-E999)</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;"><code>config_models.py</code> 定義完整錯誤代碼</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td style="text-align: center;">IC-002</td>
+<td style="text-align: left;">檢查點規格定義 (#1-#7)</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">7個檢查點規格文件化</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td style="text-align: center;">IC-003</td>
+<td style="text-align: left;">DataFrame 介面標準</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">timestamp, quality_flags 規格確立</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td style="text-align: center;">IC-004</td>
+<td style="text-align: left;">版本相容性矩陣</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: left;">相容性矩陣表格完成</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td style="text-align: center;">IC-005</td>
+<td style="text-align: left;">實作檢查清單</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: left;">6.1-6.3 檢查清單完成</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td style="text-align: center;">IC-006</td>
+<td style="text-align: left;">Header Standardization 規範</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: left;">第10章規格完成</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td style="text-align: center;">IC-007</td>
+<td style="text-align: left;">Temporal Baseline 傳遞規範</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">第8章規格完成</td>
+<td style="text-align: center;">✅</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物:</strong><br />
+- ✅ <code>docs/Interface Contract/PRD_Interface_Contract_v1.1.md</code><br />
+- ✅ <code>src/etl/config_models.py</code> (錯誤代碼常數)</p>
+<p><strong>實作摘要:</strong><br />
+- 定義完整 E000-E999 錯誤代碼體系，涵蓋 7 大類別<br />
+- 建立 7 個檢查點規格（#1 Parser→Cleaner 到 #7 Training→Optimization）<br />
+- 定義 DataFrame 介面標準（timestamp: UTC/ns, quality_flags: List[str]）<br />
+- 建立版本相容性矩陣（5 種版本組合相容性評估）<br />
+- 定義 Header Standardization 規則（snake_case 正規化）<br />
+- 建立 Temporal Baseline 傳遞規範（E000 時間基準機制）</p>
+<hr />
+<h4 id="12-system-integration-v12-6-7">1.2 System Integration v1.2 (6-7天) ✅ 已完成</h4>
+<p><strong>完成日期:</strong> 2026-02-19<br />
+<strong>負責人:</strong> Claude Code<br />
+<strong>測試狀態:</strong> 35 項單元測試全部通過</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">任務 ID</th>
+<th style="text-align: left;">任務描述</th>
+<th style="text-align: center;">預估工時</th>
+<th style="text-align: center;">優先級</th>
+<th style="text-align: left;">驗收標準</th>
+<th style="text-align: center;">狀態</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">SI-001</td>
+<td style="text-align: left;">PipelineContext 實作</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">時間基準單例模式運作</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td style="text-align: center;">SI-002</td>
+<td style="text-align: left;">ETLConfig 擴充 (含 AnnotationConfig)</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">Pydantic 模型驗證通過</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td style="text-align: center;">SI-003</td>
+<td style="text-align: left;">ConfigLoader 強化 (E406, 檔案鎖)</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">同步檢查與鎖機制運作</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td style="text-align: center;">SI-004</td>
+<td style="text-align: left;">ETLContainer 初始化順序控制</td>
+<td style="text-align: center;">2天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">4步驟初始化順序正確</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td style="text-align: center;">SI-005</td>
+<td style="text-align: left;">單元測試與整合測試</td>
+<td style="text-align: center;">1.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">初始化順序測試通過</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td style="text-align: center;">SI-006</td>
+<td style="text-align: left;">時間基準傳遞測試</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">跨日/長時間執行測試通過</td>
+<td style="text-align: center;">✅</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物:</strong><br />
+- ✅ <code>src/context.py</code> (PipelineContext, 337 行)<br />
+- ✅ <code>src/etl/config_models.py</code> (完整 SSOT, 1554+ 行)<br />
+- ✅ <code>src/utils/config_loader.py</code> (ConfigLoader, 485 行)<br />
+- ✅ <code>src/container.py</code> (ETLContainer, 543 行)<br />
+- ✅ <code>tests/test_container_initialization.py</code> (35 項測試)</p>
+<p><strong>實作摘要:</strong></p>
+<p><strong>SI-001 PipelineContext:</strong><br />
+- Thread-safe Singleton 單例模式實作<br />
+- 時間基準初始化（禁止重複設定）<br />
+- E000 錯誤檢查（時間基準遺失）<br />
+- E000-W 時間漂移警告（&gt;60 分鐘）<br />
+- 未來資料檢測（容忍 5 分鐘）</p>
+<p><strong>SI-002 ETLConfig:</strong><br />
+- AnnotationConfig Pydantic 模型（含 device_role 驗證）<br />
+- SiteFeatureConfig 案場配置（含繼承支援）<br />
+- E405 檢查（目標變數不可啟用 Lag）<br />
+- E906 版本相容性檢查</p>
+<p><strong>SI-003 ConfigLoader:</strong><br />
+- E406 Excel/YAML 同步檢查（時間戳、Checksum）<br />
+- E007 設定檔損毀檢查<br />
+- E408 SSOT 品質標記匹配檢查<br />
+- 跨平台檔案鎖（FileLock）<br />
+- 原子寫入與備份恢復機制</p>
+<p><strong>SI-004 ETLContainer:</strong><br />
+- 4 步驟初始化順序控制（Foundation First Policy）<br />
+- 嚴格依賴驗證（步驟 N 需要步驟 N-1）<br />
+- 初始化狀態追蹤（InitializationStatus）</p>
+<p><strong>測試覆蓋:</strong><br />
+- 9 項 PipelineContext 測試（單例、E000、漂移警告）<br />
+- 6 項 ETLConfig 測試（Pydantic、E405、相容性）<br />
+- 7 項 ConfigLoader 測試（E406、E007、檔案鎖）<br />
+- 7 項 ETLContainer 測試（4 步驟初始化）<br />
+- 6 項時間基準傳遞測試</p>
+<hr />
+<h4 id="13-feature-annotation-v12-6-7-si">1.3 Feature Annotation v1.2 (6-7天，與 SI 並行) ⏳ 進行中</h4>
+<p><strong>預計完成:</strong> 2026-02-26<br />
+<strong>負責人:</strong> 待分配<br />
+<strong>相依任務:</strong> 1.2 System Integration（已完成）</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">任務 ID</th>
+<th style="text-align: left;">任務描述</th>
+<th style="text-align: center;">預估工時</th>
+<th style="text-align: center;">優先級</th>
+<th style="text-align: left;">驗收標準</th>
+<th style="text-align: center;">狀態</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">FA-001</td>
+<td style="text-align: left;">Excel 範本結構設計</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">v1.3 範本含 HVAC 欄位</td>
+<td style="text-align: center;">⏳</td>
+</tr>
+<tr>
+<td style="text-align: center;">FA-002</td>
+<td style="text-align: left;">YAML Schema 定義</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">schema.json 驗證通過</td>
+<td style="text-align: center;">⏳</td>
+</tr>
+<tr>
+<td style="text-align: center;">FA-003</td>
+<td style="text-align: left;">excel_to_yaml.py 轉換器</td>
+<td style="text-align: center;">1.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">Excel→YAML 單向轉換</td>
+<td style="text-align: center;">⏳</td>
+</tr>
+<tr>
+<td style="text-align: center;">FA-004</td>
+<td style="text-align: left;">FeatureAnnotationManager 實作</td>
+<td style="text-align: center;">2天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">繼承鏈解析與快取</td>
+<td style="text-align: center;">⏳</td>
+</tr>
+<tr>
+<td style="text-align: center;">FA-005</td>
+<td style="text-align: left;">HVAC 設備限制條件定義</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">equipment_constraints 區段</td>
+<td style="text-align: center;">⏳</td>
+</tr>
+<tr>
+<td style="text-align: center;">FA-006</td>
+<td style="text-align: left;">同步檢查 (E406) 實作</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">Checksum 驗證</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td style="text-align: center;">FA-007</td>
+<td style="text-align: left;">Wizard CLI 實作</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: left;">互動式標註流程</td>
+<td style="text-align: center;">⏳</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物:</strong><br />
+- ⏳ <code>tools/features/templates/Feature_Template_v1.3.xlsx</code><br />
+- ⏳ <code>tools/features/excel_to_yaml.py</code><br />
+- ⏳ <code>src/features/annotation_manager.py</code><br />
+- ⏳ <code>config/features/schema.json</code><br />
+- ⏳ <code>config/features/equipment_taxonomy.yaml</code></p>
+<p><strong>風險提醒:</strong><br />
+- ⚠️ <strong>依賴死鎖風險:</strong> FeatureAnnotationManager 必須在 Cleaner 之前完成<br />
+- ⚠️ <strong>E406 同步:</strong> Excel/YAML 同步檢查已於 SI-003 完成基礎設施</p>
+<hr />
+<h3 id="sprint-2-etl-3-5">Sprint 2: 核心 ETL (第 3-5 週)</h3>
+<p><strong>目標:</strong> 建立資料攝取、清洗、批次處理流程<br />
+<strong>狀態:</strong> ⏳ <strong>待開始</strong>（相依於 Sprint 1 完成）<br />
+<strong>關鍵成功因素:</strong> 嚴格遵循契約驗證與時間基準傳遞</p>
+<h4 id="21-parser-v21-4-5">2.1 Parser v2.1 (4-5天)</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">任務 ID</th>
+<th style="text-align: left;">任務描述</th>
+<th style="text-align: center;">預估工時</th>
+<th style="text-align: center;">優先級</th>
+<th style="text-align: left;">驗收標準</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">P-001</td>
+<td style="text-align: left;">編碼自動偵測 (UTF-8/Big5/UTF-16)</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">E101 錯誤處理正確</td>
+</tr>
+<tr>
+<td style="text-align: center;">P-002</td>
+<td style="text-align: left;">BOM 處理與移除</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">無 BOM 殘留</td>
+</tr>
+<tr>
+<td style="text-align: center;">P-003</td>
+<td style="text-align: left;">智慧標頭搜尋 (500行掃描)</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">中文標頭支援</td>
+</tr>
+<tr>
+<td style="text-align: center;">P-004</td>
+<td style="text-align: left;">時區強制轉換 (→ UTC)</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">輸出必為 UTC (ns)</td>
+</tr>
+<tr>
+<td style="text-align: center;">P-005</td>
+<td style="text-align: left;">髒資料清洗邏輯</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: left;">25.3°C → 25.3</td>
+</tr>
+<tr>
+<td style="text-align: center;">P-006</td>
+<td style="text-align: left;">輸出契約驗證</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;"><code>_validate_output_contract</code></td>
+</tr>
+<tr>
+<td style="text-align: center;">P-007</td>
+<td style="text-align: left;">案場設定檔繼承</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: left;">site_templates.yaml</td>
+</tr>
+<tr>
+<td style="text-align: center;">P-008</td>
+<td style="text-align: left;">單元測試 (P21-001~008)</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">8個測試案例通過</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物:</strong><br />
+- <code>src/etl/parser.py</code><br />
+- <code>config/site_templates.yaml</code><br />
+- <code>tests/test_parser_v21.py</code></p>
+<p><strong>關鍵驗收:</strong><br />
+- [ ] UTF-8 BOM 檔案無殘留<br />
+- [ ] 輸出 <code>Datetime(time_unit='ns', time_zone='UTC')</code><br />
+- [ ] 通過 <code>_validate_output_contract</code> (E101-E105)</p>
+<h4 id="22-cleaner-v22-6-7">2.2 Cleaner v2.2 (6-7天)</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">任務 ID</th>
+<th style="text-align: left;">任務描述</th>
+<th style="text-align: center;">預估工時</th>
+<th style="text-align: center;">優先級</th>
+<th style="text-align: left;">驗收標準</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">C-001</td>
+<td style="text-align: left;">Temporal Context 注入</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">E000 檢查</td>
+</tr>
+<tr>
+<td style="text-align: center;">C-002</td>
+<td style="text-align: left;">FeatureAnnotationManager 整合</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">device_role 查詢</td>
+</tr>
+<tr>
+<td style="text-align: center;">C-003</td>
+<td style="text-align: left;">時間戳標準化 (UTC強制)</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">E101 處理</td>
+</tr>
+<tr>
+<td style="text-align: center;">C-004</td>
+<td style="text-align: left;">未來資料檢查 (E102)</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">使用 pipeline_origin_timestamp</td>
+</tr>
+<tr>
+<td style="text-align: center;">C-005</td>
+<td style="text-align: left;">語意感知清洗 (device_role)</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">備用設備閾值調整</td>
+</tr>
+<tr>
+<td style="text-align: center;">C-006</td>
+<td style="text-align: left;">設備邏輯預檢 (E350)</td>
+<td style="text-align: center;">1.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">主機開+水泵關檢測</td>
+</tr>
+<tr>
+<td style="text-align: center;">C-007</td>
+<td style="text-align: left;">重採樣與缺漏處理</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: left;">時間軸連續性</td>
+</tr>
+<tr>
+<td style="text-align: center;">C-008</td>
+<td style="text-align: left;">Metadata 強制淨化 (E500)</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">無 device_role 輸出</td>
+</tr>
+<tr>
+<td style="text-align: center;">C-009</td>
+<td style="text-align: left;">設備稽核軌跡產生</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">equipment_validation_audit</td>
+</tr>
+<tr>
+<td style="text-align: center;">C-010</td>
+<td style="text-align: left;">單元測試</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">E000/E102/E350/E500 測試</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物:</strong><br />
+- <code>src/etl/cleaner.py</code><br />
+- <code>tests/test_cleaner_v22.py</code><br />
+- <code>tests/test_cleaner_equipment_validation.py</code></p>
+<p><strong>關鍵驗收:</strong><br />
+- [ ] 未接收 temporal_context 時拋出 E000<br />
+- [ ] 輸出絕對不含 device_role (E500)<br />
+- [ ] 設備邏輯違規標記為 PHYSICAL_IMPOSSIBLE</p>
+<h4 id="23-batchprocessor-v13-5-6">2.3 BatchProcessor v1.3 (5-6天)</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">任務 ID</th>
+<th style="text-align: left;">任務描述</th>
+<th style="text-align: center;">預估工時</th>
+<th style="text-align: center;">優先級</th>
+<th style="text-align: left;">驗收標準</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">BP-001</td>
+<td style="text-align: left;">Temporal Context 注入</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">E000 檢查</td>
+</tr>
+<tr>
+<td style="text-align: center;">BP-002</td>
+<td style="text-align: left;">E406 同步驗證強化</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">詳細恢復指引</td>
+</tr>
+<tr>
+<td style="text-align: center;">BP-003</td>
+<td style="text-align: left;">輸入契約驗證 (E500, E351)</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">device_role 攔截</td>
+</tr>
+<tr>
+<td style="text-align: center;">BP-004</td>
+<td style="text-align: left;">Parquet 寫入 (INT64/UTC強制)</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">E206 驗證</td>
+</tr>
+<tr>
+<td style="text-align: center;">BP-005</td>
+<td style="text-align: left;">Manifest 生成 (v1.3-CA)</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">temporal_baseline, audit_trail</td>
+</tr>
+<tr>
+<td style="text-align: center;">BP-006</td>
+<td style="text-align: left;">設備稽核軌跡傳遞</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">equipment_validation_audit</td>
+</tr>
+<tr>
+<td style="text-align: center;">BP-007</td>
+<td style="text-align: left;">E408 SSOT 版本檢查</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">quality_flags_schema</td>
+</tr>
+<tr>
+<td style="text-align: center;">BP-008</td>
+<td style="text-align: left;">事務性輸出 (原子移動)</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: left;">staging → output</td>
+</tr>
+<tr>
+<td style="text-align: center;">BP-009</td>
+<td style="text-align: left;">單元測試</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">E000/E205/E351/E408 測試</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物:</strong><br />
+- <code>src/etl/batch_processor.py</code><br />
+- <code>src/etl/manifest.py</code> (Manifest 模型)<br />
+- <code>tests/test_batch_processor_v13.py</code></p>
+<p><strong>關鍵驗收:</strong><br />
+- [ ] Manifest 包含 temporal_baseline<br />
+- [ ] Manifest 包含 equipment_validation_audit<br />
+- [ ] E408 檢查 SSOT 版本一致性</p>
+<hr />
+<h3 id="sprint-3-6-9">Sprint 3: 特徵工程與模型訓練 (第 6-9 週)</h3>
+<p><strong>目標:</strong> 建立特徵工程、模型訓練、集成與驗證<br />
+<strong>狀態:</strong> ⏳ <strong>待開始</strong><br />
+<strong>關鍵成功因素:</strong> 特徵對齊保證 (E901-E903) 與資源管理</p>
+<h4 id="31-feature-engineer-v13-5-6">3.1 Feature Engineer v1.3 (5-6天)</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">任務 ID</th>
+<th style="text-align: left;">任務描述</th>
+<th style="text-align: center;">預估工時</th>
+<th style="text-align: center;">優先級</th>
+<th style="text-align: left;">驗收標準</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">FE-001</td>
+<td style="text-align: left;">Manifest 讀取與驗證</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">E301/E400 驗證</td>
+</tr>
+<tr>
+<td style="text-align: center;">FE-002</td>
+<td style="text-align: left;">AnnotationManager 直接查詢</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">device_role 消費</td>
+</tr>
+<tr>
+<td style="text-align: center;">FE-003</td>
+<td style="text-align: left;">SSOT Flags 處理 (onehot)</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">VALID_QUALITY_FLAGS 引用</td>
+</tr>
+<tr>
+<td style="text-align: center;">FE-004</td>
+<td style="text-align: left;">語意感知 Group Policy</td>
+<td style="text-align: center;">1.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">備用設備策略調整</td>
+</tr>
+<tr>
+<td style="text-align: center;">FE-005</td>
+<td style="text-align: left;">Lag/Rolling 特徵生成</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">Data Leakage 防護</td>
+</tr>
+<tr>
+<td style="text-align: center;">FE-006</td>
+<td style="text-align: left;">特徵縮放與參數輸出</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">scaler_params</td>
+</tr>
+<tr>
+<td style="text-align: center;">FE-007</td>
+<td style="text-align: left;">feature_order_manifest 輸出</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">E601 合規</td>
+</tr>
+<tr>
+<td style="text-align: center;">FE-008</td>
+<td style="text-align: left;">單元測試</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">Group Policy 測試</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物:</strong><br />
+- <code>src/etl/feature_engineer.py</code><br />
+- <code>tests/test_feature_engineer_v13.py</code></p>
+<p><strong>關鍵驗收:</strong><br />
+- [ ] 直接查詢 AnnotationManager 取得 device_role<br />
+- [ ] 輸出 feature_order_manifest (E601)<br />
+- [ ] 輸出 scaler_params (E602)</p>
+<h4 id="32-model-training-v13-10-12">3.2 Model Training v1.3 (10-12天)</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">任務 ID</th>
+<th style="text-align: left;">任務描述</th>
+<th style="text-align: center;">預估工時</th>
+<th style="text-align: center;">優先級</th>
+<th style="text-align: left;">驗收標準</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">MT-001</td>
+<td style="text-align: left;">ResourceManager 實作</td>
+<td style="text-align: center;">2天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">記憶體預估與驗證</td>
+</tr>
+<tr>
+<td style="text-align: center;">MT-002</td>
+<td style="text-align: left;">ResourceMonitor 實作</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">OOM 預防、檢查點</td>
+</tr>
+<tr>
+<td style="text-align: center;">MT-003</td>
+<td style="text-align: left;">Kubernetes 資源配置</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">K8s YAML 範本</td>
+</tr>
+<tr>
+<td style="text-align: center;">MT-004</td>
+<td style="text-align: left;">Docker 資源限制</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: left;">Dockerfile 設定</td>
+</tr>
+<tr>
+<td style="text-align: center;">MT-005</td>
+<td style="text-align: left;">三種訓練模式實作</td>
+<td style="text-align: center;">2天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">System/Component/Hybrid</td>
+</tr>
+<tr>
+<td style="text-align: center;">MT-006</td>
+<td style="text-align: left;">Ensemble 訓練 (XGB/LGB/RF)</td>
+<td style="text-align: center;">1.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">交叉驗證與集成</td>
+</tr>
+<tr>
+<td style="text-align: center;">MT-007</td>
+<td style="text-align: left;">Model Registry Index</td>
+<td style="text-align: center;">1.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">版本控制與特徵對齊</td>
+</tr>
+<tr>
+<td style="text-align: center;">MT-008</td>
+<td style="text-align: left;">Feature Manifest 輸出</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">E901-E903 合規</td>
+</tr>
+<tr>
+<td style="text-align: center;">MT-009</td>
+<td style="text-align: left;">Hybrid Consistency 檢查</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">E751-E758</td>
+</tr>
+<tr>
+<td style="text-align: center;">MT-010</td>
+<td style="text-align: left;">單元與整合測試</td>
+<td style="text-align: center;">1.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">資源管理測試</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物:</strong><br />
+- <code>src/training/training_pipeline.py</code><br />
+- <code>src/training/resource_manager.py</code><br />
+- <code>src/training/model_registry.py</code><br />
+- <code>src/training/ensemble_trainer.py</code><br />
+- <code>k8s/training-job-template.yaml</code><br />
+- <code>tests/test_training_v13.py</code></p>
+<p><strong>關鍵驗收:</strong><br />
+- [ ] 記憶體預估公式準確<br />
+- [ ] 輸出 Feature Manifest (E901-E903)<br />
+- [ ] Hybrid 差異 &gt;15% 時觸發 E810</p>
+<hr />
+<h3 id="sprint-4-10-12">Sprint 4: 最佳化引擎 (第 10-12 週)</h3>
+<p><strong>目標:</strong> 建立能源最佳化引擎與 Fallback 機制<br />
+<strong>狀態:</strong> ⏳ <strong>待開始</strong><br />
+<strong>關鍵成功因素:</strong> 特徵對齊驗證與三層級降級策略</p>
+<h4 id="41-equipment-validation-v10-4-5-opt">4.1 Equipment Validation v1.0 (4-5天，與 OPT 並行)</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">任務 ID</th>
+<th style="text-align: left;">任務描述</th>
+<th style="text-align: center;">預估工時</th>
+<th style="text-align: center;">優先級</th>
+<th style="text-align: left;">驗收標準</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">EV-001</td>
+<td style="text-align: left;">EquipmentValidator 實作</td>
+<td style="text-align: center;">1.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">邏輯限制檢查</td>
+</tr>
+<tr>
+<td style="text-align: center;">EV-002</td>
+<td style="text-align: left;">Constraint Sync Manager</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">SSOT 雙向同步</td>
+</tr>
+<tr>
+<td style="text-align: center;">EV-003</td>
+<td style="text-align: left;">E350-E355 錯誤實作</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">設備違規檢測</td>
+</tr>
+<tr>
+<td style="text-align: center;">EV-004</td>
+<td style="text-align: left;">整合測試</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">Cleaner-OPT 一致性</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物:</strong><br />
+- <code>src/equipment/equipment_validator.py</code><br />
+- <code>src/equipment/constraint_sync.py</code></p>
+<h4 id="42-chiller-plant-optimization-v12-8-9">4.2 Chiller Plant Optimization v1.2 (8-9天)</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">任務 ID</th>
+<th style="text-align: left;">任務描述</th>
+<th style="text-align: center;">預估工時</th>
+<th style="text-align: center;">優先級</th>
+<th style="text-align: left;">驗收標準</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">OPT-001</td>
+<td style="text-align: left;">Model Registry 載入</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">E801/E802 驗證</td>
+</tr>
+<tr>
+<td style="text-align: center;">OPT-002</td>
+<td style="text-align: left;">Feature Alignment 驗證</td>
+<td style="text-align: center;">1.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">E901-E904</td>
+</tr>
+<tr>
+<td style="text-align: center;">OPT-003</td>
+<td style="text-align: left;">Feature Vectorizer 實作</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">特徵向量化</td>
+</tr>
+<tr>
+<td style="text-align: center;">OPT-004</td>
+<td style="text-align: left;">負載驅動模式實作</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">RT → 最佳組合</td>
+</tr>
+<tr>
+<td style="text-align: center;">OPT-005</td>
+<td style="text-align: left;">效率驅動模式實作</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">kW/RT → 配置</td>
+</tr>
+<tr>
+<td style="text-align: center;">OPT-006</td>
+<td style="text-align: left;">Fallback Handler (3層)</td>
+<td style="text-align: center;">1.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">降級機制</td>
+</tr>
+<tr>
+<td style="text-align: center;">OPT-007</td>
+<td style="text-align: left;">暖啟動與資源感知</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: left;">批次優化加速</td>
+</tr>
+<tr>
+<td style="text-align: center;">OPT-008</td>
+<td style="text-align: left;">Hybrid Consistency 整合</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">E806/E810</td>
+</tr>
+<tr>
+<td style="text-align: center;">OPT-009</td>
+<td style="text-align: left;">單元測試</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">Fallback 測試</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物:</strong><br />
+- <code>src/optimization/engine.py</code><br />
+- <code>src/optimization/fallback.py</code><br />
+- <code>src/optimization/model_interface.py</code><br />
+- <code>config/optimization/base.yaml</code><br />
+- <code>tests/test_optimization_v12.py</code></p>
+<p><strong>關鍵驗收:</strong><br />
+- [ ] E901 特徵順序嚴格比對<br />
+- [ ] E904 設備限制一致性驗證<br />
+- [ ] 三層級 Fallback 運作正常<br />
+- [ ] System vs Component 差異 &gt;15% 時觸發 E810</p>
+<hr />
+<h3 id="sprint-5-13-15">Sprint 5: 安全防護與整合測試 (第 13-15 週)</h3>
+<p><strong>目標:</strong> 建立技術阻擋機制與端到端測試<br />
+<strong>狀態:</strong> ⏳ <strong>待開始</strong></p>
+<h4 id="51-wizard-technical-blockade-v10-3-4">5.1 Wizard Technical Blockade v1.0 (3-4天)</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">任務 ID</th>
+<th style="text-align: left;">任務描述</th>
+<th style="text-align: center;">預估工時</th>
+<th style="text-align: center;">優先級</th>
+<th style="text-align: left;">驗收標準</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">WTB-001</td>
+<td style="text-align: left;">Import Guard 實作</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">E501 攔截</td>
+</tr>
+<tr>
+<td style="text-align: center;">WTB-002</td>
+<td style="text-align: left;">檔案系統保護 (444, chattr)</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">YAML 唯讀</td>
+</tr>
+<tr>
+<td style="text-align: center;">WTB-003</td>
+<td style="text-align: left;">CI/CD Hook 實作</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">Pre-commit 驗證</td>
+</tr>
+<tr>
+<td style="text-align: center;">WTB-004</td>
+<td style="text-align: left;">yaml_to_excel 災難恢復</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: left;">Recovery 模式</td>
+</tr>
+<tr>
+<td style="text-align: center;">WTB-005</td>
+<td style="text-align: left;">測試</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">三層防護測試</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物:</strong><br />
+- <code>src/features/yaml_write_guard.py</code><br />
+- <code>tools/features/yaml_to_excel.py</code><br />
+- <code>.github/workflows/annotation-validation.yml</code></p>
+<h4 id="52-5-6">5.2 端到端整合測試 (5-6天)</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">任務 ID</th>
+<th style="text-align: left;">任務描述</th>
+<th style="text-align: center;">預估工時</th>
+<th style="text-align: center;">優先級</th>
+<th style="text-align: left;">驗收標準</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">INT-001</td>
+<td style="text-align: left;">Parser → Cleaner → BP → FE 流程</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">檢查點 #1-#3</td>
+</tr>
+<tr>
+<td style="text-align: center;">INT-002</td>
+<td style="text-align: left;">FE → Training → OPT 流程</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">檢查點 #4-#7</td>
+</tr>
+<tr>
+<td style="text-align: center;">INT-003</td>
+<td style="text-align: left;">時間基準傳遞測試</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">E000 一致性</td>
+</tr>
+<tr>
+<td style="text-align: center;">INT-004</td>
+<td style="text-align: left;">設備邏輯同步測試</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">E350-E352</td>
+</tr>
+<tr>
+<td style="text-align: center;">INT-005</td>
+<td style="text-align: left;">特徵對齊壓力測試</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">E901 錯誤順序</td>
+</tr>
+<tr>
+<td style="text-align: center;">INT-006</td>
+<td style="text-align: left;">長時間執行測試</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">時間漂移檢測</td>
+</tr>
+<tr>
+<td style="text-align: center;">INT-007</td>
+<td style="text-align: left;">效能基準測試</td>
+<td style="text-align: center;">1天</td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: left;">10萬筆 &lt; 5秒</td>
+</tr>
+<tr>
+<td style="text-align: center;">INT-008</td>
+<td style="text-align: left;">錯誤恢復測試</td>
+<td style="text-align: center;">0.5天</td>
+<td style="text-align: center;">🔴 Critical</td>
+<td style="text-align: left;">Fallback 運作</td>
+</tr>
+</tbody>
+</table>
+<p><strong>交付物:</strong><br />
+- <code>tests/integration/test_full_pipeline.py</code><br />
+- <code>tests/integration/test_temporal_baseline.py</code><br />
+- <code>tests/integration/test_equipment_validation_sync.py</code><br />
+- <code>tests/integration/test_feature_alignment.py</code></p>
+<hr />
+<h2 id="_3">四、風險管理矩陣</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">風險 ID</th>
+<th style="text-align: left;">風險描述</th>
+<th style="text-align: center;">嚴重度</th>
+<th style="text-align: center;">可能性</th>
+<th style="text-align: left;">緩解措施</th>
+<th style="text-align: center;">負責 Sprint</th>
+<th style="text-align: center;">狀態</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">R-001</td>
+<td style="text-align: left;">依賴死鎖 (AnnotationManager 未完成即開發 Cleaner)</td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: center;">High</td>
+<td style="text-align: left;">Foundation First Policy 強制順序</td>
+<td style="text-align: center;">Sprint 1</td>
+<td style="text-align: center;">🟡 監控中</td>
+</tr>
+<tr>
+<td style="text-align: center;">R-002</td>
+<td style="text-align: left;">時間漂移 (使用 now() 而非基準)</td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: left;">E000 強制檢查</td>
+<td style="text-align: center;">Sprint 1-2</td>
+<td style="text-align: center;">🟢 已緩解</td>
+</tr>
+<tr>
+<td style="text-align: center;">R-003</td>
+<td style="text-align: left;">特徵對齊錯誤 (Training-OPT 特徵順序不一致)</td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: left;">E901-E903 嚴格驗證</td>
+<td style="text-align: center;">Sprint 3-4</td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+<tr>
+<td style="text-align: center;">R-004</td>
+<td style="text-align: left;">設備邏輯脫鉤 (Cleaner-OPT 不一致)</td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: left;">共用 SSOT 限制條件</td>
+<td style="text-align: center;">Sprint 2,4</td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+<tr>
+<td style="text-align: center;">R-005</td>
+<td style="text-align: left;">SSOT 版本漂移</td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: left;">E408 檢查</td>
+<td style="text-align: center;">Sprint 2</td>
+<td style="text-align: center;">🟢 已緩解</td>
+</tr>
+<tr>
+<td style="text-align: center;">R-006</td>
+<td style="text-align: left;">OOM 記憶體不足</td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: left;">ResourceManager 預估</td>
+<td style="text-align: center;">Sprint 3</td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+<tr>
+<td style="text-align: center;">R-007</td>
+<td style="text-align: left;">Excel-YAML 不同步</td>
+<td style="text-align: center;">🟡 Medium</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: left;">E406 嚴格檢查</td>
+<td style="text-align: center;">Sprint 1</td>
+<td style="text-align: center;">🟢 已緩解</td>
+</tr>
+<tr>
+<td style="text-align: center;">R-008</td>
+<td style="text-align: left;">device_role 洩漏</td>
+<td style="text-align: center;">🔴 High</td>
+<td style="text-align: center;">Medium</td>
+<td style="text-align: left;">E500 三層防護</td>
+<td style="text-align: center;">Sprint 2</td>
+<td style="text-align: center;">🟢 已緩解</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="_4">五、里程碑與檢查點</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">里程碑</th>
+<th style="text-align: center;">預計日期</th>
+<th style="text-align: center;">實際日期</th>
+<th style="text-align: left;">關鍵交付物</th>
+<th style="text-align: left;">驗收標準</th>
+<th style="text-align: center;">狀態</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">M1: 基礎就緒</td>
+<td style="text-align: center;">第 2 週末</td>
+<td style="text-align: center;">2026-02-19</td>
+<td style="text-align: left;">Interface Contract, SI, FA</td>
+<td style="text-align: left;">所有下游模組可依賴運作</td>
+<td style="text-align: center;">🚧 2/3 完成</td>
+</tr>
+<tr>
+<td style="text-align: center;">M2: ETL 就緒</td>
+<td style="text-align: center;">第 5 週末</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: left;">Parser, Cleaner, BP</td>
+<td style="text-align: left;">檢查點 #1-#3 通過</td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+<tr>
+<td style="text-align: center;">M3: ML 就緒</td>
+<td style="text-align: center;">第 9 週末</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: left;">FE, Training, Hybrid</td>
+<td style="text-align: left;">檢查點 #4-#7 通過</td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+<tr>
+<td style="text-align: center;">M4: 最佳化就緒</td>
+<td style="text-align: center;">第 12 週末</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: left;">Optimization, Fallback</td>
+<td style="text-align: left;">E901-E904 驗證通過</td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+<tr>
+<td style="text-align: center;">M5: 系統上線</td>
+<td style="text-align: center;">第 15 週末</td>
+<td style="text-align: center;">-</td>
+<td style="text-align: left;">完整整合測試</td>
+<td style="text-align: left;">E2E 測試通過</td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="_5">六、完成記錄</h2>
+<h3 id="2026-02-19-sprint-1-interface-contract-system-integration">2026-02-19: Sprint 1 里程碑 - Interface Contract &amp; System Integration 完成</h3>
+<p><strong>完成項目:</strong><br />
+1. ✅ <strong>Interface Contract v1.1</strong>: 完整定義 E000-E999 錯誤代碼體系、7 個檢查點規格<br />
+2. ✅ <strong>System Integration v1.2</strong>: 實作 PipelineContext、ETLConfig、ConfigLoader、ETLContainer</p>
+<p><strong>測試結果:</strong><br />
+- 35 項單元測試全部通過<br />
+- 涵蓋 E000、E000-W、E007、E405、E406、E408、E906 錯誤代碼</p>
+<p><strong>新增檔案:</strong><br />
+- <code>src/context.py</code> (337 行)<br />
+- <code>src/container.py</code> (543 行)<br />
+- <code>src/utils/config_loader.py</code> (485 行)<br />
+- <code>src/etl/config_models.py</code> (1554+ 行，含 Pydantic 模型)<br />
+- <code>tests/test_container_initialization.py</code> (712 行，35 項測試)</p>
+<p><strong>下一步:</strong><br />
+- 完成 1.3 Feature Annotation v1.2<br />
+- 啟動 Sprint 2: 核心 ETL</p>
+<hr />
+<h2 id="_6">七、資源需求</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">角色</th>
+<th style="text-align: center;">人數</th>
+<th style="text-align: center;">參與 Sprint</th>
+<th style="text-align: left;">主要負責</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">資深後端工程師</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">1-5</td>
+<td style="text-align: left;">System Integration, ETL Pipeline</td>
+</tr>
+<tr>
+<td style="text-align: left;">ML 工程師</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">3-4</td>
+<td style="text-align: left;">Model Training, Optimization</td>
+</tr>
+<tr>
+<td style="text-align: left;">資料工程師</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">2-3</td>
+<td style="text-align: left;">Parser, Cleaner, Feature Engineering</td>
+</tr>
+<tr>
+<td style="text-align: left;">DevOps 工程師</td>
+<td style="text-align: center;">0.5</td>
+<td style="text-align: center;">3</td>
+<td style="text-align: left;">Kubernetes, Docker, CI/CD</td>
+</tr>
+<tr>
+<td style="text-align: left;">HVAC 領域專家</td>
+<td style="text-align: center;">0.5</td>
+<td style="text-align: center;">1,4</td>
+<td style="text-align: left;">Feature Annotation, Optimization Config</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="_7">八、附錄</h2>
+<h3 id="81-prd">8.1 PRD 文件清單</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">序號</th>
+<th style="text-align: left;">文件名稱</th>
+<th style="text-align: center;">版本</th>
+<th style="text-align: center;">預估工時</th>
+<th style="text-align: center;">所屬 Sprint</th>
+<th style="text-align: center;">狀態</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: left;">PRD_Interface_Contract_v1.1.md</td>
+<td style="text-align: center;">v1.1</td>
+<td style="text-align: center;">3-4天</td>
+<td style="text-align: center;">Sprint 1</td>
+<td style="text-align: center;">✅ 已完成</td>
+</tr>
+<tr>
+<td style="text-align: center;">2</td>
+<td style="text-align: left;">PRD_System_Integration_v1.2.md</td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;">6-7天</td>
+<td style="text-align: center;">Sprint 1</td>
+<td style="text-align: center;">✅ 已完成</td>
+</tr>
+<tr>
+<td style="text-align: center;">3</td>
+<td style="text-align: left;">PRD_Feature_Annotation_Specification_V1.3.md</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;">6-7天</td>
+<td style="text-align: center;">Sprint 1</td>
+<td style="text-align: center;">⏳ 進行中</td>
+</tr>
+<tr>
+<td style="text-align: center;">4</td>
+<td style="text-align: left;">PRD_Parser_V2.1.md</td>
+<td style="text-align: center;">v2.1</td>
+<td style="text-align: center;">4-5天</td>
+<td style="text-align: center;">Sprint 2</td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+<tr>
+<td style="text-align: center;">5</td>
+<td style="text-align: left;">PRD_CLEANER_v2.2.md</td>
+<td style="text-align: center;">v2.2</td>
+<td style="text-align: center;">6-7天</td>
+<td style="text-align: center;">Sprint 2</td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+<tr>
+<td style="text-align: center;">6</td>
+<td style="text-align: left;">PRD_BATCH_PROCESSOR_v1.3.md</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;">5-6天</td>
+<td style="text-align: center;">Sprint 2</td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+<tr>
+<td style="text-align: center;">7</td>
+<td style="text-align: left;">PRD_FEATURE_ENGINEER_V1.3.md</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;">5-6天</td>
+<td style="text-align: center;">Sprint 3</td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+<tr>
+<td style="text-align: center;">8</td>
+<td style="text-align: left;">PRD_Model_Training_v1.3.md</td>
+<td style="text-align: center;">v1.3</td>
+<td style="text-align: center;">10-12天</td>
+<td style="text-align: center;">Sprint 3</td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+<tr>
+<td style="text-align: center;">9</td>
+<td style="text-align: left;">PRD_Hybrid_Model_Consistency_v1.0.md</td>
+<td style="text-align: center;">v1.0</td>
+<td style="text-align: center;">3-4天</td>
+<td style="text-align: center;">Sprint 3</td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+<tr>
+<td style="text-align: center;">10</td>
+<td style="text-align: left;">PRD_Chiller_Plant_Optimization_V1.2.md</td>
+<td style="text-align: center;">v1.2</td>
+<td style="text-align: center;">8-9天</td>
+<td style="text-align: center;">Sprint 4</td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+<tr>
+<td style="text-align: center;">11</td>
+<td style="text-align: left;">PRD_Equipment_Dependency_Validation_v1.0.md</td>
+<td style="text-align: center;">v1.0</td>
+<td style="text-align: center;">4-5天</td>
+<td style="text-align: center;">Sprint 4</td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+<tr>
+<td style="text-align: center;">12</td>
+<td style="text-align: left;">PRD_Wizard_Technical_Blockade_V1.0.md</td>
+<td style="text-align: center;">v1.0</td>
+<td style="text-align: center;">3-4天</td>
+<td style="text-align: center;">Sprint 5</td>
+<td style="text-align: center;">⏳ 待開始</td>
+</tr>
+<tr>
+<td style="text-align: center;"></td>
+<td style="text-align: left;"><strong>總計</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>63-75 天</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>2/12 完成</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="82">8.2 相關文件</h3>
+<ul>
+<li><a href="./Sprint_1_執行摘要.md">📋 Sprint 1 執行摘要</a> - Interface Contract &amp; System Integration 詳細摘要</li>
+</ul>
+<hr />
+<p><strong>文件結束</strong></p>
+<p><em>最後更新: 2026-02-19 | 文件狀態: 🚧 Sprint 1 進行中 (2/3 完成)</em></p>
+</body>
+</html>
