@@ -1,174 +1,222 @@
 # HVAC Analytics - Core Engine (v1.3 Architecture)
 
-**核心引擎狀態**: 🏗️ **架構完善階段 (Architecture Refinement)**  
-我們已完成從 v1.0 到 v1.3 的架構升級,文件庫 (`docs/`) 已全面更新至最新規範,包含 Interface Contract v1.1、Feature Annotation v1.3、以及所有核心模組的 v1.3 版本。此外，所有 PRD 文件皆已生成 HTML 格式以便於閱讀。核心程式碼 (`src/`) 正在按照 Foundation First Policy 逐步實施。
+**核心引擎狀態**: 🚧 **Sprint 1 進行中 (2/3 完成)**  
+**最後更新**: 2026-02-19
+
+---
+
+## 📊 專案進度總覽
+
+| Sprint | 任務 | 狀態 | 測試 |
+|:---:|:---|:---:|:---:|
+| 1 | 1.1 Interface Contract v1.1 | ✅ 已完成 | 已驗證 |
+| 1 | 1.2 System Integration v1.2 | ✅ 已完成 | 35/35 通過 |
+| 1 | 1.3 Feature Annotation v1.2 | ⏳ 進行中 | - |
+| 2 | 2.1 Parser v2.1 | ⏳ 待開始 | - |
+| 2 | 2.2 Cleaner v2.2 | ⏳ 待開始 | - |
+| 2 | 2.3 BatchProcessor v1.3 | ⏳ 待開始 | - |
+
+[📋 查看完整任務排程](./docs/專案任務排程/專案任務排程文件.md) | [📈 Sprint 1 執行摘要](./docs/專案任務排程/Sprint_1_執行摘要.md)
+
+---
 
 ## 🔍 專案概覽
 
-HVAC 冰水系統資料處理與分析的核心引擎,專注於提供高可信度 (High-Fidelity) 的 ETL 管道與物理感知 (Physics-Aware) 的能耗優化模型。本專案核心目標是建立後端工程師可輕鬆整合的黑盒子模組,並確保設備邏輯一致性與時間基準準確性。
+HVAC 冰水系統資料處理與分析的核心引擎，專注於提供高可信度 (High-Fidelity) 的 ETL 管道與物理感知 (Physics-Aware) 的能耗優化模型。本專案核心目標是建立後端工程師可輕鬆整合的黑盒子模組，並確保設備邏輯一致性與時間基準準確性。
+
+### 設計原則
+
+- **契約導向設計 (Contract-First)**: 嚴格定義模組間介面與檢查點
+- **單一真相源 (SSOT)**: 所有配置與常數集中管理
+- **Foundation First**: 基礎設施優先，確保下游模組有穩固依賴
+- **Fail Fast**: 寧可終止流程，也不傳遞可疑資料
+
+---
 
 ## 📁 專案結構 (Target Architecture v1.3)
 
 ```
 HVAC_Analytics/
 ├── src/                        # 核心源碼
-│   ├── container.py            # [TODO] DI Container (系統心臟)
-│   ├── context.py              # [TODO] Pipeline Context (時間基準)
+│   ├── container.py            # ✅ ETLContainer (4步驟初始化)
+│   ├── context.py              # ✅ PipelineContext (時間基準)
 │   ├── interface.py            # ★ Facade - 後端整合入口
 │   ├── schemas.py              # Pydantic I/O 定義
-│   ├── core/                   # [TODO] 核心基礎設施
-│   │   └── temporal_baseline.py # Temporal Baseline 時間基準
-│   ├── features/               # [TODO] 特徵管理
-│   │   └── annotation_manager.py # v1.3 Excel-to-YAML SSOT & Constraints
-│   ├── equipment/              # [TODO] 設備驗證
-│   │   └── equipment_validator.py # v1.0 設備依賴關係驗證
 │   ├── etl/                    # ETL 管道
 │   │   ├── parser.py           # v2.1 報表解析 (E1xx Error Codes)
 │   │   ├── cleaner.py          # v2.2 資料清洗 + Equipment Precheck (E2xx)
 │   │   ├── batch_processor.py  # v1.3 批次處理 + Manifest (E3xx)
 │   │   ├── feature_engineer.py # v1.3 特徵工程 + Device Role Aware (E6xx)
-│   │   └── config_models.py    # SSOT 配置模型
-│   ├── modeling/               # 機器學習模型
-│   │   ├── training_pipeline.py # v1.3 Resource-Aware Training
-│   │   ├── model_registry.py   # 模型註冊與版本管理
-│   │   └── validation/         # 模型驗證
-│   │       └── hybrid_consistency.py # v1.0 Hybrid 一致性檢查
+│   │   └── config_models.py    # ✅ SSOT 配置模型 (E000-E999)
+│   ├── utils/                  
+│   │   └── config_loader.py    # ✅ ConfigLoader (E406, 檔案鎖)
+│   ├── modeling/               # [TODO] 機器學習模型
 │   ├── optimization/           # 優化演算法
-│   │   ├── engine.py           # v1.2 Optimization Engine
-│   │   ├── constraints.py      # 設備限制條件
-│   │   ├── scenarios.py        # 情境模擬
-│   │   └── fallback.py         # Fallback 機制
-│   └── utils/                  
-│       └── config_loader.py    # [TODO] 統一配置載入
+│   └── features/               # [TODO] 特徵管理
 ├── config/                     # 配置檔案
-│   ├── settings.yaml           # 系統參數
-│   └── features/               # [TODO] 案場特徵定義 (YAML SSOT)
-│       ├── base.yaml           # 基礎特徵定義
-│       └── sites/              # 各案場特徵 (繼承 base)
 ├── tools/                      # 工具鏈
-│   ├── features/               # 特徵標註工具
-│   │   ├── excel_to_yaml.py    # Excel 轉 YAML 轉換器
-│   │   └── wizard.py           # 特徵標註 Wizard
-│   └── docs/                   # 文件工具
-│       └── md_to_html.py       # Markdown 轉 HTML 工具
-├── docs/                       # 專案文檔 (全面更新至 v1.3，含 HTML 版本)
-│   ├── Interface Contract/     # ★ Interface Contract v1.1
-│   ├── Feature Annotation Specification/ # Feature Annotation v1.3 (New!)
-│   ├── System Integration/     # System Integration v1.2
-│   ├── Chiller_Plant_Optimization_Engine/ # Optimization v1.2
-│   ├── Model_Training/         # Model Training v1.3
-│   ├── Equipment_Dependency_Validation/ # Equipment Validation v1.0
-│   ├── Hybrid_Model_Consistency/ # Hybrid Consistency v1.0
-│   ├── parser/                 # Parser v2.1
-│   ├── cleaner/                # Cleaner v2.2
-│   ├── batch_processor/        # BatchProcessor v1.3
-│   ├── feature_engineering/    # Feature Engineer v1.3
-│   └── system_overview/        # 系統總覽與分析報告
 ├── tests/                      # 單元測試
-├── main.py                     # CLI 主程式
-└── requirements.txt            # Python 依賴
+│   └── test_container_initialization.py  # ✅ 35 項測試
+├── docs/                       # 專案文檔
+│   ├── 專案任務排程/           # 任務排程與執行摘要
+│   ├── Interface Contract/     # Interface Contract v1.1
+│   └── System Integration/     # System Integration v1.2
+└── main.py                     # CLI 主程式
 ```
 
-## 📚 專案文檔 (已更新 2026-02-14)
+---
 
-所有 PRD 皆已升級以支援 **Interface Contract v1.1** 定義的 **10 個檢查點**、**E000-E999 錯誤代碼體系**、**Temporal Baseline 時間基準機制**,以及 **Equipment Validation 設備邏輯同步**。
+## 🎯 已完成項目 (Sprint 1 - 2/3)
 
-**🔥 重大更新**: 新增 HTML 格式文件，方便離線閱讀與審閱。
+### ✅ 1.1 Interface Contract v1.1
 
-### 🎯 核心架構規範
+**完成日期**: 2026-02-19
 
-- **[Interface Contract v1.1](docs/Interface%20Contract/PRD_Interface_Contract_v1.1.md)** ([HTML](docs/Interface%20Contract/PRD_Interface_Contract_v1.1.html)) ⭐ 
-  - 10 個檢查點定義 (E000 時間基準 → E901 特徵對齊)
-  - 100+ 錯誤代碼體系 (E000-E999)
-  - Temporal Baseline 時間基準規範
-  - Feature Alignment 特徵對齊機制
+建立完整的系統介面規範：
 
-- **[Feature Annotation Specification v1.3](docs/Feature%20Annotation%20Specification/PRD_Feature_Annotation_Specification_V1.3.md)** ([HTML](docs/Feature%20Annotation%20Specification/PRD_Feature_Annotation_Specification_V1.3.html)) ⭐ **(New!)**
-  - Excel → YAML SSOT 單向流程 (Import Guard 防護)
-  - HVAC 專用設備分類與命名規範 (Taxonomy)
-  - Equipment Constraints (E350-E357) 定義於 YAML SSOT
-  - Header Standardization 正規化規則整合
+| 項目 | 內容 |
+|:---|:---|
+| **錯誤代碼體系** | E000-E999 完整定義（7 大類別） |
+| **檢查點規格** | #1-#7 關鍵介面檢查點 |
+| **DataFrame 介面** | timestamp (UTC/ns), quality_flags (List[str]) |
+| **Header Standardization** | snake_case 正規化規則 |
+| **Temporal Baseline** | E000 時間基準傳遞機制 |
 
-- **[System Integration v1.2](docs/System%20Integration/PRD_System_Integration_v1.2.md)** ([HTML](docs/System%20Integration/PRD_System_Integration_v1.2.html))
-  - 系統整合架構與初始化順序
-  - Foundation First Policy
-  - Container 依賴注入機制
+**文件**: [PRD_Interface_Contract_v1.1.md](./docs/Interface%20Contract/PRD_Interface_Contract_v1.1.md)
 
-### 🔧 ETL 管道模組
+---
 
-- **[Parser v2.1](docs/parser/PRD_Parser_V2.1.md)** ([HTML](docs/parser/PRD_Parser_V2.1.html))
-  - Header Standardization (snake_case)
-  - 強制 UTC/ns 時間戳輸出
-  - E1xx 錯誤處理
+### ✅ 1.2 System Integration v1.2
 
-- **[Cleaner v2.2](docs/cleaner/PRD_CLEANER_v2.2.md)** ([HTML](docs/cleaner/PRD_CLEANER_v2.2.html))
-  - 語意感知清洗 (device_role 調整閾值)
-  - Equipment Validation Precheck (E350)
-  - 職責分離三層防護 (白名單 + Schema 淨化 + CI Gate)
-  - E2xx 錯誤處理
+**完成日期**: 2026-02-19  
+**測試結果**: 35 項單元測試全部通過 ✅
 
-- **[BatchProcessor v1.3](docs/batch_processor/PRD_BATCH_PROCESSOR_v1.3.md)** ([HTML](docs/batch_processor/PRD_BATCH_PROCESSOR_v1.3.html))
-  - Manifest 生成 (annotation_audit_trail + equipment_validation_audit)
-  - Temporal Baseline 傳遞
-  - E406 同步驗證與文件鎖
-  - E3xx 錯誤處理
+#### SI-001: PipelineContext
 
-- **[Feature Engineer v1.3](docs/feature_engineering/PRD_FEATURE_ENGINEER_V1.3.md)** ([HTML](docs/feature_engineering/PRD_FEATURE_ENGINEER_V1.3.html))
-  - Metadata 分層消費 (Manifest 物理屬性 + Annotation device_role)
-  - Group Policy 語意感知 (backup 設備調整窗口)
-  - Data Leakage 防護 (shift(1) + cutoff_timestamp)
-  - E6xx 錯誤處理
+Thread-safe Singleton 時間基準管理：
 
-### 🤖 機器學習與優化
+```python
+from src.context import PipelineContext
 
-- **[Model Training v1.3](docs/Model_Training/PRD_Model_Training_v1.3.md)** ([HTML](docs/Model_Training/PRD_Model_Training_v1.3.html))
-  - 三種訓練模式 (System-Level, Component-Level, Hybrid)
-  - Resource-Aware Training (Kubernetes/Docker 資源管理)
-  - 自動化模型註冊 (model_registry_index.json)
-  - Feature Alignment 驗證 (E901-E904)
-  - E7xx 錯誤處理
+context = PipelineContext()
+context.initialize(site_id="cgmh_ty")
 
-- **[Chiller Plant Optimization Engine v1.2](docs/Chiller_Plant_Optimization_Engine/PRD_Chiller_Plant_Optimization_V1.2.md)** ([HTML](docs/Chiller_Plant_Optimization_Engine/PRD_Chiller_Plant_Optimization_V1.2.html))
-  - 黑盒優化 (Optuna + XGBoost 預測)
-  - Equipment Validation 整合
-  - Feature Vectorization (E901-E904 對齊)
-  - 多目標優化 (COP + 舒適度)
-  - Fallback 機制
+# 取得時間基準（E000 檢查）
+baseline = context.get_baseline()
 
-- **[Hybrid Model Consistency v1.0](docs/Hybrid_Model_Consistency/PRD_Hybrid_Model_Consistency_v1.0.md)** ([HTML](docs/Hybrid_Model_Consistency/PRD_Hybrid_Model_Consistency_v1.0.html))
-  - System-Level vs Component-Level 一致性檢查
-  - 差異 >5% 警告, >15% 錯誤
-  - E75x 錯誤處理
+# 未來資料檢測
+is_future = context.is_future(timestamp, tolerance_minutes=5)
 
-### 🔍 設備驗證與特殊模組
+# 時間漂移警告（E000-W）
+warning = context.check_drift_warning()
+```
 
-- **[Equipment Dependency Validation v1.0](docs/Equipment_Dependency_Validation/PRD_Equipment_Dependency_Validation_v1.0.md)** ([HTML](docs/Equipment_Dependency_Validation/PRD_Equipment_Dependency_Validation_v1.0.html))
-  - ETL 階段物理邏輯一致性檢查
-  - 設備依賴關係驗證
-  - 歷史資料驗證
+**錯誤代碼實作**: E000, E000-W
 
-- **[Wizard Technical Blockade v1.0](docs/Wizard_Technical_Blockade/PRD_Wizard_Technical_Blockade_V1.0.md)** ([HTML](docs/Wizard_Technical_Blockade/PRD_Wizard_Technical_Blockade_V1.0.html))
-  - Feature Annotation Wizard 技術封鎖機制
-  - 防止並發修改與資料競態
+#### SI-002: ETLConfig (Pydantic)
 
-### 📊 分析報告
+型別安全的配置管理：
 
-- **[PRD 全面分析報告](docs/system_overview/PRD_Analysis_Report.md)** ([HTML](docs/system_overview/PRD_Analysis_Report.html)) 🆕
-  - 系統架構總覽與依賴圖
-  - 10+ 核心模組詳細分析
-  - 關鍵風險評估 (Dependency Deadlock, Physics Logic Decoupling, Temporal Inconsistency)
-  - 實施優先級矩陣
-  - 測試策略建議
+```python
+from src.etl.config_models import ETLConfig, AnnotationConfig
 
-## 🚀 整合指南 (Usage)
+# 自動驗證 physical_type、device_role
+config = AnnotationConfig(
+    column_name="chiller_1_power",
+    physical_type="power",      # 驗證允許值
+    unit="kW",
+    device_role="primary"       # 驗證: primary/backup/seasonal/auxiliary/standby
+)
 
-### 方式 1: 使用 Facade (推薦)
+# E405: 目標變數不可啟用 Lag（自動驗證）
+```
+
+**錯誤代碼實作**: E405, E906
+
+#### SI-003: ConfigLoader
+
+強化的配置載入與同步檢查：
+
+```python
+from src.utils.config_loader import ConfigLoader
+
+loader = ConfigLoader()
+
+# E406 同步檢查
+result = loader.validate_annotation_sync("cgmh_ty")
+if not result.is_synced:
+    print(result.message)         # 詳細錯誤訊息
+    print(result.recovery_action)  # 恢復建議
+
+# 載入配置（含檔案鎖保護）
+config = loader.load_etl_config("cgmh_ty")
+```
+
+**錯誤代碼實作**: E007, E406, E408  
+**機制**: 檔案鎖、原子寫入、備份恢復
+
+#### SI-004: ETLContainer
+
+4 步驟初始化順序控制：
+
+```python
+from src.container import ETLContainer
+
+# 完整初始化（依序執行 4 步驟）
+container = ETLContainer(site_id="cgmh_ty", enable_sync_check=True)
+container.initialize_all()
+
+# 或逐步初始化
+container.step1_create_context()      # PipelineContext
+container.step2_load_config()          # ConfigLoader + ETLConfig
+container.step3_load_annotation()      # FeatureAnnotationManager
+container.step4_initialize_modules()   # Parser, Cleaner, etc.
+
+# 取得元件
+parser = container.get_parser()
+cleaner = container.get_cleaner()
+config = container.get_config()
+```
+
+**設計**: Foundation First Policy（嚴格順序控制）
+
+#### 新增檔案
+
+| 檔案 | 行數 | 說明 |
+|:---|:---:|:---|
+| `src/context.py` | 337 | PipelineContext 時間基準 |
+| `src/container.py` | 543 | ETLContainer DI 容器 |
+| `src/utils/config_loader.py` | 485 | ConfigLoader 強化 |
+| `src/etl/config_models.py` | 1554+ | SSOT + Pydantic 模型 |
+| `tests/test_container_initialization.py` | 712 | 35 項單元測試 |
+
+---
+
+## 🚀 使用指南
+
+### 快速開始
+
+```python
+from src.container import ETLContainer
+
+# 初始化 HVAC 服務（自動執行 4 步驟初始化）
+container = ETLContainer(site_id="cgmh_ty")
+container.initialize_all()
+
+# 取得時間基準
+baseline = container.get_temporal_baseline()
+
+# 取得配置
+config = container.get_config()
+```
+
+### 使用 Facade (推薦)
 
 ```python
 from src.interface import HVACService
 from src.schemas import OptimizationContext
 
-# 初始化服務 (將自動啟動 ETLContainer)
+# 初始化服務（將自動啟動 ETLContainer）
 service = HVACService(site_id="cgmh_ty")
 
 # 執行最佳化
@@ -180,99 +228,128 @@ context = OptimizationContext(
 result = service.optimize(context)
 ```
 
-### 方式 2: CLI 執行
+### CLI 執行
 
 ```bash
-# 執行完整 Pipeline (將遵循 v1.2 初始化順序)
+# 執行完整 Pipeline（將遵循 v1.2 初始化順序）
 python main.py pipeline data/raw/report.csv --site cgmh_ty
 ```
 
-## 🚧 實作路徑 (Implementation Roadmap)
+---
 
-目前專案處於 **Phase 1: Foundation** 階段,遵循 **Foundation First Policy**:
+## 🧪 測試
 
-### Sprint 1: Foundation (0% - 待實施)
-- [ ] **Interface Contract v1.1** (錯誤代碼定義)
-  - [ ] `src/exceptions.py` - 錯誤代碼常數與異常類別
-  - [ ] 檢查點規範文件
-- [ ] **Temporal Baseline** (時間基準機制)
-  - [ ] `src/core/temporal_baseline.py` - PipelineContext
-  - [ ] E000 檢查機制
-- [ ] **Feature Annotation v1.3** (YAML SSOT & HVAC Constraints)
-  - [ ] `src/features/annotation_manager.py` - FeatureAnnotationManager
-  - [ ] `tools/features/excel_to_yaml.py` - Excel → YAML 轉換工具
-  - [ ] `tools/features/wizard.py` - Wizard 自動備份與預覽
-  - [ ] E406 同步檢查與 Header Standardization
-- [ ] **Equipment Validation SSOT**
-  - [ ] `src/etl/config_models.py` - EQUIPMENT_VALIDATION_CONSTRAINTS
-  - [ ] 基礎驗證邏輯
+### 執行測試
 
-### Sprint 2: Integration (0% - 待實施)
-- [ ] **Parser v2.1**
-  - [ ] Header Standardization
-  - [ ] UTC/ns 時間戳轉換
-  - [ ] E1xx 錯誤處理
-- [ ] **Cleaner v2.2**
-  - [ ] 語意感知清洗
-  - [ ] Equipment Validation Precheck
-  - [ ] 職責分離三層防護
-  - [ ] E2xx 錯誤處理
-- [ ] **BatchProcessor v1.3**
-  - [ ] Manifest 生成
-  - [ ] E406 同步驗證
-  - [ ] Parquet 輸出驗證
-  - [ ] E3xx 錯誤處理
-- [ ] **Feature Engineer v1.3**
-  - [ ] Metadata 分層消費
-  - [ ] Group Policy 語意感知
-  - [ ] Data Leakage 防護
-  - [ ] E6xx 錯誤處理
+```bash
+# 執行 System Integration 測試
+python3 -m pytest tests/test_container_initialization.py -v
 
-### Sprint 3: ML & Optimization (0% - 待實施)
-- [ ] **Model Training v1.3**
-  - [ ] ResourceManager (記憶體監控與檢查點)
-  - [ ] 三種訓練模式
-  - [ ] Feature Alignment 驗證
-  - [ ] E7xx 錯誤處理
-- [ ] **Optimization Engine v1.2**
-  - [ ] 黑盒優化
-  - [ ] Equipment Validation 整合
-  - [ ] Feature Vectorization
-  - [ ] E9xx 錯誤處理
-- [ ] **Hybrid Consistency v1.0**
-  - [ ] 一致性檢查
-  - [ ] 診斷報告生成
-  - [ ] E75x 錯誤處理
+# 預期結果: 35 passed
+```
 
-### 文檔完成度
-- [x] **PRD 文檔更新** (100%)
-  - [x] Interface Contract v1.1
-  - [x] Feature Annotation v1.2
-  - [x] 所有核心模組升級至 v1.3
-  - [x] PRD 全面分析報告
-  - [x] **HTML 文檔生成** (New!)
+### 測試覆蓋
 
-## 🤝 貢獻
-
-請務必先閱讀以下核心文檔:
-- **[Interface Contract v1.1](docs/Interface%20Contract/PRD_Interface_Contract_v1.1.md)** - 錯誤代碼規範與檢查點定義
-- **[Feature Annotation v1.3](docs/Feature%20Annotation%20Specification/PRD_Feature_Annotation_Specification_V1.3.md)** - YAML SSOT 機制與 HVAC 命名規範
-- **[PRD 分析報告](docs/system_overview/PRD_Analysis_Report.md)** - 系統架構與實施建議
-
-確保所有新代碼遵守:
-1. **Foundation First Policy** - 按照 Sprint 1 → Sprint 2 → Sprint 3 順序實施
-2. **錯誤代碼規範** - 使用 E000-E999 錯誤代碼體系
-3. **Temporal Baseline** - 禁止使用 `datetime.now()`,必須使用 `pipeline_origin_timestamp`
-4. **職責分離** - Cleaner 不傳遞 `device_role`,Feature Engineer 直接查詢 Annotation
-
-## 📖 延伸閱讀
-
-- [PRD 全面分析報告](docs/system_overview/PRD_Analysis_Report.md) - 系統架構、風險評估、實施建議
-- [Foundation First Policy](docs/Interface%20Contract/PRD_Interface_Contract_v1.1.md#foundation-first-policy) - 實施順序與依賴管理
-- [錯誤代碼體系](docs/Interface%20Contract/PRD_Interface_Contract_v1.1.md#error-codes) - E000-E999 完整定義
+| 類別 | 測試數 | 說明 |
+|:---|:---:|:---|
+| PipelineContext | 9 | 單例、E000、時間漂移、執行緒安全 |
+| ETLConfig | 6 | Pydantic、E405、版本相容性 |
+| ConfigLoader | 7 | E406、E007、檔案鎖 |
+| ETLContainer | 7 | 4 步驟初始化順序 |
+| 時間基準傳遞 | 6 | 跨日、注入、驗證 |
+| **總計** | **35** | **全部通過** |
 
 ---
 
-**最後更新**: 2026-02-14  
+## 📚 專案文檔
+
+### 核心架構規範
+
+- **[Interface Contract v1.1](docs/Interface%20Contract/PRD_Interface_Contract_v1.1.md)** ⭐ 
+  - 10 個檢查點定義 (E000 時間基準 → E901 特徵對齊)
+  - 100+ 錯誤代碼體系 (E000-E999)
+  - Temporal Baseline 時間基準規範
+
+- **[System Integration v1.2](docs/System%20Integration/PRD_System_Integration_v1.2.md)** ⭐ **(New!)**
+  - 系統整合架構與 4 步驟初始化順序
+  - Foundation First Policy
+  - Container 依賴注入機制
+
+### 任務排程與執行摘要
+
+- **[專案任務排程](docs/專案任務排程/專案任務排程文件.md)** - 完整 Sprint 規劃
+- **[Sprint 1 執行摘要](docs/專案任務排程/Sprint_1_執行摘要.md)** - Interface Contract & System Integration 詳細摘要
+
+### ETL 管道模組
+
+- **[Parser v2.1](docs/parser/PRD_Parser_V2.1.md)** - Header Standardization、UTC/ns 時間戳
+- **[Cleaner v2.2](docs/cleaner/PRD_CLEANER_v2.2.md)** - 語意感知清洗、Equipment Precheck
+- **[BatchProcessor v1.3](docs/batch_processor/PRD_BATCH_PROCESSOR_v1.3.md)** - Manifest 生成、E406 驗證
+
+### 機器學習與最佳化
+
+- **[Model Training v1.3](docs/Model_Training/PRD_Model_Training_v1.3.md)** - 三種訓練模式、Resource-Aware Training
+- **[Optimization Engine v1.2](docs/Chiller_Plant_Optimization_Engine/PRD_Chiller_Plant_Optimization_V1.2.md)** - 黑盒優化、Fallback 機制
+
+---
+
+## 🚧 實作路徑 (Implementation Roadmap)
+
+### 當前狀態: Sprint 1 進行中 (2/3 完成)
+
+```
+Sprint 1: Foundation
+├── ✅ Interface Contract v1.1 (已完成)
+│   ├── E000-E999 錯誤代碼定義
+│   ├── 7 個檢查點規格
+│   └── Header Standardization 規則
+│
+├── ✅ System Integration v1.2 (已完成)
+│   ├── PipelineContext (E000 時間基準)
+│   ├── ETLConfig (Pydantic 模型)
+│   ├── ConfigLoader (E406 同步檢查)
+│   └── ETLContainer (4步驟初始化)
+│
+└── ⏳ Feature Annotation v1.2 (進行中)
+    ├── Excel 範本設計
+    ├── YAML Schema
+    ├── excel_to_yaml 轉換器
+    └── FeatureAnnotationManager
+
+Sprint 2: 核心 ETL (待開始)
+├── Parser v2.1
+├── Cleaner v2.2
+└── BatchProcessor v1.3
+```
+
+### 下一步
+
+1. 完成 1.3 Feature Annotation v1.2
+2. 啟動 Sprint 2: 核心 ETL（Parser、Cleaner、BatchProcessor 升級）
+
+---
+
+## 🤝 貢獻指南
+
+請務必先閱讀以下核心文檔：
+- **[Interface Contract v1.1](docs/Interface%20Contract/PRD_Interface_Contract_v1.1.md)** - 錯誤代碼規範與檢查點定義
+- **[Sprint 1 執行摘要](docs/專案任務排程/Sprint_1_執行摘要.md)** - 已完成的基礎設施說明
+
+確保所有新代碼遵守：
+1. **Foundation First Policy** - 按照 Sprint 順序實施
+2. **錯誤代碼規範** - 使用 E000-E999 錯誤代碼體系
+3. **Temporal Baseline** - 禁止使用 `datetime.now()`，必須使用 PipelineContext
+4. **職責分離** - Cleaner 不傳遞 `device_role`，Feature Engineer 直接查詢 Annotation
+
+---
+
+## 📖 延伸閱讀
+
+- [專案任務排程](docs/專案任務排程/專案任務排程文件.md) - 系統架構、風險評估、實施建議
+- [Sprint 1 執行摘要](docs/專案任務排程/Sprint_1_執行摘要.md) - 詳細的完成項目與測試報告
+
+---
+
+**最後更新**: 2026-02-19  
 **架構版本**: v1.3  
-**文檔狀態**: ✅ 完整 (10+ 核心模組 PRD 已更新 + HTML 版)
+**文件狀態**: 🚧 Sprint 1 進行中 (2/3 完成)
