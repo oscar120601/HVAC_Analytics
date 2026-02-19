@@ -1,0 +1,156 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sprint_1_Review_Report</title>
+    
+<style>
+    body { 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
+        line-height: 1.6; 
+        max-width: 900px; 
+        margin: 0 auto; 
+        padding: 40px 20px; 
+        color: #24292e; 
+        background-color: #ffffff;
+    }
+    h1, h2, h3, h4, h5, h6 { 
+        margin-top: 24px; 
+        margin-bottom: 16px; 
+        font-weight: 600; 
+        color: #24292e;
+    }
+    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+    h3 { font-size: 1.25em; }
+    p { margin-top: 0; margin-bottom: 16px; }
+    a { color: #0366d6; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    table { 
+        display: block; 
+        width: 100%; 
+        overflow: auto; 
+        border-spacing: 0; 
+        border-collapse: collapse; 
+        margin-bottom: 16px; 
+    }
+    table th, table td { 
+        padding: 6px 13px; 
+        border: 1px solid #dfe2e5; 
+    }
+    table th { 
+        font-weight: 600; 
+        background-color: #f6f8fa; 
+    }
+    table tr:nth-child(2n) { 
+        background-color: #f6f8fa; 
+    }
+    code { 
+        font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; 
+        background-color: #f6f8fa; 
+        padding: 0.2em 0.4em; 
+        border-radius: 3px; 
+        font-size: 85%; 
+    }
+    pre { 
+        background-color: #f6f8fa; 
+        padding: 16px; 
+        overflow: auto; 
+        border-radius: 3px; 
+        line-height: 1.45; 
+    }
+    pre code { 
+        background-color: transparent; 
+        padding: 0; 
+        border-radius: 0; 
+    }
+    blockquote { 
+        border-left: 0.25em solid #dfe2e5; 
+        color: #6a737d; 
+        padding: 0 1em; 
+        margin: 0 0 16px 0; 
+    }
+    hr {
+        height: 0.25em;
+        padding: 0;
+        margin: 24px 0;
+        background-color: #e1e4e8;
+        border: 0;
+    }
+    .mermaid {
+        display: flex;
+        justify-content: center;
+        margin: 20px 0;
+    }
+</style>
+
+</head>
+<body>
+    <h1 id="sprint-1-tasks-11-12">Sprint 1 任務審查報告 (Tasks 1.1 &amp; 1.2)</h1>
+<p><strong>審查日期:</strong> 2026-02-19<br />
+<strong>審查範圍:</strong> 任務 1.1 Interface Contract v1.1 &amp; 任務 1.2 System Integration v1.2<br />
+<strong>審查結果:</strong> ✅ <strong>通過 (Pass)</strong> - 但有中度風險需注意</p>
+<hr />
+<h2 id="verification-of-deliverables">一、 交付物驗證 (Verification of Deliverables)</h2>
+<h3 id="11-interface-contract-v11">1.1 Interface Contract v1.1</h3>
+<ul>
+<li><strong>狀態:</strong> ✅ 完成</li>
+<li><strong>驗證項目:</strong><ul>
+<li>[x] <strong>錯誤代碼體系</strong>: <code>src/etl/config_models.py</code> 已完整定義 E000-E999 錯誤代碼與嚴重度分級。</li>
+<li>[x] <strong>檢查點規格</strong>: <code>PRD_Interface_Contract_v1.1.md</code> 詳細定義了 7 個檢查點與對應的錯誤代碼。</li>
+<li>[x] <strong>時間基準規範</strong>: E000 與 E000-W 已定義，且文件中有明確的傳遞規範。</li>
+</ul>
+</li>
+</ul>
+<h3 id="12-system-integration-v12">1.2 System Integration v1.2</h3>
+<ul>
+<li><strong>狀態:</strong> ✅ 完成</li>
+<li><strong>驗證項目:</strong><ul>
+<li>[x] <strong>PipelineContext</strong>: <code>src/context.py</code> 實作了 Singleton 模式、時間基準鎖定、漂移警告，邏輯正確。</li>
+<li>[x] <strong>ConfigLoader</strong>: <code>src/utils/config_loader.py</code> 實作了 <code>FileLock</code> 與 Atomic Save 機制，且包含 E406 同步檢查邏輯。</li>
+<li>[x] <strong>ETLContainer</strong>: <code>src/container.py</code> 實作了嚴格的 4 步驟初始化 (<code>step1</code> -&gt; <code>step4</code>)，符合 Foundation First Policy。</li>
+<li>[x] <strong>測試覆蓋</strong>: <code>tests/test_container_initialization.py</code> 包含 35 個測試案例，覆蓋了初始化順序、單例特性、錯誤代碼觸發等關鍵路徑。</li>
+</ul>
+</li>
+</ul>
+<hr />
+<h2 id="risks-observations">二、 潛在風險與疏忽 (Risks &amp; Observations)</h2>
+<p>雖已完成核心實作，以「第三方嚴格角度」審查發現以下潛在風險：</p>
+<h3 id="1-e406-high-warning">🔴 1. E406 同步檢查被屏蔽 (High Warning)</h3>
+<p>在 <code>src/container.py</code> (Line 219) 中，E406 同步檢查失敗後的 <strong>阻擋邏輯被註解掉了</strong>：</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 嚴格模式下可以選擇拋出異常</span>
+<span class="c1"># raise RuntimeError(error_msg)</span>
+</code></pre></div>
+
+<p><strong>風險:</strong> 若在生產環境或 CI/CD 中未解除此註解，即使 Excel/YAML 不同步，Pipeline 仍會繼續執行，導致「契約優先」原則失效。
+<strong>建議:</strong> 在 <code>ETLConfig</code> 或環境變數中加入 <code>STRICT_MODE</code> 開關，若為 True 則必須拋出異常，而非僅依靠註解。</p>
+<h3 id="2-dependency-soft-link">🟡 2. 特徵標註依賴的 "軟" 連結 (Dependency Soft Link)</h3>
+<p><code>src/container.py</code> (Line 272) 使用了 <code>try-except ImportError</code> 來載入 <code>FeatureAnnotationManager</code>：</p>
+<div class="codehilite"><pre><span></span><code><span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">src.features.annotation_manager</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeatureAnnotationManager</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;FeatureAnnotationManager 尚未實作，使用 stub&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>風險:</strong> 雖然這是為了讓 Task 1.2 先行完成的權宜之計，但若 Sprint 2 開始時 Task 1.3 仍未完成，<code>Container</code> 會默默使用 Stub，導致下游模組 (Parser/Cleaner) 在初始化時無法取得正確的標註資訊，可能會在執行期才爆錯。
+<strong>建議:</strong> 在 Task 1.3 完成後，應移除此 <code>try-except</code> 或將 logging level 提升為 Error，確保正式環境下的依賴完整性。</p>
+<h3 id="3-e000-w-log">🟡 3. E000-W 漂移警告僅寫入 Log</h3>
+<p><code>PipelineContext.check_drift_warning()</code> 僅回傳字典並寫入 Log。
+<strong>風險:</strong> 對於無人值守的批次作業，Log 可能被忽視。
+<strong>建議:</strong> 考慮是否整合至 <code>Manifest</code> 輸出或發送至監控系統 (如 Prometheus metric)。</p>
+<hr />
+<h2 id="_1">三、 總結建議</h2>
+<p>您已扎實地完成了 1.1 與 1.2 的基礎建設，程式碼品質高且測試覆蓋完整。唯需注意 <strong>E406 的嚴格執行</strong> 與 <strong>Task 1.3 的依賴銜接</strong>，以確保「契約導向設計」真正落地。</p>
+<p><strong>下一步行動:</strong>
+1. 繼續推進 Task 1.3 Feature Annotation。
+2. 評估是否啟用 Container 中的 <code>raise RuntimeError(error_msg)</code> 以落實嚴格檢查。</p>
+    
+<script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true });
+</script>
+
+</body>
+</html>
