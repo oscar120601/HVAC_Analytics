@@ -1,0 +1,240 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HVAC Feature Annotation Schema v1.3",
+  "description": "特徵標註系統 JSON Schema v1.3 - 支援 HVAC 設備限制與時間基準",
+  "version": "1.3.0",
+  "type": "object",
+  "required": ["metadata", "columns"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "description": "文件元資料",
+      "required": ["schema_version", "template_version", "site_id", "editor", "last_updated"],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "description": "Schema 版本",
+          "enum": ["1.3"],
+          "default": "1.3"
+        },
+        "template_version": {
+          "type": "string",
+          "description": "Excel 範本版本",
+          "enum": ["1.3"],
+          "default": "1.3"
+        },
+        "site_id": {
+          "type": "string",
+          "description": "案場識別碼",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "inherit": {
+          "type": ["string", "null"],
+          "description": "繼承來源（base.yaml 或其他案場）"
+        },
+        "description": {
+          "type": ["string", "null"],
+          "description": "文件描述"
+        },
+        "editor": {
+          "type": "string",
+          "description": "編輯者名稱"
+        },
+        "last_updated": {
+          "type": "string",
+          "description": "最後更新時間（ISO 8601）",
+          "format": "date-time"
+        },
+        "yaml_checksum": {
+          "type": ["string", "null"],
+          "description": "對應 YAML 雜湊（SHA256）",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "equipment_schema": {
+          "type": "string",
+          "description": "設備分類架構版本",
+          "enum": ["hvac_v1.3"],
+          "default": "hvac_v1.3"
+        },
+        "temporal_baseline_version": {
+          "type": "string",
+          "description": "時間基準版本",
+          "enum": ["1.0"],
+          "default": "1.0"
+        },
+        "ssot_flags_version": {
+          "type": ["string", "null"],
+          "description": "SSOT Quality Flags 版本"
+        }
+      }
+    },
+    "columns": {
+      "type": "object",
+      "description": "欄位標註定義",
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*$": {
+          "$ref": "#/definitions/columnAnnotation"
+        }
+      },
+      "additionalProperties": false
+    },
+    "equipment_constraints": {
+      "type": "object",
+      "description": "設備限制條件（HVAC 專用）",
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*$": {
+          "$ref": "#/definitions/equipmentConstraint"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "columnAnnotation": {
+      "type": "object",
+      "description": "單一欄位標註",
+      "required": ["column_name", "physical_type"],
+      "properties": {
+        "column_name": {
+          "type": "string",
+          "description": "欄位名稱（snake_case）",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "physical_type": {
+          "type": "string",
+          "description": "物理類型",
+          "enum": [
+            "temperature", "pressure", "flow_rate", "power", "chiller_load",
+            "status", "gauge", "cooling_capacity", "efficiency", "energy",
+            "valve_position", "frequency", "rotational_speed", "current",
+            "voltage", "power_factor", "pressure_differential", "operating_status"
+          ]
+        },
+        "unit": {
+          "type": ["string", "null"],
+          "description": "單位"
+        },
+        "device_role": {
+          "type": "string",
+          "description": "設備角色",
+          "enum": ["primary", "backup", "seasonal"],
+          "default": "primary"
+        },
+        "equipment_id": {
+          "type": ["string", "null"],
+          "description": "設備 ID（如 CH-01）",
+          "pattern": "^[A-Z]+-[0-9]+$"
+        },
+        "description": {
+          "type": ["string", "null"],
+          "description": "欄位描述"
+        },
+        "is_target": {
+          "type": "boolean",
+          "description": "是否為目標變數",
+          "default": false
+        },
+        "enable_lag": {
+          "type": "boolean",
+          "description": "是否啟用 Lag",
+          "default": true
+        },
+        "lag_intervals": {
+          "type": "array",
+          "description": "Lag 間隔列表（時間點間隔）",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        },
+        "ignore_warnings": {
+          "type": "array",
+          "description": "忽略的警告代碼",
+          "items": {
+            "type": "string",
+            "enum": ["W401", "W402", "W403", "W406", "W407"]
+          }
+        },
+        "status": {
+          "type": "string",
+          "description": "欄位狀態",
+          "enum": ["pending_review", "confirmed", "deprecated"],
+          "default": "pending_review"
+        }
+      }
+    },
+    "equipmentConstraint": {
+      "type": "object",
+      "description": "設備限制條件",
+      "required": ["constraint_id", "description", "check_type", "check_phase"],
+      "properties": {
+        "constraint_id": {
+          "type": "string",
+          "description": "限制條件 ID"
+        },
+        "description": {
+          "type": "string",
+          "description": "描述"
+        },
+        "check_type": {
+          "type": "string",
+          "description": "檢查類型",
+          "enum": ["requires", "mutex", "sequence", "range_check", "threshold"]
+        },
+        "check_phase": {
+          "type": "string",
+          "description": "檢查階段",
+          "enum": ["precheck", "optimization"]
+        },
+        "trigger_status": {
+          "type": "array",
+          "description": "觸發條件欄位",
+          "items": { "type": "string" }
+        },
+        "required_status": {
+          "type": "array",
+          "description": "需求條件欄位",
+          "items": { "type": "string" }
+        },
+        "target_column": {
+          "type": ["string", "null"],
+          "description": "目標欄位"
+        },
+        "min_value": {
+          "type": ["number", "null"],
+          "description": "最小值"
+        },
+        "max_value": {
+          "type": ["number", "null"],
+          "description": "最大值"
+        },
+        "min_duration_minutes": {
+          "type": ["integer", "null"],
+          "description": "最小持續時間（分鐘）",
+          "minimum": 0
+        },
+        "severity": {
+          "type": "string",
+          "description": "嚴重程度",
+          "enum": ["critical", "warning"],
+          "default": "critical"
+        },
+        "applicable_roles": {
+          "type": "array",
+          "description": "適用的設備角色",
+          "items": {
+            "type": "string",
+            "enum": ["primary", "backup", "seasonal"]
+          },
+          "default": ["primary", "backup"]
+        },
+        "error_code": {
+          "type": ["string", "null"],
+          "description": "錯誤代碼",
+          "enum": ["E350", "E351", "E352", "E353", "E354", "E355", "E356", "E357"]
+        }
+      }
+    }
+  }
+}

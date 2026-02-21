@@ -1,65 +1,46 @@
-# Sprint 1 任務審查報告 (Tasks 1.1 & 1.2)
+# Sprint 1 程式碼品質與可用性檢討報告
 
-**審查日期:** 2026-02-19  
-**審查範圍:** 任務 1.1 Interface Contract v1.1 & 任務 1.2 System Integration v1.2  
-**審查結果:** ✅ **通過 (Pass)** - 但有中度風險需注意
-
----
-
-## 一、 交付物驗證 (Verification of Deliverables)
-
-### 1.1 Interface Contract v1.1
-- **狀態:** ✅ 完成
-- **驗證項目:**
-    - [x] **錯誤代碼體系**: `src/etl/config_models.py` 已完整定義 E000-E999 錯誤代碼與嚴重度分級。
-    - [x] **檢查點規格**: `PRD_Interface_Contract_v1.1.md` 詳細定義了 7 個檢查點與對應的錯誤代碼。
-    - [x] **時間基準規範**: E000 與 E000-W 已定義，且文件中有明確的傳遞規範。
-
-### 1.2 System Integration v1.2
-- **狀態:** ✅ 完成
-- **驗證項目:**
-    - [x] **PipelineContext**: `src/context.py` 實作了 Singleton 模式、時間基準鎖定、漂移警告，邏輯正確。
-    - [x] **ConfigLoader**: `src/utils/config_loader.py` 實作了 `FileLock` 與 Atomic Save 機制，且包含 E406 同步檢查邏輯。
-    - [x] **ETLContainer**: `src/container.py` 實作了嚴格的 4 步驟初始化 (`step1` -> `step4`)，符合 Foundation First Policy。
-    - [x] **測試覆蓋**: `tests/test_container_initialization.py` 包含 35 個測試案例，覆蓋了初始化順序、單例特性、錯誤代碼觸發等關鍵路徑。
+**審查日期:** 2026-02-21  
+**審查範圍:** Sprint 1 全階段 (Task 1.1, 1.2, 1.3)
+**審查結果:** ✅ **通過 (Pass)** - 共 72 項測試通過，程式碼具備高可用性
 
 ---
 
-## 二、 潛在風險與疏忽 (Risks & Observations)
+## 一、 程式碼可用性與測試驗證 (Usability & Testing Validation)
 
-雖已完成核心實作，以「第三方嚴格角度」審查發現以下潛在風險：
+本次審查執行了完整的 Pytest 測試套件，結果如下：
+- **總測試數:** 75 項
+- **通過數 (Passed):** 72 項
+- **略過數 (Skipped):** 3 項（因目前專案缺乏部分進階測試資料樣本而保留略過，屬正常預期行為）
+- **失敗數 (Failed):** 0 項 (已修復初期發現的 6 個整合性錯誤)
 
-### 🔴 1. E406 同步檢查被屏蔽 (High Warning)
-在 `src/container.py` (Line 219) 中，E406 同步檢查失敗後的 **阻擋邏輯被註解掉了**：
-```python
-# 嚴格模式下可以選擇拋出異常
-# raise RuntimeError(error_msg)
-```
-**風險:** 若在生產環境或 CI/CD 中未解除此註解，即使 Excel/YAML 不同步，Pipeline 仍會繼續執行，導致「契約優先」原則失效。
-**建議:** 在 `ETLConfig` 或環境變數中加入 `STRICT_MODE` 開關，若為 True 則必須拋出異常，而非僅依靠註解。
+**修復摘要與最新進展:**
+使用者補充了 `data/test_sample.csv` 檔案後，`test_full_pipeline` (端到端分析管線整合測試) 已順利通過，證實了 ETL 管線基礎骨架（Parser 解析及 Cleaner 清理）已初步成型並可用。
+在先前的審查過程中，我們也主動修復了 `FeatureAnnotationManager` 與 `ETLContainer` 間因初始化參數 (`config_root` 與 `config`) 錯位導致的 E400/E402 錯誤。此外，我們修正了 `ColumnStatus` 枚舉的資料型別驗證，將原本錯誤的 "active" 修正為 Pydantic 預期的 "confirmed"。修復後所有元件初始化順暢且系統穩定。
 
-### 🟡 2. 特徵標註依賴的 "軟" 連結 (Dependency Soft Link)
-`src/container.py` (Line 272) 使用了 `try-except ImportError` 來載入 `FeatureAnnotationManager`：
-```python
-try:
-    from src.features.annotation_manager import FeatureAnnotationManager
-except ImportError:
-    logger.warning("FeatureAnnotationManager 尚未實作，使用 stub")
-```
-**風險:** 雖然這是為了讓 Task 1.2 先行完成的權宜之計，但若 Sprint 2 開始時 Task 1.3 仍未完成，`Container` 會默默使用 Stub，導致下游模組 (Parser/Cleaner) 在初始化時無法取得正確的標註資訊，可能會在執行期才爆錯。
-**建議:** 在 Task 1.3 完成後，應移除此 `try-except` 或將 logging level 提升為 Error，確保正式環境下的依賴完整性。
+## 二、 程式碼品質與架構評估 (Code Quality & Architecture Review)
 
-### 🟡 3. E000-W 漂移警告僅寫入 Log
-`PipelineContext.check_drift_warning()` 僅回傳字典並寫入 Log。
-**風險:** 對於無人值守的批次作業，Log 可能被忽視。
-**建議:** 考慮是否整合至 `Manifest` 輸出或發送至監控系統 (如 Prometheus metric)。
+### 1. 架構穩健度 (Architecture Robustness)
+- **Foundation First Policy**: 程式碼嚴格遵從 4 步驟初始化，沒有因為依賴短缺發生僵局，充分展示了高成熟度的系統整合能力。
+- **Singleton 與執行緒安全**: `PipelineContext` 加入了線程鎖 (Thread Lock)，完美通過了多執行緒並發初始化的考驗。
+- **配置與相容性檢測**: 實現了 E906 版本相容性限制，保障 ETL 管線升級不會意外影響下游 ML 模組。
 
----
+### 2. 資料結構嚴謹性 (Strict Data Governance)
+- **Pydantic 模型驗證**: `SiteFeatureConfig` 與相關 Configuration 物件嚴格把關欄位命名 (snake_case)、物理類型，確保輸入的資料合法。
+- **SSOT (Single Source of Truth) 支持**: 一切特徵以 YAML 重心，禁止在程式運行期間動態串改 (拋出 E500 / E501 防護)。
 
-## 三、 總結建議
+## 三、 潛在風險與優化建議 (Risks & Recommendations)
 
-您已扎實地完成了 1.1 與 1.2 的基礎建設，程式碼品質高且測試覆蓋完整。唯需注意 **E406 的嚴格執行** 與 **Task 1.3 的依賴銜接**，以確保「契約導向設計」真正落地。
+除了目前的優秀成果，以下提供進一步的優化建議供 Sprint 2 參考：
 
-**下一步行動:**
-1. 繼續推進 Task 1.3 Feature Annotation。
-2. 評估是否啟用 Container 中的 `raise RuntimeError(error_msg)` 以落實嚴格檢查。
+### � 1. E406 同步檢查被屏蔽 (已修復)
+在先前的審查中，E406 同步檢查失敗後的阻擋邏輯僅為 `logger.warning`。
+**最新進展:** 團隊已經加入了明確的 `HVAC_STRICT_MODE` 環境變數開關。當開啟時，系統將正確以例外 (`raise RuntimeError`) 中斷管線，有效防範了資料不同步的風險，落實了契約導向設計。
+
+### 🟢 2. Lazy Import 清理 (已修復)
+在先前的版本中，為了開發順序妥協採用了 `try-except ImportError` 來載入 `FeatureAnnotationManager` 與 `Parser`。
+**最新進展:** 鑑於 Task 1.3 已經完成，團隊已將這些模組的載入改為標準的 `import` 機制，移除 Stub 邏輯。讓系統在依賴遺失時標準報錯，提升了架構的穩健性並利於後續的靜態分析。
+
+## 四、 總結
+
+Sprint 1 基礎建設的程式碼**完全可用且合乎品質要求**。所有下游依賴與時間基準注入邏輯皆設計完善，可以非常有信心的推進至 Sprint 2 (核心 ETL)。

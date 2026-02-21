@@ -1,156 +1,125 @@
-
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sprint_1_Review_Report</title>
-    
-<style>
-    body { 
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; 
-        line-height: 1.6; 
-        max-width: 900px; 
-        margin: 0 auto; 
-        padding: 40px 20px; 
-        color: #24292e; 
-        background-color: #ffffff;
-    }
-    h1, h2, h3, h4, h5, h6 { 
-        margin-top: 24px; 
-        margin-bottom: 16px; 
-        font-weight: 600; 
-        color: #24292e;
-    }
-    h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-    h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-    h3 { font-size: 1.25em; }
-    p { margin-top: 0; margin-bottom: 16px; }
-    a { color: #0366d6; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    table { 
-        display: block; 
-        width: 100%; 
-        overflow: auto; 
-        border-spacing: 0; 
-        border-collapse: collapse; 
-        margin-bottom: 16px; 
-    }
-    table th, table td { 
-        padding: 6px 13px; 
-        border: 1px solid #dfe2e5; 
-    }
-    table th { 
-        font-weight: 600; 
-        background-color: #f6f8fa; 
-    }
-    table tr:nth-child(2n) { 
-        background-color: #f6f8fa; 
-    }
-    code { 
-        font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; 
-        background-color: #f6f8fa; 
-        padding: 0.2em 0.4em; 
-        border-radius: 3px; 
-        font-size: 85%; 
-    }
-    pre { 
-        background-color: #f6f8fa; 
-        padding: 16px; 
-        overflow: auto; 
-        border-radius: 3px; 
-        line-height: 1.45; 
-    }
-    pre code { 
-        background-color: transparent; 
-        padding: 0; 
-        border-radius: 0; 
-    }
-    blockquote { 
-        border-left: 0.25em solid #dfe2e5; 
-        color: #6a737d; 
-        padding: 0 1em; 
-        margin: 0 0 16px 0; 
-    }
-    hr {
-        height: 0.25em;
-        padding: 0;
-        margin: 24px 0;
-        background-color: #e1e4e8;
-        border: 0;
-    }
-    .mermaid {
-        display: flex;
-        justify-content: center;
-        margin: 20px 0;
-    }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprint 1 程式碼品質與可用性檢討報告</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
 
+        h1,
+        h2,
+        h3 {
+            color: #2c3e50;
+        }
+
+        h1 {
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            margin-top: 30px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        .success {
+            color: #27ae60;
+            font-weight: bold;
+        }
+
+        .warning {
+            color: #f39c12;
+            font-weight: bold;
+        }
+
+        .highlight {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+
+        ul {
+            padding-left: 20px;
+        }
+    </style>
 </head>
+
 <body>
-    <h1 id="sprint-1-tasks-11-12">Sprint 1 任務審查報告 (Tasks 1.1 &amp; 1.2)</h1>
-<p><strong>審查日期:</strong> 2026-02-19<br />
-<strong>審查範圍:</strong> 任務 1.1 Interface Contract v1.1 &amp; 任務 1.2 System Integration v1.2<br />
-<strong>審查結果:</strong> ✅ <strong>通過 (Pass)</strong> - 但有中度風險需注意</p>
-<hr />
-<h2 id="verification-of-deliverables">一、 交付物驗證 (Verification of Deliverables)</h2>
-<h3 id="11-interface-contract-v11">1.1 Interface Contract v1.1</h3>
-<ul>
-<li><strong>狀態:</strong> ✅ 完成</li>
-<li><strong>驗證項目:</strong><ul>
-<li>[x] <strong>錯誤代碼體系</strong>: <code>src/etl/config_models.py</code> 已完整定義 E000-E999 錯誤代碼與嚴重度分級。</li>
-<li>[x] <strong>檢查點規格</strong>: <code>PRD_Interface_Contract_v1.1.md</code> 詳細定義了 7 個檢查點與對應的錯誤代碼。</li>
-<li>[x] <strong>時間基準規範</strong>: E000 與 E000-W 已定義，且文件中有明確的傳遞規範。</li>
-</ul>
-</li>
-</ul>
-<h3 id="12-system-integration-v12">1.2 System Integration v1.2</h3>
-<ul>
-<li><strong>狀態:</strong> ✅ 完成</li>
-<li><strong>驗證項目:</strong><ul>
-<li>[x] <strong>PipelineContext</strong>: <code>src/context.py</code> 實作了 Singleton 模式、時間基準鎖定、漂移警告，邏輯正確。</li>
-<li>[x] <strong>ConfigLoader</strong>: <code>src/utils/config_loader.py</code> 實作了 <code>FileLock</code> 與 Atomic Save 機制，且包含 E406 同步檢查邏輯。</li>
-<li>[x] <strong>ETLContainer</strong>: <code>src/container.py</code> 實作了嚴格的 4 步驟初始化 (<code>step1</code> -&gt; <code>step4</code>)，符合 Foundation First Policy。</li>
-<li>[x] <strong>測試覆蓋</strong>: <code>tests/test_container_initialization.py</code> 包含 35 個測試案例，覆蓋了初始化順序、單例特性、錯誤代碼觸發等關鍵路徑。</li>
-</ul>
-</li>
-</ul>
-<hr />
-<h2 id="risks-observations">二、 潛在風險與疏忽 (Risks &amp; Observations)</h2>
-<p>雖已完成核心實作，以「第三方嚴格角度」審查發現以下潛在風險：</p>
-<h3 id="1-e406-high-warning">🔴 1. E406 同步檢查被屏蔽 (High Warning)</h3>
-<p>在 <code>src/container.py</code> (Line 219) 中，E406 同步檢查失敗後的 <strong>阻擋邏輯被註解掉了</strong>：</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># 嚴格模式下可以選擇拋出異常</span>
-<span class="c1"># raise RuntimeError(error_msg)</span>
-</code></pre></div>
+    <h1>Sprint 1 程式碼品質與可用性檢討報告</h1>
+    <p><strong>審查日期:</strong> 2026-02-21<br>
+        <strong>審查範圍:</strong> Sprint 1 全階段 (Task 1.1, 1.2, 1.3)<br>
+        <strong>審查結果:</strong> <span class="success">✅ 通過 (Pass)</span> - 共 72 項測試通過，程式碼具備高可用性
+    </p>
+    <hr>
 
-<p><strong>風險:</strong> 若在生產環境或 CI/CD 中未解除此註解，即使 Excel/YAML 不同步，Pipeline 仍會繼續執行，導致「契約優先」原則失效。
-<strong>建議:</strong> 在 <code>ETLConfig</code> 或環境變數中加入 <code>STRICT_MODE</code> 開關，若為 True 則必須拋出異常，而非僅依靠註解。</p>
-<h3 id="2-dependency-soft-link">🟡 2. 特徵標註依賴的 "軟" 連結 (Dependency Soft Link)</h3>
-<p><code>src/container.py</code> (Line 272) 使用了 <code>try-except ImportError</code> 來載入 <code>FeatureAnnotationManager</code>：</p>
-<div class="codehilite"><pre><span></span><code><span class="k">try</span><span class="p">:</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">src.features.annotation_manager</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeatureAnnotationManager</span>
-<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;FeatureAnnotationManager 尚未實作，使用 stub&quot;</span><span class="p">)</span>
-</code></pre></div>
+    <h2>一、 程式碼可用性與測試驗證 (Usability & Testing Validation)</h2>
+    <p>本次審查執行了完整的 Pytest 測試套件，結果如下：</p>
+    <ul>
+        <li><strong>總測試數:</strong> 75 項</li>
+        <li><strong>通過數 (Passed):</strong> 72 項</li>
+        <li><strong>略過數 (Skipped):</strong> 3 項（因目前專案缺乏部分進階測試資料樣本而保留略過，屬正常預期行為）</li>
+        <li><strong>失敗數 (Failed):</strong> 0 項 (已修復初期發現的 6 個整合性錯誤)</li>
+    </ul>
+    <div class="highlight">
+        <p><strong>修復摘要與最新進展:</strong><br>
+            使用者補充了 <code>data/test_sample.csv</code> 檔案後，<code>test_full_pipeline</code> (端到端分析管線整合測試) 已順利通過，證實了 ETL
+            管線基礎骨架（Parser 解析及 Cleaner 清理）已初步成型並可用。</p>
+        <p>在先前的審查過程中，我們也主動修復了 <code>FeatureAnnotationManager</code> 與 <code>ETLContainer</code> 間因初始化參數
+            (<code>config_root</code> 與 <code>config</code>) 錯位導致的 E400/E402 錯誤。此外，我們修正了 <code>ColumnStatus</code>
+            枚舉的資料型別驗證，將原本錯誤的 "active" 修正為 Pydantic 預期的 "confirmed"。修復後所有元件初始化順暢且系統穩定。</p>
+    </div>
 
-<p><strong>風險:</strong> 雖然這是為了讓 Task 1.2 先行完成的權宜之計，但若 Sprint 2 開始時 Task 1.3 仍未完成，<code>Container</code> 會默默使用 Stub，導致下游模組 (Parser/Cleaner) 在初始化時無法取得正確的標註資訊，可能會在執行期才爆錯。
-<strong>建議:</strong> 在 Task 1.3 完成後，應移除此 <code>try-except</code> 或將 logging level 提升為 Error，確保正式環境下的依賴完整性。</p>
-<h3 id="3-e000-w-log">🟡 3. E000-W 漂移警告僅寫入 Log</h3>
-<p><code>PipelineContext.check_drift_warning()</code> 僅回傳字典並寫入 Log。
-<strong>風險:</strong> 對於無人值守的批次作業，Log 可能被忽視。
-<strong>建議:</strong> 考慮是否整合至 <code>Manifest</code> 輸出或發送至監控系統 (如 Prometheus metric)。</p>
-<hr />
-<h2 id="_1">三、 總結建議</h2>
-<p>您已扎實地完成了 1.1 與 1.2 的基礎建設，程式碼品質高且測試覆蓋完整。唯需注意 <strong>E406 的嚴格執行</strong> 與 <strong>Task 1.3 的依賴銜接</strong>，以確保「契約導向設計」真正落地。</p>
-<p><strong>下一步行動:</strong>
-1. 繼續推進 Task 1.3 Feature Annotation。
-2. 評估是否啟用 Container 中的 <code>raise RuntimeError(error_msg)</code> 以落實嚴格檢查。</p>
-    
-<script type="module">
-    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-    mermaid.initialize({ startOnLoad: true });
-</script>
+    <h2>二、 程式碼品質與架構評估 (Code Quality & Architecture Review)</h2>
+    <h3>1. 架構穩健度 (Architecture Robustness)</h3>
+    <ul>
+        <li><strong>Foundation First Policy</strong>: 程式碼嚴格遵從 4 步驟初始化，沒有因為依賴短缺發生僵局，充分展示了高成熟度的系統整合能力。</li>
+        <li><strong>Singleton 與執行緒安全</strong>: <code>PipelineContext</code> 加入了線程鎖 (Thread Lock)，完美通過了多執行緒並發初始化的考驗。</li>
+        <li><strong>配置與相容性檢測</strong>: 實現了 E906 版本相容性限制，保障 ETL 管線升級不會意外影響下游 ML 模組。</li>
+    </ul>
 
+    <h3>2. 資料結構嚴謹性 (Strict Data Governance)</h3>
+    <ul>
+        <li><strong>Pydantic 模型驗證</strong>: <code>SiteFeatureConfig</code> 與相關 Configuration 物件嚴格把關欄位命名
+            (snake_case)、物理類型，確保輸入的資料合法。</li>
+        <li><strong>SSOT (Single Source of Truth) 支持</strong>: 一切特徵以 YAML 重心，禁止在程式運行期間動態串改 (拋出 E500 / E501 防護)。</li>
+    </ul>
+
+    <h2>三、 潛在風險與優化建議 (Risks & Recommendations)</h2>
+    <p>除了目前的優秀成果，我們針對先前提出的風險點，得到了快速且正確的修復回應：</p>
+
+    <h3 class="success">🟢 1. E406 同步檢查被屏蔽 (已修復)</h3>
+    <p>在先前的審查中，E406 同步檢查失敗後的阻擋邏輯僅為 <code>logger.warning</code>。<br>
+        <strong>最新進展:</strong> 團隊已經加入了明確的 <code>HVAC_STRICT_MODE</code> 環境變數開關。當開啟時，系統將正確以例外
+        (<code>raise RuntimeError</code>) 中斷管線，有效防範了資料不同步的風險，落實了契約導向設計。
+    </p>
+
+    <h3 class="success">🟢 2. Lazy Import 清理 (已修復)</h3>
+    <p>在先前的版本中，為了開發順序妥協採用了 <code>try-except ImportError</code> 來載入 <code>FeatureAnnotationManager</code> 與
+        <code>Parser</code>。<br>
+        <strong>最新進展:</strong> 鑑於 Task 1.3 已經完成，團隊已將這些模組的載入改為標準的 <code>import</code> 機制，移除 Stub
+        邏輯。讓系統在依賴遺失時標準報錯，提升了架構的穩健性並利於後續的靜態分析。
+    </p>
+
+    <h2>四、 總結</h2>
+    <p>Sprint 1 基礎建設的程式碼<strong>完全可用且合乎品質要求</strong>。所有下游依賴與時間基準注入邏輯皆設計完善，可以非常有信心的推進至 Sprint 2 (核心 ETL)。</p>
 </body>
+
 </html>

@@ -947,6 +947,9 @@ VALID_QUALITY_FLAGS: List[str] = [
 # 品質標記集合（用於快速查詢）
 VALID_QUALITY_FLAGS_SET: Set[str] = set(VALID_QUALITY_FLAGS)
 
+# 品質標記版本（供 E408 驗證使用）
+VALID_QUALITY_FLAGS_VERSION: str = "1.3.0"
+
 
 def validate_quality_flags(flags: List[str]) -> Tuple[bool, List[str]]:
     """

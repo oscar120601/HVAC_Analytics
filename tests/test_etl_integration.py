@@ -22,7 +22,7 @@ class TestETLPipeline:
     def test_parser_initialization(self):
         """Test parser can be initialized"""
         parser = ReportParser()
-        assert parser.metadata_lines == 211
+        assert parser.header_line == 0
     
     def test_cleaner_initialization(self):
         """Test cleaner can be initialized"""

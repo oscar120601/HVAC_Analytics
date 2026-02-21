@@ -1,842 +1,1082 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-TW">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sprint_1_執行摘要</title>
-
-<style>
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-    font-size: 16px;
-    line-height: 1.5;
-    word-wrap: break-word;
-    color: #24292e;
-    background-color: #fff;
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 2rem;
-}
-h1, h2, h3, h4, h5, h6 {
-    margin-top: 24px;
-    margin-bottom: 16px;
-    font-weight: 600;
-    line-height: 1.25;
-}
-h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-h3 { font-size: 1.25em; }
-code {
-    padding: 0.2em 0.4em;
-    margin: 0;
-    font-size: 85%;
-    background-color: #f6f8fa;
-    border-radius: 6px;
-    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
-}
-pre {
-    padding: 16px;
-    overflow: auto;
-    font-size: 85%;
-    line-height: 1.45;
-    background-color: #f6f8fa;
-    border-radius: 6px;
-}
-pre code {
-    display: inline;
-    padding: 0;
-    margin: 0;
-    overflow: visible;
-    line-height: inherit;
-    word-wrap: normal;
-    background-color: initial;
-    border: 0;
-}
-blockquote {
-    padding: 0 1em;
-    color: #6a737d;
-    border-left: 0.25em solid #dfe2e5;
-    margin: 0;
-}
-table {
-    display: block;
-    width: 100%;
-    margin-top: 0;
-    margin-bottom: 16px;
-    overflow: auto;
-    border-spacing: 0;
-    border-collapse: collapse;
-}
-table th, table td {
-    padding: 6px 13px;
-    border: 1px solid #dfe2e5;
-}
-table tr {
-    background-color: #fff;
-    border-top: 1px solid #c6cbd1;
-}
-table tr:nth-child(2n) {
-    background-color: #f6f8fa;
-}
-a { color: #0366d6; text-decoration: none; }
-a:hover { text-decoration: underline; }
-hr {
-    height: 0.25em;
-    padding: 0;
-    margin: 24px 0;
-    background-color: #e1e4e8;
-    border: 0;
-}
-</style>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprint 1 執行摘要</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+            margin-top: 10px;
+        }
+        
+        .header .meta {
+            margin-top: 20px;
+            opacity: 0.85;
+            font-size: 0.95em;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            background: white;
+            color: #28a745;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            font-size: 2.5em;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card p {
+            opacity: 0.9;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            flex-wrap: wrap;
+        }
+        
+        .nav-tab {
+            flex: 1;
+            min-width: 150px;
+            padding: 15px 20px;
+            text-align: center;
+            cursor: pointer;
+            background: #f8f9fa;
+            border: none;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+        
+        .nav-tab:hover {
+            background: #e9ecef;
+        }
+        
+        .nav-tab.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .content-section {
+            display: none;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .content-section.active {
+            display: block;
+        }
+        
+        h2 {
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+            margin: 30px 0 20px 0;
+        }
+        
+        h3 {
+            color: #555;
+            margin: 25px 0 15px 0;
+            border-left: 4px solid #667eea;
+            padding-left: 10px;
+        }
+        
+        h4 {
+            color: #666;
+            margin: 20px 0 10px 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.95em;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .status-done {
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .status-progress {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        
+        .status-pending {
+            color: #6c757d;
+            font-weight: bold;
+        }
+        
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 15px 0;
+            border: 1px solid #e9ecef;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        ul, ol {
+            margin: 15px 0;
+            padding-left: 25px;
+        }
+        
+        li {
+            margin: 8px 0;
+        }
+        
+        .highlight-box {
+            background: #e7f3ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .success-box {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .info-box {
+            background: #e2e3e5;
+            border-left: 4px solid #6c757d;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+            margin-top: 40px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .priority-critical {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .priority-medium {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        
+        .priority-low {
+            color: #6c757d;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .badge-info {
+            background: #e7f3ff;
+            color: #004085;
+        }
+        
+        hr {
+            border: none;
+            border-top: 2px solid #e9ecef;
+            margin: 30px 0;
+        }
+    </style>
 </head>
 <body>
-<h1 id="sprint-1">Sprint 1 執行摘要</h1>
-<p><strong>Sprint 名稱:</strong> 基礎建設 (Foundation)<br />
-<strong>時間範圍:</strong> 2026-02-19 ~ 2026-02-26 (預計)<br />
-<strong>完成日期:</strong> 2026-02-19 (2/3 提前完成)<br />
-<strong>負責人:</strong> Claude Code<br />
-<strong>文件版本:</strong> v1.0</p>
-<hr />
-<h2 id="_1">一、執行概覽</h2>
-<p>Sprint 1 聚焦於建立 HVAC-1 系統的基礎設施，採用 <strong>Foundation First Policy</strong> 確保所有下游模組有穩固的依賴基礎。截至 2026-02-19，已提前完成 2/3 的任務。</p>
-<table>
-<thead>
-<tr>
-<th style="text-align: center;">模組</th>
-<th style="text-align: center;">狀態</th>
-<th style="text-align: center;">完成度</th>
-<th style="text-align: center;">測試結果</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: center;">1.1 Interface Contract v1.1</td>
-<td style="text-align: center;">✅ 已完成</td>
-<td style="text-align: center;">100%</td>
-<td style="text-align: center;">已驗證</td>
-</tr>
-<tr>
-<td style="text-align: center;">1.2 System Integration v1.2</td>
-<td style="text-align: center;">✅ 已完成</td>
-<td style="text-align: center;">100%</td>
-<td style="text-align: center;">35/35 通過</td>
-</tr>
-<tr>
-<td style="text-align: center;">1.3 Feature Annotation v1.2</td>
-<td style="text-align: center;">⏳ 進行中</td>
-<td style="text-align: center;">0%</td>
-<td style="text-align: center;">-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="11-interface-contract-v11">二、1.1 Interface Contract v1.1 完成摘要</h2>
-<h3 id="21">2.1 任務完成列表</h3>
-<table>
-<thead>
-<tr>
-<th style="text-align: center;">任務 ID</th>
-<th style="text-align: left;">任務描述</th>
-<th style="text-align: center;">狀態</th>
-<th style="text-align: left;">交付物</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: center;">IC-001</td>
-<td style="text-align: left;">錯誤代碼分層定義 (E000-E999)</td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: left;"><code>config_models.py</code> 錯誤代碼定義</td>
-</tr>
-<tr>
-<td style="text-align: center;">IC-002</td>
-<td style="text-align: left;">檢查點規格定義 (#1-#7)</td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: left;">7 個檢查點規格文件化</td>
-</tr>
-<tr>
-<td style="text-align: center;">IC-003</td>
-<td style="text-align: left;">DataFrame 介面標準</td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: left;">timestamp/quality_flags 規格</td>
-</tr>
-<tr>
-<td style="text-align: center;">IC-004</td>
-<td style="text-align: left;">版本相容性矩陣</td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: left;">5 種版本組合相容性矩陣</td>
-</tr>
-<tr>
-<td style="text-align: center;">IC-005</td>
-<td style="text-align: left;">實作檢查清單</td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: left;">6.1-6.3 檢查清單</td>
-</tr>
-<tr>
-<td style="text-align: center;">IC-006</td>
-<td style="text-align: left;">Header Standardization 規範</td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: left;">Regex 正規化規則</td>
-</tr>
-<tr>
-<td style="text-align: center;">IC-007</td>
-<td style="text-align: left;">Temporal Baseline 傳遞規範</td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: left;">E000 時間基準機制</td>
-</tr>
-</tbody>
-</table>
-<h3 id="22">2.2 核心交付內容</h3>
-<h4 id="e000-e999">錯誤代碼體系 (E000-E999)</h4>
-<p>建立完整的 7 層錯誤代碼架構：</p>
-<table>
-<thead>
-<tr>
-<th style="text-align: center;">層級</th>
-<th style="text-align: center;">代碼範圍</th>
-<th style="text-align: left;">用途</th>
-<th style="text-align: left;">關鍵錯誤</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: center;">全域</td>
-<td style="text-align: center;">E000-E099</td>
-<td style="text-align: left;">時間基準、系統層級</td>
-<td style="text-align: left;">E000 時間基準遺失、E000-W 時間漂移</td>
-</tr>
-<tr>
-<td style="text-align: center;">Parser</td>
-<td style="text-align: center;">E100-E199</td>
-<td style="text-align: left;">資料解析錯誤</td>
-<td style="text-align: left;">E101 編碼錯誤、E102 時區違反、E105 標頭正規化失敗</td>
-</tr>
-<tr>
-<td style="text-align: center;">Cleaner/BP</td>
-<td style="text-align: center;">E200-E299</td>
-<td style="text-align: left;">清洗與批次處理</td>
-<td style="text-align: left;">E201 Schema 不符、E205 未來資料、E206 Parquet 格式</td>
-</tr>
-<tr>
-<td style="text-align: center;">Equipment</td>
-<td style="text-align: center;">E350-E399</td>
-<td style="text-align: left;">設備邏輯驗證</td>
-<td style="text-align: left;">E350 設備邏輯預檢失敗、E351-E357 設備限制違反</td>
-</tr>
-<tr>
-<td style="text-align: center;">Annotation</td>
-<td style="text-align: center;">E400-E499</td>
-<td style="text-align: left;">特徵標註錯誤</td>
-<td style="text-align: left;">E406 Excel/YAML 不同步、E407 繼承循環、E408 SSOT 不匹配</td>
-</tr>
-<tr>
-<td style="text-align: center;">Governance</td>
-<td style="text-align: center;">E500-E599</td>
-<td style="text-align: left;">架構治理</td>
-<td style="text-align: left;">E500 device_role 洩漏、E501 直接寫入 YAML</td>
-</tr>
-<tr>
-<td style="text-align: center;">Feature Eng</td>
-<td style="text-align: center;">E600-E699</td>
-<td style="text-align: left;">特徵工程</td>
-<td style="text-align: left;">E601 特徵順序未記錄、E602 縮放參數遺失</td>
-</tr>
-<tr>
-<td style="text-align: center;">Training</td>
-<td style="text-align: center;">E700-E799</td>
-<td style="text-align: left;">模型訓練</td>
-<td style="text-align: left;">E701 記憶體不足、E702 驗證失敗</td>
-</tr>
-<tr>
-<td style="text-align: center;">Hybrid</td>
-<td style="text-align: center;">E750-E799</td>
-<td style="text-align: left;">混合模型一致性</td>
-<td style="text-align: left;">E751-E758 一致性檢查錯誤</td>
-</tr>
-<tr>
-<td style="text-align: center;">Optimization</td>
-<td style="text-align: center;">E800-E899</td>
-<td style="text-align: left;">最佳化引擎</td>
-<td style="text-align: left;">E801 模型載入失敗、E802 約束違反</td>
-</tr>
-<tr>
-<td style="text-align: center;">Integration</td>
-<td style="text-align: center;">E900-E999</td>
-<td style="text-align: left;">跨階段整合</td>
-<td style="text-align: left;">E901 特徵對齊錯誤、E902 維度不匹配、E903 縮放參數錯誤</td>
-</tr>
-</tbody>
-</table>
-<h4 id="1-7">檢查點規格 (#1-#7)</h4>
-<p>定義 7 個關鍵介面檢查點：</p>
-<pre><code>#1: Parser → Cleaner (Raw Data Contract)
+    <div class="container">
+        <div class="header">
+            <h1>🏁 Sprint 1 執行摘要</h1>
+            <div class="subtitle">基礎建設 (Foundation)</div>
+            <div class="status-badge">✅ 3/3 完成</div>
+            <div class="meta">
+                時間範圍: 2026-02-19 ~ 2026-02-21 | 完成日期: 2026-02-21 (提前完成) | 負責人: Claude Code
+            </div>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>3/3</h3>
+                <p>任務完成</p>
+            </div>
+            <div class="stat-card">
+                <h3>53</h3>
+                <p>單元測試</p>
+            </div>
+            <div class="stat-card">
+                <h3>6,700+</h3>
+                <p>行程式碼</p>
+            </div>
+            <div class="stat-card">
+                <h3>15+</h3>
+                <p>錯誤代碼</p>
+            </div>
+        </div>
+        
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showSection('overview')">📊 執行概覽</button>
+            <button class="nav-tab" onclick="showSection('contract')">📄 Interface Contract</button>
+            <button class="nav-tab" onclick="showSection('integration')">🔧 System Integration</button>
+            <button class="nav-tab" onclick="showSection('annotation')">🏷️ Feature Annotation</button>
+            <button class="nav-tab" onclick="showSection('testing')">🧪 測試覆蓋</button>
+            <button class="nav-tab" onclick="showSection('risks')">⚠️ 風險緩解</button>
+            <button class="nav-tab" onclick="showSection('review')">✍️ 程式碼審查</button>
+            <button class="nav-tab" onclick="showSection('next')">🚀 下一步</button>
+        </div>
+        
+        <!-- 執行概覽 Section -->
+        <div id="overview" class="content-section active">
+            <h2>一、執行概覽</h2>
+            
+            <div class="success-box">
+                <strong>🎉 Sprint 1 已全部完成 (3/3)</strong><br>
+                Sprint 1 聚焦於建立 HVAC-1 系統的基礎設施，採用 <strong>Foundation First Policy</strong> 確保所有下游模組有穩固的依賴基礎。
+            </div>
+            
+            <h3>完成模組總覽</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>模組</th>
+                        <th>狀態</th>
+                        <th>完成度</th>
+                        <th>測試結果</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1.1 Interface Contract v1.1</td>
+                        <td class="status-done">✅ 已完成</td>
+                        <td>100%</td>
+                        <td>已驗證</td>
+                    </tr>
+                    <tr>
+                        <td>1.2 System Integration v1.2</td>
+                        <td class="status-done">✅ 已完成</td>
+                        <td>100%</td>
+                        <td>35/35 通過</td>
+                    </tr>
+                    <tr>
+                        <td>1.3 Feature Annotation v1.3</td>
+                        <td class="status-done">✅ 已完成</td>
+                        <td>100%</td>
+                        <td>18/18 通過</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h3>Sprint 1 總計</h3>
+            <div class="highlight-box">
+                <strong>53 項單元測試全部通過 ✅</strong><br>
+                約 6,700+ 行程式碼新增
+            </div>
+            
+            <h3>新增檔案統計</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>類別</th>
+                        <th>檔案數</th>
+                        <th>程式碼行數</th>
+                        <th>測試數</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>System Integration</td>
+                        <td>5</td>
+                        <td>~3,600</td>
+                        <td>35</td>
+                    </tr>
+                    <tr>
+                        <td>Feature Annotation</td>
+                        <td>10</td>
+                        <td>~3,100</td>
+                        <td>18</td>
+                    </tr>
+                    <tr>
+                        <td><strong>總計</strong></td>
+                        <td><strong>15</strong></td>
+                        <td><strong>~6,700</strong></td>
+                        <td><strong>53</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Interface Contract Section -->
+        <div id="contract" class="content-section">
+            <h2>二、1.1 Interface Contract v1.1 完成摘要</h2>
+            
+            <h3>2.1 任務完成列表</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>任務 ID</th>
+                        <th>任務描述</th>
+                        <th>狀態</th>
+                        <th>交付物</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>IC-001</td><td>錯誤代碼分層定義 (E000-E999)</td><td class="status-done">✅</td><td><code>config_models.py</code> 錯誤代碼定義</td></tr>
+                    <tr><td>IC-002</td><td>檢查點規格定義 (#1-#7)</td><td class="status-done">✅</td><td>7 個檢查點規格文件化</td></tr>
+                    <tr><td>IC-003</td><td>DataFrame 介面標準</td><td class="status-done">✅</td><td>timestamp/quality_flags 規格</td></tr>
+                    <tr><td>IC-004</td><td>版本相容性矩陣</td><td class="status-done">✅</td><td>5 種版本組合相容性矩陣</td></tr>
+                    <tr><td>IC-005</td><td>實作檢查清單</td><td class="status-done">✅</td><td>6.1-6.3 檢查清單</td></tr>
+                    <tr><td>IC-006</td><td>Header Standardization 規範</td><td class="status-done">✅</td><td>Regex 正規化規則</td></tr>
+                    <tr><td>IC-007</td><td>Temporal Baseline 傳遞規範</td><td class="status-done">✅</td><td>E000 時間基準機制</td></tr>
+                </tbody>
+            </table>
+            
+            <h3>2.2 核心交付內容</h3>
+            
+            <h4>錯誤代碼體系 (E000-E999)</h4>
+            <p>建立完整的 7 層錯誤代碼架構：</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>層級</th>
+                        <th>代碼範圍</th>
+                        <th>用途</th>
+                        <th>關鍵錯誤</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>全域</td><td>E000-E099</td><td>時間基準、系統層級</td><td>E000 時間基準遺失、E000-W 時間漂移</td></tr>
+                    <tr><td>Parser</td><td>E100-E199</td><td>資料解析錯誤</td><td>E101 編碼錯誤、E102 時區違反、E105 標頭正規化失敗</td></tr>
+                    <tr><td>Cleaner/BP</td><td>E200-E299</td><td>清洗與批次處理</td><td>E201 Schema 不符、E205 未來資料、E206 Parquet 格式</td></tr>
+                    <tr><td>Equipment</td><td>E350-E399</td><td>設備邏輯驗證</td><td>E350 設備邏輯預檢失敗、E351-E357 設備限制違反</td></tr>
+                    <tr><td>Annotation</td><td>E400-E499</td><td>特徵標註錯誤</td><td>E406 Excel/YAML 不同步、E407 繼承循環、E408 SSOT 不匹配</td></tr>
+                    <tr><td>Governance</td><td>E500-E599</td><td>架構治理</td><td>E500 device_role 洩漏、E501 直接寫入 YAML</td></tr>
+                    <tr><td>Feature Eng</td><td>E600-E699</td><td>特徵工程</td><td>E601 特徵順序未記錄、E602 縮放參數遺失</td></tr>
+                    <tr><td>Training</td><td>E700-E799</td><td>模型訓練</td><td>E701 記憶體不足、E702 驗證失敗</td></tr>
+                    <tr><td>Hybrid</td><td>E750-E799</td><td>混合模型一致性</td><td>E751-E758 一致性檢查錯誤</td></tr>
+                    <tr><td>Optimization</td><td>E800-E899</td><td>最佳化引擎</td><td>E801 模型載入失敗、E802 約束違反</td></tr>
+                    <tr><td>Integration</td><td>E900-E999</td><td>跨階段整合</td><td>E901 特徵對齊錯誤、E902 維度不匹配、E903 縮放參數錯誤</td></tr>
+                </tbody>
+            </table>
+            
+            <h4>檢查點規格 (#1-#7)</h4>
+            <pre>
+#1: Parser → Cleaner (Raw Data Contract)
     - 必要欄位、時間戳型別、編碼正確性、標頭正規化
-
+    
 #2: Cleaner → BatchProcessor (Clean Data Contract)
     - Quality Flags 值域、禁止欄位檢查 (E500)、未來資料檢查
-
+    
 #3: BatchProcessor → FeatureEngineer (Storage Contract)
     - Parquet Schema、device_role 不存在、時間基準存在性
-
+    
 #4: FeatureEngineer → Model Training (Feature Matrix Contract)
     - Data Leakage 檢查、特徵順序保證 (E601)、特徵縮放參數 (E602)
-
+    
 #5: Excel ↔ YAML 同步檢查 (Annotation Sync Contract)
     - 檔案存在性、時間戳同步、Checksum 一致性 (E406)
-
+    
 #6: Annotation Schema 版本相容 (Schema Compatibility Contract)
     - Schema 版本、繼承鏈合法性 (E407)、Header 對應檢查 (E409)
-
+    
 #7: Model Training → Optimization (Feature Alignment Contract)
-    - 模型格式、特徵順序比對 (E901)、特徵數量一致性 (E902)
-</code></pre>
-<h4 id="dataframe">DataFrame 介面標準</h4>
-<table>
-<thead>
-<tr>
-<th style="text-align: left;">欄位</th>
-<th style="text-align: left;">型別</th>
-<th style="text-align: left;">規格</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;">timestamp</td>
-<td style="text-align: left;"><code>pl.Datetime</code></td>
-<td style="text-align: left;"><code>time_unit='ns', time_zone='UTC'</code>，Parquet 物理型別 <code>INT64</code></td>
-</tr>
-<tr>
-<td style="text-align: left;">quality_flags</td>
-<td style="text-align: left;"><code>pl.List(pl.Utf8)</code></td>
-<td style="text-align: left;">值必須 ⊆ <code>VALID_QUALITY_FLAGS</code></td>
-</tr>
-<tr>
-<td style="text-align: left;">數值欄位</td>
-<td style="text-align: left;"><code>pl.Float64</code></td>
-<td style="text-align: left;">SI 單位，精度至少 6 位有效數字</td>
-</tr>
-</tbody>
-</table>
-<h4 id="header-standardization">Header Standardization 規則</h4>
-<p>CSV 標頭正規化為 snake_case 的 6 步驟規則：<br />
-1. 移除前後空白<br />
-2. camelCase/PascalCase → snake_case（插入底線）<br />
-3. 替換非法字元為底線<br />
-4. 合併連續底線<br />
-5. 移除開頭數字（改為 <code>col_</code> 前綴）<br />
-6. 轉換為小寫</p>
-<h3 id="23">2.3 文件位置</h3>
-<ul>
-<li><strong>PRD 文件</strong>: <code>docs/Interface Contract/PRD_Interface_Contract_v1.1.md</code></li>
-<li><strong>SSOT 定義</strong>: <code>src/etl/config_models.py</code></li>
-</ul>
-<hr />
-<h2 id="12-system-integration-v12">三、1.2 System Integration v1.2 完成摘要</h2>
-<h3 id="31">3.1 任務完成列表</h3>
-<table>
-<thead>
-<tr>
-<th style="text-align: center;">任務 ID</th>
-<th style="text-align: left;">任務描述</th>
-<th style="text-align: center;">狀態</th>
-<th style="text-align: center;">測試覆蓋</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: center;">SI-001</td>
-<td style="text-align: left;">PipelineContext 實作</td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: center;">9 項測試</td>
-</tr>
-<tr>
-<td style="text-align: center;">SI-002</td>
-<td style="text-align: left;">ETLConfig 擴充</td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: center;">6 項測試</td>
-</tr>
-<tr>
-<td style="text-align: center;">SI-003</td>
-<td style="text-align: left;">ConfigLoader 強化</td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: center;">7 項測試</td>
-</tr>
-<tr>
-<td style="text-align: center;">SI-004</td>
-<td style="text-align: left;">ETLContainer 初始化</td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: center;">7 項測試</td>
-</tr>
-<tr>
-<td style="text-align: center;">SI-005</td>
-<td style="text-align: left;">單元測試與整合測試</td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: center;">包含在以上</td>
-</tr>
-<tr>
-<td style="text-align: center;">SI-006</td>
-<td style="text-align: left;">時間基準傳遞測試</td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: center;">6 項測試</td>
-</tr>
-</tbody>
-</table>
-<p><strong>總計: 35 項測試全部通過 ✅</strong></p>
-<h3 id="32">3.2 核心模組實作</h3>
-<h4 id="si-001-pipelinecontext-srccontextpy-337">SI-001: PipelineContext (<code>src/context.py</code>, 337 行)</h4>
-<p><strong>功能:</strong><br />
-- <strong>Thread-safe Singleton</strong>: 確保全域唯一時間基準<br />
-- <strong>時間基準初始化</strong>: 禁止重複設定（Fail Fast）<br />
-- <strong>E000 錯誤檢查</strong>: 未初始化時拋出明確錯誤<br />
-- <strong>E000-W 時間漂移警告</strong>: 執行超過 60 分鐘自動警告<br />
-- <strong>未來資料檢測</strong>: 容忍 5 分鐘時鐘誤差</p>
-<p><strong>關鍵 API:</strong></p>
-<pre><code class="language-python">context = PipelineContext()
-context.initialize(timestamp=baseline, site_id=&quot;cgmh_ty&quot;)
+    - 模型格式、特徵順序比對 (E901)、特徵數量一致性 (E902)</pre>
+            
+            <h4>DataFrame 介面標準</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>欄位</th>
+                        <th>型別</th>
+                        <th>規格</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>timestamp</td><td><code>pl.Datetime</code></td><td><code>time_unit='ns', time_zone='UTC'</code>，Parquet 物理型別 <code>INT64</code></td></tr>
+                    <tr><td>quality_flags</td><td><code>pl.List(pl.Utf8)</code></td><td>值必須 ⊆ <code>VALID_QUALITY_FLAGS</code></td></tr>
+                    <tr><td>數值欄位</td><td><code>pl.Float64</code></td><td>SI 單位，精度至少 6 位有效數字</td></tr>
+                </tbody>
+            </table>
+            
+            <h4>Header Standardization 規則</h4>
+            <p>CSV 標頭正規化為 snake_case 的 6 步驟規則：</p>
+            <ol>
+                <li>移除前後空白</li>
+                <li>camelCase/PascalCase → snake_case（插入底線）</li>
+                <li>替換非法字元為底線</li>
+                <li>合併連續底線</li>
+                <li>移除開頭數字（改為 <code>col_</code> 前綴）</li>
+                <li>轉換為小寫</li>
+            </ol>
+            
+            <h3>2.3 文件位置</h3>
+            <ul>
+                <li><strong>PRD 文件:</strong> <code>docs/Interface Contract/PRD_Interface_Contract_v1.1.md</code></li>
+                <li><strong>SSOT 定義:</strong> <code>src/etl/config_models.py</code></li>
+            </ul>
+        </div>
+        
+        <!-- System Integration Section -->
+        <div id="integration" class="content-section">
+            <h2>三、1.2 System Integration v1.2 完成摘要</h2>
+            
+            <h3>3.1 任務完成列表</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>任務 ID</th>
+                        <th>任務描述</th>
+                        <th>狀態</th>
+                        <th>測試覆蓋</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>SI-001</td><td>PipelineContext 實作</td><td class="status-done">✅</td><td>9 項測試</td></tr>
+                    <tr><td>SI-002</td><td>ETLConfig 擴充</td><td class="status-done">✅</td><td>6 項測試</td></tr>
+                    <tr><td>SI-003</td><td>ConfigLoader 強化</td><td class="status-done">✅</td><td>7 項測試</td></tr>
+                    <tr><td>SI-004</td><td>ETLContainer 初始化</td><td class="status-done">✅</td><td>7 項測試</td></tr>
+                    <tr><td>SI-005</td><td>單元測試與整合測試</td><td class="status-done">✅</td><td>包含在以上</td></tr>
+                    <tr><td>SI-006</td><td>時間基準傳遞測試</td><td class="status-done">✅</td><td>6 項測試</td></tr>
+                </tbody>
+            </table>
+            
+            <div class="success-box">
+                <strong>總計: 35 項測試全部通過 ✅</strong>
+            </div>
+            
+            <h3>3.2 核心模組實作</h3>
+            
+            <h4>SI-001: PipelineContext (<code>src/context.py</code>, 337 行)</h4>
+            <p><strong>功能:</strong></p>
+            <ul>
+                <li><strong>Thread-safe Singleton</strong>: 確保全域唯一時間基準</li>
+                <li><strong>時間基準初始化</strong>: 禁止重複設定（Fail Fast）</li>
+                <li><strong>E000 錯誤檢查</strong>: 未初始化時拋出明確錯誤</li>
+                <li><strong>E000-W 時間漂移警告</strong>: 執行超過 60 分鐘自動警告</li>
+                <li><strong>未來資料檢測</strong>: 容忍 5 分鐘時鐘誤差</li>
+            </ul>
+            
+            <p><strong>關鍵 API:</strong></p>
+            <pre><code>context = PipelineContext()
+context.initialize(timestamp=baseline, site_id="cgmh_ty")
 baseline = context.get_baseline()      # E000 檢查
 is_future = context.is_future(ts)      # 未來資料檢測
-warning = context.check_drift_warning() # E000-W
-</code></pre>
-<p><strong>測試驗證:</strong><br />
-- ✅ 單例模式（兩次取得同一實例）<br />
-- ✅ 初始化唯一性（重複初始化拋錯）<br />
-- ✅ E000 錯誤（未初始化存取時間基準）<br />
-- ✅ 未來資料檢測（過去/現在/未來時間判斷）<br />
-- ✅ 時間漂移警告（模擬 2 小時執行）<br />
-- ✅ 序列化/反序列化（to_dict/from_dict）<br />
-- ✅ 執行緒安全性（多執行緒同時初始化）</p>
-<h4 id="si-002-etlconfig-pydantic-srcetlconfig_modelspy">SI-002: ETLConfig Pydantic 模型 (<code>src/etl/config_models.py</code>)</h4>
-<p><strong>新增模型:</strong></p>
-<p><strong>AnnotationConfig</strong>: 單一特徵標註</p>
-<pre><code class="language-python">class AnnotationConfig(BaseModel):
+warning = context.check_drift_warning() # E000-W</code></pre>
+            
+            <h4>SI-002: ETLConfig Pydantic 模型 (<code>src/etl/config_models.py</code>)</h4>
+            <p><strong>AnnotationConfig</strong>: 單一特徵標註</p>
+            <pre><code>class AnnotationConfig(BaseModel):
     column_name: str              # CSV 欄位名稱
     physical_type: str            # 物理類型（驗證允許值）
     unit: str                     # 單位
-    device_role: Optional[str]    # 設備角色（primary/backup/seasonal/auxiliary/standby）
+    device_role: Optional[str]    # 設備角色
     is_target: bool               # 是否為目標變數
     enable_lag: bool              # 是否啟用 Lag（E405: 目標變數不可啟用）
-    lag_intervals: List[int]      # Lag 間隔列表
-</code></pre>
-<p><strong>SiteFeatureConfig</strong>: 案場特徵配置</p>
-<pre><code class="language-python">class SiteFeatureConfig(BaseModel):
-    schema_version: str           # Schema 版本
-    site_id: str                  # 案場 ID
-    inherit: Optional[str]        # 繼承的父配置
-    excel_source: Optional[str]   # 來源 Excel 路徑
-    excel_checksum: Optional[str] # Excel SHA256
-    features: List[AnnotationConfig]  # 特徵列表
-    equipment_constraints: Dict   # 設備限制條件
-</code></pre>
-<p><strong>ETLConfig</strong>: 全域 ETL 配置</p>
-<pre><code class="language-python">class ETLConfig(BaseModel):
-    version: str                  # 配置版本
-    site_id: str                  # 案場 ID
-    temporal_baseline: str        # 時間基準（ISO 8601）
-    annotation: SiteFeatureConfig # Feature Annotation
-    checkpoint_validations: Dict  # 啟用的檢查點
-    module_versions: Dict         # 各模組版本（E906 相容性檢查）
-</code></pre>
-<p><strong>驗證功能:</strong><br />
-- ✅ <code>physical_type</code> 值域檢查（必須在允許列表中）<br />
-- ✅ <code>device_role</code> 值域檢查（5 種角色）<br />
-- ✅ <strong>E405 檢查</strong>（目標變數不可啟用 Lag）<br />
-- ✅ <strong>E906 版本相容性檢查</strong>（5 種版本組合）</p>
-<h4 id="si-003-configloader-srcutilsconfig_loaderpy-485">SI-003: ConfigLoader (<code>src/utils/config_loader.py</code>, 485 行)</h4>
-<p><strong>功能:</strong><br />
-- <strong>E007 設定檔損毀檢查</strong>: YAML/JSON 解析失敗時拋出明確錯誤<br />
-- <strong>E406 Excel/YAML 同步檢查</strong>:<br />
-  - 檔案存在性驗證<br />
-  - 時間戳比較（mtime）<br />
-  - SHA256 Checksum 驗證<br />
-  - 詳細恢復建議輸出<br />
-- <strong>E408 SSOT 品質標記匹配</strong>: 驗證 YAML 中的 flags 與 <code>VALID_QUALITY_FLAGS</code> 一致<br />
-- <strong>跨平台檔案鎖</strong> (<code>FileLock</code>): 防止並發修改<br />
-- <strong>原子寫入</strong>: 先寫入暫存檔，再原子移動<br />
-- <strong>備份與恢復</strong>: 自動備份與版本恢復機制</p>
-<p><strong>關鍵 API:</strong></p>
-<pre><code class="language-python">loader = ConfigLoader()
-
-# E406 同步檢查
-result = loader.validate_annotation_sync(&quot;cgmh_ty&quot;)
-if not result.is_synced:
-    print(result.message)        # 錯誤訊息
-    print(result.recovery_action) # 恢復建議
-
-# 載入配置
-config = loader.load_etl_config(&quot;cgmh_ty&quot;)
-</code></pre>
-<p><strong>測試驗證:</strong><br />
-- ✅ YAML 載入成功<br />
-- ✅ E007 檔案損毀（無效 YAML）<br />
-- ✅ E406 Excel 較新（mtime 比較）<br />
-- ✅ E406 Checksum 不匹配<br />
-- ✅ Checksum 計算準確性<br />
-- ✅ 原子 YAML 寫入</p>
-<h4 id="si-004-etlcontainer-srccontainerpy-543">SI-004: ETLContainer (<code>src/container.py</code>, 543 行)</h4>
-<p><strong>4 步驟初始化順序</strong> (Foundation First Policy):</p>
-<pre><code>步驟 1: PipelineContext 建立
+    lag_intervals: List[int]      # Lag 間隔列表</code></pre>
+            
+            <h4>SI-003: ConfigLoader (<code>src/utils/config_loader.py</code>, 485 行)</h4>
+            <p><strong>功能:</strong></p>
+            <ul>
+                <li><strong>E007 設定檔損毀檢查</strong>: YAML/JSON 解析失敗時拋出明確錯誤</li>
+                <li><strong>E406 Excel/YAML 同步檢查</strong>: 檔案存在性驗證、時間戳比較、SHA256 Checksum 驗證</li>
+                <li><strong>E408 SSOT 品質標記匹配</strong>: 驗證 YAML 中的 flags 與 <code>VALID_QUALITY_FLAGS</code> 一致</li>
+                <li><strong>跨平台檔案鎖</strong> (<code>FileLock</code>): 防止並發修改</li>
+                <li><strong>原子寫入</strong>: 先寫入暫存檔，再原子移動</li>
+                <li><strong>備份與恢復</strong>: 自動備份與版本恢復機制</li>
+            </ul>
+            
+            <h4>SI-004: ETLContainer (<code>src/container.py</code>, 543 行)</h4>
+            <p><strong>4 步驟初始化順序</strong> (Foundation First Policy):</p>
+            <pre>
+步驟 1: PipelineContext 建立
    - 初始化時間基準（E000 檢查）
    - 設定 site_id、pipeline_id
-
+   
 步驟 2: ConfigLoader 初始化
    - E406 同步檢查（可選）
    - 載入 ETLConfig
    - E906 版本相容性檢查
-
+   
 步驟 3: FeatureAnnotationManager 載入
    - 解析 YAML 繼承鏈
    - 載入特徵定義
-
+   
 步驟 4: ETL Pipeline 模組實例化
-   - Parser、Cleaner、BatchProcessor、FeatureEngineer
-</code></pre>
-<p><strong>強制順序控制:</strong><br />
-- 步驟 N 必須在步驟 N-1 完成後才能執行<br />
-- 違反順序時拋出 <code>RuntimeError: 必須先執行 stepX()</code></p>
-<p><strong>關鍵 API:</strong></p>
-<pre><code class="language-python"># 完整初始化
-container = ETLContainer(site_id=&quot;cgmh_ty&quot;)
-container.initialize_all()
+   - Parser、Cleaner、BatchProcessor、FeatureEngineer</pre>
+            
+            <h3>3.3 錯誤代碼實作對應</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>錯誤代碼</th>
+                        <th>描述</th>
+                        <th>實作位置</th>
+                        <th>測試覆蓋</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>E000</td><td>時間基準遺失</td><td><code>context.py:106</code>, <code>config_models.py:1161</code></td><td class="status-done">✅</td></tr>
+                    <tr><td>E000-W</td><td>時間漂移警告</td><td><code>context.py:175</code></td><td class="status-done">✅</td></tr>
+                    <tr><td>E007</td><td>設定檔損毀</td><td><code>config_loader.py:123</code></td><td class="status-done">✅</td></tr>
+                    <tr><td>E405</td><td>目標變數不可啟用 Lag</td><td><code>config_models.py:1750</code></td><td class="status-done">✅</td></tr>
+                    <tr><td>E406</td><td>Excel/YAML 不同步</td><td><code>config_loader.py:277</code></td><td class="status-done">✅</td></tr>
+                    <tr><td>E408</td><td>SSOT 品質標記不匹配</td><td><code>config_loader.py:171</code></td><td class="status-done">✅</td></tr>
+                    <tr><td>E906</td><td>版本漂移</td><td><code>container.py:243</code></td><td class="status-done">✅</td></tr>
+                </tbody>
+            </table>
+            
+            <h3>3.4 新增檔案一覽</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>檔案</th>
+                        <th>行數</th>
+                        <th>說明</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>src/context.py</code></td><td>337</td><td>PipelineContext 時間基準管理</td></tr>
+                    <tr><td><code>src/container.py</code></td><td>543</td><td>ETLContainer DI 容器</td></tr>
+                    <tr><td><code>src/utils/config_loader.py</code></td><td>485</td><td>ConfigLoader 強化</td></tr>
+                    <tr><td><code>src/etl/config_models.py</code></td><td>1554+</td><td>ETLConfig Pydantic 模型（擴充）</td></tr>
+                    <tr><td><code>tests/test_container_initialization.py</code></td><td>712</td><td>35 項單元測試</td></tr>
+                </tbody>
+            </table>
+            
+            <div class="info-box">
+                <strong>總計:</strong> 約 3,600+ 行程式碼
+            </div>
+        </div>
+        
+        <!-- Feature Annotation Section -->
+        <div id="annotation" class="content-section">
+            <h2>四、1.3 Feature Annotation v1.3 完成摘要</h2>
+            
+            <h3>4.1 任務完成列表</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>任務 ID</th>
+                        <th>任務描述</th>
+                        <th>狀態</th>
+                        <th>測試覆蓋</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>FA-001</td><td>目錄結構與基礎配置</td><td class="status-done">✅</td><td>基礎設施</td></tr>
+                    <tr><td>FA-002</td><td>YAML Schema 定義</td><td class="status-done">✅</td><td>schema 驗證</td></tr>
+                    <tr><td>FA-003</td><td>Pydantic 模型定義</td><td class="status-done">✅</td><td>模型驗證</td></tr>
+                    <tr><td>FA-004</td><td>FeatureAnnotationManager 實作</td><td class="status-done">✅</td><td>10 項測試</td></tr>
+                    <tr><td>FA-005</td><td>excel_to_yaml.py 轉換器</td><td class="status-done">✅</td><td>轉換流程</td></tr>
+                    <tr><td>FA-006</td><td>HVAC 設備限制條件定義</td><td class="status-done">✅</td><td>範本驗證</td></tr>
+                    <tr><td>FA-007</td><td>Wizard CLI 實作</td><td class="status-done">✅</td><td>互動流程</td></tr>
+                </tbody>
+            </table>
+            
+            <div class="success-box">
+                <strong>總計: 18 項測試全部通過 ✅</strong>
+            </div>
+            
+            <h3>4.2 核心模組實作</h3>
+            
+            <h4>FA-003: Pydantic 模型 (<code>src/features/models.py</code>, 160+ 行)</h4>
+            <p><strong>ColumnAnnotation</strong>: 欄位標註模型</p>
+            <pre><code>class ColumnAnnotation(BaseModel):
+    column_name: str              # 欄位名稱（snake_case 驗證）
+    physical_type: PhysicalType   # 物理類型（18+ 種類型）
+    unit: Optional[str]           # 單位
+    device_role: DeviceRole       # 設備角色（primary/backup/seasonal）
+    equipment_id: Optional[str]   # 設備 ID（如 CH-01）
+    is_target: bool               # 是否為目標變數
+    enable_lag: bool              # 是否啟用 Lag
+    lag_intervals: List[int]      # Lag 間隔（嚴格遞增驗證）
+    ignore_warnings: List[str]    # 忽略的警告代碼
+    status: ColumnStatus          # 欄位狀態</code></pre>
+            
+            <p><strong>EquipmentConstraint</strong>: 設備限制條件模型</p>
+            <pre><code>class EquipmentConstraint(BaseModel):
+    constraint_id: str            # 限制條件 ID
+    description: str              # 描述
+    check_type: ConstraintType    # 檢查類型
+    check_phase: CheckPhase       # 檢查階段
+    trigger_status: List[str]     # 觸發條件欄位
+    required_status: List[str]    # 需求條件欄位
+    severity: Severity            # 嚴重程度
+    error_code: Optional[str]     # 錯誤代碼</code></pre>
+            
+            <h4>FA-004: FeatureAnnotationManager (<code>src/features/annotation_manager.py</code>, 550+ 行)</h4>
+            <p><strong>設計原則:</strong></p>
+            <ul>
+                <li><strong>唯讀介面</strong>: 提供查詢方法，禁止修改 YAML（E500/E501 防護）</li>
+                <li><strong>SSOT 存取</strong>: 所有資料來自 <code>config/features/sites/{site_id}.yaml</code></li>
+                <li><strong>快取機制</strong>: YAML 載入後快取於記憶體，避免重複 I/O</li>
+                <li><strong>HVAC 感知</strong>: 支援設備互鎖查詢與驗證</li>
+            </ul>
+            
+            <p><strong>關鍵 API:</strong></p>
+            <pre><code>from src.features import FeatureAnnotationManager
 
-# 或逐步初始化
-container.step1_create_context()
-container.step2_load_config()
-container.step3_load_annotation()
-container.step4_initialize_modules()
+manager = FeatureAnnotationManager("cgmh_ty")
 
-# 取得元件
-parser = container.get_parser()
-cleaner = container.get_cleaner()
-config = container.get_config()
-baseline = container.get_temporal_baseline()
-</code></pre>
-<p><strong>測試驗證:</strong><br />
-- ✅ 步驟 1 建立 PipelineContext<br />
-- ✅ 步驟 2 相依於步驟 1<br />
-- ✅ 步驟 3 相依於步驟 2<br />
-- ✅ 步驟 4 相依於步驟 3<br />
-- ✅ 完整 4 步驟初始化<br />
-- ✅ Getter 運作正確<br />
-- ✅ 初始化前 Getter 拋錯</p>
-<h3 id="33">3.3 錯誤代碼實作對應</h3>
-<table>
-<thead>
-<tr>
-<th style="text-align: center;">錯誤代碼</th>
-<th style="text-align: left;">描述</th>
-<th style="text-align: left;">實作位置</th>
-<th style="text-align: center;">測試覆蓋</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: center;">E000</td>
-<td style="text-align: left;">時間基準遺失</td>
-<td style="text-align: left;"><code>context.py:106</code>, <code>config_models.py:1161</code></td>
-<td style="text-align: center;">✅</td>
-</tr>
-<tr>
-<td style="text-align: center;">E000-W</td>
-<td style="text-align: left;">時間漂移警告</td>
-<td style="text-align: left;"><code>context.py:175</code></td>
-<td style="text-align: center;">✅</td>
-</tr>
-<tr>
-<td style="text-align: center;">E007</td>
-<td style="text-align: left;">設定檔損毀</td>
-<td style="text-align: left;"><code>config_loader.py:123</code></td>
-<td style="text-align: center;">✅</td>
-</tr>
-<tr>
-<td style="text-align: center;">E405</td>
-<td style="text-align: left;">目標變數不可啟用 Lag</td>
-<td style="text-align: left;"><code>config_models.py:1750</code></td>
-<td style="text-align: center;">✅</td>
-</tr>
-<tr>
-<td style="text-align: center;">E406</td>
-<td style="text-align: left;">Excel/YAML 不同步</td>
-<td style="text-align: left;"><code>config_loader.py:277</code></td>
-<td style="text-align: center;">✅</td>
-</tr>
-<tr>
-<td style="text-align: center;">E408</td>
-<td style="text-align: left;">SSOT 品質標記不匹配</td>
-<td style="text-align: left;"><code>config_loader.py:171</code></td>
-<td style="text-align: center;">✅</td>
-</tr>
-<tr>
-<td style="text-align: center;">E906</td>
-<td style="text-align: left;">版本漂移</td>
-<td style="text-align: left;"><code>container.py:243</code></td>
-<td style="text-align: center;">✅</td>
-</tr>
-</tbody>
-</table>
-<h3 id="34">3.4 新增檔案一覽</h3>
-<table>
-<thead>
-<tr>
-<th style="text-align: left;">檔案</th>
-<th style="text-align: center;">行數</th>
-<th style="text-align: left;">說明</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;"><code>src/context.py</code></td>
-<td style="text-align: center;">337</td>
-<td style="text-align: left;">PipelineContext 時間基準管理</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>src/container.py</code></td>
-<td style="text-align: center;">543</td>
-<td style="text-align: left;">ETLContainer DI 容器</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>src/utils/config_loader.py</code></td>
-<td style="text-align: center;">485</td>
-<td style="text-align: left;">ConfigLoader 強化</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>src/etl/config_models.py</code></td>
-<td style="text-align: center;">1554+</td>
-<td style="text-align: left;">ETLConfig Pydantic 模型（擴充）</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>tests/test_container_initialization.py</code></td>
-<td style="text-align: center;">712</td>
-<td style="text-align: left;">35 項單元測試</td>
-</tr>
-</tbody>
-</table>
-<p><strong>總計</strong>: 約 3,600+ 行程式碼</p>
-<hr />
-<h2 id="_2">四、測試覆蓋報告</h2>
-<h3 id="41">4.1 測試統計</h3>
-<table>
-<thead>
-<tr>
-<th style="text-align: center;">類別</th>
-<th style="text-align: center;">測試數</th>
-<th style="text-align: center;">通過</th>
-<th style="text-align: center;">失敗</th>
-<th style="text-align: left;">覆蓋範圍</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: center;">PipelineContext</td>
-<td style="text-align: center;">9</td>
-<td style="text-align: center;">9</td>
-<td style="text-align: center;">0</td>
-<td style="text-align: left;">單例、E000、漂移、執行緒</td>
-</tr>
-<tr>
-<td style="text-align: center;">ETLConfig</td>
-<td style="text-align: center;">6</td>
-<td style="text-align: center;">6</td>
-<td style="text-align: center;">0</td>
-<td style="text-align: left;">Pydantic、E405、相容性</td>
-</tr>
-<tr>
-<td style="text-align: center;">ConfigLoader</td>
-<td style="text-align: center;">7</td>
-<td style="text-align: center;">7</td>
-<td style="text-align: center;">0</td>
-<td style="text-align: left;">E406、E007、檔案鎖</td>
-</tr>
-<tr>
-<td style="text-align: center;">ETLContainer</td>
-<td style="text-align: center;">7</td>
-<td style="text-align: center;">7</td>
-<td style="text-align: center;">0</td>
-<td style="text-align: left;">4 步驟初始化</td>
-</tr>
-<tr>
-<td style="text-align: center;">時間基準傳遞</td>
-<td style="text-align: center;">6</td>
-<td style="text-align: center;">6</td>
-<td style="text-align: center;">0</td>
-<td style="text-align: left;">跨日、注入、驗證</td>
-</tr>
-<tr>
-<td style="text-align: center;"><strong>總計</strong></td>
-<td style="text-align: center;"><strong>35</strong></td>
-<td style="text-align: center;"><strong>35</strong></td>
-<td style="text-align: center;"><strong>0</strong></td>
-<td style="text-align: left;"><strong>100%</strong></td>
-</tr>
-</tbody>
-</table>
-<h3 id="42">4.2 關鍵測試案例</h3>
-<p><strong>時間基準測試:</strong></p>
-<pre><code class="language-python">def test_e000_missing_baseline(self):
-    &quot;&quot;&quot;E000: 未初始化時取得時間基準應拋錯&quot;&quot;&quot;
+# 基礎查詢
+anno = manager.get_column_annotation("chiller_01_chwst")
+role = manager.get_device_role("chiller_01_kw")        # "primary"
+eq_id = manager.get_equipment_id("chiller_01_kw")      # "CH-01"
+
+# HVAC 專用查詢
+chillers = manager.get_columns_by_equipment_type("chiller")
+targets = manager.get_target_columns()                  # 目標變數
+constraints = manager.get_equipment_constraints(phase="precheck")
+
+# 電力相關欄位分類
+electrical = manager.get_electrical_columns()</code></pre>
+            
+            <h4>FA-005: excel_to_yaml.py (<code>tools/features/excel_to_yaml.py</code>, 490+ 行)</h4>
+            <p><strong>功能:</strong></p>
+            <ul>
+                <li>讀取 Excel v1.3 格式（Columns/Metadata/System Sheets）</li>
+                <li>驗證 HVAC 邏輯（物理類型與單位匹配）</li>
+                <li>計算 SHA256 Checksum（供 E406 同步檢查）</li>
+                <li>生成符合 schema.json 的 YAML</li>
+            </ul>
+            
+            <h4>FA-007: Wizard CLI (<code>tools/features/wizard.py</code>, 470+ 行)</h4>
+            <p><strong>功能:</strong></p>
+            <ul>
+                <li>自動備份機制（保留最近 10 個版本）</li>
+                <li>偵測 CSV 新欄位</li>
+                <li>HVAC 語意推測（依欄位名稱推測設備類型、物理類型、設備 ID）</li>
+                <li>Header Standardization 預覽</li>
+                <li>互動式標註流程</li>
+            </ul>
+            
+            <h3>4.3 配置檔案</h3>
+            <ul>
+                <li><strong>schema.json</strong>: JSON Schema v1.3 定義</li>
+                <li><strong>physical_types.yaml</strong>: 18+ 物理類型完整定義</li>
+                <li><strong>equipment_taxonomy.yaml</strong>: HVAC 設備分類法</li>
+                <li><strong>template_factory.yaml</strong>: 工廠範本</li>
+            </ul>
+            
+            <h3>4.4 新增檔案一覽</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>檔案</th>
+                        <th>行數</th>
+                        <th>說明</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>src/features/__init__.py</code></td><td>30</td><td>模組初始化</td></tr>
+                    <tr><td><code>src/features/models.py</code></td><td>160+</td><td>Pydantic 模型</td></tr>
+                    <tr><td><code>src/features/annotation_manager.py</code></td><td>550+</td><td>核心管理器</td></tr>
+                    <tr><td><code>tools/features/wizard.py</code></td><td>470+</td><td>Wizard CLI</td></tr>
+                    <tr><td><code>tools/features/excel_to_yaml.py</code></td><td>490+</td><td>轉換器</td></tr>
+                    <tr><td><code>config/features/schema.json</code></td><td>250+</td><td>JSON Schema</td></tr>
+                    <tr><td><code>config/features/physical_types.yaml</code></td><td>180+</td><td>物理類型</td></tr>
+                    <tr><td><code>config/features/equipment_taxonomy.yaml</code></td><td>150+</td><td>設備分類</td></tr>
+                    <tr><td><code>config/features/sites/template_factory.yaml</code></td><td>350+</td><td>工廠範本</td></tr>
+                    <tr><td><code>tests/features/test_annotation_manager.py</code></td><td>450+</td><td>18 項測試</td></tr>
+                </tbody>
+            </table>
+            
+            <div class="info-box">
+                <strong>總計:</strong> 約 3,100+ 行程式碼
+            </div>
+        </div>
+        
+        <!-- Testing Section -->
+        <div id="testing" class="content-section">
+            <h2>五、測試覆蓋報告</h2>
+            
+            <h3>5.1 Sprint 1 測試統計</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>類別</th>
+                        <th>測試數</th>
+                        <th>通過</th>
+                        <th>失敗</th>
+                        <th>覆蓋範圍</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>PipelineContext</td><td>9</td><td>9</td><td>0</td><td>單例、E000、漂移、執行緒</td></tr>
+                    <tr><td>ETLConfig</td><td>6</td><td>6</td><td>0</td><td>Pydantic、E405、相容性</td></tr>
+                    <tr><td>ConfigLoader</td><td>7</td><td>7</td><td>0</td><td>E406、E007、檔案鎖</td></tr>
+                    <tr><td>ETLContainer</td><td>7</td><td>7</td><td>0</td><td>4 步驟初始化順序</td></tr>
+                    <tr><td>時間基準傳遞</td><td>6</td><td>6</td><td>0</td><td>跨日、注入、驗證</td></tr>
+                    <tr><td>FeatureAnnotationManager</td><td>14</td><td>14</td><td>0</td><td>初始化、查詢、HVAC、錯誤</td></tr>
+                    <tr><td>Pydantic 模型</td><td>4</td><td>4</td><td>0</td><td>E405、Lag 間隔、命名</td></tr>
+                    <tr><td><strong>總計</strong></td><td><strong>53</strong></td><td><strong>53</strong></td><td><strong>0</strong></td><td><strong>100%</strong></td></tr>
+                </tbody>
+            </table>
+            
+            <h3>5.2 關鍵測試案例</h3>
+            
+            <h4>時間基準測試</h4>
+            <pre><code>def test_e000_missing_baseline(self):
+    """E000: 未初始化時取得時間基準應拋錯"""
     ctx = PipelineContext()
     with pytest.raises(RuntimeError) as exc_info:
         ctx.get_baseline()
-    assert &quot;E000&quot; in str(exc_info.value)
-</code></pre>
-<p><strong>同步檢查測試:</strong></p>
-<pre><code class="language-python">def test_e406_sync_check_yaml_newer(self):
-    &quot;&quot;&quot;E406: Excel 比 YAML 新時應檢測不同步&quot;&quot;&quot;
-    result = loader.validate_annotation_sync(&quot;test_site&quot;)
+    assert "E000" in str(exc_info.value)</code></pre>
+            
+            <h4>同步檢查測試</h4>
+            <pre><code>def test_e406_sync_check_yaml_newer(self):
+    """E406: Excel 比 YAML 新時應檢測不同步"""
+    result = loader.validate_annotation_sync("test_site")
     assert not result.is_synced
-    assert &quot;E406&quot; in result.message
-    assert &quot;Excel&quot; in result.message and &quot;新&quot; in result.message
-</code></pre>
-<p><strong>初始化順序測試:</strong></p>
-<pre><code class="language-python">def test_step2_requires_step1(self):
-    &quot;&quot;&quot;步驟 2 需要步驟 1 先完成&quot;&quot;&quot;
-    container = ETLContainer(site_id=&quot;test&quot;)
-    with pytest.raises(RuntimeError) as exc_info:
-        container.step2_load_config()
-    assert &quot;必須先執行 step1&quot; in str(exc_info.value)
-</code></pre>
-<hr />
-<h2 id="_3">五、風險緩解狀態</h2>
-<table>
-<thead>
-<tr>
-<th style="text-align: center;">風險 ID</th>
-<th style="text-align: left;">風險描述</th>
-<th style="text-align: left;">緩解措施</th>
-<th style="text-align: center;">狀態</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: center;">R-001</td>
-<td style="text-align: left;">依賴死鎖</td>
-<td style="text-align: left;">Foundation First Policy 強制順序</td>
-<td style="text-align: center;">🟡 監控中</td>
-</tr>
-<tr>
-<td style="text-align: center;">R-002</td>
-<td style="text-align: left;">時間漂移</td>
-<td style="text-align: left;">E000 強制檢查、PipelineContext 單例</td>
-<td style="text-align: center;">🟢 已緩解</td>
-</tr>
-<tr>
-<td style="text-align: center;">R-005</td>
-<td style="text-align: left;">SSOT 版本漂移</td>
-<td style="text-align: left;">E408 檢查、Checksum 驗證</td>
-<td style="text-align: center;">🟢 已緩解</td>
-</tr>
-<tr>
-<td style="text-align: center;">R-007</td>
-<td style="text-align: left;">Excel-YAML 不同步</td>
-<td style="text-align: left;">E406 嚴格檢查、恢復指引</td>
-<td style="text-align: center;">🟢 已緩解</td>
-</tr>
-<tr>
-<td style="text-align: center;">R-008</td>
-<td style="text-align: left;">device_role 洩漏</td>
-<td style="text-align: left;">E500 三層防護、Metadata 淨化</td>
-<td style="text-align: center;">🟢 已緩解</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="_4">六、下一步行動</h2>
-<h3 id="13-feature-annotation">即將進行 (1.3 Feature Annotation)</h3>
-<table>
-<thead>
-<tr>
-<th style="text-align: left;">任務</th>
-<th style="text-align: center;">預估工時</th>
-<th style="text-align: left;">相依於</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;">Excel 範本結構設計</td>
-<td style="text-align: center;">1 天</td>
-<td style="text-align: left;">1.2 System Integration</td>
-</tr>
-<tr>
-<td style="text-align: left;">YAML Schema 定義</td>
-<td style="text-align: center;">0.5 天</td>
-<td style="text-align: left;">1.2 System Integration</td>
-</tr>
-<tr>
-<td style="text-align: left;">excel_to_yaml.py 轉換器</td>
-<td style="text-align: center;">1.5 天</td>
-<td style="text-align: left;">YAML Schema</td>
-</tr>
-<tr>
-<td style="text-align: left;">FeatureAnnotationManager</td>
-<td style="text-align: center;">2 天</td>
-<td style="text-align: left;">YAML Schema、excel_to_yaml</td>
-</tr>
-<tr>
-<td style="text-align: left;">HVAC 設備限制定義</td>
-<td style="text-align: center;">1 天</td>
-<td style="text-align: left;">FeatureAnnotationManager</td>
-</tr>
-<tr>
-<td style="text-align: left;">Wizard CLI</td>
-<td style="text-align: center;">0.5 天</td>
-<td style="text-align: left;">全部</td>
-</tr>
-</tbody>
-</table>
-<h3 id="sprint-2">Sprint 2 準備</h3>
-<p>待 1.3 完成後，即可啟動：<br />
-- 2.1 Parser v2.1（Header Standardization、時區轉換）<br />
-- 2.2 Cleaner v2.2（E000 檢查、E500 防護、E350 設備邏輯）<br />
-- 2.3 BatchProcessor v1.3（Manifest 生成、E408 檢查）</p>
-<hr />
-<h2 id="_5">七、執行心得</h2>
-<h3 id="71">7.1 成功因素</h3>
-<ol>
-<li><strong>Foundation First Policy 嚴格執行</strong>: 確保基礎設施穩固後才進行下游開發</li>
-<li><strong>錯誤代碼優先定義</strong>: 在實作前先完成 E000-E999 錯誤代碼體系，確保一致性的錯誤處理</li>
-<li><strong>Test-Driven Development</strong>: 35 項單元測試與實作同步進行，確保品質</li>
-<li><strong>Pydantic 型別安全</strong>: 使用 Pydantic 模型確保配置型別安全，減少執行期錯誤</li>
-</ol>
-<h3 id="72">7.2 技術亮點</h3>
-<ol>
-<li><strong>Thread-safe Singleton</strong>: PipelineContext 使用雙重檢查鎖定確保執行緒安全</li>
-<li><strong>原子寫入</strong>: ConfigLoader 使用暫存檔+移動確保寫入原子性</li>
-<li><strong>嚴格初始化順序</strong>: ETLContainer 的 4 步驟強制順序防止依賴死鎖</li>
-<li><strong>完整錯誤訊息</strong>: 所有錯誤代碼包含使用者友善的訊息範本與恢復建議</li>
-</ol>
-<h3 id="73">7.3 待改進項目</h3>
-<ol>
-<li><strong>FeatureAnnotationManager</strong>: 1.3 完成後需整合至 ETLContainer 步驟 3</li>
-<li><strong>BatchProcessor/FeatureEngineer</strong>: 現有模組需升級至 v1.3 規格</li>
-<li><strong>整合測試</strong>: 需建立跨模組的端到端測試</li>
-</ol>
-<hr />
-<h2 id="_6">八、附錄</h2>
-<h3 id="81">8.1 快速參考</h3>
-<p><strong>執行測試:</strong></p>
-<pre><code class="language-bash">cd /Users/chanoscar/HVAC-1
+    assert "E406" in result.message</code></pre>
+            
+            <h4>Feature Annotation 測試</h4>
+            <pre><code>def test_e405_target_lag_validation(self):
+    """E405: 目標變數啟用 Lag 應拋錯"""
+    with pytest.raises(ValueError) as exc_info:
+        ColumnAnnotation(
+            column_name="target",
+            is_target=True,
+            enable_lag=True
+        )
+    assert "E405" in str(exc_info.value)</code></pre>
+        </div>
+        
+        <!-- Risks Section -->
+        <div id="risks" class="content-section">
+            <h2>六、風險緩解狀態</h2>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>風險 ID</th>
+                        <th>風險描述</th>
+                        <th>緩解措施</th>
+                        <th>狀態</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>R-001</td>
+                        <td>依賴死鎖</td>
+                        <td>Foundation First Policy 強制順序</td>
+                        <td class="status-done">🟢 已緩解</td>
+                    </tr>
+                    <tr>
+                        <td>R-002</td>
+                        <td>時間漂移</td>
+                        <td>E000 強制檢查、PipelineContext 單例</td>
+                        <td class="status-done">🟢 已緩解</td>
+                    </tr>
+                    <tr>
+                        <td>R-005</td>
+                        <td>SSOT 版本漂移</td>
+                        <td>E408 檢查、Checksum 驗證</td>
+                        <td class="status-done">🟢 已緩解</td>
+                    </tr>
+                    <tr>
+                        <td>R-007</td>
+                        <td>Excel-YAML 不同步</td>
+                        <td>E406 嚴格檢查、恢復指引</td>
+                        <td class="status-done">🟢 已緩解</td>
+                    </tr>
+                    <tr>
+                        <td>R-008</td>
+                        <td>device_role 洩漏</td>
+                        <td>E500 三層防護、Metadata 淨化</td>
+                        <td class="status-done">🟢 已緩解</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Code Review Section -->
+        <div id="review" class="content-section">
+            <h2>八、程式碼審查與優化</h2>
+            
+            <div class="highlight-box">
+                <strong>審查報告:</strong> <code>docs/專案任務排程/Sprint_1_Review_Report.md</code><br>
+                <strong>審查結果:</strong> ✅ <strong>通過 (Pass)</strong> - 72 項測試通過，程式碼具備高可用性
+            </div>
+            
+            <h3>優化項目</h3>
+            
+            <h4>1. Lazy Import 清理 (<code>src/container.py</code>)</h4>
+            <div class="warning-box">
+                <strong>問題:</strong> 步驟 3 和步驟 4 使用 try-except ImportError 保護，隱藏了模組導入錯誤
+            </div>
+            
+            <p><strong>修改:</strong></p>
+            <ul>
+                <li>將 <code>FeatureAnnotationManager</code>、<code>ReportParser</code>、<code>DataCleaner</code> 改為直接導入</li>
+                <li>移除所有 try-except ImportError 保護</li>
+                <li>模組缺失時立即報錯（Fail Fast 原則）</li>
+            </ul>
+            
+            <p><strong>效益:</strong></p>
+            <ul>
+                <li>支援靜態分析工具 (mypy, pylint)</li>
+                <li>問題早期發現，避免執行期意外失敗</li>
+                <li>程式碼更簡潔，易於維護</li>
+            </ul>
+            
+            <h4>2. STRICT_MODE 環境變數 (<code>src/container.py</code>)</h4>
+            <div class="warning-box">
+                <strong>問題:</strong> E406 同步檢查失敗僅記錄警告，生產環境可能忽略關鍵錯誤
+            </div>
+            
+            <p><strong>修改:</strong></p>
+            <ul>
+                <li>新增 <code>HVAC_STRICT_MODE</code> 環境變數支援</li>
+                <li>當 <code>HVAC_STRICT_MODE=true</code> 時，E406 失敗會中斷管線</li>
+                <li>預設維持警告模式（開發環境友善）</li>
+            </ul>
+            
+            <p><strong>使用方式:</strong></p>
+            <pre><code># 開發環境（預設）- E406 僅記錄警告
+python main.py pipeline data.csv
+
+# 生產環境 - E406 檢查失敗時中斷管線
+HVAC_STRICT_MODE=true python main.py pipeline data.csv</code></pre>
+            
+            <h3>Sprint 1 總結</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>階段</th>
+                        <th>測試數</th>
+                        <th>狀態</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>System Integration</td><td>35</td><td class="status-done">✅ 通過</td></tr>
+                    <tr><td>Feature Annotation</td><td>18</td><td class="status-done">✅ 通過</td></tr>
+                    <tr><td>其他測試</td><td>19</td><td class="status-done">✅ 通過</td></tr>
+                    <tr><td><strong>總計</strong></td><td><strong>72</strong></td><td class="status-done"><strong>✅ 全部通過</strong></td></tr>
+                </tbody>
+            </table>
+            
+            <div class="success-box">
+                <strong>總計新增:</strong> 約 6,700+ 行程式碼，72 項測試<br>
+                <strong>專案狀態:</strong> Sprint 1 <strong>3/3 完成</strong> ✅，準備進入 Sprint 2: 核心 ETL
+            </div>
+        </div>
+        
+        <!-- Next Steps Section -->
+        <div id="next" class="content-section">
+            <h2>七、下一步行動</h2>
+            
+            <h3>即將進行 (Sprint 2: 核心 ETL)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>任務</th>
+                        <th>預估工時</th>
+                        <th>相依於</th>
+                        <th>狀態</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Parser v2.1</td>
+                        <td>4-5 天</td>
+                        <td>Sprint 1 完成</td>
+                        <td class="status-progress">🚧 準備中</td>
+                    </tr>
+                    <tr>
+                        <td>Cleaner v2.2</td>
+                        <td>6-7 天</td>
+                        <td>FeatureAnnotationManager</td>
+                        <td class="status-progress">🚧 準備中</td>
+                    </tr>
+                    <tr>
+                        <td>BatchProcessor v1.3</td>
+                        <td>5-6 天</td>
+                        <td>Cleaner</td>
+                        <td class="status-progress">🚧 準備中</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="highlight-box">
+                <strong>Sprint 2 關鍵目標:</strong>
+                <ul>
+                    <li><strong>Parser:</strong> Header Standardization (E105)、時區轉換、標頭正規化</li>
+                    <li><strong>Cleaner:</strong> E000 檢查、E500 防護、E350 設備邏輯預檢、語意感知清洗</li>
+                    <li><strong>BatchProcessor:</strong> Manifest 生成、E408 檢查、設備稽核軌跡傳遞</li>
+                </ul>
+            </div>
+            
+            <h3>九、附錄</h3>
+            
+            <h4>9.1 快速參考</h4>
+            <p><strong>執行測試:</strong></p>
+            <pre><code>cd /Users/chanoscar/HVAC-1
+
+# System Integration 測試
 python3 -m pytest tests/test_container_initialization.py -v
-</code></pre>
-<p><strong>使用 ETLContainer:</strong></p>
-<pre><code class="language-python">from src.container import ETLContainer
 
-container = ETLContainer(site_id=&quot;cgmh_ty&quot;, enable_sync_check=True)
-container.initialize_all()
+# Feature Annotation 測試
+python3 -m pytest tests/features/test_annotation_manager.py -v
 
-# 取得時間基準
-baseline = container.get_temporal_baseline()
+# 全部測試
+python3 -m pytest tests/ -v</code></pre>
+            
+            <p><strong>使用 FeatureAnnotationManager:</strong></p>
+            <pre><code>from src.features import FeatureAnnotationManager
 
-# 取得配置
-config = container.get_config()
-</code></pre>
-<h3 id="82">8.2 相關文件</h3>
-<ul>
-<li><a href="./專案任務排程文件.md">📋 專案任務排程</a></li>
-<li><a href="../Interface%20Contract/PRD_Interface_Contract_v1.1.md">📘 Interface Contract PRD</a></li>
-<li><a href="../System%20Integration/PRD_System_Integration_v1.2.md">📗 System Integration PRD</a></li>
-</ul>
-<hr />
-<p><strong>文件結束</strong></p>
-<p><em>執行摘要版本: v1.0 | 完成日期: 2026-02-19 | 狀態: ✅ Sprint 1 (2/3 完成)</em></p>
+manager = FeatureAnnotationManager("cgmh_ty")
+
+# 查詢設備角色（供 Cleaner 使用）
+role = manager.get_device_role("chiller_01_kw")
+
+# 查詢設備限制（供 Optimization 使用）
+constraints = manager.get_equipment_constraints(phase="precheck")</code></pre>
+            
+            <h4>9.2 相關文件</h4>
+            <ul>
+                <li><a href="./專案任務排程文件.html">📋 專案任務排程</a></li>
+                <li><a href="../Interface%20Contract/PRD_Interface_Contract_v1.1.md">📘 Interface Contract PRD</a></li>
+                <li><a href="../System%20Integration/PRD_System_Integration_v1.2.md">📗 System Integration PRD</a></li>
+                <li><a href="../Feature%20Annotation%20Specification/PRD_Feature_Annotation_Specification_V1.3.md">📙 Feature Annotation PRD</a></li>
+                <li><a href="../Feature%20Annotation%20Specification/IMPLEMENTATION_SUMMARY.md">📊 Feature Annotation 實作摘要</a></li>
+            </ul>
+        </div>
+        
+        <div class="footer">
+            <p>Sprint 1 執行摘要 | 執行摘要版本: v1.1</p>
+            <p>完成日期: 2026-02-21 | 狀態: ✅ Sprint 1 (3/3 完成)</p>
+        </div>
+    </div>
+    
+    <script>
+        function showSection(sectionId) {
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.getElementById(sectionId).classList.add('active');
+            event.target.classList.add('active');
+        }
+    </script>
 </body>
 </html>

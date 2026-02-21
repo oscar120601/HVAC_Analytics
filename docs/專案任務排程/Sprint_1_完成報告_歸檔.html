@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HVAC-1 Sprint 1 完成報告歸檔</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .nav-tab {
+            flex: 1;
+            padding: 15px 20px;
+            text-align: center;
+            cursor: pointer;
+            background: #f8f9fa;
+            border: none;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+        
+        .nav-tab:hover {
+            background: #e9ecef;
+        }
+        
+        .nav-tab.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .content-section {
+            display: none;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .content-section.active {
+            display: block;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            font-size: 2.5em;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card p {
+            opacity: 0.9;
+        }
+        
+        h2 {
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+            margin: 30px 0 20px 0;
+        }
+        
+        h3 {
+            color: #555;
+            margin: 25px 0 15px 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .status-done {
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .status-progress {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        
+        .status-pending {
+            color: #6c757d;
+            font-weight: bold;
+        }
+        
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        .file-list {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        
+        .file-list li {
+            margin: 8px 0;
+            list-style: none;
+        }
+        
+        .file-list li::before {
+            content: "✅ ";
+        }
+        
+        .mermaid {
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        
+        .highlight-box {
+            background: #e7f3ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .success-box {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+            margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏗️ HVAC-1 Sprint 1 完成報告</h1>
+            <div class="subtitle">基礎建設 (Foundation) - 3/3 完成</div>
+            <div class="status-badge">✅ 已完成</div>
+            <div style="margin-top: 15px; opacity: 0.9;">
+                完成日期: 2026-02-21 | 總計: 6,700+ 行程式碼 | 53 項測試全部通過
+            </div>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>3/3</h3>
+                <p>任務完成</p>
+            </div>
+            <div class="stat-card">
+                <h3>53</h3>
+                <p>單元測試</p>
+            </div>
+            <div class="stat-card">
+                <h3>6,700+</h3>
+                <p>行程式碼</p>
+            </div>
+            <div class="stat-card">
+                <h3>15+</h3>
+                <p>錯誤代碼</p>
+            </div>
+        </div>
+        
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showSection('overview')">📊 總覽</button>
+            <button class="nav-tab" onclick="showSection('schedule')">📋 任務排程</button>
+            <button class="nav-tab" onclick="showSection('summary')">📝 執行摘要</button>
+            <button class="nav-tab" onclick="showSection('readme')">📖 README</button>
+        </div>
+        
+        <!-- 總覽 Section -->
+        <div id="overview" class="content-section active">
+            <h2>🎯 Sprint 1 完成項目總覽</h2>
+            
+            <div class="success-box">
+                <strong>🎉 Sprint 1 已全部完成 (3/3)</strong><br>
+                Interface Contract v1.1、System Integration v1.2、Feature Annotation v1.3 皆已完成並通過測試。
+                專案已準備好進入 Sprint 2: 核心 ETL。
+            </div>
+            
+            <h3>📦 已完成模組</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>模組</th>
+                        <th>版本</th>
+                        <th>狀態</th>
+                        <th>測試</th>
+                        <th>交付物</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Interface Contract</td>
+                        <td>v1.1</td>
+                        <td class="status-done">✅ 已完成</td>
+                        <td>已驗證</td>
+                        <td>PRD 文件、錯誤代碼體系</td>
+                    </tr>
+                    <tr>
+                        <td>System Integration</td>
+                        <td>v1.2</td>
+                        <td class="status-done">✅ 已完成</td>
+                        <td>35/35 通過</td>
+                        <td>PipelineContext、ETLContainer</td>
+                    </tr>
+                    <tr>
+                        <td>Feature Annotation</td>
+                        <td>v1.3</td>
+                        <td class="status-done">✅ 已完成</td>
+                        <td>18/18 通過</td>
+                        <td>AnnotationManager、Wizard</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h3>📁 新增檔案統計</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>類別</th>
+                        <th>檔案數</th>
+                        <th>程式碼行數</th>
+                        <th>測試數</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>System Integration</td>
+                        <td>5</td>
+                        <td>~3,600</td>
+                        <td>35</td>
+                    </tr>
+                    <tr>
+                        <td>Feature Annotation</td>
+                        <td>10</td>
+                        <td>~3,100</td>
+                        <td>18</td>
+                    </tr>
+                    <tr>
+                        <td><strong>總計</strong></td>
+                        <td><strong>15</strong></td>
+                        <td><strong>~6,700</strong></td>
+                        <td><strong>53</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h3>🔑 核心功能</h3>
+            <ul>
+                <li><strong>PipelineContext</strong>: Thread-safe Singleton 時間基準管理（E000/E000-W）</li>
+                <li><strong>ETLContainer</strong>: 4 步驟初始化順序控制（Foundation First Policy）</li>
+                <li><strong>ConfigLoader</strong>: Excel/YAML 同步檢查（E406）、檔案鎖、原子寫入</li>
+                <li><strong>FeatureAnnotationManager</strong>: 唯讀特徵標註管理（E500/E501 防護）</li>
+                <li><strong>Wizard CLI</strong>: 互動式標註、HVAC 語意推測、自動備份</li>
+            </ul>
+            
+            <h3>🧪 測試覆蓋</h3>
+            <div class="highlight-box">
+                <strong>53 項單元測試全部通過 ✅</strong><br>
+                PipelineContext (9) + ETLConfig (6) + ConfigLoader (7) + ETLContainer (7) + 
+                時間基準 (6) + FeatureAnnotationManager (14) + Pydantic 模型 (4)
+            </div>
+            
+            <h3>🚀 下一步</h3>
+            <div class="warning-box">
+                <strong>Sprint 2: 核心 ETL 🚧 準備中</strong><br>
+                Parser v2.1 → Cleaner v2.2 → BatchProcessor v1.3<br>
+                FeatureAnnotationManager 將整合至 Cleaner 進行 E350 設備邏輯預檢
+            </div>
+        </div>
+        
+        <!-- 任務排程 Section -->
+        <div id="schedule" class="content-section">
+            <h2>📋 專案任務排程</h2>
+            
+            <h3>總預估工時</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>階段</th>
+                        <th>工時</th>
+                        <th>累計</th>
+                        <th>狀態</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Sprint 1: 基礎建設</td>
+                        <td>12-14 天</td>
+                        <td>12-14 天</td>
+                        <td class="status-done">✅ 已完成 (3/3)</td>
+                    </tr>
+                    <tr>
+                        <td>Sprint 2: 核心 ETL</td>
+                        <td>15-17 天</td>
+                        <td>27-31 天</td>
+                        <td class="status-progress">🚧 準備中</td>
+                    </tr>
+                    <tr>
+                        <td>Sprint 3: 特徵與模型</td>
+                        <td>18-22 天</td>
+                        <td>45-53 天</td>
+                        <td class="status-pending">⏳ 待開始</td>
+                    </tr>
+                    <tr>
+                        <td>Sprint 4: 最佳化</td>
+                        <td>10-12 天</td>
+                        <td>55-65 天</td>
+                        <td class="status-pending">⏳ 待開始</td>
+                    </tr>
+                    <tr>
+                        <td>Sprint 5: 整合測試</td>
+                        <td>8-10 天</td>
+                        <td>63-75 天</td>
+                        <td class="status-pending">⏳ 待開始</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h3>Sprint 1 詳細任務</h3>
+            
+            <h4>✅ 1.1 Interface Contract v1.1 (已完成)</h4>
+            <ul>
+                <li>錯誤代碼分層定義 (E000-E999)</li>
+                <li>檢查點規格定義 (#1-#7)</li>
+                <li>DataFrame 介面標準</li>
+                <li>版本相容性矩陣</li>
+                <li>Header Standardization 規範</li>
+                <li>Temporal Baseline 傳遞規範</li>
+            </ul>
+            
+            <h4>✅ 1.2 System Integration v1.2 (已完成)</h4>
+            <ul>
+                <li>PipelineContext 實作（9 項測試）</li>
+                <li>ETLConfig 擴充（6 項測試）</li>
+                <li>ConfigLoader 強化（7 項測試）</li>
+                <li>ETLContainer 初始化（7 項測試）</li>
+                <li>時間基準傳遞測試（6 項測試）</li>
+            </ul>
+            
+            <h4>✅ 1.3 Feature Annotation v1.3 (已完成)</h4>
+            <ul>
+                <li>Pydantic 模型定義（ColumnAnnotation, EquipmentConstraint）</li>
+                <li>FeatureAnnotationManager 實作（10 項測試）</li>
+                <li>excel_to_yaml.py 轉換器</li>
+                <li>HVAC 設備限制條件定義</li>
+                <li>Wizard CLI 實作</li>
+            </ul>
+            
+            <h3>里程碑</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>里程碑</th>
+                        <th>預計日期</th>
+                        <th>實際日期</th>
+                        <th>狀態</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>M1: 基礎就緒</td>
+                        <td>第 2 週末</td>
+                        <td>2026-02-21</td>
+                        <td class="status-done">✅ 完成</td>
+                    </tr>
+                    <tr>
+                        <td>M2: ETL 就緒</td>
+                        <td>第 5 週末</td>
+                        <td>-</td>
+                        <td class="status-progress">🚧 準備中</td>
+                    </tr>
+                    <tr>
+                        <td>M3: ML 就緒</td>
+                        <td>第 9 週末</td>
+                        <td>-</td>
+                        <td class="status-pending">⏳ 待開始</td>
+                    </tr>
+                    <tr>
+                        <td>M4: 最佳化就緒</td>
+                        <td>第 12 週末</td>
+                        <td>-</td>
+                        <td class="status-pending">⏳ 待開始</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 執行摘要 Section -->
+        <div id="summary" class="content-section">
+            <h2>📝 Sprint 1 執行摘要</h2>
+            
+            <h3>一、執行概覽</h3>
+            <p>Sprint 1 聚焦於建立 HVAC-1 系統的基礎設施，採用 <strong>Foundation First Policy</strong> 確保所有下游模組有穩固的依賴基礎。截至 2026-02-21，Sprint 1 <strong>3/3 任務全部完成</strong>。</p>
+            
+            <h3>二、System Integration v1.2 核心模組</h3>
+            
+            <h4>SI-001: PipelineContext</h4>
+            <ul>
+                <li>Thread-safe Singleton 時間基準管理</li>
+                <li>E000 錯誤檢查、E000-W 時間漂移警告</li>
+                <li>未來資料檢測（容忍 5 分鐘時鐘誤差）</li>
+            </ul>
+            
+            <h4>SI-002: ETLConfig Pydantic 模型</h4>
+            <ul>
+                <li>AnnotationConfig: 單一特徵標註模型</li>
+                <li>SiteFeatureConfig: 案場特徵配置（含繼承支援）</li>
+                <li>E405 檢查: 目標變數不可啟用 Lag</li>
+            </ul>
+            
+            <h4>SI-003: ConfigLoader</h4>
+            <ul>
+                <li>E406 Excel/YAML 同步檢查（時間戳、Checksum）</li>
+                <li>E007 設定檔損毀檢查</li>
+                <li>跨平台檔案鎖、原子寫入</li>
+            </ul>
+            
+            <h4>SI-004: ETLContainer</h4>
+            <ul>
+                <li>4 步驟初始化順序控制</li>
+                <li>嚴格依賴驗證（步驟 N 需要步驟 N-1）</li>
+            </ul>
+            
+            <h3>三、Feature Annotation v1.3 核心模組</h3>
+            
+            <h4>Pydantic 模型</h4>
+            <ul>
+                <li>ColumnAnnotation: 欄位標註（18+ 物理類型、E405 驗證）</li>
+                <li>EquipmentConstraint: 設備限制條件（requires/mutex/sequence/range_check）</li>
+            </ul>
+            
+            <h4>FeatureAnnotationManager</h4>
+            <ul>
+                <li>唯讀介面（E500/E501 防護）</li>
+                <li>繼承鏈解析（E407 循環繼承檢查）</li>
+                <li>HVAC 專用查詢（設備類型、角色、限制條件）</li>
+            </ul>
+            
+            <h4>Excel 工具鏈</h4>
+            <ul>
+                <li>excel_to_yaml.py: 單向轉換、Checksum 計算</li>
+                <li>wizard.py: 互動式標註、HVAC 語意推測、自動備份</li>
+            </ul>
+            
+            <h3>四、測試覆蓋報告</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>類別</th>
+                        <th>測試數</th>
+                        <th>覆蓋範圍</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>PipelineContext</td>
+                        <td>9</td>
+                        <td>單例、E000、漂移、執行緒</td>
+                    </tr>
+                    <tr>
+                        <td>ETLConfig</td>
+                        <td>6</td>
+                        <td>Pydantic、E405、相容性</td>
+                    </tr>
+                    <tr>
+                        <td>ConfigLoader</td>
+                        <td>7</td>
+                        <td>E406、E007、檔案鎖</td>
+                    </tr>
+                    <tr>
+                        <td>ETLContainer</td>
+                        <td>7</td>
+                        <td>4 步驟初始化順序</td>
+                    </tr>
+                    <tr>
+                        <td>時間基準傳遞</td>
+                        <td>6</td>
+                        <td>跨日、注入、驗證</td>
+                    </tr>
+                    <tr>
+                        <td>FeatureAnnotationManager</td>
+                        <td>14</td>
+                        <td>初始化、查詢、HVAC、錯誤</td>
+                    </tr>
+                    <tr>
+                        <td>Pydantic 模型</td>
+                        <td>4</td>
+                        <td>E405、Lag 間隔、命名</td>
+                    </tr>
+                    <tr>
+                        <td><strong>總計</strong></td>
+                        <td><strong>53</strong></td>
+                        <td><strong>100%</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h3>五、風險緩解狀態</h3>
+            <ul>
+                <li>✅ <strong>R-001 依賴死鎖</strong>: Foundation First Policy 強制順序 - 已緩解</li>
+                <li>✅ <strong>R-002 時間漂移</strong>: E000 強制檢查、PipelineContext 單例 - 已緩解</li>
+                <li>✅ <strong>R-005 SSOT 版本漂移</strong>: E408 檢查、Checksum 驗證 - 已緩解</li>
+                <li>✅ <strong>R-007 Excel-YAML 不同步</strong>: E406 嚴格檢查、恢復指引 - 已緩解</li>
+                <li>✅ <strong>R-008 device_role 洩漏</strong>: E500 三層防護、Metadata 淨化 - 已緩解</li>
+            </ul>
+            
+            <h3>六、執行心得</h3>
+            
+            <h4>成功因素</h4>
+            <ol>
+                <li>Foundation First Policy 嚴格執行</li>
+                <li>錯誤代碼優先定義（E000-E999）</li>
+                <li>Test-Driven Development（53 項測試）</li>
+                <li>Pydantic 型別安全</li>
+                <li>SSOT 原則（單一真相源）</li>
+            </ol>
+            
+            <h4>技術亮點</h4>
+            <ol>
+                <li>Thread-safe Singleton（雙重檢查鎖定）</li>
+                <li>原子寫入（暫存檔+移動）</li>
+                <li>嚴格初始化順序（防止依賴死鎖）</li>
+                <li>完整錯誤訊息（含恢復建議）</li>
+                <li>HVAC 語意推測（自動推測設備類型）</li>
+            </ol>
+        </div>
+        
+        <!-- README Section -->
+        <div id="readme" class="content-section">
+            <h2>📖 專案 README</h2>
+            
+            <h3>🔍 專案概覽</h3>
+            <p>HVAC 冰水系統資料處理與分析的核心引擎，專注於提供高可信度 (High-Fidelity) 的 ETL 管道與物理感知 (Physics-Aware) 的能耗優化模型。</p>
+            
+            <h4>設計原則</h4>
+            <ul>
+                <li><strong>契約導向設計 (Contract-First)</strong>: 嚴格定義模組間介面與檢查點</li>
+                <li><strong>單一真相源 (SSOT)</strong>: 所有配置與常數集中管理</li>
+                <li><strong>Foundation First</strong>: 基礎設施優先，確保下游模組有穩固依賴</li>
+                <li><strong>Fail Fast</strong>: 寧可終止流程，也不傳遞可疑資料</li>
+            </ul>
+            
+            <h3>📁 專案結構 (v1.3)</h3>
+            <pre>
+HVAC_Analytics/
+├── src/
+│   ├── container.py            ✅ ETLContainer (4步驟初始化)
+│   ├── context.py              ✅ PipelineContext (時間基準)
+│   ├── features/               ✅ Feature Annotation v1.3
+│   │   ├── models.py           ✅ Pydantic 模型
+│   │   └── annotation_manager.py  ✅ FeatureAnnotationManager
+│   ├── etl/
+│   │   └── config_models.py    ✅ SSOT 配置模型
+│   └── utils/
+│       └── config_loader.py    ✅ ConfigLoader
+├── config/features/            ✅ Feature Annotation 配置
+├── tools/features/             ✅ Wizard、excel_to_yaml
+└── tests/                      ✅ 53 項測試
+            </pre>
+            
+            <h3>🚀 快速開始</h3>
+            
+            <h4>使用 ETLContainer</h4>
+            <pre><code>from src.container import ETLContainer
+
+# 初始化 HVAC 服務
+container = ETLContainer(site_id="cgmh_ty")
+container.initialize_all()
+
+# 取得時間基準
+baseline = container.get_temporal_baseline()
+
+# 取得配置
+config = container.get_config()</code></pre>
+            
+            <h4>使用 FeatureAnnotationManager</h4>
+            <pre><code>from src.features import FeatureAnnotationManager
+
+manager = FeatureAnnotationManager("cgmh_ty")
+
+# 查詢設備角色
+role = manager.get_device_role("chiller_01_kw")  # "primary"
+
+# 查詢設備限制
+constraints = manager.get_equipment_constraints(phase="precheck")
+
+# HVAC 專用查詢
+chillers = manager.get_columns_by_equipment_type("chiller")
+targets = manager.get_target_columns()</code></pre>
+            
+            <h4>使用 Wizard CLI</h4>
+            <pre><code># 互動式標註
+python tools/features/wizard.py \
+  --site cgmh_ty \
+  --csv data.csv \
+  --excel features.xlsx
+
+# 轉換 Excel 至 YAML
+python tools/features/excel_to_yaml.py \
+  --input features.xlsx</code></pre>
+            
+            <h3>🧪 測試</h3>
+            <pre><code># 執行全部測試
+python3 -m pytest tests/ -v
+
+# 預期結果: 53 passed</code></pre>
+            
+            <h3>📚 相關文件</h3>
+            <ul>
+                <li>Interface Contract v1.1 - 錯誤代碼體系、檢查點定義</li>
+                <li>System Integration v1.2 - 4步驟初始化、Foundation First</li>
+                <li>Feature Annotation v1.3 - 特徵標註、HVAC 設備限制</li>
+                <li>Sprint 1 執行摘要 - 詳細完成項目與測試報告</li>
+            </ul>
+            
+            <h3>🤝 貢獻指南</h3>
+            <p>確保所有新代碼遵守：</p>
+            <ol>
+                <li>Foundation First Policy - 按照 Sprint 順序實施</li>
+                <li>錯誤代碼規範 - 使用 E000-E999 錯誤代碼體系</li>
+                <li>Temporal Baseline - 禁止使用 <code>datetime.now()</code></li>
+                <li>職責分離 - Cleaner 不傳遞 <code>device_role</code></li>
+                <li>唯讀防護 - 禁止直接修改 YAML</li>
+            </ol>
+        </div>
+        
+        <div class="footer">
+            <p>HVAC-1 Sprint 1 完成報告歸檔 | 產生日期: 2026-02-21</p>
+            <p>文件版本: v1.0 | 狀態: ✅ 已完成 (3/3)</p>
+        </div>
+    </div>
+    
+    <script>
+        function showSection(sectionId) {
+            // 隱藏所有 section
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // 移除所有 tab 的 active
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // 顯示選中的 section
+            document.getElementById(sectionId).classList.add('active');
+            
+            // 設定對應 tab 為 active
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>

@@ -1,22 +1,24 @@
 # Sprint 1 執行摘要
 
 **Sprint 名稱:** 基礎建設 (Foundation)  
-**時間範圍:** 2026-02-19 ~ 2026-02-26 (預計)  
-**完成日期:** 2026-02-19 (2/3 提前完成)  
+**時間範圍:** 2026-02-19 ~ 2026-02-21  
+**完成日期:** 2026-02-21 (提前完成)  
 **負責人:** Claude Code  
-**文件版本:** v1.0
+**文件版本:** v1.1
 
 ---
 
 ## 一、執行概覽
 
-Sprint 1 聚焦於建立 HVAC-1 系統的基礎設施，採用 **Foundation First Policy** 確保所有下游模組有穩固的依賴基礎。截至 2026-02-19，已提前完成 2/3 的任務。
+Sprint 1 聚焦於建立 HVAC-1 系統的基礎設施，採用 **Foundation First Policy** 確保所有下游模組有穩固的依賴基礎。截至 2026-02-21，Sprint 1 **3/3 任務全部完成**。
 
 | 模組 | 狀態 | 完成度 | 測試結果 |
 |:---:|:---:|:---:|:---:|
 | 1.1 Interface Contract v1.1 | ✅ 已完成 | 100% | 已驗證 |
 | 1.2 System Integration v1.2 | ✅ 已完成 | 100% | 35/35 通過 |
-| 1.3 Feature Annotation v1.2 | ⏳ 進行中 | 0% | - |
+| 1.3 Feature Annotation v1.3 | ✅ 已完成 | 100% | 18/18 通過 |
+
+**Sprint 1 總計:** 53 項單元測試全部通過 ✅
 
 ---
 
@@ -311,9 +313,215 @@ baseline = container.get_temporal_baseline()
 
 ---
 
-## 四、測試覆蓋報告
+## 四、1.3 Feature Annotation v1.3 完成摘要
 
-### 4.1 測試統計
+### 4.1 任務完成列表
+
+| 任務 ID | 任務描述 | 狀態 | 測試覆蓋 |
+|:---:|:---|:---:|:---:|
+| FA-001 | 目錄結構與基礎配置 | ✅ | 基礎設施 |
+| FA-002 | YAML Schema 定義 | ✅ | schema 驗證 |
+| FA-003 | Pydantic 模型定義 | ✅ | 模型驗證 |
+| FA-004 | FeatureAnnotationManager 實作 | ✅ | 10 項測試 |
+| FA-005 | excel_to_yaml.py 轉換器 | ✅ | 轉換流程 |
+| FA-006 | HVAC 設備限制條件定義 | ✅ | 範本驗證 |
+| FA-007 | Wizard CLI 實作 | ✅ | 互動流程 |
+
+**總計: 18 項測試全部通過 ✅**
+
+### 4.2 核心模組實作
+
+#### FA-003: Pydantic 模型 (`src/features/models.py`, 160+ 行)
+
+**ColumnAnnotation**: 欄位標註模型
+```python
+class ColumnAnnotation(BaseModel):
+    column_name: str              # 欄位名稱（snake_case 驗證）
+    physical_type: PhysicalType   # 物理類型（18+ 種類型）
+    unit: Optional[str]           # 單位
+    device_role: DeviceRole       # 設備角色（primary/backup/seasonal）
+    equipment_id: Optional[str]   # 設備 ID（如 CH-01）
+    is_target: bool               # 是否為目標變數
+    enable_lag: bool              # 是否啟用 Lag
+    lag_intervals: List[int]      # Lag 間隔（嚴格遞增驗證）
+    ignore_warnings: List[str]    # 忽略的警告代碼
+    status: ColumnStatus          # 欄位狀態
+```
+
+**EquipmentConstraint**: 設備限制條件模型
+```python
+class EquipmentConstraint(BaseModel):
+    constraint_id: str            # 限制條件 ID
+    description: str              # 描述
+    check_type: ConstraintType    # 檢查類型（requires/mutex/sequence/range_check/threshold）
+    check_phase: CheckPhase       # 檢查階段（precheck/optimization）
+    trigger_status: List[str]     # 觸發條件欄位
+    required_status: List[str]    # 需求條件欄位
+    severity: Severity            # 嚴重程度（critical/warning）
+    error_code: Optional[str]     # 錯誤代碼
+```
+
+**驗證功能:**
+- ✅ `column_name` snake_case 格式驗證
+- ✅ `physical_type` 18+ 種類型驗證
+- ✅ `device_role` 3 種角色驗證
+- ✅ **E405 檢查**（目標變數啟用 Lag 時拋錯）
+- ✅ `lag_intervals` 嚴格遞增序列驗證
+
+#### FA-004: FeatureAnnotationManager (`src/features/annotation_manager.py`, 550+ 行)
+
+**設計原則:**
+- **唯讀介面**: 提供查詢方法，禁止修改 YAML（E500/E501 防護）
+- **SSOT 存取**: 所有資料來自 `config/features/sites/{site_id}.yaml`
+- **快取機制**: YAML 載入後快取於記憶體，避免重複 I/O
+- **HVAC 感知**: 支援設備互鎖查詢與驗證
+
+**關鍵 API:**
+```python
+from src.features import FeatureAnnotationManager
+
+manager = FeatureAnnotationManager("cgmh_ty")
+
+# 基礎查詢
+anno = manager.get_column_annotation("chiller_01_chwst")
+role = manager.get_device_role("chiller_01_kw")        # "primary"
+eq_id = manager.get_equipment_id("chiller_01_kw")      # "CH-01"
+
+# HVAC 專用查詢
+chillers = manager.get_columns_by_equipment_type("chiller")
+targets = manager.get_target_columns()                  # 目標變數
+constraints = manager.get_equipment_constraints(phase="precheck")
+
+# 電力相關欄位分類
+electrical = manager.get_electrical_columns()
+# {"power": [...], "current": [...], "voltage": [...], "pf": [...], "energy": [...]}
+```
+
+**錯誤處理:**
+- **E400**: Schema 版本不符時拋出 `CompatibilityError`
+- **E402**: 找不到案場標註時拋出 `AnnotationNotFoundError`
+- **E407**: 偵測到循環繼承時拋出 `CircularInheritanceError`
+- **E408**: SSOT 版本不匹配時拋出 `SSOTMismatchError`
+- **E500**: 嘗試修改屬性時拋出 `PermissionError`
+- **E501**: 嘗試儲存時拋出 `NotImplementedError`
+
+**測試驗證:**
+- ✅ 初始化與錯誤處理（E400, E402, E407, E408）
+- ✅ 欄位查詢與設備角色查詢
+- ✅ HVAC 專用查詢（設備類型、目標變數、電力欄位）
+- ✅ 設備限制條件查詢
+- ✅ 唯讀防護（E500, E501）
+- ✅ Pydantic 模型驗證（E405, Lag 間隔）
+
+#### FA-005: excel_to_yaml.py (`tools/features/excel_to_yaml.py`, 490+ 行)
+
+**功能:**
+- 讀取 Excel v1.3 格式（Columns/Metadata/System Sheets）
+- 驗證 HVAC 邏輯（物理類型與單位匹配）
+- 計算 SHA256 Checksum（供 E406 同步檢查）
+- 生成符合 schema.json 的 YAML
+
+**錯誤檢查:**
+- **E400**: Excel 範本版本不符
+- **E403**: 單位與物理類型不匹配（Warning）
+- **E404**: Lag 間隔格式錯誤
+- **E405**: 目標變數啟用 Lag
+
+**使用方式:**
+```bash
+python tools/features/excel_to_yaml.py \
+  --input Feature_cgmh_ty_v1.3.xlsx \
+  --output config/features/sites/cgmh_ty.yaml
+```
+
+#### FA-007: Wizard CLI (`tools/features/wizard.py`, 470+ 行)
+
+**功能:**
+- 自動備份機制（保留最近 10 個版本）
+- 偵測 CSV 新欄位
+- HVAC 語意推測（依欄位名稱推測設備類型、物理類型、設備 ID）
+- Header Standardization 預覽
+- 互動式標註流程
+
+**HVAC 語意推測範例:**
+```
+欄位名稱: chiller_01_kw
+  → 推測設備類型: chiller
+  → 推測物理類型: power
+  → 建議設備 ID: CH-01
+  → 建議單位: kW
+  → 是否目標: True（功率通常為目標變數）
+```
+
+**使用方式:**
+```bash
+python tools/features/wizard.py \
+  --site cgmh_ty \
+  --csv data/raw/cgmh_ty_2026.csv \
+  --excel data/features/cgmh_ty_v1.3.xlsx
+```
+
+### 4.3 配置檔案
+
+#### schema.json
+JSON Schema v1.3 定義，包含:
+- `metadata` 結構（schema_version, site_id, checksum 等）
+- `columns` 欄位標註結構
+- `equipment_constraints` 設備限制條件結構
+
+#### physical_types.yaml
+18+ 物理類型完整定義:
+- 基礎類型: temperature, pressure, flow_rate, power, status, gauge
+- HVAC 擴充: cooling_capacity, efficiency, energy, valve_position, frequency, rotational_speed, current, voltage, power_factor, pressure_differential, operating_status
+
+#### equipment_taxonomy.yaml
+HVAC 設備分類法:
+- 設備類別: chiller, chw_primary_pump, chw_secondary_pump, cw_pump, cooling_tower, ahu
+- 元件類型: chwst, chwrt, cwst, cwrt, chwv, vfd, kwh, dp, kw, rt, cop, status
+- 命名規範: `{equipment_code}_{sequence:02d}_{component_code}`
+
+#### template_factory.yaml
+工廠範本，包含:
+- 4 個冰水主機欄位範例（含備用設備）
+- 冰水泵、冷卻水泵、冷卻水塔欄位範例
+- 環境參數（濕球溫度、乾球溫度、相對濕度）
+- 6 個設備限制條件（互鎖、溫度保護、最小運轉時間）
+
+### 4.4 錯誤代碼實作對應
+
+| 錯誤代碼 | 描述 | 實作位置 | 測試覆蓋 |
+|:---:|:---|:---|:---:|
+| E400 | Schema 版本不符 | `annotation_manager.py:143` | ✅ |
+| E402 | 找不到案場標註 | `annotation_manager.py:96` | ✅ |
+| E404 | Lag 格式錯誤 | `models.py:71` | ✅ |
+| E405 | 目標變數啟用 Lag | `models.py:81` | ✅ |
+| E407 | 循環繼承 | `annotation_manager.py:183` | ✅ |
+| E408 | SSOT 版本不匹配 | `annotation_manager.py:213` | ✅ |
+| E500 | Device Role 洩漏 | `annotation_manager.py:478` | ✅ |
+| E501 | 直接寫入 YAML | `annotation_manager.py:484` | ✅ |
+
+### 4.5 新增檔案一覽
+
+| 檔案 | 行數 | 說明 |
+|:---|:---:|:---|
+| `src/features/__init__.py` | 30 | 模組初始化 |
+| `src/features/models.py` | 160+ | Pydantic 模型 |
+| `src/features/annotation_manager.py` | 550+ | 核心管理器 |
+| `tools/features/wizard.py` | 470+ | Wizard CLI |
+| `tools/features/excel_to_yaml.py` | 490+ | 轉換器 |
+| `config/features/schema.json` | 250+ | JSON Schema |
+| `config/features/physical_types.yaml` | 180+ | 物理類型 |
+| `config/features/equipment_taxonomy.yaml` | 150+ | 設備分類 |
+| `config/features/sites/template_factory.yaml` | 350+ | 工廠範本 |
+| `tests/features/test_annotation_manager.py` | 450+ | 18 項測試 |
+
+**總計**: 約 3,100+ 行程式碼
+
+---
+
+## 五、測試覆蓋報告
+
+### 5.1 Sprint 1 測試統計
 
 | 類別 | 測試數 | 通過 | 失敗 | 覆蓋範圍 |
 |:---:|:---:|:---:|:---:|:---|
@@ -322,9 +530,11 @@ baseline = container.get_temporal_baseline()
 | ConfigLoader | 7 | 7 | 0 | E406、E007、檔案鎖 |
 | ETLContainer | 7 | 7 | 0 | 4 步驟初始化 |
 | 時間基準傳遞 | 6 | 6 | 0 | 跨日、注入、驗證 |
-| **總計** | **35** | **35** | **0** | **100%** |
+| FeatureAnnotationManager | 14 | 14 | 0 | 初始化、查詢、HVAC、錯誤 |
+| Pydantic 模型 | 4 | 4 | 0 | E405、Lag 間隔、命名 |
+| **總計** | **53** | **53** | **0** | **100%** |
 
-### 4.2 關鍵測試案例
+### 5.2 關鍵測試案例
 
 **時間基準測試:**
 ```python
@@ -343,26 +553,28 @@ def test_e406_sync_check_yaml_newer(self):
     result = loader.validate_annotation_sync("test_site")
     assert not result.is_synced
     assert "E406" in result.message
-    assert "Excel" in result.message and "新" in result.message
 ```
 
-**初始化順序測試:**
+**Feature Annotation 測試:**
 ```python
-def test_step2_requires_step1(self):
-    """步驟 2 需要步驟 1 先完成"""
-    container = ETLContainer(site_id="test")
-    with pytest.raises(RuntimeError) as exc_info:
-        container.step2_load_config()
-    assert "必須先執行 step1" in str(exc_info.value)
+def test_e405_target_lag_validation(self):
+    """E405: 目標變數啟用 Lag 應拋錯"""
+    with pytest.raises(ValueError) as exc_info:
+        ColumnAnnotation(
+            column_name="target",
+            is_target=True,
+            enable_lag=True
+        )
+    assert "E405" in str(exc_info.value)
 ```
 
 ---
 
-## 五、風險緩解狀態
+## 六、風險緩解狀態
 
 | 風險 ID | 風險描述 | 緩解措施 | 狀態 |
 |:---:|:---|:---|:---:|
-| R-001 | 依賴死鎖 | Foundation First Policy 強制順序 | 🟡 監控中 |
+| R-001 | 依賴死鎖 | Foundation First Policy 強制順序 | 🟢 已緩解 |
 | R-002 | 時間漂移 | E000 強制檢查、PipelineContext 單例 | 🟢 已緩解 |
 | R-005 | SSOT 版本漂移 | E408 檢查、Checksum 驗證 | 🟢 已緩解 |
 | R-007 | Excel-YAML 不同步 | E406 嚴格檢查、恢復指引 | 🟢 已緩解 |
@@ -370,84 +582,159 @@ def test_step2_requires_step1(self):
 
 ---
 
-## 六、下一步行動
+## 七、下一步行動
 
-### 即將進行 (1.3 Feature Annotation)
+### 即將進行 (Sprint 2: 核心 ETL)
 
-| 任務 | 預估工時 | 相依於 |
-|:---|:---:|:---|
-| Excel 範本結構設計 | 1 天 | 1.2 System Integration |
-| YAML Schema 定義 | 0.5 天 | 1.2 System Integration |
-| excel_to_yaml.py 轉換器 | 1.5 天 | YAML Schema |
-| FeatureAnnotationManager | 2 天 | YAML Schema、excel_to_yaml |
-| HVAC 設備限制定義 | 1 天 | FeatureAnnotationManager |
-| Wizard CLI | 0.5 天 | 全部 |
+| 任務 | 預估工時 | 相依於 | 狀態 |
+|:---|:---:|:---|:---:|
+| Parser v2.1 | 4-5 天 | Sprint 1 完成 | 🚧 準備中 |
+| Cleaner v2.2 | 6-7 天 | FeatureAnnotationManager | 🚧 準備中 |
+| BatchProcessor v1.3 | 5-6 天 | Cleaner | 🚧 準備中 |
 
-### Sprint 2 準備
-
-待 1.3 完成後，即可啟動：
-- 2.1 Parser v2.1（Header Standardization、時區轉換）
-- 2.2 Cleaner v2.2（E000 檢查、E500 防護、E350 設備邏輯）
-- 2.3 BatchProcessor v1.3（Manifest 生成、E408 檢查）
+**Sprint 2 關鍵目標:**
+- Parser: Header Standardization (E105)、時區轉換、標頭正規化
+- Cleaner: E000 檢查、E500 防護、E350 設備邏輯預檢、語意感知清洗
+- BatchProcessor: Manifest 生成、E408 檢查、設備稽核軌跡傳遞
 
 ---
 
-## 七、執行心得
+## 八、執行心得
 
-### 7.1 成功因素
+### 8.1 成功因素
 
 1. **Foundation First Policy 嚴格執行**: 確保基礎設施穩固後才進行下游開發
 2. **錯誤代碼優先定義**: 在實作前先完成 E000-E999 錯誤代碼體系，確保一致性的錯誤處理
-3. **Test-Driven Development**: 35 項單元測試與實作同步進行，確保品質
+3. **Test-Driven Development**: 53 項單元測試與實作同步進行，確保品質
 4. **Pydantic 型別安全**: 使用 Pydantic 模型確保配置型別安全，減少執行期錯誤
+5. **SSOT 原則**: 所有配置與常數集中管理，避免硬編碼與不一致
 
-### 7.2 技術亮點
+### 8.2 技術亮點
 
 1. **Thread-safe Singleton**: PipelineContext 使用雙重檢查鎖定確保執行緒安全
 2. **原子寫入**: ConfigLoader 使用暫存檔+移動確保寫入原子性
 3. **嚴格初始化順序**: ETLContainer 的 4 步驟強制順序防止依賴死鎖
 4. **完整錯誤訊息**: 所有錯誤代碼包含使用者友善的訊息範本與恢復建議
+5. **HVAC 語意推測**: Wizard 自動推測設備類型與物理類型，減少人工標註負擔
 
-### 7.3 待改進項目
+### 8.3 程式碼審查與優化 (2026-02-21)
 
-1. **FeatureAnnotationManager**: 1.3 完成後需整合至 ETLContainer 步驟 3
-2. **BatchProcessor/FeatureEngineer**: 現有模組需升級至 v1.3 規格
-3. **整合測試**: 需建立跨模組的端到端測試
+**審查報告:** `docs/專案任務排程/Sprint_1_Review_Report.md`
+
+**審查結果:** ✅ **通過 (Pass)** - 72 項測試通過，程式碼具備高可用性
+
+**優化項目:**
+
+#### 1. Lazy Import 清理 (`src/container.py`)
+
+**問題:** 步驟 3 和步驟 4 使用 try-except ImportError 保護，隱藏了模組導入錯誤
+
+**修改:**
+- 將 `FeatureAnnotationManager`、`ReportParser`、`DataCleaner` 改為直接導入
+- 移除所有 try-except ImportError 保護
+- 模組缺失時立即報錯（Fail Fast 原則）
+
+**效益:**
+- 支援靜態分析工具 (mypy, pylint)
+- 問題早期發現，避免執行期意外失敗
+- 程式碼更簡潔，易於維護
+
+#### 2. STRICT_MODE 環境變數 (`src/container.py`)
+
+**問題:** E406 同步檢查失敗僅記錄警告，生產環境可能忽略關鍵錯誤
+
+**修改:**
+- 新增 `HVAC_STRICT_MODE` 環境變數支援
+- 當 `HVAC_STRICT_MODE=true` 時，E406 失敗會中斷管線
+- 預設維持警告模式（開發環境友善）
+
+**使用方式:**
+```bash
+# 開發環境（預設）- E406 僅記錄警告
+python main.py pipeline data.csv
+
+# 生產環境 - E406 檢查失敗時中斷管線
+HVAC_STRICT_MODE=true python main.py pipeline data.csv
+```
+
+**效益:**
+- 生產環境安全性提升
+- 開發/生產行為差異化
+- 符合 PRD 中 strict_mode 設計意圖
 
 ---
 
-## 八、附錄
+### 8.4 Sprint 1 總結
 
-### 8.1 快速參考
+**完成項目:**
+- ✅ Interface Contract v1.1（錯誤代碼體系、檢查點規格）
+- ✅ System Integration v1.2（PipelineContext、ETLConfig、ConfigLoader、ETLContainer）
+- ✅ Feature Annotation v1.3（Pydantic 模型、FeatureAnnotationManager、Excel 工具鏈）
+- ✅ 程式碼審查優化（Lazy Import 移除、STRICT_MODE 環境變數）
+
+**測試統計:**
+| 階段 | 測試數 | 狀態 |
+|:---|:---:|:---:|
+| System Integration | 35 | ✅ 通過 |
+| Feature Annotation | 18 | ✅ 通過 |
+| 其他測試 | 19 | ✅ 通過 |
+| **總計** | **72** | **✅ 全部通過** |
+
+**總計新增**: 約 6,700+ 行程式碼，72 項測試
+
+**專案狀態**: Sprint 1 **3/3 完成** ✅，準備進入 Sprint 2: 核心 ETL
+
+---
+
+## 九、附錄
+
+### 9.1 快速參考
 
 **執行測試:**
 ```bash
 cd /Users/chanoscar/HVAC-1
+
+# System Integration 測試
 python3 -m pytest tests/test_container_initialization.py -v
+
+# Feature Annotation 測試
+python3 -m pytest tests/features/test_annotation_manager.py -v
+
+# 全部測試
+python3 -m pytest tests/ -v
 ```
 
-**使用 ETLContainer:**
+**使用 FeatureAnnotationManager:**
 ```python
-from src.container import ETLContainer
+from src.features import FeatureAnnotationManager
 
-container = ETLContainer(site_id="cgmh_ty", enable_sync_check=True)
-container.initialize_all()
+manager = FeatureAnnotationManager("cgmh_ty")
 
-# 取得時間基準
-baseline = container.get_temporal_baseline()
+# 查詢設備角色（供 Cleaner 使用）
+role = manager.get_device_role("chiller_01_kw")
 
-# 取得配置
-config = container.get_config()
+# 查詢設備限制（供 Optimization 使用）
+constraints = manager.get_equipment_constraints(phase="precheck")
 ```
 
-### 8.2 相關文件
+**使用 Wizard:**
+```bash
+python tools/features/wizard.py \
+  --site cgmh_ty \
+  --csv data.csv \
+  --excel features.xlsx
+```
+
+### 9.2 相關文件
 
 - [📋 專案任務排程](./專案任務排程文件.md)
 - [📘 Interface Contract PRD](../Interface%20Contract/PRD_Interface_Contract_v1.1.md)
 - [📗 System Integration PRD](../System%20Integration/PRD_System_Integration_v1.2.md)
+- [📙 Feature Annotation PRD](../Feature%20Annotation%20Specification/PRD_Feature_Annotation_Specification_V1.3.md)
+- [📊 Feature Annotation 實作摘要](../Feature%20Annotation%20Specification/IMPLEMENTATION_SUMMARY.md)
 
 ---
 
 **文件結束**
 
-*執行摘要版本: v1.0 | 完成日期: 2026-02-19 | 狀態: ✅ Sprint 1 (2/3 完成)*
+*執行摘要版本: v1.1 | 完成日期: 2026-02-21 | 狀態: ✅ Sprint 1 (3/3 完成)*

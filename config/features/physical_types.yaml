@@ -1,0 +1,207 @@
+# 物理類型完整定義 v1.3
+# 定義 18+ 種物理類型及其預設值、驗證規則
+
+schema_version: "1.3"
+description: "物理類型定義 - 供特徵標註與資料驗證使用"
+
+# =============================================================================
+# 基礎類型
+# =============================================================================
+physical_types:
+  temperature:
+    display_name: "溫度"
+    default_unit: "°C"
+    valid_units: ["°C", "°F", "K"]
+    distribution_check:
+      expected_mean_range: [-10, 50]
+      out_of_range_action: "flag"
+    typical_lag_intervals: [1, 4, 96]  # 15分, 1小時, 24小時
+    
+  pressure:
+    display_name: "壓力"
+    default_unit: "kPa"
+    valid_units: ["kPa", "Pa", "bar", "psi", "MPa"]
+    distribution_check:
+      expected_mean_range: [0, 1000]
+      out_of_range_action: "flag"
+    typical_lag_intervals: [1, 4]
+    
+  flow_rate:
+    display_name: "流量"
+    default_unit: "L/s"
+    valid_units: ["L/s", "m³/h", "GPM", "L/min"]
+    distribution_check:
+      expected_mean_range: [0, 1000]
+      out_of_range_action: "flag"
+    typical_lag_intervals: [1, 4]
+    
+  power:
+    display_name: "功率"
+    default_unit: "kW"
+    valid_units: ["kW", "W", "MW"]
+    distribution_check:
+      expected_mean_range: [0, 5000]
+      out_of_range_action: "flag"
+    typical_lag_intervals: [1, 4]  # 功率類使用高頻 Lag
+    is_common_target: true
+    
+  chiller_load:
+    display_name: "主機負載"
+    default_unit: "%"
+    valid_units: ["%", "RT", "kW"]
+    distribution_check:
+      expected_mean_range: [0, 100]
+      out_of_range_action: "clamp"
+    typical_lag_intervals: [1, 4]
+    
+  status:
+    display_name: "狀態"
+    default_unit: null
+    valid_units: []
+    distribution_check:
+      expected_mean_range: [0, 1]
+      out_of_range_action: "flag"
+    typical_lag_intervals: []
+    
+  gauge:
+    display_name: "儀表"
+    default_unit: null
+    valid_units: []
+    distribution_check:
+      expected_mean_range: null
+      out_of_range_action: "none"
+    typical_lag_intervals: [1, 4]
+
+# =============================================================================
+# HVAC 擴充類型
+# =============================================================================
+  cooling_capacity:
+    display_name: "冷卻容量"
+    default_unit: "RT"
+    valid_units: ["RT", "kW", "ton"]
+    distribution_check:
+      expected_mean_range: [0, 2000]
+      out_of_range_action: "flag"
+    typical_lag_intervals: [1, 4]
+    
+  efficiency:
+    display_name: "效率"
+    default_unit: "COP"
+    valid_units: ["COP", "kW/RT", "EER"]
+    distribution_check:
+      expected_mean_range: [2, 8]
+      out_of_range_action: "flag"
+    typical_lag_intervals: [1, 4]
+    is_common_target: true
+    hvac_notes: "COP < 2 或 > 8 視為異常，觸發 E352"
+    
+  energy:
+    display_name: "累積電能"
+    default_unit: "kWh"
+    valid_units: ["kWh", "MWh", "J", "MJ"]
+    distribution_check:
+      expected_mean_range: [0, 1000000]
+      out_of_range_action: "flag"
+    typical_lag_intervals: []
+    hvac_notes: "必須單調遞增，違反時觸發 E351"
+    monotonicity: "increasing"
+    
+  valve_position:
+    display_name: "閥門開度"
+    default_unit: "%"
+    valid_units: ["%"]
+    distribution_check:
+      expected_mean_range: [0, 100]
+      out_of_range_action: "clamp"
+    typical_lag_intervals: [1, 96]
+    
+  frequency:
+    display_name: "頻率"
+    default_unit: "Hz"
+    valid_units: ["Hz"]
+    distribution_check:
+      expected_mean_range: [0, 60]
+      out_of_range_action: "flag"
+    typical_lag_intervals: [1, 4]
+    hvac_notes: "VFD 控制訊號，通常 0-60Hz"
+    
+  rotational_speed:
+    display_name: "轉速"
+    default_unit: "RPM"
+    valid_units: ["RPM"]
+    distribution_check:
+      expected_mean_range: [0, 3600]
+      out_of_range_action: "flag"
+    typical_lag_intervals: [1, 4]
+    
+  current:
+    display_name: "電流"
+    default_unit: "A"
+    valid_units: ["A", "mA", "kA"]
+    distribution_check:
+      expected_mean_range: [0, 1000]
+      out_of_range_action: "flag"
+    typical_lag_intervals: [1, 4]
+    
+  voltage:
+    display_name: "電壓"
+    default_unit: "V"
+    valid_units: ["V", "kV", "mV"]
+    distribution_check:
+      expected_mean_range: [0, 500]
+      out_of_range_action: "flag"
+    typical_lag_intervals: [1, 4]
+    
+  power_factor:
+    display_name: "功率因數"
+    default_unit: "PF"
+    valid_units: ["PF"]
+    distribution_check:
+      expected_mean_range: [0.5, 1.0]
+      out_of_range_action: "flag"
+    typical_lag_intervals: [1, 96]
+    hvac_notes: "PF < 0.8 持續超過 1 小時觸發 W407"
+    
+  pressure_differential:
+    display_name: "壓差"
+    default_unit: "kPa"
+    valid_units: ["kPa", "Pa", "bar", "mmH2O", "inWG"]
+    distribution_check:
+      expected_mean_range: [0, 100]
+      out_of_range_action: "flag"
+    typical_lag_intervals: [1]
+    hvac_notes: "過濾器壓差監測"
+    
+  operating_status:
+    display_name: "運轉狀態"
+    default_unit: null
+    valid_units: []
+    distribution_check:
+      expected_mean_range: [0, 1]
+      out_of_range_action: "flag"
+    typical_lag_intervals: []
+    hvac_notes: "0=停機, 1=運轉中"
+    discrete_values: [0, 1]
+
+# =============================================================================
+# 通用驗證規則
+# =============================================================================
+validation_rules:
+  # 零值比例檢查
+  zero_ratio_check:
+    primary_threshold: 0.10      # 主設備 10%
+    backup_threshold: 0.50       # 備用設備 50%
+    seasonal_threshold: 0.80     # 季節性設備 80%
+    
+  # 單調性檢查
+  monotonicity_check:
+    energy_tolerance: 0.01       # 電表允許 1% 誤差
+    
+  # 溫差檢查
+  delta_t_check:
+    low_threshold: 1.0           # 低溫差症候群閾值 (°C)
+    
+  # 效率檢查
+  efficiency_check:
+    cop_min: 2.0
+    cop_max: 8.0

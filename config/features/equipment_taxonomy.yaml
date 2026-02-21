@@ -1,0 +1,211 @@
+# HVAC 設備分類法 v1.3
+# 定義冰水主機房與空調系統的設備類別與命名規範
+
+schema_version: "1.3"
+description: "HVAC 設備分類法 - 統一命名與分類邏輯"
+
+# =============================================================================
+# 設備類別定義
+# =============================================================================
+equipment_categories:
+  chiller:
+    name: "冰水主機"
+    english_code: "CH"
+    prefixes:
+      - "chiller_"
+      - "ch_"
+    device_roles: ["primary", "backup"]
+    description: "壓縮式或吸收式冰水主機"
+    
+  chw_primary_pump:
+    name: "冰水一次泵"
+    english_code: "CHW-P"
+    prefixes:
+      - "chw_pri_pump_"
+      - "chwp"
+    device_roles: ["primary"]
+    description: "冰水主機側一次側循環泵"
+    
+  chw_secondary_pump:
+    name: "冰水區域泵"
+    english_code: "CHW-S"
+    prefixes:
+      - "chw_sec_pump_"
+      - "chws"
+    device_roles: ["primary"]
+    description: "負載側二次側變頻泵"
+    
+  cw_pump:
+    name: "冷卻水泵"
+    english_code: "CW-P"
+    prefixes:
+      - "cw_pump_"
+      - "cwp"
+    device_roles: ["primary"]
+    description: "冷卻水循環泵"
+    
+  cooling_tower:
+    name: "冷卻水塔"
+    english_code: "CT"
+    prefixes:
+      - "ct_"
+      - "cooling_tower_"
+    device_roles: ["primary", "backup"]
+    description: "冷卻水散熱水塔"
+    
+  ahu:
+    name: "空調箱"
+    english_code: "AHU"
+    prefixes:
+      - "ahu_"
+    device_roles: ["primary"]
+    description: "空氣處理機組"
+
+# =============================================================================
+# 元件類型對照表
+# =============================================================================
+component_types:
+  chwst:
+    name: "冰水出水溫度"
+    english_code: "CHWST"
+    physical_type: "temperature"
+    unit: "°C"
+    description: "Chilled Water Supply Temperature"
+    
+  chwrt:
+    name: "冰水回水溫度"
+    english_code: "CHWRT"
+    physical_type: "temperature"
+    unit: "°C"
+    description: "Chilled Water Return Temperature"
+    
+  cwst:
+    name: "冷卻水出水溫度"
+    english_code: "CWST"
+    physical_type: "temperature"
+    unit: "°C"
+    description: "Cooling Water Supply Temperature"
+    
+  cwrt:
+    name: "冷卻水回水溫度"
+    english_code: "CWRT"
+    physical_type: "temperature"
+    unit: "°C"
+    description: "Cooling Water Return Temperature"
+    
+  chwv:
+    name: "冰水閥開度"
+    english_code: "CHWV"
+    physical_type: "valve_position"
+    unit: "%"
+    description: "Chilled Water Valve Position"
+    
+  vfd:
+    name: "變頻器頻率"
+    english_code: "VFD"
+    physical_type: "frequency"
+    unit: "Hz"
+    description: "Variable Frequency Drive"
+    
+  kwh:
+    name: "累積用電量"
+    english_code: "kWh"
+    physical_type: "energy"
+    unit: "kWh"
+    description: "Cumulative Energy Consumption"
+    
+  dp:
+    name: "過濾器壓差"
+    english_code: "DP"
+    physical_type: "pressure_differential"
+    unit: "kPa"
+    description: "Filter Differential Pressure"
+    
+  kw:
+    name: "功率"
+    english_code: "kW"
+    physical_type: "power"
+    unit: "kW"
+    description: "Real-time Power"
+    
+  rt:
+    name: "冷凍噸"
+    english_code: "RT"
+    physical_type: "cooling_capacity"
+    unit: "RT"
+    description: "Refrigeration Ton"
+    
+  cop:
+    name: "效率"
+    english_code: "COP"
+    physical_type: "efficiency"
+    unit: "COP"
+    description: "Coefficient of Performance"
+    
+  status:
+    name: "運轉狀態"
+    english_code: "STATUS"
+    physical_type: "operating_status"
+    unit: null
+    description: "Equipment Running Status (0/1)"
+
+# =============================================================================
+# 命名規範
+# =============================================================================
+naming_conventions:
+  # 標準格式: {equipment_code}_{sequence:02d}_{component_code}
+  # 範例: chiller_01_chwst, chw_pri_pump_01_hz
+  
+  pattern: "^[a-z][a-z0-9_]*$"
+  
+  components:
+    - "{equipment_prefix}{sequence}_{component_code}"
+    - "{equipment_prefix}{sequence:02d}_{component_code}"
+    
+  equipment_id_format: "^[A-Z]+-[0-9]+$"
+  # 範例: CH-01, CHWP-01, CT-02, AHU-North-01
+
+# =============================================================================
+# HVAC 專用單位對照
+# =============================================================================
+hvac_units:
+  cooling_capacity:
+    - RT
+    - kW
+  efficiency:
+    - COP
+    - kW/RT
+  energy:
+    - kWh
+  valve_position:
+    - "%"
+  frequency:
+    - Hz
+  rotational_speed:
+    - RPM
+  current:
+    - A
+  voltage:
+    - V
+  power_factor:
+    - PF
+  pressure_differential:
+    - kPa
+    - Pa
+    - bar
+  temperature:
+    - "°C"
+    - "°F"
+    - K
+  pressure:
+    - kPa
+    - Pa
+    - bar
+    - psi
+  flow_rate:
+    - L/s
+    - m³/h
+    - GPM
+  power:
+    - kW
+    - W

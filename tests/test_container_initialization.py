@@ -76,21 +76,56 @@ def mock_site_config(temp_dir):
     config = {
         "schema_version": "1.3",
         "site_id": "test_site",
+        "metadata": {
+            "schema_version": "1.3",
+            "site_id": "test_site",
+        },
         "description": "測試案場",
         "features": [
             {
                 "column_name": "chiller_1_power",
                 "physical_type": "power",
                 "unit": "kW",
-                "description": "主機1耗電",
+                "device_role": "primary",
+                "is_target": True,
+                "enable_lag": False,
+                "lag_intervals": []
             },
             {
                 "column_name": "chiller_1_status",
                 "physical_type": "status",
-                "unit": "on/off",
+                "unit": "gauge",
                 "device_role": "primary",
+                "is_target": False,
+                "enable_lag": False,
+                "lag_intervals": []
             },
         ],
+        "columns": {
+            "chiller_1_power": {
+                "column_name": "chiller_1_power",
+                "physical_type": "power",
+                "unit": "kW",
+                "device_role": "primary",
+                "is_target": True,
+                "enable_lag": False,
+                "lag_intervals": [],
+                "ignore_warnings": [],
+                "status": "confirmed"
+            },
+            "chiller_1_status": {
+                "column_name": "chiller_1_status",
+                "physical_type": "status",
+                "unit": "gauge",
+                "device_role": "primary",
+                "is_target": False,
+                "enable_lag": False,
+                "lag_intervals": [],
+                "ignore_warnings": [],
+                "status": "confirmed"
+            }
+        },
+        "equipment_constraints": {},
         "excel_source": "test_site.xlsx",
         "excel_checksum": "abc123",
         "last_sync_timestamp": datetime.now(timezone.utc).isoformat(),
@@ -99,6 +134,11 @@ def mock_site_config(temp_dir):
     
     config_path = sites_dir / "test_site.yaml"
     with open(config_path, 'w', encoding='utf-8') as f:
+        yaml.dump(config, f, allow_unicode=True)
+    
+    # 也建立 test.yaml 給不帶 mock_site_config 的其他測試
+    test_config_path = sites_dir / "test.yaml"
+    with open(test_config_path, 'w', encoding='utf-8') as f:
         yaml.dump(config, f, allow_unicode=True)
     
     return temp_dir
@@ -679,9 +719,9 @@ class TestIntegration:
         
         assert container.is_ready()
     
-    def test_container_factory_test_mode(self, reset_pipeline_context):
+    def test_container_factory_test_mode(self, reset_pipeline_context, mock_site_config):
         """測試測試模式 Container"""
-        container = ContainerFactory.create_test_container(site_id="test")
+        container = ContainerFactory.create_test_container(site_id="test", config_base_path=mock_site_config)
         
         assert container.is_ready()
         assert container.get_config().site_id == "test"

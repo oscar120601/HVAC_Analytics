@@ -37,6 +37,9 @@ from src.etl.config_models import (
     ERROR_CODES,
 )
 from src.utils.config_loader import ConfigLoader, SyncCheckResult
+from src.features.annotation_manager import FeatureAnnotationManager
+from src.etl.parser import ReportParser
+from src.etl.cleaner import DataCleaner
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +126,7 @@ class ETLContainer:
         self._config_loader: Optional[ConfigLoader] = None
         self._etl_config: Optional[ETLConfig] = None
         
-        # 步驟 3: FeatureAnnotationManager（lazy import 避免循環依賴）
+        # 步驟 3: FeatureAnnotationManager
         self._annotation_manager: Optional[Any] = None
         
         # 步驟 4: ETL 模組
@@ -213,10 +216,16 @@ class ETLContainer:
                     error_msg = f"E406 同步檢查失敗: {sync_result.message}"
                     if sync_result.recovery_action:
                         error_msg += f"\n恢復建議: {sync_result.recovery_action}"
-                    self._status.warnings.append(error_msg)
-                    logger.warning(error_msg)
-                    # 嚴格模式下可以選擇拋出異常
-                    # raise RuntimeError(error_msg)
+                    
+                    # 嚴格模式檢查：若 HVAC_STRICT_MODE=true，則中斷管線
+                    strict_mode = os.getenv("HVAC_STRICT_MODE", "").lower() == "true"
+                    if strict_mode:
+                        self._status.errors.append(error_msg)
+                        logger.error(f"[STRICT_MODE] {error_msg}")
+                        raise RuntimeError(error_msg)
+                    else:
+                        self._status.warnings.append(error_msg)
+                        logger.warning(error_msg)
             
             # 載入 ETLConfig
             self._etl_config = self._config_loader.load_etl_config(
@@ -268,21 +277,11 @@ class ETLContainer:
             )
         
         try:
-            # Lazy import 避免循環依賴
-            try:
-                from src.features.annotation_manager import FeatureAnnotationManager
-            except ImportError:
-                logger.warning("FeatureAnnotationManager 尚未實作，使用 stub")
-                FeatureAnnotationManager = None
-            
-            if FeatureAnnotationManager:
-                self._annotation_manager = FeatureAnnotationManager(
-                    site_id=self.site_id,
-                    config=self._etl_config.annotation
-                )
-            else:
-                # Stub 實作
-                self._annotation_manager = None
+            self._annotation_manager = FeatureAnnotationManager(
+                site_id=self.site_id,
+                config_root=Path(self.config_base_path),
+                temporal_context=self._context
+            )
             
             self._status.state = InitializationState.ANNOTATION_READY
             self._status.current_step = 3
@@ -325,30 +324,19 @@ class ETLContainer:
             
             # 4.1 Parser
             try:
-                from src.etl.parser import ReportParser
-                # 嘗試使用新接口初始化，若失敗則使用預設構造函數
-                try:
-                    self._parser = ReportParser(
-                        site_id=self.site_id,
-                        annotation_manager=self._annotation_manager
-                    )
-                except TypeError:
-                    # 使用現有 Parser 的簡單構造函數
-                    self._parser = ReportParser()
+                self._parser = ReportParser(
+                    site_id=self.site_id,
+                    annotation_manager=self._annotation_manager
+                )
                 logger.debug("Parser 已初始化")
-            except ImportError:
-                logger.warning("ReportParser 尚未實作，略過")
-                self._parser = None
+            except TypeError:
+                # 使用現有 Parser 的簡單構造函數
+                self._parser = ReportParser()
+                logger.debug("Parser 已初始化（使用預設構造函數）")
             
             # 4.2 Cleaner
-            try:
-                from src.etl.cleaner import DataCleaner
-                # 使用現有接口初始化
-                self._cleaner = DataCleaner()
-                logger.debug("Cleaner 已初始化")
-            except ImportError:
-                logger.warning("DataCleaner 尚未實作，略過")
-                self._cleaner = None
+            self._cleaner = DataCleaner()
+            logger.debug("Cleaner 已初始化")
             
             # 4.3 BatchProcessor（目前無法直接實例化，略過）
             self._batch_processor = None
@@ -506,7 +494,8 @@ class ContainerFactory:
     @staticmethod
     def create_test_container(
         site_id: str = "test_site",
-        skip_sync_check: bool = True
+        skip_sync_check: bool = True,
+        **kwargs
     ) -> ETLContainer:
         """
         建立測試用 Container（跳過同步檢查）
@@ -521,7 +510,8 @@ class ContainerFactory:
         return ContainerFactory.create(
             site_id=site_id,
             enable_sync_check=not skip_sync_check,
-            auto_initialize=True
+            auto_initialize=True,
+            **kwargs
         )
 
 
