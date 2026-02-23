@@ -524,34 +524,38 @@ HVAC 設備分類法:
 
 ### 5.1 Demo 展示概覽
 
-**完成日期:** 2026-02-23  
+**完成日期:** 2026-02-23 (完全改版 V2)  
 **展示頁面:** `tools/demo/sprint1_foundation.html`  
 **總覽入口:** `tools/demo/index.html`
 
 | 任務 ID | 任務描述 | 狀態 | 展示內容 |
 |:---:|:---|:---:|:---|
-| DEMO-101 | 系統架構圖 (Mermaid) | ✅ | 核心資料流視覺化 |
-| DEMO-102 | 錯誤代碼體系表格 | ✅ | 7大類別、27+錯誤碼互動式表格 |
-| DEMO-103 | Feature Annotation 範例 | ✅ | 繼承鏈結構與設備分類法 |
-| DEMO-104 | 4步驟初始化流程 | ✅ | Foundation First Policy 動畫 |
+| DEMO-101 | 系統架構圖 (Mermaid) | ✅ | Sprint 1 邊界高亮，後續模組淡化區別 |
+| DEMO-102 | 錯誤代碼體系表格 | ✅ | 包含即時搜尋、嚴重程度篩選、設計動機、恢復策略 |
+| DEMO-103 | Feature Annotation 範例 | ✅ | 欄位標註 Before/After 對比、繼承鏈樹狀圖、YAML 語法高亮 |
+| DEMO-104 | 4步驟初始化流程 | ✅ | Foundation First Policy 順序警示與卡片動畫 |
+| DEMO-105 | 測試覆蓋率可視化 | ✅ | Chart.js 甜甜圈圖與模組細項圖例 |
 
-### 5.2 設計特色
+### 5.2 設計特色與技術實現
 
-- **主題風格:** 工業/科技感深色設計（深藍背景 + 青色/橙色強調）
-- **字體搭配:** Space Grotesk + Noto Sans TC + JetBrains Mono
-- **動畫效果:** 數字滾動計數、滾動觸發漸顯、卡片懸浮效果
-- **技術堆疊:** HTML + Tailwind CSS + Chart.js + Mermaid.js
-- **響應式設計:** 支援桌面與行動裝置
+- **零框架依賴:** 移除 Tailwind CSS CDN，完全改用純 Vanilla CSS 實作，遵循系統不依賴外部框架的嚴格規範。
+- **純靜態架構:** 資料透過 Python 腳本自 Pipeline 匯出為 `sprint1_foundation.json`，由 HTML 進行客戶端渲染。
+- **主題風格:** 工業科技感深色背景設計（深藍背景 + 青色/橙色強調），使用 CSS 漸層與微動畫增強視覺。
+- **互動式體驗:** 包含資料讀取、DOM 動態建立、搜尋過濾邏輯與滾動呈現 (Scroll Reveal) 動畫。
 
 ### 5.3 使用方式
 
-```bash
-# 直接在瀏覽器中開啟
-tools/demo/index.html              # Demo 總覽入口
-tools/demo/sprint1_foundation.html # Sprint 1 詳細展示
-```
+由於包含 `fetch` 讀取本地 JSON 功能，直接打開 `file://` 可能會遇到瀏覽器 CORS 安全限制，強烈建議使用簡易 HTTP Server 開啟：
 
-無需安裝依賴，所有資源使用 CDN 載入。
+```bash
+# 啟動本地端測試伺服器
+cd d:\12.任務\HVAC-1\tools\demo
+python -m http.server 8080
+
+# 開啟瀏覽器訪問
+http://localhost:8080/index.html              # Demo 總覽入口
+http://localhost:8080/sprint1_foundation.html # Sprint 1 詳細展示
+```
 
 ---
 

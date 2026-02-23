@@ -371,6 +371,16 @@ python tools/features/wizard.py --site cgmh_ty --csv data.csv --excel features.x
 python tools/features/excel_to_yaml.py --input features.xlsx
 ```
 
+### 啟動 Demo 展示頁面
+
+由於展示頁面包含本地 JSON 動態載入，直接點擊 HTML 會有 CORS 限制。請使用以下指令啟動：
+
+```bash
+cd tools/demo
+python -m http.server 8080
+# 接著在瀏覽器開啟: http://localhost:8080/index.html
+```
+
 ---
 
 ## 🧪 測試
@@ -471,10 +481,10 @@ Sprint 1: Foundation ✅ 完成
 │   └── STRICT_MODE 環境變數 (生產安全)
 │
 └── ✅ Sprint 1 Demo 展示 (已完成)
-    ├── 系統架構圖 (Mermaid.js)
-    ├── 錯誤代碼體系互動表格
-    ├── Feature Annotation 繼承鏈展示
-    └── 4步驟初始化流程動畫
+    ├── 系統架構圖 (Mermaid.js，Sprint 1 邊界高亮)
+    ├── 錯誤代碼體系互動表格 (即時搜尋/過濾/設計動機)
+    ├── Feature Annotation 依賴與前後比較 (Before/After)
+    └── 4步驟初始化流程與測試覆蓋率分析 (Chart.js)
 
 Sprint 2: 核心 ETL 🚧 準備中
 ├── Parser v2.1 (Header Standardization、時區轉換)
