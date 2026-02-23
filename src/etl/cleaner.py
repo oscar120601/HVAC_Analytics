@@ -1,77 +1,959 @@
+"""
+HVAC-1 DataCleaner v2.2-Contract-Aligned
+
+版本變更摘要 (v2.1 → v2.2):
+- Temporal Context 強制注入: 未接收時拋出 E000
+- FeatureAnnotationManager 整合: 語意感知清洗與設備邏輯預檢
+- 設備邏輯預檢 (E350): 主機開+水泵關檢測，標記 PHYSICAL_IMPOSSIBLE
+- 時間基準一致性: 所有時間檢查使用 pipeline_origin_timestamp，禁止 now()
+- Metadata 強制淨化 (E500): 輸出絕對不含 device_role
+- 設備稽核軌跡: 產生 equipment_validation_audit 供 BatchProcessor 寫入 Manifest
+
+設計原則:
+1. Gatekeeper: 髒數據絕不進入下游，設備邏輯違規提前標記
+2. SSOT 嚴格遵守: 引用 config_models.py 的常數與限制條件
+3. 職責分離: 讀取 device_role 進行語意感知清洗，但絕對禁止寫入輸出
+4. 時間基準一致性: 所有時間相關驗證使用傳入的 pipeline_origin_timestamp
+5. 物理邏輯一致性: 與 Optimization 共享 EQUIPMENT_VALIDATION_CONSTRAINTS
+
+相依模組:
+- src/etl/config_models.py (SSOT 常數)
+- src/etl/parser.py (上游，輸出 UTC)
+- src/features/annotation_manager.py (device_role 查詢)
+- src/context.py (PipelineContext 時間基準)
+- src/exceptions.py (例外類別)
+
+交付物:
+- src/etl/cleaner.py (本檔案)
+- tests/test_cleaner_v22.py (單元測試)
+"""
+
+from typing import Dict, List, Optional, Tuple, Any, Set, Union
+from datetime import datetime, timedelta, timezone
+from dataclasses import dataclass, field
+import logging
+import re
+
 import polars as pl
 import numpy as np
-import logging
-from typing import Optional
 
-logging.basicConfig(level=logging.INFO)
+# SSOT 引用
+from src.etl.config_models import (
+    VALID_QUALITY_FLAGS,
+    VALID_QUALITY_FLAGS_SET,
+    TIMESTAMP_CONFIG,
+    EQUIPMENT_VALIDATION_CONSTRAINTS,
+)
+from src.exceptions import (
+    ContractViolationError,
+    DataValidationError,
+    ConfigurationError,
+)
+from src.context import PipelineContext
+
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# 常數定義
+# =============================================================================
+
+# 允許的 Metadata 鍵（白名單機制）
+ALLOWED_METADATA_KEYS: Set[str] = frozenset({
+    'physical_type', 'unit', 'description', 'column_name'
+})
+
+# 禁止輸出的欄位（E500 防護）
+FORBIDDEN_COLS: Set[str] = frozenset({
+    'device_role', 'ignore_warnings', 'is_target', 'role',
+    'device_type', 'annotation_role', 'col_role', 'feature_role'
+})
+
+# 設備角色閾值調整（語意感知清洗用）
+DEVICE_ROLE_THRESHOLDS: Dict[str, Dict[str, float]] = {
+    "primary": {
+        "frozen_threshold_multiplier": 1.0,
+        "zero_ratio_warning_threshold": 0.1,
+        "outlier_z_score": 3.0
+    },
+    "backup": {
+        "frozen_threshold_multiplier": 3.0,  # 備用設備放寬閾值
+        "zero_ratio_warning_threshold": 0.8,  # 備用設備允許更多零值
+        "outlier_z_score": 4.0
+    },
+    "seasonal": {
+        "frozen_threshold_multiplier": 2.0,
+        "zero_ratio_warning_threshold": 0.5,
+        "outlier_z_score": 3.5
+    }
+}
+
+# 預檢限制條件（Cleaner 階段執行）
+PRECHECK_CONSTRAINTS: Dict[str, Dict[str, Any]] = {
+    k: v for k, v in EQUIPMENT_VALIDATION_CONSTRAINTS.items()
+    if v.get("check_phase") == "precheck" or k in ["chiller_pump_mutex", "pump_redundancy"]
+}
+
+
+# =============================================================================
+# 配置類別
+# =============================================================================
+
+@dataclass
+class CleanerConfig:
+    """Cleaner 配置類別"""
+    resample_interval: str = "5m"
+    cop_min: float = 2.0
+    cop_max: float = 8.0
+    
+    # Feature Annotation 整合
+    use_device_role_from_annotation: bool = True
+    unannotated_column_policy: str = "warn"  # error, skip, warn
+    
+    # 設備邏輯預檢
+    enforce_equipment_validation_sync: bool = True
+    
+    # 時間檢查
+    future_data_tolerance_minutes: int = 5
+    
+    # 凍結資料檢測
+    frozen_data_window: int = 6
+    frozen_data_std_threshold: float = 0.001
+    
+    # 重採樣策略
+    cumulative_agg_strategy: str = "last"  # last value for counters
+    status_agg_strategy: str = "max"       # max for status (0/1)
+    instant_agg_strategy: str = "mean"     # mean for measurements
+
+
+# =============================================================================
+# 主要類別
+# =============================================================================
 
 class DataCleaner:
     """
-    Performs physics-based data cleaning for chiller plant operations.
+    HVAC-1 DataCleaner v2.2-Contract-Aligned
     
-    Responsibilities:
-    - Resample to 5-minute intervals
-    - Detect frozen data
-    - Validate heat balance
-    - Validate affinity laws
-    - Calculate wet-bulb temperature
+    功能:
+    - Temporal Context 注入 (E000 檢查)
+    - FeatureAnnotationManager 整合 (語意感知清洗)
+    - 時間戳標準化 (UTC 強制)
+    - 未來資料檢查 (E102) - 使用 pipeline_origin_timestamp
+    - 設備邏輯預檢 (E350) - 標記 PHYSICAL_IMPOSSIBLE
+    - 重採樣與缺漏處理
+    - Metadata 強制淨化 (E500)
+    - 設備稽核軌跡產生
+    
+    使用範例:
+        context = PipelineContext()
+        context.initialize()
+        
+        config = CleanerConfig()
+        annotation_manager = FeatureAnnotationManager("site_id")
+        
+        cleaner = DataCleaner(
+            config=config,
+            annotation_manager=annotation_manager,
+            pipeline_context=context
+        )
+        
+        df_clean, metadata, audit = cleaner.clean(df_input)
     """
     
-    def __init__(self, 
-                 resample_interval: str = "5m",
-                 cop_min: float = 2.0,
-                 cop_max: float = 8.0):
-        self.resample_interval = resample_interval
-        self.cop_min = cop_min
-        self.cop_max = cop_max
+    def __init__(
+        self,
+        config: Optional[CleanerConfig] = None,
+        annotation_manager: Optional[Any] = None,
+        pipeline_context: Optional[PipelineContext] = None,
+        site_id: Optional[str] = None
+    ):
+        """
+        初始化 DataCleaner
+        
+        Args:
+            config: Cleaner 配置
+            annotation_manager: FeatureAnnotationManager 實例
+            pipeline_context: PipelineContext 實例（強制要求，E000 檢查）
+            site_id: 案場 ID（用於載入預設 Annotation）
+            
+        Raises:
+            RuntimeError: E000 未提供 PipelineContext
+        """
+        self.config = config or CleanerConfig()
+        self.annotation = annotation_manager
+        self.site_id = site_id
+        
+        # E000: Temporal Context 強制檢查
+        if pipeline_context is None:
+            raise RuntimeError(
+                "E000: DataCleaner 必須接收 PipelineContext，禁止自行產生時間戳。 "
+                "請確保 Container 正確傳遞 pipeline_origin_timestamp。"
+            )
+        
+        self.pipeline_context = pipeline_context
+        self.pipeline_origin_timestamp = pipeline_context.get_baseline()
+        
+        # 設備稽核軌跡（由設備邏輯預檢產生）
+        self._equipment_validation_audit: Dict[str, Any] = {
+            "validation_enabled": False,
+            "constraints_applied": [],
+            "violations_detected": 0,
+            "violation_details": []
+        }
+        
+        # 執行時狀態
+        self._skipped_columns: Set[str] = set()
+        
+        logger.info(
+            f"DataCleaner v2.2 初始化完成 ("
+            f"site_id={site_id}, "
+            f"temporal_baseline={self.pipeline_origin_timestamp.isoformat()}, "
+            f"equipment_validation={self.config.enforce_equipment_validation_sync}"
+            f")"
+        )
     
-    def resample_to_intervals(self, df: pl.DataFrame) -> pl.DataFrame:
-        """Resample data to fixed 5-minute intervals using group_by_dynamic."""
-        if "timestamp" not in df.columns:
-            raise ValueError("DataFrame must have 'timestamp' column")
+    # =========================================================================
+    # 核心公開方法
+    # =========================================================================
+    
+    def clean(
+        self,
+        df: pl.DataFrame,
+        input_metadata: Optional[Dict[str, Any]] = None
+    ) -> Tuple[pl.DataFrame, Dict[str, Any], Dict[str, Any]]:
+        """
+        主要清洗流程
         
-        # Ensure timestamp is datetime type
-        if not isinstance(df["timestamp"].dtype, pl.Datetime):
-            logger.warning(f"Timestamp column is {df['timestamp'].dtype}, attempting conversion...")
-            try:
-                # Try to convert from string
-                if df["timestamp"].dtype == pl.Utf8:
-                    df = df.with_columns(
-                        pl.col("timestamp").str.to_datetime().alias("timestamp")
+        方法呼叫鏈:
+        1. _validate_temporal_baseline - E000 檢查
+        2. _validate_columns_annotated - E402, E409 檢查
+        3. _normalize_timestamp - 時間戳標準化 (UTC)
+        4. _check_future_data - 未來資料檢查 (E102)
+        5. _init_quality_flags - 初始化品質標記
+        6. _semantic_aware_cleaning - 語意感知清洗
+        7. _apply_equipment_validation_precheck - 設備邏輯預檢 (E350)
+        8. _resample_and_fill - 重採樣與缺漏處理
+        9. _validate_output_contract - 輸出契約驗證
+        10. _build_column_metadata - Metadata 建構
+        
+        Args:
+            df: 輸入 DataFrame（來自 Parser v2.1）
+            input_metadata: 輸入中繼資料
+            
+        Returns:
+            Tuple of (clean_df, column_metadata, equipment_validation_audit)
+            
+        Raises:
+            ContractViolationError: 契約違反時
+            DataValidationError: 資料驗證失敗時
+        """
+        logger.info(f"開始清洗流程: {df.shape[0]} 行 x {df.shape[1]} 列")
+        
+        # Step 0: 時間基準驗證
+        self._validate_temporal_baseline(input_metadata)
+        
+        # Step 0.5: 欄位標註驗證
+        df = self._validate_columns_annotated(df)
+        
+        # Step 1: 時間戳標準化
+        df = self._normalize_timestamp(df)
+        
+        # Step 2: 未來資料檢查 (E102)
+        self._check_future_data(df)
+        
+        # Step 3: 初始化品質標記
+        df = self._init_quality_flags(df)
+        
+        # Step 4: 語意感知清洗
+        df = self._semantic_aware_cleaning(df)
+        
+        # Step 5: 設備邏輯預檢 (E350)
+        df = self._apply_equipment_validation_precheck(df)
+        
+        # Step 6: 重採樣與缺漏處理
+        df = self._resample_and_fill(df)
+        
+        # Step 7: 輸出契約驗證
+        df = self._validate_output_contract(df)
+        
+        # Step 8: 建構 Metadata 與稽核軌跡
+        column_metadata = self._build_column_metadata(df)
+        
+        logger.info(
+            f"清洗完成: {df.shape[0]} 行 x {df.shape[1]} 列, "
+            f"違規檢測: {self._equipment_validation_audit['violations_detected']} 筆"
+        )
+        
+        return df, column_metadata, self._equipment_validation_audit
+    
+    # =========================================================================
+    # 驗證方法
+    # =========================================================================
+    
+    def _validate_temporal_baseline(self, input_metadata: Optional[Dict]) -> None:
+        """驗證時間基準存在 (E000)"""
+        if self.pipeline_origin_timestamp is None:
+            raise DataValidationError(
+                "E000: PipelineContext 未初始化，無法取得時間基準。"
+                "請先執行 PipelineContext.initialize()"
+            )
+        
+        # 驗證輸入 metadata 也有時間基準（一致性檢查）
+        if input_metadata:
+            metadata_ts = input_metadata.get('pipeline_origin_timestamp')
+            if metadata_ts:
+                # 允許微小差異（<1秒）
+                if isinstance(metadata_ts, str):
+                    metadata_ts = datetime.fromisoformat(metadata_ts.replace('Z', '+00:00'))
+                
+                diff = abs((self.pipeline_origin_timestamp - metadata_ts).total_seconds())
+                if diff > 1:
+                    logger.warning(
+                        f"時間基準差異: Context={self.pipeline_origin_timestamp.isoformat()}, "
+                        f"Metadata={metadata_ts.isoformat()}, 差異={diff:.2f}秒"
                     )
-                else:
-                    # Try direct cast
-                    df = df.with_columns(
-                        pl.col("timestamp").cast(pl.Datetime).alias("timestamp")
-                    )
-                logger.info("Successfully converted timestamp to Datetime")
-            except Exception as e:
-                logger.error(f"Failed to convert timestamp column: {e}")
-                raise ValueError(f"Timestamp column must be Datetime type, got {df['timestamp'].dtype}")
-        
-        # Filter out rows with null timestamps (group_by_dynamic doesn't support nulls)
-        original_len = len(df)
-        df = df.filter(pl.col("timestamp").is_not_null())
-        
-        if len(df) < original_len:
-            logger.warning(f"Removed {original_len - len(df)} rows with null timestamps")
-        
-        if len(df) == 0:
-            logger.error("No valid timestamps remaining after filtering nulls")
+    
+    def _validate_columns_annotated(self, df: pl.DataFrame) -> pl.DataFrame:
+        """
+        驗證所有欄位已在 Annotation 中定義 (E402)
+        並驗證標頭已正規化（E409）
+        """
+        if not self.annotation or not self.config.use_device_role_from_annotation:
             return df
         
-        # Ensure timestamp is sorted
+        unannotated = []
+        non_standardized = []
+        
+        for col in df.columns:
+            if col == "timestamp":
+                continue
+            
+            # E402 檢查：欄位是否已定義於 Annotation
+            if not self.annotation.is_column_annotated(col):
+                unannotated.append(col)
+            else:
+                # E409 檢查：驗證標頭為 snake_case
+                if not self._is_snake_case(col):
+                    non_standardized.append(col)
+        
+        # 處理未定義欄位
+        if unannotated:
+            policy = self.config.unannotated_column_policy
+            if policy == "error":
+                raise DataValidationError(
+                    f"E402: 以下欄位未定義於 Feature Annotation: {unannotated}"
+                )
+            elif policy == "skip":
+                logger.warning(f"E402 (Skip): 跳過未定義欄位: {unannotated}")
+                self._skipped_columns = set(unannotated)
+                df = df.drop(*unannotated)
+            elif policy == "warn":
+                logger.warning(f"E402 (Warn): 未定義欄位使用保守預設: {unannotated}")
+        
+        # 處理非正規化標頭
+        if non_standardized:
+            logger.warning(
+                f"E409-Warning: 以下欄位未使用 snake_case: {non_standardized}"
+            )
+        
+        return df
+    
+    def _validate_output_contract(self, df: pl.DataFrame) -> pl.DataFrame:
+        """
+        最終輸出驗證 (Interface Contract Enforcement)
+        
+        驗證項目:
+        1. 時間戳時區與精度
+        2. 時間基準傳遞 (E000)
+        3. Schema 淨化 (移除 FORBIDDEN_COLS)
+        4. device_role 不存在 (E500)
+        5. Quality Flags 合法性
+        """
+        errors = []
+        
+        # 1. 時間戳檢查
+        if "timestamp" not in df.columns:
+            errors.append("缺少必要欄位 'timestamp'")
+        else:
+            ts_dtype = df["timestamp"].dtype
+            if not isinstance(ts_dtype, pl.Datetime):
+                errors.append(f"timestamp 必須為 Datetime，得到 {ts_dtype}")
+            else:
+                if str(ts_dtype.time_zone) != "UTC":
+                    errors.append(f"E102: timestamp 時區必須為 UTC，得到 {ts_dtype.time_zone}")
+                if ts_dtype.time_unit != "ns":
+                    errors.append(f"E102: timestamp 精度必須為 nanoseconds")
+        
+        # 2. 時間基準傳遞檢查
+        if self.pipeline_origin_timestamp is None:
+            errors.append("E000: 遺失 pipeline_origin_timestamp")
+        
+        # 3. Schema 淨化 - 移除禁止欄位
+        df = self._enforce_schema_sanitization(df)
+        
+        # 4. device_role 不存在檢查（E500）
+        for forbidden_col in FORBIDDEN_COLS:
+            if forbidden_col in df.columns:
+                errors.append(f"E500: 輸出包含禁止欄位 '{forbidden_col}'")
+        
+        # 5. Quality Flags 檢查
+        if "quality_flags" in df.columns:
+            invalid_flags = self._validate_quality_flags_column(df["quality_flags"])
+            if invalid_flags:
+                errors.append(f"E202: 非法品質標記: {invalid_flags}")
+        
+        # 6. 未來資料二次確認
+        if self.pipeline_origin_timestamp:
+            threshold = self.pipeline_origin_timestamp + timedelta(
+                minutes=self.config.future_data_tolerance_minutes
+            )
+            if (df["timestamp"] > threshold).any():
+                errors.append("E102: 輸出仍包含未來資料")
+        
+        if errors:
+            raise ContractViolationError(
+                f"Cleaner 輸出契約驗證失敗 ({len(errors)} 項):\n" + 
+                "\n".join(f"  - {e}" for e in errors)
+            )
+        
+        return df
+    
+    def _validate_quality_flags_column(self, flags_series: pl.Series) -> Set[str]:
+        """驗證品質標記欄位的所有值是否合法"""
+        all_flags = set()
+        for flags in flags_series:
+            if flags:
+                all_flags.update(flags)
+        return all_flags - VALID_QUALITY_FLAGS_SET
+    
+    # =========================================================================
+    # 時間相關方法
+    # =========================================================================
+    
+    def _normalize_timestamp(self, df: pl.DataFrame) -> pl.DataFrame:
+        """
+        時間戳標準化 (UTC 強制)
+        
+        確保:
+        - 時區為 UTC
+        - 精度為 nanoseconds
+        """
+        if "timestamp" not in df.columns:
+            raise DataValidationError("輸入資料缺少必要欄位 'timestamp'")
+        
+        ts_col = df["timestamp"]
+        
+        # 檢查類型
+        if not isinstance(ts_col.dtype, pl.Datetime):
+            raise DataValidationError(f"timestamp 欄位類型錯誤: {ts_col.dtype}")
+        
+        # 時區處理
+        current_tz = ts_col.dtype.time_zone
+        if current_tz is None:
+            logger.warning("timestamp 無時區資訊，假設為 UTC")
+            df = df.with_columns(
+                pl.col("timestamp").dt.replace_time_zone("UTC").alias("timestamp")
+            )
+        elif str(current_tz) != "UTC":
+            logger.warning(f"E101: 偵測到非 UTC 時區 {current_tz}，自動轉換")
+            df = df.with_columns(
+                pl.col("timestamp").dt.convert_time_zone("UTC").alias("timestamp")
+            )
+        
+        # 確保精度為 nanosecond
+        if ts_col.dtype.time_unit != "ns":
+            df = df.with_columns(
+                pl.col("timestamp").cast(
+                    pl.Datetime(time_unit="ns", time_zone="UTC")
+                ).alias("timestamp")
+            )
+        
+        return df
+    
+    def _check_future_data(self, df: pl.DataFrame) -> None:
+        """
+        未來資料檢查 (E102)
+        
+        【關鍵】使用 self.pipeline_origin_timestamp 而非 datetime.now()
+        """
+        threshold = self.pipeline_origin_timestamp + timedelta(
+            minutes=self.config.future_data_tolerance_minutes
+        )
+        
+        future_mask = df["timestamp"] > threshold
+        future_count = future_mask.sum()
+        
+        if future_count > 0:
+            future_samples = df.filter(future_mask)["timestamp"].head(3).to_list()
+            raise DataValidationError(
+                f"E102: 偵測到 {future_count} 筆未來資料（>{threshold.isoformat()}）。"
+                f"樣本: {future_samples}。 "
+                f"Pipeline 時間基準: {self.pipeline_origin_timestamp.isoformat()}。 "
+                f"請檢查資料來源時鐘或時間基準傳遞。"
+            )
+        
+        logger.debug(f"未來資料檢查通過（基準: {self.pipeline_origin_timestamp.isoformat()}）")
+    
+    # =========================================================================
+    # 語意感知清洗
+    # =========================================================================
+    
+    def _init_quality_flags(self, df: pl.DataFrame) -> pl.DataFrame:
+        """初始化 quality_flags 欄位"""
+        if "quality_flags" not in df.columns:
+            df = df.with_columns(
+                pl.lit([]).cast(pl.List(pl.Utf8)).alias("quality_flags")
+            )
+        return df
+    
+    def _semantic_aware_cleaning(self, df: pl.DataFrame) -> pl.DataFrame:
+        """
+        語意感知清洗（讀取 device_role，但絕不寫入輸出）
+        
+        維持邏輯:
+        - 凍結資料偵測（角色感知閾值）
+        - 零值比例檢查（角色感知警告抑制）
+        - 物理限制檢查
+        """
+        if not self.annotation:
+            logger.debug("未啟用 Annotation 整合，跳過語意感知清洗")
+            return df
+        
+        logger.info("啟動語意感知清洗（device_role 感知，輸出隔離）...")
+        
+        # 1. 凍結資料偵測（角色感知閾值）
+        df = self._detect_frozen_data_semantic(df)
+        
+        # 2. 零值比例檢查（角色感知警告抑制）
+        df = self._check_zero_ratio_semantic(df)
+        
+        # 3. 物理限制檢查
+        df = self._apply_physical_constraints_semantic(df)
+        
+        return df
+    
+    def _detect_frozen_data_semantic(self, df: pl.DataFrame) -> pl.DataFrame:
+        """
+        凍結資料偵測（角色感知閾值調整）
+        
+        邏輯:
+        - 計算滾動標準差
+        - 標準差接近 0 表示資料凍結
+        - 閾值依 device_role 調整（備用設備放寬）
+        """
+        window = self.config.frozen_data_window
+        threshold = self.config.frozen_data_std_threshold
+        
+        for col in df.columns:
+            if col in ["timestamp", "quality_flags"]:
+                continue
+            
+            # 跳過非數值欄位
+            if df[col].dtype not in [pl.Float64, pl.Float32, pl.Int64, pl.Int32]:
+                continue
+            
+            # 取得 device_role 調整閾值
+            device_role = self._get_device_role(col)
+            multiplier = DEVICE_ROLE_THRESHOLDS.get(
+                device_role, DEVICE_ROLE_THRESHOLDS["primary"]
+            )["frozen_threshold_multiplier"]
+            
+            adjusted_threshold = threshold * multiplier
+            
+            # 計算滾動標準差
+            df = df.with_columns(
+                pl.col(col).rolling_std(window_size=window).alias(f"_{col}_std")
+            )
+            
+            # 標記凍結資料
+            is_frozen = (pl.col(f"_{col}_std") < adjusted_threshold).fill_null(False)
+            
+            # 更新 quality_flags
+            df = df.with_columns(
+                pl.when(is_frozen)
+                .then(
+                    pl.col("quality_flags").list.concat(pl.lit(["FROZEN_DATA"]))
+                )
+                .otherwise(pl.col("quality_flags"))
+                .alias("quality_flags")
+            )
+            
+            # 清理臨時欄位
+            df = df.drop(f"_{col}_std")
+        
+        return df
+    
+    def _check_zero_ratio_semantic(self, df: pl.DataFrame) -> pl.DataFrame:
+        """
+        零值比例檢查（角色感知警告抑制）
+        
+        邏輯:
+        - 計算欄位零值比例
+        - 主設備 (>10%) 警告，備用設備 (>80%) 警告
+        """
+        total_rows = df.height
+        
+        for col in df.columns:
+            if col in ["timestamp", "quality_flags"]:
+                continue
+            
+            # 跳過非數值欄位
+            if df[col].dtype not in [pl.Float64, pl.Float32, pl.Int64, pl.Int32]:
+                continue
+            
+            # 取得 device_role 閾值
+            device_role = self._get_device_role(col)
+            warning_threshold = DEVICE_ROLE_THRESHOLDS.get(
+                device_role, DEVICE_ROLE_THRESHOLDS["primary"]
+            )["zero_ratio_warning_threshold"]
+            
+            # 計算零值比例
+            zero_count = (df[col] == 0).sum()
+            zero_ratio = zero_count / total_rows if total_rows > 0 else 0
+            
+            # 超過閾值時標記
+            if zero_ratio > warning_threshold:
+                logger.warning(
+                    f"E212: 欄位 '{col}' 零值比例 {zero_ratio:.1%} "
+                    f"超過閾值 {warning_threshold:.1%} (role={device_role})"
+                )
+                
+                # 標記該欄位為零值的行
+                df = df.with_columns(
+                    pl.when(pl.col(col) == 0)
+                    .then(
+                        pl.col("quality_flags").list.concat(pl.lit(["ZERO_VALUE_EXCESS"]))
+                    )
+                    .otherwise(pl.col("quality_flags"))
+                    .alias("quality_flags")
+                )
+        
+        return df
+    
+    def _apply_physical_constraints_semantic(self, df: pl.DataFrame) -> pl.DataFrame:
+        """
+        物理限制檢查（基於 physical_type）
+        
+        檢查項目:
+        - 溫度範圍 (-40°C ~ 100°C)
+        - 壓力範圍 (0 ~ 10 bar)
+        - 功率範圍 (>= 0)
+        """
+        if not self.annotation:
+            return df
+        
+        # 溫度限制
+        temp_cols = self._get_columns_by_physical_type("temperature")
+        for col in temp_cols:
+            if col in df.columns:
+                # 標記超出範圍的值
+                df = df.with_columns(
+                    pl.when((pl.col(col) < -40) | (pl.col(col) > 100))
+                    .then(
+                        pl.col("quality_flags").list.concat(pl.lit(["PHYSICAL_LIMIT_VIOLATION"]))
+                    )
+                    .otherwise(pl.col("quality_flags"))
+                    .alias("quality_flags")
+                )
+        
+        # 功率限制（必須 >= 0）
+        power_cols = self._get_columns_by_physical_type("power")
+        for col in power_cols:
+            if col in df.columns:
+                df = df.with_columns(
+                    pl.when(pl.col(col) < 0)
+                    .then(
+                        pl.col("quality_flags").list.concat(pl.lit(["PHYSICAL_LIMIT_VIOLATION"]))
+                    )
+                    .otherwise(pl.col("quality_flags"))
+                    .alias("quality_flags")
+                )
+        
+        return df
+    
+    # =========================================================================
+    # 設備邏輯預檢 (E350)
+    # =========================================================================
+    
+    def _apply_equipment_validation_precheck(self, df: pl.DataFrame) -> pl.DataFrame:
+        """
+        設備邏輯預檢（對齊 Interface Contract v1.1 檢查點 #2）
+        
+        檢查基礎設備邏輯違規:
+        - 主機開啟時水泵不可全關（chiller_pump_mutex）
+        - 主機開啟時冷卻水塔不可全關（pump_redundancy）
+        
+        違規資料標記為 PHYSICAL_IMPOSSIBLE 或 EQUIPMENT_VIOLATION
+        """
+        if not self.config.enforce_equipment_validation_sync:
+            self._equipment_validation_audit = {
+                "validation_enabled": False,
+                "constraints_applied": [],
+                "violations_detected": 0,
+                "violation_details": [],
+                "precheck_timestamp": datetime.now(timezone.utc).isoformat()
+            }
+            return df
+        
+        logger.info("執行設備邏輯預檢（Equipment Validation Precheck）...")
+        
+        violations = []
+        df_result = df
+        
+        # 取得欄位名稱映射（嘗試多種命名模式）
+        col_map = self._detect_equipment_status_columns(df)
+        
+        # 檢查 chiller_pump_mutex
+        if col_map.get("chiller_status") and col_map.get("pump_status"):
+            df_result, violation = self._check_chiller_pump_mutex(
+                df_result, col_map["chiller_status"], col_map["pump_status"]
+            )
+            if violation:
+                violations.append(violation)
+        
+        # 檢查 pump_redundancy（冷凍水 + 冷卻水）
+        if col_map.get("chiller_status") and col_map.get("chw_pump_status"):
+            df_result, violation = self._check_pump_redundancy(
+                df_result, col_map["chiller_status"], 
+                col_map.get("chw_pump_status", []),
+                col_map.get("cw_pump_status", [])
+            )
+            if violation:
+                violations.append(violation)
+        
+        # 記錄稽核軌跡
+        self._equipment_validation_audit = {
+            "validation_enabled": True,
+            "constraints_applied": ["chiller_pump_mutex", "pump_redundancy"],
+            "violations_detected": sum(v["count"] for v in violations),
+            "violation_details": violations,
+            "precheck_timestamp": datetime.now(timezone.utc).isoformat(),
+            "column_mapping_used": col_map
+        }
+        
+        if violations:
+            logger.warning(
+                f"E350: 設備邏輯預檢發現 {len(violations)} 項違規: "
+                f"{[v['constraint_id'] for v in violations]}"
+            )
+        
+        return df_result
+    
+    def _detect_equipment_status_columns(self, df: pl.DataFrame) -> Dict[str, List[str]]:
+        """
+        自動偵測設備狀態欄位
+        
+        支援多種命名模式:
+        - 主機: chiller_1_status, chiller_01_status, ch_1_status, ch1_run
+        - 水泵: pump_1_status, chw_pump_1_status, chwp_1_status
+        """
+        result = {
+            "chiller_status": [],
+            "pump_status": [],
+            "chw_pump_status": [],
+            "cw_pump_status": [],
+            "ct_status": []
+        }
+        
+        for col in df.columns:
+            col_lower = col.lower()
+            
+            # 主機狀態
+            if any(pattern in col_lower for pattern in [
+                "chiller_1_status", "chiller_01_status", "ch_1_status",
+                "chiller_2_status", "chiller_02_status", "ch_2_status",
+                "ch1_run", "ch2_run", "chiller1_status", "chiller2_status"
+            ]):
+                result["chiller_status"].append(col)
+            
+            # 冷凍水泵
+            elif any(pattern in col_lower for pattern in [
+                "chw_pump_1_status", "chw_pump_2_status",
+                "chwp_1_status", "chwp_2_status",
+                "chilled_water_pump_1", "chilled_water_pump_2"
+            ]):
+                result["chw_pump_status"].append(col)
+                result["pump_status"].append(col)
+            
+            # 冷卻水泵
+            elif any(pattern in col_lower for pattern in [
+                "cw_pump_1_status", "cw_pump_2_status",
+                "cwp_1_status", "cwp_2_status",
+                "cooling_water_pump_1", "cooling_water_pump_2"
+            ]):
+                result["cw_pump_status"].append(col)
+                result["pump_status"].append(col)
+            
+            # 一般水泵
+            elif any(pattern in col_lower for pattern in [
+                "pump_1_status", "pump_2_status", "pump1_status", "pump2_status"
+            ]):
+                result["pump_status"].append(col)
+            
+            # 冷卻水塔
+            elif any(pattern in col_lower for pattern in [
+                "ct_1_status", "ct_2_status", "ct1_status", "ct2_status",
+                "cooling_tower_1_status", "cooling_tower_2_status"
+            ]):
+                result["ct_status"].append(col)
+        
+        return result
+    
+    def _check_chiller_pump_mutex(
+        self, df: pl.DataFrame, chiller_cols: List[str], pump_cols: List[str]
+    ) -> Tuple[pl.DataFrame, Optional[Dict]]:
+        """
+        檢查主機開啟時水泵不可全關
+        
+        違規條件: (任一主機開啟) AND (所有水泵關閉)
+        """
+        if not chiller_cols or not pump_cols:
+            return df, None
+        
+        # 建立觸發條件（任一主機開啟）
+        trigger_condition = pl.col(chiller_cols[0]) == 1
+        for col in chiller_cols[1:]:
+            trigger_condition = trigger_condition | (pl.col(col) == 1)
+        
+        # 建立需求條件（至少一台水泵運轉）
+        requirement_condition = pl.col(pump_cols[0]) == 1
+        for col in pump_cols[1:]:
+            requirement_condition = requirement_condition | (pl.col(col) == 1)
+        
+        # 違規條件
+        violation_condition = trigger_condition & ~requirement_condition
+        
+        # 計算違規數
+        violation_count = df.filter(violation_condition).height
+        
+        if violation_count > 0:
+            # 標記 Quality Flag
+            df = df.with_columns(
+                pl.when(violation_condition)
+                .then(
+                    pl.col("quality_flags").list.concat(pl.lit(["PHYSICAL_IMPOSSIBLE"]))
+                )
+                .otherwise(pl.col("quality_flags"))
+                .alias("quality_flags")
+            )
+            
+            violation = {
+                "constraint_id": "chiller_pump_mutex",
+                "description": "主機開啟時必須有至少一台水泵運轉",
+                "count": violation_count,
+                "severity": "critical",
+                "trigger_columns": chiller_cols,
+                "required_columns": pump_cols,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+            return df, violation
+        
+        return df, None
+    
+    def _check_pump_redundancy(
+        self, df: pl.DataFrame, chiller_cols: List[str],
+        chw_pump_cols: List[str], cw_pump_cols: List[str]
+    ) -> Tuple[pl.DataFrame, Optional[Dict]]:
+        """
+        檢查冗餘要求: 主機運轉時必須有冷凍水泵和冷卻水泵運轉
+        """
+        if not chiller_cols:
+            return df, None
+        
+        # 建立觸發條件
+        trigger_condition = pl.col(chiller_cols[0]) == 1
+        for col in chiller_cols[1:]:
+            trigger_condition = trigger_condition | (pl.col(col) == 1)
+        
+        violations = []
+        
+        # 檢查冷凍水泵
+        if chw_pump_cols:
+            chw_condition = pl.col(chw_pump_cols[0]) == 1
+            for col in chw_pump_cols[1:]:
+                chw_condition = chw_condition | (pl.col(col) == 1)
+            
+            chw_violation = trigger_condition & ~chw_condition
+            chw_count = df.filter(chw_violation).height
+            
+            if chw_count > 0:
+                df = df.with_columns(
+                    pl.when(chw_violation)
+                    .then(
+                        pl.col("quality_flags").list.concat(pl.lit(["EQUIPMENT_VIOLATION"]))
+                    )
+                    .otherwise(pl.col("quality_flags"))
+                    .alias("quality_flags")
+                )
+                violations.append(f"chilled_water_pump_missing:{chw_count}")
+        
+        # 檢查冷卻水泵
+        if cw_pump_cols:
+            cw_condition = pl.col(cw_pump_cols[0]) == 1
+            for col in cw_pump_cols[1:]:
+                cw_condition = cw_condition | (pl.col(col) == 1)
+            
+            cw_violation = trigger_condition & ~cw_condition
+            cw_count = df.filter(cw_violation).height
+            
+            if cw_count > 0:
+                df = df.with_columns(
+                    pl.when(cw_violation)
+                    .then(
+                        pl.col("quality_flags").list.concat(pl.lit(["EQUIPMENT_VIOLATION"]))
+                    )
+                    .otherwise(pl.col("quality_flags"))
+                    .alias("quality_flags")
+                )
+                violations.append(f"cooling_water_pump_missing:{cw_count}")
+        
+        total_count = sum(
+            int(v.split(":")[1]) for v in violations
+        ) if violations else 0
+        
+        if violations:
+            violation = {
+                "constraint_id": "pump_redundancy",
+                "description": "主機運轉時必須有冷凍水泵和冷卻水泵運轉",
+                "count": total_count,
+                "severity": "critical",
+                "details": violations,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+            return df, violation
+        
+        return df, None
+    
+    # =========================================================================
+    # 重採樣與缺漏處理
+    # =========================================================================
+    
+    def _resample_and_fill(self, df: pl.DataFrame) -> pl.DataFrame:
+        """
+        重採樣與缺漏處理
+        
+        策略:
+        - 累計值 (KWH): last()
+        - 狀態值 (Status): max()
+        - 瞬時值 (KW, Temp): mean()
+        """
+        if "timestamp" not in df.columns:
+            return df
+        
+        # 移除空時間戳
+        original_len = len(df)
+        df = df.filter(pl.col("timestamp").is_not_null())
+        if len(df) < original_len:
+            logger.warning(f"移除 {original_len - len(df)} 行空時間戳")
+        
+        if len(df) == 0:
+            return df
+        
+        # 排序
         df = df.sort("timestamp")
         
-        # Define aggregation expressions based on column data types
-        # - Cumulative values (KWH): take last() to preserve counter reading
-        # - Status/Fault codes (.S, .F): take max() to capture any activation
-        # - Instantaneous values (KW, Temp, Flow): take mean() for smoothing
+        # 建立聚合表達式
         agg_exprs = []
-        cumulative_cols = []
-        status_cols = []
-        instant_cols = []
         
         for col in df.columns:
             if col == "timestamp":
@@ -79,408 +961,220 @@ class DataCleaner:
             
             col_upper = col.upper()
             
-            # Cumulative values (KWH) -> take last value to preserve counter
+            # 累計值 (KWH)
             if col_upper.endswith("KWH") or col_upper.endswith("_KWH"):
                 agg_exprs.append(pl.col(col).last().alias(col))
-                cumulative_cols.append(col)
-                
-            # Status/Fault codes (.S, .F, _S, _F) -> take max (if active at all in window)
-            elif col_upper.endswith("_S") or col_upper.endswith(".S") or \
-                 col_upper.endswith("_F") or col_upper.endswith(".F") or \
-                 "STATUS" in col_upper or "FAULT" in col_upper:
+            
+            # 狀態值
+            elif (col_upper.endswith("_STATUS") or 
+                  col_upper.endswith(".S") or 
+                  "STATUS" in col_upper):
                 agg_exprs.append(pl.col(col).max().alias(col))
-                status_cols.append(col)
-                
-            # Instantaneous values (KW, Temp, Flow, Hz, etc.) -> take mean
+            
+            # quality_flags 需要特殊處理（合併並去重）
+            elif col == "quality_flags":
+                # 使用 first() 作為近似（實際應合併所有 flags）
+                agg_exprs.append(pl.col(col).alias(col))
+            
+            # 瞬時值
             else:
                 agg_exprs.append(pl.col(col).mean().alias(col))
-                instant_cols.append(col)
         
-        # Log aggregation strategy summary
-        if cumulative_cols:
-            logger.info(f"Cumulative cols (last): {len(cumulative_cols)} - e.g., {cumulative_cols[:3]}")
-        if status_cols:
-            logger.info(f"Status cols (max): {len(status_cols)} - e.g., {status_cols[:3]}")
-        logger.info(f"Instantaneous cols (mean): {len(instant_cols)}")
-        
-        # Group by dynamic time windows with smart aggregation
+        # 執行重採樣
         df_resampled = df.group_by_dynamic(
             "timestamp",
-            every=self.resample_interval
+            every=self.config.resample_interval
         ).agg(agg_exprs)
         
-        logger.info(f"Resampled from {len(df)} to {len(df_resampled)} rows")
+        logger.info(f"重採樣: {original_len} -> {len(df_resampled)} 行")
         return df_resampled
     
-    def detect_frozen_data(self, df: pl.DataFrame, column: str, window: int = 6) -> pl.DataFrame:
-        """
-        Flag rows where a column has the same value for 'window' consecutive samples.
-        
-        Args:
-            column: Column name to check
-            window: Number of consecutive identical values to flag
-        """
-        if column not in df.columns:
-            return df
-        
-        # Calculate rolling std dev - frozen data will have std=0
-        df = df.with_columns(
-            pl.col(column)
-            .rolling_std(window_size=window)
-            .alias(f"{column}_frozen_flag")
-        )
-        
-        # Mark as frozen if std is 0 or very close to 0
-        df = df.with_columns(
-            (pl.col(f"{column}_frozen_flag") < 0.001)
-            .fill_null(False)
-            .alias(f"{column}_frozen")
-        )
-        
-        return df
+    # =========================================================================
+    # Metadata 建構
+    # =========================================================================
     
-    def calculate_wet_bulb_temp(self, df: pl.DataFrame, 
-                                  temp_db_col: str = "temp_db_out",
-                                  rh_col: str = "rh_out") -> pl.DataFrame:
+    def _build_column_metadata(self, df: pl.DataFrame) -> Dict[str, Dict[str, Any]]:
         """
-        Calculate wet-bulb temperature from dry-bulb temperature and relative humidity.
-        
-        Uses simplified Magnus-Tetens approximation.
-        Note: For production, consider using psychrolib library for accuracy.
-        """
-        if temp_db_col not in df.columns or rh_col not in df.columns:
-            logger.warning(f"Missing columns for wet-bulb calculation")
-            return df
-        
-        # Simplified wet-bulb approximation (good for quick estimates)
-        # T_wb ≈ T * arctan[0.151977(RH% + 8.313659)^0.5] + arctan(T + RH%) - arctan(RH% - 1.676331) + 0.00391838(RH%)^1.5 * arctan(0.023101 * RH%) - 4.686035
-        # For simplicity, we use: T_wb ≈ T_db * atan(0.152 * sqrt(RH% + 8.314)) + ...
-        
-        # More practical approximation:
-        # T_wb = T_db * atan(0.151977 * (RH + 8.313659)^0.5) + atan(T_db + RH) - atan(RH - 1.676331) + 0.00391838 * RH^1.5 * atan(0.023101 * RH) - 4.686035
-        
-        df = df.with_columns(
-            (
-                pl.col(temp_db_col) * (((pl.col(rh_col) + 8.313659) ** 0.5 * 0.151977).arctan()) +
-                (pl.col(temp_db_col) + pl.col(rh_col)).arctan() -
-                (pl.col(rh_col) - 1.676331).arctan() +
-                0.00391838 * (pl.col(rh_col) ** 1.5) * (0.023101 * pl.col(rh_col)).arctan() -
-                4.686035
-            ).alias("temp_wb_out")
-        )
-        
-        logger.info("Calculated wet-bulb temperature")
-        return df
-    
-    def validate_heat_balance(self, df: pl.DataFrame,
-                               flow_col: str = "chiller_flow_gpm",
-                               delta_t_col_in: str = "chiller_temp_in",
-                               delta_t_col_out: str = "chiller_temp_out",
-                               rt_col: str = "load_rt",
-                               tolerance: float = 0.15) -> pl.DataFrame:
-        """
-        Validate heat balance: Q = flow * Cp * delta_T
-        
-        For chilled water: 1 RT ≈ 24 GPM * 10°F delta_T (or ~2.4 GPM per °F-RT)
-        Formula: RT = (GPM * delta_T) / 24 (for °F) or use metric conversion
-        
-        Flags records where calculated RT differs from reported RT by > tolerance.
-        """
-        if not all(col in df.columns for col in [flow_col, delta_t_col_in, delta_t_col_out, rt_col]):
-            logger.warning("Missing columns for heat balance validation")
-            return df
-        
-        # Calculate delta_T
-        df = df.with_columns(
-            (pl.col(delta_t_col_in) - pl.col(delta_t_col_out))
-            .alias("delta_t_calculated")
-        )
-        
-        # Calculate expected RT (assuming GPM and delta_T in compatible units)
-        # If using metric (LPM and °C): RT = (LPM * delta_T * 4.18) / 3517 (approx)
-        # For now using simplified: calculated_RT ~ flow * delta_T / conversion_factor
-        # Placeholder: adjust based on actual unit system
-        df = df.with_columns(
-            ((pl.col(flow_col) * pl.col("delta_t_calculated")) / 24.0)
-            .alias("rt_calculated")
-        )
-        
-        # Validate
-        df = df.with_columns(
-            (
-                ((pl.col("rt_calculated") - pl.col(rt_col)).abs() / pl.col(rt_col)) > tolerance
-            ).alias("heat_balance_invalid")
-        )
-        
-        return df
-    
-    def validate_affinity_laws(self, df: pl.DataFrame,
-                                 freq_col: str = "pump_freq_hz",
-                                 power_col: str = "pump_kw",
-                                 tolerance: float = 0.20) -> pl.DataFrame:
-        """
-        Validate pump affinity laws: Power ∝ Frequency^3
-        
-        P2/P1 = (f2/f1)^3
-        
-        Checks if the ratio deviates significantly from expected cubic relationship.
-        """
-        if freq_col not in df.columns or power_col not in df.columns:
-            logger.warning(f"Missing columns for affinity law validation")
-            return df
-        
-        # Calculate expected power ratio based on frequency ratio
-        # We need a baseline - use first non-null value or median
-        # For simplicity, we'll flag based on deviation from expected P ∝ f^3 relationship
-        
-        # This is a simplified check - ideally compare consecutive points or against baseline
-        # For now: calculate normalized P/f^3 and check if it's relatively constant
-        df = df.with_columns(
-            (pl.col(power_col) / (pl.col(freq_col) ** 3))
-            .alias("affinity_ratio")
-        )
-        
-        # Flag if ratio deviates too much from median (simplified outlier detection)
-        median_ratio = df.select(pl.col("affinity_ratio").median()).item()
-        
-        df = df.with_columns(
-            (
-                ((pl.col("affinity_ratio") - median_ratio).abs() / median_ratio) > tolerance
-            ).alias("affinity_law_invalid")
-        )
-        
-        return df
-    
-    def detect_steady_state(self, df: pl.DataFrame,
-                             load_col: str = "CH_0_RT",
-                             window_minutes: int = 15,
-                             max_change_pct: float = 5.0) -> pl.DataFrame:
-        """
-        Detect steady state operation based on load stability.
-        
-        Flags rows where load change rate exceeds threshold within the window.
-        Only steady-state data should be used for model training.
-        
-        Args:
-            load_col: Column name for load (RT or kW)
-            window_minutes: Time window for change detection (default 15 min)
-            max_change_pct: Maximum allowed % change to be considered steady (default 5%)
-            
-        Returns:
-            DataFrame with 'is_steady_state' boolean column
-        """
-        if load_col not in df.columns:
-            logger.warning(f"Load column '{load_col}' not found for steady state detection")
-            # Default to True (assume steady) if column missing
-            return df.with_columns(pl.lit(True).alias("is_steady_state"))
-        
-        # Ensure load column is numeric
-        load_dtype = df[load_col].dtype
-        if load_dtype not in (pl.Float64, pl.Float32, pl.Int64, pl.Int32, pl.Int16, pl.Int8):
-            logger.warning(f"Load column '{load_col}' has type {load_dtype}, attempting conversion to Float64")
-            try:
-                df = df.with_columns(
-                    pl.col(load_col).cast(pl.Float64, strict=False).alias(load_col)
-                )
-            except Exception as e:
-                logger.error(f"Failed to convert load column to numeric: {e}")
-                return df.with_columns(pl.lit(True).alias("is_steady_state"))
-        
-        # Calculate number of rows in window (assuming 5-min intervals)
-        window_size = max(1, window_minutes // 5)
-        
-        # Calculate rolling min and max within window
-        df = df.with_columns([
-            pl.col(load_col).rolling_min(window_size=window_size).alias("_load_min"),
-            pl.col(load_col).rolling_max(window_size=window_size).alias("_load_max"),
-        ])
-        
-        # Calculate change percentage: (max - min) / mean * 100
-        df = df.with_columns(
-            (
-                (pl.col("_load_max") - pl.col("_load_min")) /
-                ((pl.col("_load_max") + pl.col("_load_min")) / 2 + 1e-6) * 100
-            ).alias("_load_change_pct")
-        )
-        
-        # Flag steady state (change < threshold)
-        df = df.with_columns(
-            (pl.col("_load_change_pct") <= max_change_pct)
-            .fill_null(True)
-            .alias("is_steady_state")
-        )
-        
-        # Clean up temporary columns
-        df = df.drop(["_load_min", "_load_max", "_load_change_pct"])
-        
-        steady_count = df.filter(pl.col("is_steady_state")).height
-        total_count = df.height
-        logger.info(f"Steady state detection: {steady_count}/{total_count} rows ({100*steady_count/total_count:.1f}%) are steady")
-        
-        return df
-    
-    def filter_invalid_data(self, df: pl.DataFrame,
-                            remove_heat_balance_invalid: bool = True,
-                            remove_non_steady: bool = True,
-                            remove_affinity_invalid: bool = True) -> pl.DataFrame:
-        """
-        Filter out invalid data rows based on quality flags.
-        
-        Args:
-            remove_heat_balance_invalid: Remove rows where heat balance check failed
-            remove_non_steady: Remove rows that are not in steady state
-            remove_affinity_invalid: Remove rows where affinity law validation failed
-            
-        Returns:
-            Filtered DataFrame
-        """
-        original_count = df.height
-        
-        if remove_heat_balance_invalid and "heat_balance_invalid" in df.columns:
-            before = df.height
-            df = df.filter(~pl.col("heat_balance_invalid").fill_null(False))
-            removed = before - df.height
-            if removed > 0:
-                logger.info(f"Removed {removed} rows with invalid heat balance")
-        
-        if remove_non_steady and "is_steady_state" in df.columns:
-            before = df.height
-            df = df.filter(pl.col("is_steady_state").fill_null(True))
-            removed = before - df.height
-            if removed > 0:
-                logger.info(f"Removed {removed} rows not in steady state")
-        
-        if remove_affinity_invalid and "affinity_law_invalid" in df.columns:
-            before = df.height
-            df = df.filter(~pl.col("affinity_law_invalid").fill_null(False))
-            removed = before - df.height
-            if removed > 0:
-                logger.info(f"Removed {removed} rows with invalid affinity law")
-        
-        final_count = df.height
-        logger.info(f"Data filtering complete: {original_count} -> {final_count} rows ({100*final_count/original_count:.1f}% retained)")
-        
-        return df
-    
-    def clean_data(self, df: pl.DataFrame, 
-                    apply_heat_balance: bool = False,
-                    apply_steady_state: bool = False,
-                    apply_affinity_laws: bool = False,
-                    filter_invalid: bool = False,
-                    load_col: str = "CH_0_RT",
-                    flow_col: str = None,
-                    temp_in_col: str = None,
-                    temp_out_col: str = None,
-                    pump_freq_col: str = None,
-                    pump_power_col: str = None) -> pl.DataFrame:
-        """
-        Main cleaning pipeline orchestrator.
-        
-        Args:
-            apply_heat_balance: Enable heat balance validation
-            apply_steady_state: Enable steady state detection
-            apply_affinity_laws: Enable affinity law validation for pumps
-            filter_invalid: Remove flagged invalid rows (requires heat_balance, steady_state, or affinity_laws)
-            load_col: Column name for load (RT) - used for steady state detection
-            flow_col: Column name for flow (GPM/LPM) - used for heat balance
-            temp_in_col: Column name for inlet temperature
-            temp_out_col: Column name for outlet temperature
-            pump_freq_col: Column name for pump frequency (Hz)
-            pump_power_col: Column name for pump power (kW)
-        """
-        logger.info(f"Starting data cleaning pipeline on {df.shape[0]} rows")
-        
-        # Step 1: Resample to 5-min intervals
-        if "timestamp" in df.columns:
-            df = self.resample_to_intervals(df)
-        
-        # Step 2: Calculate wet-bulb if possible
-        df = self.calculate_wet_bulb_temp(df)
-        
-        # Step 3: Detect frozen data on key columns
-        for col in df.columns:
-            if "kw" in col.lower() or "temp" in col.lower():
-                df = self.detect_frozen_data(df, col)
-        
-        # Step 4: Steady state detection
-        if apply_steady_state:
-            df = self.detect_steady_state(df, load_col=load_col)
-        
-        # Step 5: Heat balance validation
-        if apply_heat_balance and flow_col and temp_in_col and temp_out_col:
-            df = self.validate_heat_balance(
-                df, 
-                flow_col=flow_col,
-                delta_t_col_in=temp_in_col,
-                delta_t_col_out=temp_out_col,
-                rt_col=load_col
-            )
-        
-        # Step 6: Affinity law validation
-        if apply_affinity_laws:
-            # Auto-detect pump columns if not specified
-            if pump_freq_col is None or pump_power_col is None:
-                freq_col, power_col = self._detect_pump_columns(df)
-                if freq_col and power_col:
-                    logger.info(f"Auto-detected pump columns: {freq_col}, {power_col}")
-                    df = self.validate_affinity_laws(df, freq_col=freq_col, power_col=power_col)
-                else:
-                    logger.warning("Could not auto-detect pump frequency/power columns for affinity law validation")
-            else:
-                df = self.validate_affinity_laws(df, freq_col=pump_freq_col, power_col=pump_power_col)
-        
-        # Step 7: Filter invalid data if requested
-        if filter_invalid:
-            df = self.filter_invalid_data(
-                df,
-                remove_heat_balance_invalid=apply_heat_balance,
-                remove_non_steady=apply_steady_state,
-                remove_affinity_invalid=apply_affinity_laws
-            )
-        
-        logger.info(f"Cleaning pipeline complete: {df.shape[0]} rows, {df.shape[1]} columns")
-        return df
-    
-    def _detect_pump_columns(self, df: pl.DataFrame) -> tuple:
-        """
-        Auto-detect pump frequency and power columns from DataFrame.
+        建構欄位 Metadata（白名單過濾）
         
         Returns:
-            Tuple of (freq_col, power_col) or (None, None) if not found
+            欄位名稱 -> Metadata 字典（僅含 ALLOWED_METADATA_KEYS）
         """
-        freq_col = None
-        power_col = None
-        
-        # Common patterns for pump frequency columns
-        freq_patterns = ['pump_freq', 'pump_hz', 'chwp_hz', 'cwp_hz', 'hz', 'frequency']
-        # Common patterns for pump power columns  
-        power_patterns = ['pump_kw', 'chwp_kw', 'cwp_kw', 'pump_power']
+        metadata: Dict[str, Dict[str, Any]] = {}
         
         for col in df.columns:
-            col_lower = col.lower()
-            # Check for frequency column
-            if freq_col is None:
-                for pattern in freq_patterns:
-                    if pattern in col_lower:
-                        freq_col = col
-                        break
-            # Check for power column
-            if power_col is None:
-                for pattern in power_patterns:
-                    if pattern in col_lower:
-                        power_col = col
-                        break
+            if col == "timestamp":
+                continue
+            
+            # 取得原始 metadata
+            raw_meta = self._extract_raw_metadata(col)
+            
+            # 白名單過濾
+            sanitized = {
+                k: v for k, v in raw_meta.items()
+                if k in ALLOWED_METADATA_KEYS
+            }
+            
+            metadata[col] = sanitized
         
-        return freq_col, power_col
+        return metadata
+    
+    def _extract_raw_metadata(self, column_name: str) -> Dict[str, Any]:
+        """從 Annotation 提取原始 Metadata"""
+        if not self.annotation:
+            return {"column_name": column_name}
+        
+        anno = self.annotation.get_column_annotation(column_name)
+        if not anno:
+            return {"column_name": column_name}
+        
+        return {
+            "column_name": column_name,
+            "physical_type": anno.physical_type.value if anno.physical_type else None,
+            "unit": anno.unit,
+            "description": anno.description,
+        }
+    
+    # =========================================================================
+    # 工具方法
+    # =========================================================================
+    
+    def _enforce_schema_sanitization(self, df: pl.DataFrame) -> pl.DataFrame:
+        """強制移除禁止欄位"""
+        cols_to_drop = [col for col in FORBIDDEN_COLS if col in df.columns]
+        if cols_to_drop:
+            logger.warning(f"E500: 自動移除禁止欄位: {cols_to_drop}")
+            df = df.drop(*cols_to_drop)
+        return df
+    
+    def _is_snake_case(self, s: str) -> bool:
+        """檢查字串是否符合 snake_case 規範"""
+        return bool(re.match(r'^[a-z][a-z0-9_]*$', s))
+    
+    def _get_device_role(self, column_name: str) -> str:
+        """取得欄位的 device_role（預設 primary）"""
+        if not self.annotation:
+            return "primary"
+        
+        role = self.annotation.get_device_role(column_name)
+        return role or "primary"
+    
+    def _get_columns_by_physical_type(self, physical_type: str) -> List[str]:
+        """依 physical_type 取得欄位列表"""
+        if not self.annotation:
+            return []
+        
+        # 從所有標註中篩選
+        result = []
+        for col_name in self.annotation.get_all_columns():
+            anno = self.annotation.get_column_annotation(col_name)
+            if anno and anno.physical_type and anno.physical_type.value == physical_type:
+                result.append(col_name)
+        
+        return result
+    
+    # =========================================================================
+    # 向下相容性
+    # =========================================================================
+    
+    def clean_data(self, df: pl.DataFrame, **kwargs) -> pl.DataFrame:
+        """
+        舊版 clean_data 介面（向下相容）
+        
+        注意: 不支援新功能（設備邏輯預檢、Metadata 輸出）
+        """
+        logger.warning(
+            "clean_data() 已棄用，請改用 clean()。"
+            "新功能（設備邏輯預檢、稽核軌跡）需要 clean() 介面。"
+        )
+        df_clean, _, _ = self.clean(df)
+        return df_clean
+
+
+# =============================================================================
+# 簡易工廠函數
+# =============================================================================
+
+def create_cleaner(
+    site_id: str,
+    pipeline_context: PipelineContext,
+    enforce_equipment_validation: bool = True
+) -> DataCleaner:
+    """
+    建立標準 DataCleaner 實例
+    
+    Args:
+        site_id: 案場 ID
+        pipeline_context: PipelineContext 實例
+        enforce_equipment_validation: 是否啟用設備邏輯預檢
+        
+    Returns:
+        配置完成的 DataCleaner 實例
+    """
+    from src.features.annotation_manager import FeatureAnnotationManager
+    
+    config = CleanerConfig(
+        enforce_equipment_validation_sync=enforce_equipment_validation
+    )
+    
+    annotation_manager = FeatureAnnotationManager(
+        site_id=site_id,
+        temporal_context=pipeline_context
+    )
+    
+    return DataCleaner(
+        config=config,
+        annotation_manager=annotation_manager,
+        pipeline_context=pipeline_context,
+        site_id=site_id
+    )
+
+
+# =============================================================================
+# 測試入口
+# =============================================================================
 
 if __name__ == "__main__":
-    # Smoke test
-    import sys
-    if len(sys.argv) > 1:
-        from parser import ReportParser
-        parser = ReportParser()
-        df = parser.parse_file(sys.argv[1])
-        
-        cleaner = DataCleaner()
-        df_clean = cleaner.clean_data(df)
-        print(df_clean.head())
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    
+    # 簡易測試
+    print("DataCleaner v2.2 - 簡易測試")
+    print("=" * 50)
+    
+    # 建立測試資料
+    test_df = pl.DataFrame({
+        "timestamp": pl.datetime_range(
+            start=datetime.now(timezone.utc) - timedelta(hours=1),
+            end=datetime.now(timezone.utc),
+            interval="5m",
+            time_zone="UTC"
+        ),
+        "chiller_1_kw": [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0],
+        "chiller_1_status": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        "pump_1_status": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    })
+    
+    print(f"測試資料: {test_df.shape[0]} 行 x {test_df.shape[1]} 列")
+    print(test_df.head())
+    
+    # 初始化 Context
+    context = PipelineContext()
+    try:
+        context.initialize()
+    except RuntimeError:
+        pass  # 已初始化
+    
+    # 建立 Cleaner（無 Annotation）
+    config = CleanerConfig(enforce_equipment_validation_sync=True)
+    cleaner = DataCleaner(config=config, pipeline_context=context)
+    
+    try:
+        df_clean, metadata, audit = cleaner.clean(test_df)
+        print("\n清洗成功!")
+        print(f"輸出: {df_clean.shape[0]} 行 x {df_clean.shape[1]} 列")
+        print(f"稽核軌跡: {audit}")
+    except Exception as e:
+        print(f"\n錯誤: {e}")

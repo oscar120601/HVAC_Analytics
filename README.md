@@ -1,6 +1,6 @@
 # HVAC Analytics - Core Engine (v1.3 Architecture)
 
-**核心引擎狀態**: 🚧 **Sprint 2 進行中 (1/3 完成，Parser v2.1 ✅ 已交付)**  
+**核心引擎狀態**: 🚧 **Sprint 2 進行中 (2/3 完成，Cleaner v2.2 ✅ 已交付)**  
 **最後更新**: 2026-02-23
 
 ---
@@ -15,11 +15,11 @@
 | 1 | 1.4 程式碼審查優化 | ✅ 已完成 | 72/72 通過 |
 | 1 | **1.5 Sprint 1 Demo 展示** | ✅ **已完成** | **[🎨 查看 Demo](tools/demo/index.html)** |
 | 2 | 2.1 Parser v2.1 | ✅ **已完成** | 16/16 通過 |
-| 2 | 2.2 Cleaner v2.2 | 🚧 **準備中** | - |
+| 2 | 2.2 Cleaner v2.2 | ✅ **已完成** | 12/12 通過 |
 | 2 | 2.3 BatchProcessor v1.3 | ⏳ **待開始** | - |
 
 **Sprint 1 總計**: 72 項測試全部通過 ✅  
-**Sprint 2 進度**: 1/3 完成 (Parser v2.1 ✅ 已交付並通過審查)
+**Sprint 2 進度**: 2/3 完成 (Parser v2.1 ✅, Cleaner v2.2 ✅ 已交付)
 
 [📋 查看完整任務排程](./docs/專案任務排程/專案任務排程文件.md) | [📈 Sprint 1 執行摘要](./docs/專案任務排程/Sprint_1_執行摘要.md) | [📈 Sprint 2 執行摘要](./docs/專案任務排程/Sprint_2_執行摘要.md)
 
@@ -53,8 +53,8 @@ HVAC_Analytics/
 │   ├── schemas.py              # Pydantic I/O 定義
 │   ├── etl/                    # ETL 管道
 │   │   ├── parser.py           # ✅ v2.1 報表解析 (E1xx Error Codes)
-│   │   ├── cleaner.py          # v2.2 資料清洗 + Equipment Precheck (E2xx)
-│   │   ├── batch_processor.py  # v1.3 批次處理 + Manifest (E3xx)
+│   │   ├── cleaner.py          # ✅ v2.2 資料清洗 + Equipment Precheck (E2xx/E3xx/E5xx)
+│   │   ├── batch_processor.py  # v1.3 批次處理 + Manifest (E2xx/E3xx)
 │   │   ├── feature_engineer.py # v1.3 特徵工程 + Device Role Aware (E6xx)
 │   │   └── config_models.py    # ✅ SSOT 配置模型 (E000-E999)
 │   ├── utils/                  
@@ -318,6 +318,75 @@ python tools/features/excel_to_yaml.py \
 | `config/features/sites/template_factory.yaml` | 350+ | 工廠範本 |
 | `tests/features/test_annotation_manager.py` | 450+ | 18 項測試 |
 
+### ✅ 2.2 Cleaner v2.2
+
+**完成日期**: 2026-02-23  
+**測試結果**: 12 項單元測試全部通過 ✅
+
+#### Temporal Context 注入 (E000)
+
+```python
+from src.etl.cleaner import DataCleaner, CleanerConfig
+from src.context import PipelineContext
+
+# 初始化 PipelineContext（時間基準）
+context = PipelineContext()
+context.initialize(timestamp=datetime.now(timezone.utc))
+
+# 初始化 Cleaner（強制要求 pipeline_context）
+config = CleanerConfig()
+cleaner = DataCleaner(
+    config=config,
+    annotation_manager=annotation_manager,
+    pipeline_context=context  # E000 檢查
+)
+```
+
+#### 語意感知清洗
+
+```python
+# Cleaner 內部根據 device_role 調整閾值
+def _semantic_aware_cleaning(self, df, column_name):
+    role = self.annotation.get_device_role(column_name)
+    
+    if role == "primary":
+        threshold = 0.01  # 嚴格閾值
+    elif role in ("backup", "seasonal"):
+        threshold = 0.05  # 放寬閾值
+    # ...
+```
+
+#### 設備邏輯預檢 (E350)
+
+```python
+# 檢查設備邏輯一致性
+def _apply_equipment_validation_precheck(self, df):
+    # chiller_pump_mutex: 主機開啟時水泵必須運轉
+    # pump_redundancy: 至少一台冷凍水泵和冷卻水泵運轉
+    # 違規標記為 PHYSICAL_IMPOSSIBLE
+```
+
+#### E500 防護 - Schema 淨化
+
+```python
+# 輸出前強制移除敏感欄位
+FORBIDDEN_COLS = frozenset({
+    'device_role', 'ignore_warnings', 'is_target', 'role',
+    'device_type', 'annotation_role', 'col_role', 'feature_role'
+})
+
+# 確保 device_role 絕對不會洩漏到輸出
+```
+
+**錯誤代碼實作**: E000, E102, E350, E500
+
+#### 新增檔案
+
+| 檔案 | 行數 | 說明 |
+|:---|:---:|:---|
+| `src/etl/cleaner.py` | 1100+ | DataCleaner v2.2 主實作 |
+| `tests/test_cleaner_simple.py` | 200+ | 12 項單元測試 |
+
 ---
 
 ## 🚀 使用指南
@@ -512,23 +581,27 @@ Sprint 1: Foundation ✅ 完成
     ├── Feature Annotation 依賴與前後比較 (Before/After)
     └── 4步驟初始化流程與測試覆蓋率分析 (Chart.js)
 
-Sprint 2: 核心 ETL 🚧 進行中 (1/3 完成)
+Sprint 2: 核心 ETL 🚧 進行中 (2/3 完成)
 ├── ✅ Parser v2.1 (已完成)
 │   ├── 編碼自動偵測 (UTF-8/Big5/UTF-16)
 │   ├── BOM 處理與移除
 │   ├── 智慧標頭搜尋 (中文標頭支援)
 │   ├── 時區強制轉換 (→ UTC/ns)
 │   └── 輸出契約驗證 (E101-E105)
-├── 🚧 Cleaner v2.2 (準備中)
-│   └── E350 設備邏輯、語意感知清洗
+├── ✅ Cleaner v2.2 (已完成)
+│   ├── Temporal Context 注入 (E000)
+│   ├── FeatureAnnotationManager 整合
+│   ├── 語意感知清洗 (device_role)
+│   ├── 設備邏輯預檢 (E350)
+│   └── Schema 淨化 (E500 防護)
 └── ⏳ BatchProcessor v1.3 (待開始)
     └── Manifest、E408 檢查
 ```
 
 ### 下一步
 
-1. 啟動 **Sprint 2: 核心 ETL**（Parser、Cleaner、BatchProcessor 升級）
-2. FeatureAnnotationManager 整合至 Cleaner v2.2（device_role 查詢、E350 設備邏輯預檢）
+1. 完成 **Sprint 2: 核心 ETL**（BatchProcessor v1.3）
+2. 建立 Parser → Cleaner → BP 整合測試
 
 ### 生產環境配置
 
@@ -569,5 +642,5 @@ HVAC_STRICT_MODE=true python main.py pipeline data.csv
 ---
 
 **最後更新**: 2026-02-23  
-**架構版本**: v1.3  
-**文件狀態**: ✅ Sprint 1 完成 (4/4，含 Demo)
+**架構版本**: v1.4  
+**文件狀態**: 🚧 Sprint 2 進行中 (2/3 完成，Parser ✅, Cleaner ✅)

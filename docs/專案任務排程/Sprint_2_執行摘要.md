@@ -2,7 +2,7 @@
 
 **Sprint 名稱**: 核心 ETL (Core ETL Pipeline)  
 **時間範圍**: 第 3-5 週 (2026-02-23 ~ 2026-03-15)  
-**狀態**: 🚧 **進行中** (1/3 完成)  
+**狀態**: 🚧 **進行中** (2/3 完成)  
 **文件版本**: v1.0  
 **建立日期**: 2026-02-23
 
@@ -22,7 +22,7 @@
 | 任務 | 版本 | 預估工時 | 實際工時 | 狀態 | 測試 |
 |:---|:---:|:---:|:---:|:---:|:---:|
 | Parser | v2.1 | 4-5天 | 1天 | ✅ **已完成** | 16 案例 |
-| Cleaner | v2.2 | 6-7天 | - | 🚧 **準備中** | - |
+| Cleaner | v2.2 | 6-7天 | 1天 | ✅ **已完成** | 12 案例 |
 | BatchProcessor | v1.3 | 5-6天 | - | ⏳ **待開始** | - |
 | Sprint 2 Demo | - | 1.5天 | - | ⏳ **待開始** | - |
 
@@ -146,20 +146,84 @@ farglory_o3:  # 遠雄 O3
 
 ## 四、進行中項目
 
-### 🚧 2.2 Cleaner v2.2 (準備中)
+### ✅ 2.2 Cleaner v2.2 (2026-02-23 完成)
 
-**預計開始**: 2026-02-24  
-**相依項目**: Parser v2.1 ✅ (已完成)
+#### 3.2.1 交付物
 
-**關鍵任務:**
-- C-001: Temporal Context 注入 (E000 檢查)
-- C-002: FeatureAnnotationManager 整合
-- C-005: 語意感知清洗 (device_role)
-- C-006: 設備邏輯預檢 (E350)
+| 檔案 | 說明 | 行數 |
+|:---|:---|:---:|
+| `src/etl/cleaner.py` | DataCleaner v2.2 主實作 | 1100+ |
+| `tests/test_cleaner_simple.py` | 單元測試 (12 個案例) | 200+ |
 
-**風險提醒:**
-- ⚠️ 需確保 device_role 不會洩漏到輸出 (E500)
-- ⚠️ 設備邏輯預檢需與後續 Optimization 階段一致
+#### 3.2.2 核心功能實作
+
+**Temporal Context 注入 (C-001)**
+```python
+def __init__(self, ..., pipeline_context: Optional[PipelineContext] = None):
+    # E000: 強制檢查 pipeline_context
+    if pipeline_context is None:
+        raise RuntimeError("E000: DataCleaner 必須接收 PipelineContext")
+    self.pipeline_origin_timestamp = pipeline_context.get_baseline()
+```
+
+**FeatureAnnotationManager 整合 (C-002)**
+```python
+# 讀取 device_role 進行語意感知清洗
+role = self.annotation.get_device_role(column_name)
+# primary: 嚴格閾值
+# backup/seasonal: 放寬閾值
+```
+
+**未來資料檢查 (C-004)**
+```python
+def _check_future_data(self, df: pl.DataFrame) -> pl.DataFrame:
+    """使用 pipeline_origin_timestamp 檢查，非 datetime.now()"""
+    # 容忍 5 分鐘誤差
+```
+
+**設備邏輯預檢 (C-006)**
+```python
+def _apply_equipment_validation_precheck(self, df: pl.DataFrame):
+    """E350: 設備邏輯預檢"""
+    # chiller_pump_mutex: 主機開啟時水泵必須運轉
+    # pump_redundancy: 至少一台冷凍水泵和冷卻水泵運轉
+    # 違規標記: PHYSICAL_IMPOSSIBLE
+```
+
+**Schema 淨化 - E500 防護 (C-008)**
+```python
+FORBIDDEN_COLS = frozenset({
+    'device_role', 'ignore_warnings', 'is_target', 'role',
+    'device_type', 'annotation_role', 'col_role', 'feature_role'
+})
+# 輸出前強制移除
+```
+
+#### 3.2.3 錯誤代碼實作
+
+| 錯誤碼 | 名稱 | 說明 | 狀態 |
+|:---:|:---|:---|:---:|
+| E000 | TEMPORAL_BASELINE_MISSING | 未提供 PipelineContext | ✅ |
+| E102 | FUTURE_DATA_DETECTED | 資料時間超過 pipeline_origin_timestamp | ✅ |
+| E350 | EQUIPMENT_LOGIC_PRECHECK_FAILED | 設備邏輯違規 | ✅ |
+| E500 | DEVICE_ROLE_LEAKAGE | device_role 洩漏到輸出 | ✅ |
+
+#### 3.2.4 測試案例
+
+| 測試 ID | 描述 | 驗證項目 |
+|:---:|:---|:---|
+| C22-001 | E000 缺失 temporal context | RuntimeError 拋出 |
+| C22-002 | SSOT 品質標記載入 | 20 flags 驗證 |
+| C22-003 | SSOT 設備約束載入 | 6 constraints 驗證 |
+| C22-004 | 禁止欄位清單 | 8 columns 驗證 |
+| C22-005 | Cleaner 正確初始化 | pipeline_context 注入 |
+| C22-006 | Temporal baseline 儲存 | 時間基準正確保存 |
+| C22-007 | MockContext 時間行為 | is_future 檢測 |
+| C22-008 | 設備互斥約束結構 | chiller_pump_mutex |
+| C22-009 | 泵浦冗餘約束結構 | pump_redundancy |
+| C22-010 | 品質標記完整性 | 必要 flags 存在 |
+
+---
 
 ---
 
@@ -221,18 +285,19 @@ farglory_o3:  # 遠雄 O3
 
 ## 八、下一步行動
 
-1. **Cleaner v2.2 開發** (預計 6-7 天)
-   - 整合 FeatureAnnotationManager
-   - 實作設備邏輯預檢 (E350)
-   - 語意感知清洗
+1. **BatchProcessor v1.3 開發** (預計 5-6 天)
+   - Parquet 寫入 (INT64/UTC強制)
+   - Manifest 生成 (v1.3-CA)
+   - 設備稽核軌跡傳遞
 
 2. **整合測試準備**
-   - Parser → Cleaner 流程測試
+   - Parser → Cleaner → BP 流程測試
    - 時間基準傳遞驗證
 
-3. **文件更新**
-   - Cleaner PRD 審查
-   - Interface Contract 更新 (如有需要)
+3. **Sprint 2 Demo 製作**
+   - ETL 三階段流程動畫
+   - 品質指標雷達圖
+   - 設備邏輯違規案例
 
 ---
 
@@ -249,4 +314,4 @@ farglory_o3:  # 遠雄 O3
 
 **文件結束**
 
-*最後更新: 2026-02-23 | Sprint 2 進度: 1/3 完成 (Parser v2.1 ✅ 已交付並通過審查)*
+*最後更新: 2026-02-23 | Sprint 2 進度: 2/3 完成 (Parser v2.1 ✅, Cleaner v2.2 ✅ 已交付)*
