@@ -155,7 +155,7 @@ electrical = manager.get_electrical_columns()
 ### 5.2 完整整合測試
 
 需與以下模組整合測試:
-- Cleaner v2.2 (E350 設備邏輯預檢)
+- ✅ Cleaner v2.2 (E350 設備邏輯預檢)
 - BatchProcessor v1.3 (E408 SSOT 版本檢查)
 - Feature Engineer v1.3 (E601 特徵順序)
 
@@ -223,7 +223,7 @@ constraints = manager.get_equipment_constraints(phase="precheck")
 ### HVAC 專用驗收
 
 - [x] 設備互鎖: YAML 結構支援 equipment_constraints
-- [ ] E350: Cleaner 階段標記 PHYSICAL_IMPOSSIBLE（待 Cleaner 整合）
+- [x] E350: Cleaner 階段標記 PHYSICAL_IMPOSSIBLE
 - [x] Equipment ID: 欄位與設備 ID 映射正確
 
 ---
@@ -233,9 +233,9 @@ constraints = manager.get_equipment_constraints(phase="precheck")
 ```
 Feature Annotation v1.3 ✅ (已完成)
     ↓
-Parser v2.1 (待 Header Standardization 整合)
+Parser v2.1 ✅ (已完成)
     ↓
-Cleaner v2.2 (待 E350 Equipment Validation 整合)
+Cleaner v2.2 ✅ (已完成)
     ↓
 BatchProcessor v1.3 (待 E408 整合)
     ↓

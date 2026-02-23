@@ -21,7 +21,7 @@
 **Sprint 1 總計**: 72 項測試全部通過 ✅  
 **Sprint 2 進度**: 2/3 完成 (Parser v2.1 ✅ A級, Cleaner v2.2 ✅ A級 已交付)
 
-[📋 查看完整任務排程](./docs/專案任務排程/專案任務排程文件.md) | [📈 Sprint 1 執行摘要](./docs/專案任務排程/Sprint_1_執行摘要.md) | [📈 Sprint 2 執行摘要](./docs/專案任務排程/Sprint_2_執行摘要.md) | [📋 Sprint 2 審查報告](./docs/專案任務排程/Sprint_2_Review_Report.md)
+[📋 查看完整任務排程](./docs/專案任務排程/專案任務排程文件.md) | [📈 Sprint 1 執行摘要](./docs/專案任務排程/Sprint_1_執行摘要.md) | [📋 Sprint 1 審查報告](./docs/專案任務排程/Sprint_1_Review_Report.md) | [📈 Sprint 2 執行摘要](./docs/專案任務排程/Sprint_2_執行摘要.md) | [📋 Sprint 2 審查報告](./docs/專案任務排程/Sprint_2_Review_Report.md)
 
 ---
 
@@ -665,6 +665,7 @@ python3 -m pytest tests/ -v
 
 - **[專案任務排程](docs/專案任務排程/專案任務排程文件.md)** - 完整 Sprint 規劃
 - **[Sprint 1 執行摘要](docs/專案任務排程/Sprint_1_執行摘要.md)** - Interface Contract、System Integration、Feature Annotation 詳細摘要
+- **[Sprint 1 審查報告](docs/專案任務排程/Sprint_1_Review_Report.md)** - Sprint 1 審查詳情
 - **[Sprint 2 執行摘要](docs/專案任務排程/Sprint_2_執行摘要.md)** - Parser v2.1 & Cleaner v2.2 詳細摘要
 - **[Sprint 2 審查報告](docs/專案任務排程/Sprint_2_Review_Report.md)** - Parser v2.1 & Cleaner v2.2 審查詳情
 
@@ -773,6 +774,7 @@ HVAC_STRICT_MODE=true python main.py pipeline data.csv
 
 - [專案任務排程](docs/專案任務排程/專案任務排程文件.md) - 系統架構、風險評估、實施建議
 - [Sprint 1 執行摘要](docs/專案任務排程/Sprint_1_執行摘要.md) - 詳細的完成項目與測試報告
+- [Sprint 1 審查報告](docs/專案任務排程/Sprint_1_Review_Report.md) - 審查結論與優化項目
 - [Sprint 2 執行摘要](docs/專案任務排程/Sprint_2_執行摘要.md) - Parser v2.1 & Cleaner v2.2 詳細摘要
 - [Sprint 2 審查報告](docs/專案任務排程/Sprint_2_Review_Report.md) - 審查結論與下游預警
 - [Feature Annotation 實作摘要](docs/Feature%20Annotation%20Specification/IMPLEMENTATION_SUMMARY.md) - Feature Annotation v1.3 詳細實作說明

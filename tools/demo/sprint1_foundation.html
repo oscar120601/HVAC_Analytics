@@ -1335,12 +1335,238 @@ flowchart LR
 
         function getDefaultData() {
             return {
-                summary: { total_lines_of_code: 5000, total_tests: 53, error_codes_defined: 27, files_created: 11 },
-                error_codes: { categories: [] },
-                initialization_steps: { steps: [], wrong_order_risk: '' },
-                feature_annotation: { before_after: { before: { columns: [] }, after: { columns: [] } }, inheritance_example: {}, yaml_sample: '', equipment_taxonomy: {} },
-                test_results: { total_tests: 53, coverage: {}, error_codes_tested: [] },
-                milestones: []
+                "sprint": "Sprint 1: 基礎建設",
+                "version": "v1.3",
+                "completion_date": "2026-02-23",
+                "status": "✅ 已完成 (3/3)",
+                "summary": {
+                    "total_lines_of_code": 5000,
+                    "total_tests": 53,
+                    "modules_completed": 3,
+                    "files_created": 11,
+                    "error_codes_defined": 27
+                },
+                "error_codes": {
+                    "categories": [
+                        {
+                            "range": "E000",
+                            "name": "全域時間基準",
+                            "severity": "CRITICAL",
+                            "count": 2,
+                            "module": "PipelineContext",
+                            "design_rationale": "時間基準是全系統的根基，任何模組若未接收 pipeline_origin_timestamp，就無法判斷資料的時效性，必須立即中斷。",
+                            "codes": [
+                                { "code": "E000", "name": "TEMPORAL_BASELINE_MISSING", "description": "pipeline_origin_timestamp 未傳遞至下游模組", "recovery": "重新從 ETLContainer 初始化，確保 PipelineContext 已建立" },
+                                { "code": "E000-W", "name": "TEMPORAL_DRIFT_WARNING", "description": "流程執行時間超過 1 小時，時間漂移可能影響未來資料判斷", "recovery": "記錄警告並繼續，但標記該批次結果需審查" }
+                            ]
+                        },
+                        {
+                            "range": "E001-E099",
+                            "name": "系統層級錯誤",
+                            "severity": "HIGH",
+                            "count": 3,
+                            "module": "ETLContainer / ConfigLoader",
+                            "design_rationale": "系統層級錯誤代表基礎設施異常，通常無法自動恢復，需要人工介入。",
+                            "codes": [
+                                { "code": "E001", "name": "ENCODING_MISMATCH", "description": "檔案編碼無法偵測或含 BOM", "recovery": "以 UTF-8-BOM 模式重試，或指定明確編碼" },
+                                { "code": "E006", "name": "MEMORY_LIMIT_EXCEEDED", "description": "記憶體使用超過預估上限", "recovery": "使用 ResourceManager 縮減批次大小後重試" },
+                                { "code": "E007", "name": "CONFIG_FILE_CORRUPTED", "description": "YAML/JSON 設定檔解析失敗", "recovery": "從備份還原，重新執行 ConfigLoader" }
+                            ]
+                        },
+                        {
+                            "range": "E100-E199",
+                            "name": "Parser 錯誤",
+                            "severity": "CRITICAL",
+                            "count": 5,
+                            "module": "Parser v2.1",
+                            "design_rationale": "Parser 是資料進入系統的第一道門，所有後續模組都依賴其輸出格式，因此必須嚴格驗證，確保輸出的 timestamp 為 UTC(ns)、標頭為 snake_case。",
+                            "codes": [
+                                { "code": "E101", "name": "ENCODING_MISMATCH", "description": "無法偵測或解析檔案編碼（UTF-8/Big5/UTF-16）", "recovery": "指定 encoding 參數或人工確認檔案編碼" },
+                                { "code": "E102", "name": "TIMEZONE_VIOLATION", "description": "輸出 timestamp 時區非 UTC 或精度非 nanoseconds", "recovery": "Parser 強制轉換；若原始資料無時區標記，預設為 Asia/Taipei" },
+                                { "code": "E103", "name": "CONTRACT_VIOLATION", "description": "輸出 DataFrame 缺少 timestamp 或 quality_flags 欄位", "recovery": "檢查 _validate_output_contract 邏輯" },
+                                { "code": "E104", "name": "HEADER_NOT_FOUND", "description": "500 行掃描範圍內無法定位標頭行", "recovery": "手動指定 header_row 或調整掃描範圍" },
+                                { "code": "E105", "name": "HEADER_STANDARDIZATION_FAILED", "description": "標頭含非 ASCII 字元且無法映射為 snake_case", "recovery": "更新 site_templates.yaml 的欄位映射表" }
+                            ]
+                        },
+                        {
+                            "range": "E200-E299",
+                            "name": "Cleaner / BatchProcessor",
+                            "severity": "HIGH",
+                            "count": 6,
+                            "module": "Cleaner v2.2 / BatchProcessor v1.3",
+                            "design_rationale": "Cleaner 執行語意感知清洗，依賴 FeatureAnnotationManager 的 device_role 資訊調整閾值。BatchProcessor 確保輸出 Parquet 格式符合下游契約。",
+                            "codes": [
+                                { "code": "E201", "name": "INPUT_SCHEMA_MISMATCH", "description": "輸入 DataFrame Schema 不符 Parser 輸出契約", "recovery": "確認 Parser 版本與 Cleaner 版本相容" },
+                                { "code": "E202", "name": "UNKNOWN_QUALITY_FLAG", "description": "輸入含 VALID_QUALITY_FLAGS 以外的品質標記", "recovery": "更新 SSOT 或移除非法標記" },
+                                { "code": "E205", "name": "FUTURE_DATA_IN_BATCH", "description": "批次資料含超過 pipeline_origin_timestamp + 5min 的未來資料", "recovery": "確認資料時間範圍，或調整 future_tolerance_minutes 設定" },
+                                { "code": "E206", "name": "PARQUET_FORMAT_VIOLATION", "description": "Parquet timestamp 非 INT64 或時區非 UTC", "recovery": "BatchProcessor 強制轉換，若失敗則重新處理該批次" },
+                                { "code": "E210", "name": "PHYSICAL_CONSTRAINT_VIOLATION", "description": "資料值違反物理限制（如 kW < 0）", "recovery": "標記為 PHYSICAL_IMPOSSIBLE 品質標記" },
+                                { "code": "E212", "name": "ZERO_RATIO_EXCEEDED", "description": "欄位零值比例超過容忍閾值（預設 80%）", "recovery": "確認設備是否正常運作，或排除停機時段" }
+                            ]
+                        },
+                        {
+                            "range": "E350-E399",
+                            "name": "設備驗證錯誤",
+                            "severity": "HIGH",
+                            "count": 4,
+                            "module": "Cleaner v2.2 / EquipmentValidator",
+                            "design_rationale": "物理設備之間存在邏輯依賴，例如冰水主機啟動時冷凍水泵必須同時運轉。若此約束被違反，即表示資料採集錯誤或設備故障。",
+                            "codes": [
+                                { "code": "E350", "name": "EQUIPMENT_LOGIC_PRECHECK_FAILED", "description": "主機啟動但對應水泵關閉（物理不可能狀態）", "recovery": "排除該時段資料，或確認備用設備配置" },
+                                { "code": "E351", "name": "EQUIPMENT_VALIDATION_AUDIT_MISSING", "description": "BatchProcessor 輸出 Manifest 缺少 equipment_validation_audit", "recovery": "Cleaner 必須先執行設備預檢，確保 audit 欄位寫入" },
+                                { "code": "E352", "name": "EQUIPMENT_CONSTRAINT_MISMATCH", "description": "特徵工程使用的設備限制條件與 Cleaner 不一致", "recovery": "統一從 SSOT (equipment_constraints.yaml) 引用" },
+                                { "code": "E353", "name": "REQUIRES_VIOLATION", "description": "設備依賴關係（requires 欄位）被違反", "recovery": "確認 FeatureAnnotationManager 的 equipment constraints 定義" }
+                            ]
+                        },
+                        {
+                            "range": "E400-E499",
+                            "name": "Feature Annotation",
+                            "severity": "MEDIUM",
+                            "count": 5,
+                            "module": "FeatureAnnotationManager",
+                            "design_rationale": "Feature Annotation YAML 是系統的 SSOT，任何版本不一致或循環繼承都會導致全系統行為不可預期，必須嚴格防護。",
+                            "codes": [
+                                { "code": "E400", "name": "SCHEMA_VERSION_MISMATCH", "description": "YAML Schema 版本與當前 schema.json 不符", "recovery": "執行 excel_to_yaml.py 重新生成 YAML" },
+                                { "code": "E402", "name": "SITE_CONFIG_NOT_FOUND", "description": "找不到指定案場的 YAML 標注檔案", "recovery": "執行 wizard.py 建立新案場配置" },
+                                { "code": "E405", "name": "TARGET_WITH_LAG_ENABLED", "description": "目標變數（target）啟用了 Lag 特徵（Data Leakage 風險）", "recovery": "在 YAML 中設定 use_lag: false 或移除目標變數的 lag 配置" },
+                                { "code": "E407", "name": "CIRCULAR_INHERITANCE", "description": "案場 A 繼承 B，B 繼承 A 形成循環", "recovery": "調整 inherits_from 欄位，確保繼承為有向無環圖（DAG）" },
+                                { "code": "E408", "name": "SSOT_VERSION_MISMATCH", "description": "Excel Checksum 與 YAML 不一致，可能已被人工修改", "recovery": "重新執行 excel_to_yaml.py 或使用 ConfigLoader 備份恢復" }
+                            ]
+                        },
+                        {
+                            "range": "E500-E599",
+                            "name": "Metadata 保護",
+                            "severity": "CRITICAL",
+                            "count": 2,
+                            "module": "FeatureAnnotationManager (唯讀防護)",
+                            "design_rationale": "device_role 是設備在系統中的角色（主設備/備用設備），若洩漏到下游 DataFrame，模型訓練時可能學到設備身份而非物理規律，造成部署後性能下降。",
+                            "codes": [
+                                { "code": "E500", "name": "DEVICE_ROLE_LEAKAGE", "description": "偵測到 device_role 欄位寫入 Cleaner 輸出 DataFrame", "recovery": "在 Cleaner metadata_purge 步驟中強制移除 device_role" },
+                                { "code": "E501", "name": "DIRECT_YAML_WRITE_ATTEMPTED", "description": "程式碼嘗試直接呼叫 AnnotationManager.save() 寫入 YAML", "recovery": "唯有 excel_to_yaml.py 可生成 YAML，禁止直接寫入" }
+                            ]
+                        }
+                    ]
+                },
+                "initialization_steps": {
+                    "title": "Foundation First Policy",
+                    "subtitle": "4 步驟初始化順序控制",
+                    "wrong_order_risk": "若步驟順序錯誤（如先初始化 ETL 模組再建立 PipelineContext），後續所有模組將缺少時間基準，導致 E000 串連觸發並使整個管線崩潰。",
+                    "steps": [
+                        {
+                            "step": 1,
+                            "name": "PipelineContext 建立",
+                            "description": "時間基準單例模式。整個 Pipeline 只有一個時間基準，所有模組共享同一個 pipeline_origin_timestamp，確保「未來資料判斷」一致。",
+                            "component": "src/context.py",
+                            "key_features": ["Thread-safe Singleton", "E000 強制檢查", "時間漂移警告 (E000-W)", "未來資料容忍 ±5min"],
+                            "status": "✅ 完成",
+                            "lines_of_code": 337
+                        },
+                        {
+                            "step": 2,
+                            "name": "ConfigLoader 初始化",
+                            "description": "配置載入與 SSOT 同步驗證。確認 Excel 與 YAML 的 Checksum 一致，防護並行寫入。ConfigLoader 是唯一可存取設定檔的入口。",
+                            "component": "src/utils/config_loader.py",
+                            "key_features": ["E406 Excel/YAML 同步檢查", "跨平台 FileLock", "原子寫入", "備份自動恢復"],
+                            "status": "✅ 完成",
+                            "lines_of_code": 485
+                        },
+                        {
+                            "step": 3,
+                            "name": "FeatureAnnotationManager 載入",
+                            "description": "YAML SSOT 載入。解析案場繼承鏈，建立 device_role 查詢快取。此後所有模組均透過 Manager 查詢，禁止直接讀取 YAML 檔案。",
+                            "component": "src/features/annotation_manager.py",
+                            "key_features": ["繼承鏈解析 (DAG)", "E407 循環繼承阻断", "唯讀防護 (E500/E501)", "裝置角色快取"],
+                            "status": "✅ 完成",
+                            "lines_of_code": 550
+                        },
+                        {
+                            "step": 4,
+                            "name": "ETL 模組實例化",
+                            "description": "依賴前三步注入。ETLContainer 強制驗證步驟 1-3 完成後才允許建立 Parser/Cleaner/BatchProcessor，任何漏失都會立即拋出 InitializationError。",
+                            "component": "src/container.py",
+                            "key_features": ["嚴格依賴注入", "InitializationStatus 追蹤", "STRICT_MODE 環境變數", "Fail Fast 原則"],
+                            "status": "✅ 完成",
+                            "lines_of_code": 543
+                        }
+                    ]
+                },
+                "feature_annotation": {
+                    "title": "Feature Annotation v1.3",
+                    "subtitle": "SSOT (Single Source of Truth) 特徵標註系統",
+                    "before_after": {
+                        "before": {
+                            "label": "標注前 (原始 CSV 欄位)",
+                            "columns": [
+                                { "name": "CH1_KW", "type": "unknown", "role": "?", "problem": "中文/大寫混用，語意不明" },
+                                { "name": "PMP_FLOW", "type": "unknown", "role": "?", "problem": "縮寫不一致，無物理單位" },
+                                { "name": "AHU_TEMP_RA", "type": "unknown", "role": "?", "problem": "不知道是否為目標變數" },
+                                { "name": "RT_LOAD", "type": "unknown", "role": "?", "problem": "無法判斷是主設備還是備用" }
+                            ]
+                        },
+                        "after": {
+                            "label": "標注後 (FeatureAnnotation YAML)",
+                            "columns": [
+                                { "name": "chiller_kw", "type": "power_kw", "role": "primary", "tag": "主設備功耗", "use_lag": false },
+                                { "name": "pump_flow", "type": "flow_lpm", "role": "auxiliary", "tag": "水泵流量", "use_lag": true },
+                                { "name": "ahu_return_temp", "type": "temperature_c", "role": "target", "tag": "目標變數", "use_lag": false },
+                                { "name": "rt_load", "type": "cooling_rt", "role": "primary", "tag": "主機冷凍噸", "use_lag": true }
+                            ]
+                        }
+                    },
+                    "inheritance_example": {
+                        "template_factory": {
+                            "site_id": "template_factory",
+                            "description": "工廠通用範本 (基底)",
+                            "columns": ["chiller_kw", "pump_kw", "rt", "temp_out", "cop"]
+                        },
+                        "cgmh_ty": {
+                            "site_id": "cgmh_ty",
+                            "inherits_from": "template_factory",
+                            "description": "長庚醫院桃園院區",
+                            "override_columns": ["chiller_kw", "pump_kw", "rt"]
+                        },
+                        "cgmh_kl": {
+                            "site_id": "cgmh_kl",
+                            "inherits_from": "template_factory",
+                            "description": "長庚醫院基隆院區",
+                            "override_columns": ["chiller_kw", "pump_kw", "rt", "temp_out", "humidity"]
+                        }
+                    },
+                    "equipment_taxonomy": {
+                        "chiller": { "role": "主設備 (Primary)", "examples": ["離心式冰水主機", "螺桿式主機"], "icon": "❄️" },
+                        "pump": { "role": "輔助設備 (Auxiliary)", "examples": ["一次側水泵", "二次側水泵"], "icon": "💧" },
+                        "tower": { "role": "散熱設備 (Heat Rejection)", "examples": ["冷卻水塔"], "icon": "🏭" },
+                        "ahu": { "role": "末端設備 (Terminal)", "examples": ["空氣處理機", "FCU"], "icon": "🌬️" }
+                    },
+                    "yaml_sample": "site_id: cgmh_ty\nschema_version: \"1.3\"\ninherits_from: template_factory\n\ncolumns:\n  chiller_kw:\n    physical_type: power_kw\n    device_role: primary\n    use_lag: false\n    constraints:\n      min: 0\n      max: 2000\n  ahu_return_temp:\n    physical_type: temperature_c\n    device_role: terminal\n    is_target: true\n    use_lag: false  # E405 防護: 目標變數禁用 Lag",
+                    "stats": {
+                        "physical_types": 18,
+                        "equipment_categories": 8,
+                        "site_templates": 1,
+                        "test_coverage": 18
+                    }
+                },
+                "test_results": {
+                    "total_tests": 53,
+                    "passed": 53,
+                    "failed": 0,
+                    "coverage": {
+                        "PipelineContext": 9,
+                        "ETLConfig": 6,
+                        "ConfigLoader": 7,
+                        "ETLContainer": 7,
+                        "Temporal Baseline": 6,
+                        "AnnotationManager": 18
+                    },
+                    "error_codes_tested": ["E000", "E000-W", "E007", "E405", "E406", "E407", "E408", "E500", "E501"]
+                },
+                "milestones": [
+                    { "date": "2026-02-19", "milestone": "Interface Contract v1.1 完成", "detail": "E000-E999 錯誤代碼體系、7個檢查點規格", "status": "✅ 完成" },
+                    { "date": "2026-02-19", "milestone": "System Integration v1.2 完成", "detail": "PipelineContext、ETLConfig、ConfigLoader、ETLContainer，35項測試通過", "status": "✅ 完成" },
+                    { "date": "2026-02-21", "milestone": "Feature Annotation v1.3 完成", "detail": "Pydantic 模型、AnnotationManager、Excel 工具鏈，18項測試通過", "status": "✅ 完成" },
+                    { "date": "2026-02-21", "milestone": "Sprint 1 程式碼審查通過", "detail": "移除 Lazy Import、新增 STRICT_MODE 環境變數", "status": "✅ 通過" },
+                    { "date": "2026-02-23", "milestone": "Sprint 1 Demo 展示", "detail": "sprint1_foundation.html 完成，準備 Sprint 2", "status": "✅ 完成" }
+                ]
             };
         }
 
