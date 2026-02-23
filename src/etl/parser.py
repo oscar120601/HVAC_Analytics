@@ -340,14 +340,16 @@ class ReportParser:
     
     def _normalize_header(self, headers: List[str]) -> List[str]:
         """
-        標頭正規化
+        標頭正規化 (依據 Interface Contract v1.1 PRD 規範)
         
         處理規則:
-        1. 移除前後空白
-        2. 移除引號
-        3. 移除特殊前綴 (如 "<>")
-        4. 統一命名 (如 "日期" → "Date")
-        5. 驗證唯一性
+        1. 移除前後空白、引號、特殊前綴
+        2. 若有定義在 mapping_rules 或 column_mapping 中，優先使用對應名稱 (並略過後續轉換)
+        3. camelCase/PascalCase → snake_case（插入底線）
+        4. 替換非法字元為底線
+        5. 合併連續底線並移除頭尾底線
+        6. 移除開頭數字（改為 col_ 前綴）
+        7. 轉換為小寫
         
         Args:
             headers: 原始標頭列表
@@ -360,34 +362,50 @@ class ReportParser:
         """
         normalized = []
         
+        column_mapping = self.config.get("column_mapping", {})
+        mapping_rules = {
+            "日期": "Date",
+            "時間": "Time",
+            "日期時間": "DateTime",
+            "Date": "Date",
+            "Time": "Time",
+            "DateTime": "DateTime",
+            "timestamp": "timestamp"
+        }
+        
         for header in headers:
-            # 步驟 1: 移除前後空白
+            # 步驟 1: 移除前後空白、引號、特規符號
             h = header.strip()
-            
-            # 步驟 2: 移除引號
             h = h.replace('"', "").replace("'", "")
-            
-            # 步驟 3: 移除特殊前綴
-            h = h.replace("<>", "")
+            h = re.sub(r"^<>", "", h)
             h = h.replace("<", "").replace(">", "")
             
-            # 步驟 4: 統一命名 (常見中文標頭映射)
-            column_mapping = self.config.get("column_mapping", {})
+            # 若為已知直接映射項目，直接轉換（保留原有大小寫，避免如 'Date' 被強制轉成 'date'）
             if h in column_mapping:
                 h = column_mapping[h]
-            
-            # 額外映射規則
-            mapping_rules = {
-                "日期": "Date",
-                "時間": "Time",
-                "日期時間": "DateTime",
-            }
-            if h in mapping_rules:
+            elif h in mapping_rules:
                 h = mapping_rules[h]
+            else:
+                # 步驟 3: camelCase/PascalCase → snake_case
+                # 例如: ChillerCurrent → Chiller_Current
+                h = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', h)
+                
+                # 步驟 4: 替換非法字元為底線 (保留英數字與 Unicode 字元包含中文)
+                h = re.sub(r'[^\w]', '_', h)
+                
+                # 步驟 5: 合併連續底線，移除頭尾底線
+                h = re.sub(r'_+', '_', h).strip('_')
+                
+                # 步驟 6: 處理數字開頭
+                if re.match(r'^[0-9]', h):
+                    h = f"col_{h}"
+                
+                # 步驟 7: 轉換小寫
+                h = h.lower()
             
             normalized.append(h)
         
-        # 步驟 5: 驗證唯一性
+        # 步驟 8: 驗證唯一性
         seen = set()
         duplicates = []
         for h in normalized:

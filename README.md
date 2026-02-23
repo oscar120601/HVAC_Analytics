@@ -1,6 +1,6 @@
 # HVAC Analytics - Core Engine (v1.3 Architecture)
 
-**核心引擎狀態**: 🚧 **Sprint 2 進行中 (1/3 完成)**  
+**核心引擎狀態**: 🚧 **Sprint 2 進行中 (1/3 完成，Parser v2.1 ✅ 已交付)**  
 **最後更新**: 2026-02-23
 
 ---
@@ -14,12 +14,12 @@
 | 1 | 1.3 Feature Annotation v1.3 | ✅ 已完成 | 18/18 通過 |
 | 1 | 1.4 程式碼審查優化 | ✅ 已完成 | 72/72 通過 |
 | 1 | **1.5 Sprint 1 Demo 展示** | ✅ **已完成** | **[🎨 查看 Demo](tools/demo/index.html)** |
-| 2 | 2.1 Parser v2.1 | ✅ **已完成** | 8 案例 |
+| 2 | 2.1 Parser v2.1 | ✅ **已完成** | 16/16 通過 |
 | 2 | 2.2 Cleaner v2.2 | 🚧 **準備中** | - |
 | 2 | 2.3 BatchProcessor v1.3 | ⏳ **待開始** | - |
 
 **Sprint 1 總計**: 72 項測試全部通過 ✅  
-**Sprint 2 進度**: 1/3 完成 (Parser v2.1 ✅)
+**Sprint 2 進度**: 1/3 完成 (Parser v2.1 ✅ 已交付並通過審查)
 
 [📋 查看完整任務排程](./docs/專案任務排程/專案任務排程文件.md) | [📈 Sprint 1 執行摘要](./docs/專案任務排程/Sprint_1_執行摘要.md) | [📈 Sprint 2 執行摘要](./docs/專案任務排程/Sprint_2_執行摘要.md)
 

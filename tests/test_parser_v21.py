@@ -92,7 +92,7 @@ class TestP21_001_UTF8_BOM(TestParserV21):
         # 驗證: 標頭不應包含 BOM
         self.assertIn("Date", df.columns)
         self.assertIn("Time", df.columns)
-        self.assertIn("Value", df.columns)
+        self.assertIn("value", df.columns)
         
         # 驗證: 資料不應包含 BOM 殘留
         for col in df.columns:
@@ -145,6 +145,7 @@ class TestP21_002_Big5_Encoding(TestParserV21):
         # 驗證: 中文標頭應被正規化
         self.assertIn("Date", df.columns)  # "日期" → "Date"
         self.assertIn("timestamp", df.columns)  # Date + Time 合併
+        self.assertIn("溫度", df.columns)
 
 
 # =============================================================================
@@ -156,6 +157,9 @@ class TestP21_003_Timezone_Conversion(TestParserV21):
     
     def test_asia_taipei_to_utc_conversion(self):
         """測試 Asia/Taipei 時區正確轉換為 UTC"""
+        # 測試檔的預設 assumed_timezone 是 UTC，這邊手動變更為 Asia/Taipei
+        self.parser.config["assumed_timezone"] = "Asia/Taipei"
+        
         # 建立測試資料
         csv_content = """Date,Time,Value
 2024/01/15,08:00:00,25.5
@@ -243,7 +247,7 @@ class TestP21_006_Dirty_Data_Cleaning(TestParserV21):
         df = self.parser.parse_file(temp_path)
         
         # 驗證: "25.3 C" → 25.3
-        temp_values = df["Temperature"].to_list()
+        temp_values = df["temperature"].to_list()
         self.assertAlmostEqual(temp_values[0], 25.3, places=1)
     
     def test_null_value_recognition(self):
@@ -258,7 +262,7 @@ class TestP21_006_Dirty_Data_Cleaning(TestParserV21):
         df = self.parser.parse_file(temp_path)
         
         # 驗證: null 值應為 None
-        values = df["Value"].to_list()
+        values = df["value"].to_list()
         self.assertEqual(values[0], 25.5)  # 正常值
         self.assertIsNone(values[1])  # "---" → null
         self.assertIsNone(values[2])  # "Error" → null
@@ -393,7 +397,7 @@ class TestIntegration(TestParserV21):
         self.assertEqual(str(df["timestamp"].dtype.time_zone), "UTC")
         
         # 驗證髒資料處理
-        chiller_values = df["Chiller_Current"].to_list()
+        chiller_values = df["chiller_current"].to_list()
         self.assertEqual(chiller_values[0], 15.5)
         self.assertIsNone(chiller_values[3])  # "---" → null
         self.assertEqual(chiller_values[4], 18.5)  # "18.5 C" → 18.5
