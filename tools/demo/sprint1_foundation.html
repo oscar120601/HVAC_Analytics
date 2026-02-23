@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprint 1: 基礎建設 | HVAC-1 Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-dark: #0a1628;
+            --secondary-dark: #0f1d32;
+            --accent-cyan: #00d4ff;
+            --accent-orange: #ff6b35;
+            --accent-yellow: #ffd166;
+            --accent-green: #06d6a0;
+            --accent-red: #ef476f;
+            --text-primary: #e8f4f8;
+            --text-secondary: #8b9dc3;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: var(--primary-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        /* 動態背景 */
+        .bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .bg-gradient {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(0, 212, 255, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(255, 107, 53, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        /* 主要內容 */
+        .content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* 標題區域 */
+        .hero {
+            padding: 4rem 2rem 3rem;
+            text-align: center;
+            position: relative;
+        }
+        
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(6, 214, 160, 0.1);
+            border: 1px solid rgba(6, 214, 160, 0.3);
+            border-radius: 100px;
+            font-size: 0.875rem;
+            color: var(--accent-green);
+            margin-bottom: 1.5rem;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .hero h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-cyan) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+            letter-spacing: -0.02em;
+        }
+        
+        .hero-subtitle {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto 2rem;
+        }
+        
+        .hero-stats {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            flex-wrap: wrap;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: var(--accent-cyan);
+        }
+        
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        
+        /* 區塊樣式 */
+        .section {
+            padding: 3rem 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .section-number {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            color: var(--accent-orange);
+            border: 1px solid var(--accent-orange);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+        }
+        
+        .section-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.75rem;
+            font-weight: 700;
+        }
+        
+        /* 卡片樣式 */
+        .card {
+            background: linear-gradient(135deg, rgba(15, 29, 50, 0.8) 0%, rgba(10, 22, 40, 0.9) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.1);
+            border-radius: 16px;
+            padding: 2rem;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            border-color: rgba(0, 212, 255, 0.3);
+            box-shadow: 0 0 40px rgba(0, 212, 255, 0.1);
+        }
+        
+        /* 架構圖區域 */
+        .architecture-section {
+            margin-bottom: 4rem;
+        }
+        
+        .mermaid-container {
+            background: rgba(15, 29, 50, 0.5);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-top: 1.5rem;
+        }
+        
+        /* 錯誤代碼表格 */
+        .error-codes-grid {
+            display: grid;
+            gap: 1rem;
+        }
+        
+        .error-category {
+            background: linear-gradient(135deg, rgba(15, 29, 50, 0.6) 0%, rgba(10, 22, 40, 0.8) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.1);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .error-category:hover {
+            border-color: rgba(0, 212, 255, 0.2);
+        }
+        
+        .error-category-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            background: rgba(0, 212, 255, 0.03);
+        }
+        
+        .error-category-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .error-range {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            color: var(--accent-cyan);
+            background: rgba(0, 212, 255, 0.1);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+        }
+        
+        .error-name {
+            font-weight: 500;
+        }
+        
+        .error-count {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+        
+        .severity-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .severity-critical {
+            background: rgba(239, 71, 111, 0.15);
+            color: var(--accent-red);
+            border: 1px solid rgba(239, 71, 111, 0.3);
+        }
+        
+        .severity-high {
+            background: rgba(255, 107, 53, 0.15);
+            color: var(--accent-orange);
+            border: 1px solid rgba(255, 107, 53, 0.3);
+        }
+        
+        .severity-medium {
+            background: rgba(255, 209, 102, 0.15);
+            color: var(--accent-yellow);
+            border: 1px solid rgba(255, 209, 102, 0.3);
+        }
+        
+        .error-details {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        
+        .error-category.expanded .error-details {
+            max-height: 500px;
+        }
+        
+        .error-list {
+            padding: 1rem 1.5rem;
+        }
+        
+        .error-item {
+            display: grid;
+            grid-template-columns: 80px 200px 1fr;
+            gap: 1rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.05);
+            font-size: 0.875rem;
+        }
+        
+        .error-item:last-child {
+            border-bottom: none;
+        }
+        
+        .error-code {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-cyan);
+        }
+        
+        .error-code-name {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+        }
+        
+        .error-desc {
+            color: var(--text-secondary);
+        }
+        
+        /* 初始化步驟 */
+        .init-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .init-step {
+            position: relative;
+            background: linear-gradient(135deg, rgba(15, 29, 50, 0.6) 0%, rgba(10, 22, 40, 0.8) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.1);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        
+        .init-step.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .init-step:hover {
+            border-color: rgba(0, 212, 255, 0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 20px rgba(0, 212, 255, 0.1);
+        }
+        
+        .step-number {
+            position: absolute;
+            top: -12px;
+            left: 1.5rem;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-orange);
+            background: var(--primary-dark);
+            padding: 0 0.5rem;
+        }
+        
+        .step-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .step-component {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--accent-cyan);
+            margin-bottom: 0.75rem;
+        }
+        
+        .step-desc {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+        
+        .step-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .step-feature {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            background: rgba(0, 212, 255, 0.1);
+            color: var(--accent-cyan);
+            border-radius: 4px;
+        }
+        
+        .step-status {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 0.875rem;
+        }
+        
+        /* Feature Annotation */
+        .annotation-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+        
+        .inheritance-tree {
+            background: rgba(15, 29, 50, 0.5);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+        
+        .tree-node {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            background: rgba(0, 212, 255, 0.05);
+            border: 1px solid rgba(0, 212, 255, 0.1);
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        
+        .tree-node:hover {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+        
+        .tree-node.root {
+            border-color: var(--accent-orange);
+            background: rgba(255, 107, 53, 0.1);
+        }
+        
+        .tree-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 6px;
+        }
+        
+        .tree-node.root .tree-icon {
+            background: rgba(255, 107, 53, 0.2);
+        }
+        
+        .tree-content {
+            flex: 1;
+        }
+        
+        .tree-title {
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+        
+        .tree-desc {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        
+        .tree-columns {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--accent-cyan);
+            background: rgba(0, 212, 255, 0.1);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+        
+        .equipment-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        
+        .equipment-card {
+            background: rgba(0, 212, 255, 0.05);
+            border: 1px solid rgba(0, 212, 255, 0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+        
+        .equipment-card:hover {
+            border-color: rgba(0, 212, 255, 0.3);
+            transform: scale(1.02);
+        }
+        
+        .equipment-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .equipment-name {
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+        
+        .equipment-role {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        
+        /* 測試結果 */
+        .test-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .test-card {
+            background: linear-gradient(135deg, rgba(6, 214, 160, 0.1) 0%, rgba(6, 214, 160, 0.05) 100%);
+            border: 1px solid rgba(6, 214, 160, 0.2);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+        
+        .test-number {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--accent-green);
+        }
+        
+        .test-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+        
+        /* 里程碑時間軸 */
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+        
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0.5rem;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(180deg, var(--accent-green) 0%, rgba(0, 212, 255, 0.3) 100%);
+        }
+        
+        .timeline-item {
+            position: relative;
+            padding-bottom: 2rem;
+            opacity: 0;
+            transform: translateX(-20px);
+            transition: all 0.4s ease;
+        }
+        
+        .timeline-item.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -1.75rem;
+            top: 0.25rem;
+            width: 12px;
+            height: 12px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            border: 2px solid var(--primary-dark);
+            box-shadow: 0 0 0 2px var(--accent-green);
+        }
+        
+        .timeline-date {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--accent-cyan);
+            margin-bottom: 0.25rem;
+        }
+        
+        .timeline-title {
+            font-weight: 500;
+        }
+        
+        .timeline-status {
+            font-size: 0.875rem;
+            color: var(--accent-green);
+        }
+        
+        /* 響應式 */
+        @media (max-width: 768px) {
+            .hero-stats {
+                gap: 2rem;
+            }
+            
+            .annotation-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .error-item {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+            
+            .init-steps {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* 滾動動畫 */
+        .scroll-reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .scroll-reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+    <div class="bg-gradient"></div>
+    
+    <div class="content">
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="hero-badge">
+                <span>●</span>
+                <span>Sprint 1 已完成 (3/3)</span>
+            </div>
+            <h1>Sprint 1: 基礎建設</h1>
+            <p class="hero-subtitle">
+                HVAC-1 空調節能系統的基礎設施建設完成，包含 Interface Contract、System Integration 與 Feature Annotation 三大模組
+            </p>
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="loc-count">0</div>
+                    <div class="stat-label">程式碼行數</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="test-count">0</div>
+                    <div class="stat-label">單元測試</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="module-count">0</div>
+                    <div class="stat-label">完成模組</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Architecture Section -->
+        <section class="section architecture-section scroll-reveal">
+            <div class="section-header">
+                <span class="section-number">01</span>
+                <h2 class="section-title">系統架構與資料流</h2>
+            </div>
+            <div class="mermaid-container">
+                <pre class="mermaid">
+flowchart LR
+    subgraph Input["📥 原始數據"]
+        RAW["Raw CSV Data"]
+    end
+    
+    subgraph ETL["⚙️ ETL Pipeline"]
+        P["Parser<br/>v2.1"]
+        C["Cleaner<br/>v2.2"]
+        BP["BatchProcessor<br/>v1.3"]
+        FE["FeatureEngineer<br/>v1.3"]
+    end
+    
+    subgraph ML["🧠 ML Pipeline"]
+        MT["ModelTraining<br/>v1.3"]
+        MR["Model Registry<br/>Index"]
+    end
+    
+    subgraph Output["📊 最佳化輸出"]
+        OPT["Optimization<br/>Engine"]
+        REC["節能建議"]
+    end
+    
+    subgraph SSOT["📋 SSOT"]
+        FA["Feature Annotation<br/>YAML"]
+        EC["Equipment<br/>Constraints"]
+    end
+    
+    RAW --> P
+    P --> C
+    C --> BP
+    BP --> FE
+    FE --> MT
+    MT --> MR
+    MR --> OPT
+    OPT --> REC
+    
+    FA -.-> C
+    FA -.-> FE
+    FA -.-> OPT
+    EC -.-> C
+    EC -.-> OPT
+    
+    style P fill:#0f1d32,stroke:#00d4ff,stroke-width:2px,color:#fff
+    style C fill:#0f1d32,stroke:#00d4ff,stroke-width:2px,color:#fff
+    style BP fill:#0f1d32,stroke:#00d4ff,stroke-width:2px,color:#fff
+    style FE fill:#0f1d32,stroke:#00d4ff,stroke-width:2px,color:#fff
+    style MT fill:#1a2d4a,stroke:#ffd166,stroke-width:2px,color:#fff
+    style OPT fill:#1a2d4a,stroke:#06d6a0,stroke-width:2px,color:#fff
+    style FA fill:#2d1a1a,stroke:#ff6b35,stroke-width:2px,color:#fff
+    style EC fill:#2d1a1a,stroke:#ff6b35,stroke-width:2px,color:#fff
+                </pre>
+            </div>
+        </section>
+
+        <!-- Error Codes Section -->
+        <section class="section scroll-reveal">
+            <div class="section-header">
+                <span class="section-number">02</span>
+                <h2 class="section-title">錯誤代碼體系 (E000-E999)</h2>
+            </div>
+            <div class="card">
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                    完整的分層錯誤代碼體系，涵蓋 7 大類別、27+ 個錯誤代碼，嚴格定義嚴重度與恢復策略
+                </p>
+                <div class="error-codes-grid" id="error-codes-container">
+                    <!-- 動態生成 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Initialization Steps Section -->
+        <section class="section scroll-reveal">
+            <div class="section-header">
+                <span class="section-number">03</span>
+                <h2 class="section-title">Foundation First Policy</h2>
+            </div>
+            <p style="color: var(--text-secondary); margin-bottom: 2rem; max-width: 800px;">
+                嚴格的 4 步驟初始化順序控制，確保所有依賴正確建立。時間基準單例模式、配置載入、SSOT 載入、模組實例化依序執行。
+            </p>
+            <div class="init-steps" id="init-steps-container">
+                <!-- 動態生成 -->
+            </div>
+        </section>
+
+        <!-- Feature Annotation Section -->
+        <section class="section scroll-reveal">
+            <div class="section-header">
+                <span class="section-number">04</span>
+                <h2 class="section-title">Feature Annotation v1.3</h2>
+            </div>
+            <div class="annotation-grid">
+                <div class="card">
+                    <h3 style="font-family: 'Space Grotesk', sans-serif; margin-bottom: 1rem;">繼承鏈結構</h3>
+                    <div class="inheritance-tree" id="inheritance-tree">
+                        <!-- 動態生成 -->
+                    </div>
+                </div>
+                <div class="card">
+                    <h3 style="font-family: 'Space Grotesk', sans-serif; margin-bottom: 1rem;">設備分類法</h3>
+                    <div class="equipment-grid" id="equipment-grid">
+                        <!-- 動態生成 -->
+                    </div>
+                    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid rgba(0, 212, 255, 0.1);">
+                        <div style="display: flex; justify-content: space-around; text-align: center;">
+                            <div>
+                                <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; color: var(--accent-cyan);">18+</div>
+                                <div style="font-size: 0.75rem; color: var(--text-secondary);">物理類型</div>
+                            </div>
+                            <div>
+                                <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; color: var(--accent-cyan);">8</div>
+                                <div style="font-size: 0.75rem; color: var(--text-secondary);">設備類別</div>
+                            </div>
+                            <div>
+                                <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; color: var(--accent-cyan);">18</div>
+                                <div style="font-size: 0.75rem; color: var(--text-secondary);">測試覆蓋</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Test Results Section -->
+        <section class="section scroll-reveal">
+            <div class="section-header">
+                <span class="section-number">05</span>
+                <h2 class="section-title">測試覆蓋率</h2>
+            </div>
+            <div class="test-results" id="test-results">
+                <!-- 動態生成 -->
+            </div>
+        </section>
+
+        <!-- Timeline Section -->
+        <section class="section scroll-reveal">
+            <div class="section-header">
+                <span class="section-number">06</span>
+                <h2 class="section-title">開發里程碑</h2>
+            </div>
+            <div class="card">
+                <div class="timeline" id="timeline">
+                    <!-- 動態生成 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer style="text-align: center; padding: 3rem 2rem; color: var(--text-secondary); font-size: 0.875rem;">
+            <p>HVAC-1 空調節能系統 | Sprint 1 Demo | 2026-02-21</p>
+            <p style="margin-top: 0.5rem; opacity: 0.6;">嚴格契約導向設計 (Contract-First Design) + SSOT (Single Source of Truth)</p>
+        </footer>
+    </div>
+
+    <script>
+        // 初始化 Mermaid
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            themeVariables: {
+                primaryColor: '#0f1d32',
+                primaryTextColor: '#e8f4f8',
+                primaryBorderColor: '#00d4ff',
+                lineColor: '#00d4ff',
+                secondaryColor: '#1a2d4a',
+                tertiaryColor: '#2d1a1a',
+                fontFamily: 'JetBrains Mono, monospace'
+            }
+        });
+
+        // 數據載入與渲染
+        let demoData = null;
+
+        async function loadData() {
+            try {
+                const response = await fetch('./data/sprint1_foundation.json');
+                demoData = await response.json();
+                renderAll();
+                animateNumbers();
+                initScrollAnimations();
+            } catch (error) {
+                console.error('Failed to load demo data:', error);
+                // 使用預設數據
+                demoData = getDefaultData();
+                renderAll();
+            }
+        }
+
+        function getDefaultData() {
+            return {
+                summary: { total_lines_of_code: 5000, total_tests: 53, modules_completed: 3 },
+                error_codes: { categories: [] },
+                initialization_steps: { steps: [] },
+                feature_annotation: { inheritance_example: {}, equipment_taxonomy: {}, stats: {} },
+                test_results: { coverage: {} },
+                milestones: []
+            };
+        }
+
+        function renderAll() {
+            renderErrorCodes();
+            renderInitSteps();
+            renderInheritanceTree();
+            renderEquipmentGrid();
+            renderTestResults();
+            renderTimeline();
+        }
+
+        function renderErrorCodes() {
+            const container = document.getElementById('error-codes-container');
+            if (!demoData.error_codes || !demoData.error_codes.categories) return;
+            
+            container.innerHTML = demoData.error_codes.categories.map(cat => `
+                <div class="error-category" onclick="toggleErrorCategory(this)">
+                    <div class="error-category-header">
+                        <div class="error-category-info">
+                            <span class="error-range">${cat.range}</span>
+                            <span class="error-name">${cat.name}</span>
+                            <span class="error-count">${cat.count} 個錯誤碼</span>
+                        </div>
+                        <span class="severity-badge severity-${cat.severity.toLowerCase()}">${cat.severity}</span>
+                    </div>
+                    <div class="error-details">
+                        <div class="error-list">
+                            ${cat.codes.map(code => `
+                                <div class="error-item">
+                                    <span class="error-code">${code.code}</span>
+                                    <span class="error-code-name">${code.name}</span>
+                                    <span class="error-desc">${code.description}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleErrorCategory(element) {
+            element.classList.toggle('expanded');
+        }
+
+        function renderInitSteps() {
+            const container = document.getElementById('init-steps-container');
+            if (!demoData.initialization_steps || !demoData.initialization_steps.steps) return;
+            
+            container.innerHTML = demoData.initialization_steps.steps.map((step, index) => `
+                <div class="init-step" style="transition-delay: ${index * 100}ms">
+                    <span class="step-number">0${step.step}</span>
+                    <span class="step-status">${step.status}</span>
+                    <h3 class="step-title">${step.name}</h3>
+                    <div class="step-component">${step.component}</div>
+                    <p class="step-desc">${step.description}</p>
+                    <div class="step-features">
+                        ${step.key_features.map(f => `<span class="step-feature">${f}</span>`).join('')}
+                    </div>
+                </div>
+            `).join('');
+
+            // 延遲顯示動畫
+            setTimeout(() => {
+                document.querySelectorAll('.init-step').forEach(el => el.classList.add('visible'));
+            }, 100);
+        }
+
+        function renderInheritanceTree() {
+            const container = document.getElementById('inheritance-tree');
+            const example = demoData.feature_annotation?.inheritance_example;
+            if (!example) return;
+            
+            container.innerHTML = `
+                <div class="tree-node root">
+                    <div class="tree-icon">📋</div>
+                    <div class="tree-content">
+                        <div class="tree-title">${example.template_factory?.site_id}</div>
+                        <div class="tree-desc">${example.template_factory?.description}</div>
+                    </div>
+                    <span class="tree-columns">${example.template_factory?.columns?.length} columns</span>
+                </div>
+                <div style="padding-left: 2rem;">
+                    ${Object.entries(example).filter(([k]) => k !== 'template_factory').map(([key, site]) => `
+                        <div class="tree-node">
+                            <div class="tree-icon">🏭</div>
+                            <div class="tree-content">
+                                <div class="tree-title">${site.site_id}</div>
+                                <div class="tree-desc">${site.description}</div>
+                            </div>
+                            <span class="tree-columns">${site.override_columns?.length} columns</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function renderEquipmentGrid() {
+            const container = document.getElementById('equipment-grid');
+            const taxonomy = demoData.feature_annotation?.equipment_taxonomy;
+            if (!taxonomy) return;
+            
+            const icons = { chiller: '❄️', pump: '💧', tower: '🏭', ahu: '🌬️' };
+            
+            container.innerHTML = Object.entries(taxonomy).map(([key, equip]) => `
+                <div class="equipment-card">
+                    <div class="equipment-icon">${icons[key] || '⚙️'}</div>
+                    <div class="equipment-name">${equip.role}</div>
+                    <div class="equipment-role">${equip.examples?.[0] || key}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderTestResults() {
+            const container = document.getElementById('test-results');
+            const coverage = demoData.test_results?.coverage;
+            if (!coverage) return;
+            
+            container.innerHTML = Object.entries(coverage).map(([name, count]) => `
+                <div class="test-card">
+                    <div class="test-number">${count}</div>
+                    <div class="test-label">${name}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderTimeline() {
+            const container = document.getElementById('timeline');
+            if (!demoData.milestones) return;
+            
+            container.innerHTML = demoData.milestones.map((m, i) => `
+                <div class="timeline-item" style="transition-delay: ${i * 100}ms">
+                    <div class="timeline-date">${m.date}</div>
+                    <div class="timeline-title">${m.milestone}</div>
+                    <div class="timeline-status">${m.status}</div>
+                </div>
+            `).join('');
+
+            setTimeout(() => {
+                document.querySelectorAll('.timeline-item').forEach(el => el.classList.add('visible'));
+            }, 100);
+        }
+
+        function animateNumbers() {
+            const summary = demoData?.summary || { total_lines_of_code: 5000, total_tests: 53, modules_completed: 3 };
+            
+            animateNumber('loc-count', summary.total_lines_of_code, 1500);
+            animateNumber('test-count', summary.total_tests, 1200);
+            animateNumber('module-count', summary.modules_completed, 800);
+        }
+
+        function animateNumber(id, target, duration) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            
+            const start = 0;
+            const startTime = performance.now();
+            
+            function update(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const easeProgress = 1 - Math.pow(1 - progress, 3);
+                const current = Math.floor(start + (target - start) * easeProgress);
+                
+                el.textContent = current.toLocaleString();
+                
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                }
+            }
+            
+            requestAnimationFrame(update);
+        }
+
+        function initScrollAnimations() {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                    }
+                });
+            }, { threshold: 0.1 });
+
+            document.querySelectorAll('.scroll-reveal').forEach(el => observer.observe(el));
+        }
+
+        // 啟動
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+</html>

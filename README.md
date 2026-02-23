@@ -1,18 +1,19 @@
 # HVAC Analytics - Core Engine (v1.3 Architecture)
 
-**核心引擎狀態**: ✅ **Sprint 1 完成 (3/3)**  
-**最後更新**: 2026-02-21
+**核心引擎狀態**: ✅ **Sprint 1 完成 (4/4，含 Demo)**  
+**最後更新**: 2026-02-23
 
 ---
 
 ## 📊 專案進度總覽
 
-| Sprint | 任務 | 狀態 | 測試 |
+| Sprint | 任務 | 狀態 | 測試/展示 |
 |:---:|:---|:---:|:---:|
 | 1 | 1.1 Interface Contract v1.1 | ✅ 已完成 | 已驗證 |
 | 1 | 1.2 System Integration v1.2 | ✅ 已完成 | 35/35 通過 |
 | 1 | 1.3 Feature Annotation v1.3 | ✅ 已完成 | 18/18 通過 |
 | 1 | 1.4 程式碼審查優化 | ✅ 已完成 | 72/72 通過 |
+| 1 | **1.5 Sprint 1 Demo 展示** | ✅ **已完成** | **[🎨 查看 Demo](tools/demo/index.html)** |
 | 2 | 2.1 Parser v2.1 | 🚧 準備中 | - |
 | 2 | 2.2 Cleaner v2.2 | 🚧 準備中 | - |
 | 2 | 2.3 BatchProcessor v1.3 | 🚧 準備中 | - |
@@ -84,7 +85,7 @@ HVAC_Analytics/
 
 ---
 
-## 🎯 已完成項目 (Sprint 1 - 3/3 完成)
+## 🎯 已完成項目 (Sprint 1 - 4/4 完成)
 
 ### ✅ 1.1 Interface Contract v1.1
 
@@ -444,7 +445,7 @@ python3 -m pytest tests/ -v
 
 ## 🚧 實作路徑 (Implementation Roadmap)
 
-### 當前狀態: Sprint 1 完成 (3/3)
+### 當前狀態: Sprint 1 完成 (4/4，含 Demo)
 
 ```
 Sprint 1: Foundation ✅ 完成
@@ -465,9 +466,15 @@ Sprint 1: Foundation ✅ 完成
 │   ├── Excel 工具鏈 (Wizard、excel_to_yaml)
 │   └── HVAC 設備限制條件
 │
-└── ✅ 程式碼審查優化 (已完成)
-    ├── Lazy Import 移除 (支援靜態分析)
-    └── STRICT_MODE 環境變數 (生產安全)
+├── ✅ 程式碼審查優化 (已完成)
+│   ├── Lazy Import 移除 (支援靜態分析)
+│   └── STRICT_MODE 環境變數 (生產安全)
+│
+└── ✅ Sprint 1 Demo 展示 (已完成)
+    ├── 系統架構圖 (Mermaid.js)
+    ├── 錯誤代碼體系互動表格
+    ├── Feature Annotation 繼承鏈展示
+    └── 4步驟初始化流程動畫
 
 Sprint 2: 核心 ETL 🚧 準備中
 ├── Parser v2.1 (Header Standardization、時區轉換)
@@ -518,6 +525,6 @@ HVAC_STRICT_MODE=true python main.py pipeline data.csv
 
 ---
 
-**最後更新**: 2026-02-21  
+**最後更新**: 2026-02-23  
 **架構版本**: v1.3  
-**文件狀態**: ✅ Sprint 1 完成 (3/3)
+**文件狀態**: ✅ Sprint 1 完成 (4/4，含 Demo)

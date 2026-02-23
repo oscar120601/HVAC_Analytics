@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HVAC-1 Demo Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-dark: #0a1628;
+            --secondary-dark: #0f1d32;
+            --accent-cyan: #00d4ff;
+            --accent-orange: #ff6b35;
+            --accent-green: #06d6a0;
+            --text-primary: #e8f4f8;
+            --text-secondary: #8b9dc3;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: var(--primary-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+        
+        .bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .bg-gradient {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(0, 212, 255, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(255, 107, 53, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .content {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        
+        .hero {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .hero h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-cyan) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+        }
+        
+        .hero p {
+            color: var(--text-secondary);
+            font-size: 1.125rem;
+            max-width: 600px;
+        }
+        
+        .sprint-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            max-width: 1200px;
+            width: 100%;
+        }
+        
+        .sprint-card {
+            background: linear-gradient(135deg, rgba(15, 29, 50, 0.8) 0%, rgba(10, 22, 40, 0.9) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.1);
+            border-radius: 16px;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .sprint-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-orange));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .sprint-card:hover::before {
+            opacity: 1;
+        }
+        
+        .sprint-card:hover {
+            border-color: rgba(0, 212, 255, 0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 20px rgba(0, 212, 255, 0.1);
+        }
+        
+        .sprint-card.completed {
+            border-color: rgba(6, 214, 160, 0.3);
+        }
+        
+        .sprint-card.completed::before {
+            background: linear-gradient(90deg, var(--accent-green), var(--accent-cyan));
+            opacity: 1;
+        }
+        
+        .sprint-card.pending {
+            opacity: 0.6;
+        }
+        
+        .sprint-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 100px;
+            margin-bottom: 1rem;
+        }
+        
+        .sprint-status.completed {
+            background: rgba(6, 214, 160, 0.1);
+            color: var(--accent-green);
+            border: 1px solid rgba(6, 214, 160, 0.3);
+        }
+        
+        .sprint-status.in-progress {
+            background: rgba(0, 212, 255, 0.1);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+        }
+        
+        .sprint-status.pending {
+            background: rgba(139, 157, 195, 0.1);
+            color: var(--text-secondary);
+            border: 1px solid rgba(139, 157, 195, 0.3);
+        }
+        
+        .sprint-number {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--accent-orange);
+            margin-bottom: 0.5rem;
+        }
+        
+        .sprint-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .sprint-desc {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        
+        .sprint-meta {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        
+        .sprint-meta span {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        footer {
+            margin-top: 3rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+    <div class="bg-gradient"></div>
+    
+    <div class="content">
+        <div class="hero">
+            <h1>HVAC-1 Demo Dashboard</h1>
+            <p>空調節能系統 - 各 Sprint 成果展示總覽</p>
+        </div>
+        
+        <div class="sprint-grid">
+            <a href="sprint1_foundation.html" class="sprint-card completed">
+                <span class="sprint-status completed">● 已完成</span>
+                <div class="sprint-number">SPRINT 01</div>
+                <h2 class="sprint-title">基礎建設</h2>
+                <p class="sprint-desc">Interface Contract、System Integration、Feature Annotation 三大基礎模組建設完成</p>
+                <div class="sprint-meta">
+                    <span>⏱ 13-15 天</span>
+                    <span>📝 5,000+ 行程式碼</span>
+                    <span>✓ 53 項測試</span>
+                </div>
+            </a>
+            
+            <a href="#" class="sprint-card pending" onclick="alert('Sprint 2 Demo 開發中'); return false;">
+                <span class="sprint-status pending">○ 待開始</span>
+                <div class="sprint-number">SPRINT 02</div>
+                <h2 class="sprint-title">核心 ETL</h2>
+                <p class="sprint-desc">Parser、Cleaner、BatchProcessor 資料處理流程建構，品質檢查與設備驗證</p>
+                <div class="sprint-meta">
+                    <span>⏱ 15-17 天</span>
+                    <span>📝 Parser v2.1</span>
+                    <span>📝 Cleaner v2.2</span>
+                </div>
+            </a>
+            
+            <a href="#" class="sprint-card pending" onclick="alert('Sprint 3 Demo 開發中'); return false;">
+                <span class="sprint-status pending">○ 待開始</span>
+                <div class="sprint-number">SPRINT 03</div>
+                <h2 class="sprint-title">特徵與模型</h2>
+                <p class="sprint-desc">特徵工程、模型訓練、集成學習與 Hybrid Consistency 驗證</p>
+                <div class="sprint-meta">
+                    <span>⏱ 18-22 天</span>
+                    <span>📝 Feature Engineer v1.3</span>
+                    <span>📝 Model Training v1.3</span>
+                </div>
+            </a>
+            
+            <a href="#" class="sprint-card pending" onclick="alert('Sprint 4 Demo 開發中'); return false;">
+                <span class="sprint-status pending">○ 待開始</span>
+                <div class="sprint-number">SPRINT 04</div>
+                <h2 class="sprint-title">最佳化引擎</h2>
+                <p class="sprint-desc">能源最佳化引擎、Fallback 機制、設備限制條件驗證</p>
+                <div class="sprint-meta">
+                    <span>⏱ 10-12 天</span>
+                    <span>📝 Optimization v1.2</span>
+                    <span>⚡ Fallback 3層級</span>
+                </div>
+            </a>
+            
+            <a href="#" class="sprint-card pending" onclick="alert('Sprint 5 Demo 開發中'); return false;">
+                <span class="sprint-status pending">○ 待開始</span>
+                <div class="sprint-number">SPRINT 05</div>
+                <h2 class="sprint-title">整合測試</h2>
+                <p class="sprint-desc">完整 Pipeline Dashboard、E2E 測試、Wizard Technical Blockade</p>
+                <div class="sprint-meta">
+                    <span>⏱ 8-10 天</span>
+                    <span>🔗 E2E Pipeline</span>
+                    <span>🛡️ 安全防護</span>
+                </div>
+            </a>
+        </div>
+        
+        <footer>
+            <p>HVAC-1 空調節能系統 | 嚴格契約導向設計 + SSOT 原則</p>
+            <p style="margin-top: 0.5rem; opacity: 0.6;">文件版本: v1.3 | 最後更新: 2026-02-23</p>
+        </footer>
+    </div>
+</body>
+</html>
