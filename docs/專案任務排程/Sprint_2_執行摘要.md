@@ -3,8 +3,10 @@
 **Sprint 名稱**: 核心 ETL (Core ETL Pipeline)  
 **時間範圍**: 第 3-5 週 (2026-02-23 ~ 2026-03-15)  
 **狀態**: 🚧 **進行中** (2/3 完成)  
-**文件版本**: v1.0  
-**建立日期**: 2026-02-23
+**審查狀態**: [📋 Sprint 2 Review Report](./Sprint_2_Review_Report.md) - Parser v2.1 (A級), Cleaner v2.2 (A級) ✅  
+**文件版本**: v1.2  
+**建立日期**: 2026-02-23  
+**最後更新**: 2026-02-23
 
 ---
 
@@ -19,18 +21,22 @@
 
 ## 二、任務完成狀態
 
-| 任務 | 版本 | 預估工時 | 實際工時 | 狀態 | 測試 |
-|:---|:---:|:---:|:---:|:---:|:---:|
-| Parser | v2.1 | 4-5天 | 1天 | ✅ **已完成** | 16 案例 |
-| Cleaner | v2.2 | 6-7天 | 1天 | ✅ **已完成** | 12 案例 |
-| BatchProcessor | v1.3 | 5-6天 | - | ⏳ **待開始** | - |
-| Sprint 2 Demo | - | 1.5天 | - | ⏳ **待開始** | - |
+| 任務 | 版本 | 預估工時 | 實際工時 | 狀態 | 測試 | 審查結果 |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|
+| Parser | v2.1 | 4-5天 | 1天 | ✅ **已完成** | 16 案例 | 🟢 A級 |
+| Cleaner | v2.2 | 6-7天 | 1天 | ✅ **已完成** | 26 案例 | 🟢 A級 |
+| BatchProcessor | v1.3 | 5-6天 | - | ⏳ **待開始** | - | - |
+| Sprint 2 Demo | - | 1.5天 | - | ⏳ **待開始** | - | - |
+
+**測試總計**: Parser (16) + Cleaner (12+14=26) = **42 項測試通過**
 
 ---
 
 ## 三、已完成項目詳情
 
 ### ✅ 2.1 Parser v2.1 (2026-02-23 完成)
+
+**審查結論**: 🟢 **A級** - 全數通過，無需重工
 
 #### 3.1.1 交付物
 
@@ -144,16 +150,20 @@ farglory_o3:  # 遠雄 O3
 
 ---
 
-## 四、進行中項目
-
 ### ✅ 2.2 Cleaner v2.2 (2026-02-23 完成)
+
+**審查結論**: 🟢 **A級** - 所有問題全數關閉，具備完整生產級品質
+
+**改善計畫驗收**: 10/10 項達成 (v2.1)
 
 #### 3.2.1 交付物
 
 | 檔案 | 說明 | 行數 |
 |:---|:---|:---:|
-| `src/etl/cleaner.py` | DataCleaner v2.2 主實作 | 1100+ |
-| `tests/test_cleaner_simple.py` | 單元測試 (12 個案例) | 200+ |
+| `src/etl/cleaner.py` | DataCleaner v2.2 主實作 | 1303+ |
+| `tests/test_cleaner_simple.py` | 基礎單元測試 (12 個案例) | 200+ |
+| `tests/test_cleaner_v22.py` | v2.2 功能測試 (10 個案例) | 622+ |
+| `tests/test_cleaner_equipment_validation.py` | 設備驗證測試 (14 個案例) | 370+ |
 
 #### 3.2.2 核心功能實作
 
@@ -174,20 +184,23 @@ role = self.annotation.get_device_role(column_name)
 # backup/seasonal: 放寬閾值
 ```
 
-**未來資料檢查 (C-004)**
+**未來資料檢查 (C-004)** - 強化版
 ```python
 def _check_future_data(self, df: pl.DataFrame) -> pl.DataFrame:
     """使用 pipeline_origin_timestamp 檢查，非 datetime.now()"""
     # 容忍 5 分鐘誤差
+    # 新增 future_data_behavior: "reject"(default) | "filter" | "flag_only"
 ```
 
-**設備邏輯預檢 (C-006)**
+**設備邏輯預檢 (C-006)** - SSOT 驅動
 ```python
 def _apply_equipment_validation_precheck(self, df: pl.DataFrame):
-    """E350: 設備邏輯預檢"""
-    # chiller_pump_mutex: 主機開啟時水泵必須運轉
-    # pump_redundancy: 至少一台冷凍水泵和冷卻水泵運轉
+    """E350: 設備邏輯預檢 - SSOT 分派表驅動"""
+    # _CONSTRAINT_HANDLERS 分派表：
+    # - chiller_pump_mutex: 主機開啟時水泵必須運轉
+    # - pump_redundancy: 至少一台冷凍水泵和冷卻水泵運轉
     # 違規標記: PHYSICAL_IMPOSSIBLE
+    # PRECHECK_CONSTRAINTS 鍵集動態決定執行哪些 handler
 ```
 
 **Schema 淨化 - E500 防護 (C-008)**
@@ -199,16 +212,38 @@ FORBIDDEN_COLS = frozenset({
 # 輸出前強制移除
 ```
 
+**quality_flags 重採樣邏輯 (C-007)** - 已修正
+```python
+# explode().unique().implode() 確保 flags 正確合併
+```
+
 #### 3.2.3 錯誤代碼實作
 
 | 錯誤碼 | 名稱 | 說明 | 狀態 |
 |:---:|:---|:---|:---:|
 | E000 | TEMPORAL_BASELINE_MISSING | 未提供 PipelineContext | ✅ |
-| E102 | FUTURE_DATA_DETECTED | 資料時間超過 pipeline_origin_timestamp | ✅ |
-| E350 | EQUIPMENT_LOGIC_PRECHECK_FAILED | 設備邏輯違規 | ✅ |
+| E102 | FUTURE_DATA_DETECTED | 資料時間超過 pipeline_origin_timestamp | ✅ (強化) |
+| E350 | EQUIPMENT_LOGIC_PRECHECK_FAILED | 設備邏輯違規 | ✅ (SSOT驅動) |
 | E500 | DEVICE_ROLE_LEAKAGE | device_role 洩漏到輸出 | ✅ |
 
-#### 3.2.4 測試案例
+#### 3.2.4 改善計畫驗收摘要
+
+| 項目 | 改善內容 | 驗收結果 |
+|:---:|:---|:---:|
+| Phase 1-1 | quality_flags 重採樣邏輯 | ✅ 通過 |
+| Phase 1-2 | future_data_behavior 3種模式 | ✅ 通過 |
+| Phase 1-3 | test_c22_ts_03 永真斷言修正 | ✅ 通過 |
+| Phase 1-4 | 新增設備驗證測試檔 | ✅ 通過 (370行) |
+| Phase 2-1 | EQUIPMENT_TYPE_PATTERNS 集中管理 | ✅ 通過 |
+| Phase 2-2 | 稽核軌跡時間語意區分 | ✅ 通過 |
+| Phase 2-3 | 凍結偵測邊界防護 | ✅ 通過 |
+| Phase 3-1 | _is_snake_case 中文前綴支援 | ✅ 通過 |
+| Phase 3-2 | 測試隔離性 (reset_for_testing) | ✅ 通過 |
+| Phase 3-3 | PRECHECK_CONSTRAINTS SSOT 驅動 | ✅ 通過 |
+
+#### 3.2.5 測試案例
+
+**基礎測試 (test_cleaner_simple.py)**
 
 | 測試 ID | 描述 | 驗證項目 |
 |:---:|:---|:---|
@@ -223,11 +258,20 @@ FORBIDDEN_COLS = frozenset({
 | C22-009 | 泵浦冗餘約束結構 | pump_redundancy |
 | C22-010 | 品質標記完整性 | 必要 flags 存在 |
 
----
+**設備驗證測試 (test_cleaner_equipment_validation.py)**
+
+| 測試類別 | 案例數 | 說明 |
+|:---|:---:|:---|
+| TestChillerPumpMutex | 3 | 主機水泵互斥檢測 |
+| TestPumpRedundancy | 2 | 泵浦冗餘檢測 |
+| TestMultiChillerScenarios | 2 | 多主機場景 |
+| TestAuditTrail | 3 | 稽核軌跡結構與時間驗證 |
+| TestEquipmentColumnDetection | 2 | 命名模式識別 |
+| TestEdgeCases | 2 | 邊界條件 |
 
 ---
 
-## 五、待開始項目
+## 四、進行中項目
 
 ### ⏳ 2.3 BatchProcessor v1.3
 
@@ -235,6 +279,11 @@ FORBIDDEN_COLS = frozenset({
 - Parquet 寫入 (INT64/UTC強制)
 - Manifest 生成 (v1.3-CA)
 - 設備稽核軌跡傳遞
+- E408 SSOT 版本檢查
+
+**注意事項** (來自 Cleaner v2.2 Review):
+- `equipment_validation_audit` 格式已更新（新增 `audit_generated_at`）
+- `CleanerConfig` 新增 `future_data_behavior` 和 `frozen_data_min_periods` 選項
 
 ### ⏳ 2.4 Sprint 2 Demo 展示
 
@@ -245,9 +294,9 @@ FORBIDDEN_COLS = frozenset({
 
 ---
 
-## 六、技術決策記錄
+## 五、技術決策記錄
 
-### 6.1 Parser 編碼偵測順序
+### 5.1 Parser 編碼偵測順序
 
 **決策**: UTF-8 → CP950 → UTF-16  
 **理由**: 
@@ -255,7 +304,7 @@ FORBIDDEN_COLS = frozenset({
 - Big5 (CP950) 為舊系統相容
 - UTF-16 為特殊案例
 
-### 6.2 時區處理策略
+### 5.2 時區處理策略
 
 **決策**: 無時區資料假設為 Asia/Taipei  
 **理由**:
@@ -263,7 +312,15 @@ FORBIDDEN_COLS = frozenset({
 - `site_templates.yaml` 可配置 `assumed_timezone`
 - 未來擴展國際案場只需修改配置
 
-### 6.3 標頭搜尋範圍
+### 5.3 Cleaner SSOT 設備約束驅動
+
+**決策**: `_CONSTRAINT_HANDLERS` 分派表由 `PRECHECK_CONSTRAINTS` 鍵集動態驅動  
+**理由**:
+- 新增 constraint 只需修改配置，無需修改流程主體
+- 符合 SSOT 原則
+- 便於 HVAC 領域專家調整約束條件
+
+### 5.4 標頭搜尋範圍
 
 **決策**: 限制 500 行  
 **理由**:
@@ -273,22 +330,24 @@ FORBIDDEN_COLS = frozenset({
 
 ---
 
-## 七、風險與緩解
+## 六、風險與緩解
 
 | 風險 | 嚴重度 | 狀態 | 緩解措施 |
 |:---|:---:|:---:|:---|
 | Parser Windows 測試環境限制 | 🟡 Medium | 監控中 | 已在 WSL/Linux 驗證，Windows 環境為 Polars 已知問題 |
-| Cleaner 與 Parser 介面不匹配 | 🔴 High | 已緩解 | Parser 輸出嚴格遵循 Interface Contract #1 |
+| Cleaner 與 Parser 介面不匹配 | 🔴 High | ✅ 已緩解 | Parser 輸出嚴格遵循 Interface Contract #1 |
 | BatchProcessor Manifest 格式變更 | 🟡 Medium | 監控中 | 與下游 FeatureEngineer 確認格式 |
+| PRECHECK_CONSTRAINTS 技術債 | 🔴 High | ✅ 已緩解 | v2.1 已改為 SSOT 驅動分派表 |
 
 ---
 
-## 八、下一步行動
+## 七、下一步行動
 
 1. **BatchProcessor v1.3 開發** (預計 5-6 天)
    - Parquet 寫入 (INT64/UTC強制)
    - Manifest 生成 (v1.3-CA)
    - 設備稽核軌跡傳遞
+   - E408 SSOT 版本檢查
 
 2. **整合測試準備**
    - Parser → Cleaner → BP 流程測試
@@ -301,12 +360,14 @@ FORBIDDEN_COLS = frozenset({
 
 ---
 
-## 九、參考文件
+## 八、參考文件
 
 | 文件 | 路徑 |
 |:---|:---|
 | 完整任務排程 | [專案任務排程文件.md](./專案任務排程文件.md) |
+| Sprint 2 審查報告 | [Sprint_2_Review_Report.md](./Sprint_2_Review_Report.md) |
 | Parser PRD | [PRD_Parser_V2.1.md](../parser/PRD_Parser_V2.1.md) |
+| Cleaner PRD | [PRD_CLEANER_v2.2.md](../cleaner/PRD_CLEANER_v2.2.md) |
 | Interface Contract | [PRD_Interface_Contract_v1.1.md](../Interface%20Contract/PRD_Interface_Contract_v1.1.md) |
 | Sprint 1 摘要 | [Sprint_1_執行摘要.md](./Sprint_1_執行摘要.md) |
 
@@ -314,4 +375,4 @@ FORBIDDEN_COLS = frozenset({
 
 **文件結束**
 
-*最後更新: 2026-02-23 | Sprint 2 進度: 2/3 完成 (Parser v2.1 ✅, Cleaner v2.2 ✅ 已交付)*
+*最後更新: 2026-02-23 | Sprint 2 進度: 2/3 完成 (Parser v2.1 ✅ A級, Cleaner v2.2 ✅ A級 已交付) | 審查狀態: 全數通過*

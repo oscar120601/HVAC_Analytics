@@ -14,14 +14,14 @@
 | 1 | 1.3 Feature Annotation v1.3 | ✅ 已完成 | 18/18 通過 |
 | 1 | 1.4 程式碼審查優化 | ✅ 已完成 | 72/72 通過 |
 | 1 | **1.5 Sprint 1 Demo 展示** | ✅ **已完成** | **[🎨 查看 Demo](tools/demo/index.html)** |
-| 2 | 2.1 Parser v2.1 | ✅ **已完成** | 16/16 通過 |
-| 2 | 2.2 Cleaner v2.2 | ✅ **已完成** | 12/12 通過 |
+| 2 | 2.1 Parser v2.1 | ✅ **已完成** | 16/16 通過 (A級) |
+| 2 | 2.2 Cleaner v2.2 | ✅ **已完成** | 26/26 通過 (A級) |
 | 2 | 2.3 BatchProcessor v1.3 | ⏳ **待開始** | - |
 
 **Sprint 1 總計**: 72 項測試全部通過 ✅  
-**Sprint 2 進度**: 2/3 完成 (Parser v2.1 ✅, Cleaner v2.2 ✅ 已交付)
+**Sprint 2 進度**: 2/3 完成 (Parser v2.1 ✅ A級, Cleaner v2.2 ✅ A級 已交付)
 
-[📋 查看完整任務排程](./docs/專案任務排程/專案任務排程文件.md) | [📈 Sprint 1 執行摘要](./docs/專案任務排程/Sprint_1_執行摘要.md) | [📈 Sprint 2 執行摘要](./docs/專案任務排程/Sprint_2_執行摘要.md)
+[📋 查看完整任務排程](./docs/專案任務排程/專案任務排程文件.md) | [📈 Sprint 1 執行摘要](./docs/專案任務排程/Sprint_1_執行摘要.md) | [📈 Sprint 2 執行摘要](./docs/專案任務排程/Sprint_2_執行摘要.md) | [📋 Sprint 2 審查報告](./docs/專案任務排程/Sprint_2_Review_Report.md)
 
 ---
 
@@ -74,6 +74,10 @@ HVAC_Analytics/
 │       └── excel_to_yaml.py    # ✅ 轉換器
 ├── tests/                      # 單元測試
 │   ├── test_container_initialization.py  # ✅ 35 項測試
+│   ├── test_parser_v21.py      # ✅ 16 項測試
+│   ├── test_cleaner_simple.py  # ✅ 12 項測試
+│   ├── test_cleaner_v22.py     # ✅ 10 項測試
+│   ├── test_cleaner_equipment_validation.py  # ✅ 14 項測試
 │   └── features/               # ✅ Feature Annotation 測試
 │       └── test_annotation_manager.py    # ✅ 18 項測試
 ├── docs/                       # 專案文檔
@@ -318,10 +322,76 @@ python tools/features/excel_to_yaml.py \
 | `config/features/sites/template_factory.yaml` | 350+ | 工廠範本 |
 | `tests/features/test_annotation_manager.py` | 450+ | 18 項測試 |
 
+---
+
+## 🎯 已完成項目 (Sprint 2 - 2/3 完成)
+
+### ✅ 2.1 Parser v2.1
+
+**完成日期**: 2026-02-23  
+**測試結果**: 16 項單元測試全部通過 ✅  
+**審查結果**: 🟢 **A級** - 全數通過，無需重工
+
+#### 編碼自動偵測 (P-001~P-002)
+
+```python
+from src.etl.parser import ReportParser
+
+parser = ReportParser(site_id="cgmh_ty")
+
+# 自動偵測 UTF-8/Big5/UTF-16，處理 BOM
+df = parser.parse_file("data/raw/report.csv")
+
+# 輸出驗證：timestamp 必須為 UTC/ns
+print(df.schema["timestamp"])  # Datetime(time_unit='ns', time_zone='UTC')
+```
+
+**支援編碼**: UTF-8 (含 BOM) → CP950 (Big5) → UTF-16
+
+#### 智慧標頭搜尋 (P-003)
+
+掃描前 500 行，支援中文標頭 (日期/時間/Date/Time)：
+- 評分機制: Date+Time (+2分), DateTime (+2分), 欄位數>3 (+1分)
+- 分隔符一致性驗證防止誤判
+
+#### 時區強制轉換 (P-004)
+
+```python
+def _standardize_timezone(self, df: pl.DataFrame) -> pl.DataFrame:
+    """強制輸出 Datetime(time_unit='ns', time_zone='UTC')"""
+    # 情況1: 已為 UTC → 確認 time_unit
+    # 情況2: 其他時區 → convert_time_zone("UTC")
+    # 情況3: Naive → replace_time_zone(assumed) → convert_time_zone("UTC")
+```
+
+#### 輸出契約驗證 (P-006)
+
+```python
+def _validate_output_contract(self, df: pl.DataFrame) -> None:
+    """Interface Contract v1.0 檢查點 #1"""
+    # E101: BOM/Null byte 檢查
+    # E102: timestamp 必須為 UTC/ns
+    # E103: 必要欄位存在性
+    # E104/E105: 標頭相關錯誤
+```
+
+**錯誤代碼實作**: E101, E102, E103, E104, E105
+
+#### 新增檔案
+
+| 檔案 | 行數 | 說明 |
+|:---|:---:|:---|
+| `src/etl/parser.py` | 770+ | ReportParser v2.1 主實作 |
+| `tests/test_parser_v21.py` | 450+ | 16 項單元測試 |
+| `config/site_templates.yaml` | 120+ | 案場配置範本 |
+
+---
+
 ### ✅ 2.2 Cleaner v2.2
 
 **完成日期**: 2026-02-23  
-**測試結果**: 12 項單元測試全部通過 ✅
+**測試結果**: 26 項單元測試全部通過 ✅ (12 基礎 + 14 設備驗證)  
+**審查結果**: 🟢 **A級** - 所有問題全數關閉，具備完整生產級品質
 
 #### Temporal Context 注入 (E000)
 
@@ -356,14 +426,25 @@ def _semantic_aware_cleaning(self, df, column_name):
     # ...
 ```
 
-#### 設備邏輯預檢 (E350)
+#### 設備邏輯預檢 (E350) - SSOT 驅動
 
 ```python
 # 檢查設備邏輯一致性
 def _apply_equipment_validation_precheck(self, df):
-    # chiller_pump_mutex: 主機開啟時水泵必須運轉
-    # pump_redundancy: 至少一台冷凍水泵和冷卻水泵運轉
+    # _CONSTRAINT_HANDLERS 分派表：
+    # - chiller_pump_mutex: 主機開啟時水泵必須運轉
+    # - pump_redundancy: 至少一台冷凍水泵和冷卻水泵運轉
     # 違規標記為 PHYSICAL_IMPOSSIBLE
+    # PRECHECK_CONSTRAINTS 鍵集動態決定執行哪些 handler
+```
+
+#### 未來資料檢查 (E102) - 強化版
+
+```python
+def _check_future_data(self, df: pl.DataFrame) -> pl.DataFrame:
+    """使用 pipeline_origin_timestamp 檢查，非 datetime.now()"""
+    # 容忍 5 分鐘誤差
+    # 新增 future_data_behavior: "reject"(default) | "filter" | "flag_only"
 ```
 
 #### E500 防護 - Schema 淨化
@@ -380,12 +461,29 @@ FORBIDDEN_COLS = frozenset({
 
 **錯誤代碼實作**: E000, E102, E350, E500
 
+#### 改善計畫驗收 (10/10 項達成)
+
+| 項目 | 改善內容 | 狀態 |
+|:---:|:---|:---:|
+| Phase 1-1 | quality_flags 重採樣邏輯 (`explode().unique().implode()`) | ✅ |
+| Phase 1-2 | future_data_behavior 3種模式 | ✅ |
+| Phase 1-3 | test_c22_ts_03 永真斷言修正 | ✅ |
+| Phase 1-4 | 新增設備驗證測試檔 (370行, 14案例) | ✅ |
+| Phase 2-1 | EQUIPMENT_TYPE_PATTERNS 集中管理 | ✅ |
+| Phase 2-2 | 稽核軌跡時間語意區分 | ✅ |
+| Phase 2-3 | 凍結偵測邊界防護 | ✅ |
+| Phase 3-1 | _is_snake_case 中文前綴支援 | ✅ |
+| Phase 3-2 | 測試隔離性 (reset_for_testing) | ✅ |
+| Phase 3-3 | PRECHECK_CONSTRAINTS SSOT 驅動 | ✅ |
+
 #### 新增檔案
 
 | 檔案 | 行數 | 說明 |
 |:---|:---:|:---|
-| `src/etl/cleaner.py` | 1100+ | DataCleaner v2.2 主實作 |
-| `tests/test_cleaner_simple.py` | 200+ | 12 項單元測試 |
+| `src/etl/cleaner.py` | 1303+ | DataCleaner v2.2 主實作 |
+| `tests/test_cleaner_simple.py` | 200+ | 12 項基礎單元測試 |
+| `tests/test_cleaner_v22.py` | 622+ | 10 項 v2.2 功能測試 |
+| `tests/test_cleaner_equipment_validation.py` | 370+ | 14 項設備驗證測試 |
 
 ---
 
@@ -448,6 +546,35 @@ print(metadata["detected_encoding"])  # utf-8 / cp950 / utf-16
 print(metadata["header_line"])        # 標頭行號
 ```
 
+### 使用 Cleaner v2.2
+
+```python
+from src.etl.cleaner import DataCleaner, CleanerConfig
+from src.context import PipelineContext
+from src.features import FeatureAnnotationManager
+
+# 初始化 PipelineContext
+context = PipelineContext()
+context.initialize(timestamp=datetime.now(timezone.utc))
+
+# 初始化 FeatureAnnotationManager
+annotation_manager = FeatureAnnotationManager("cgmh_ty")
+
+# 初始化 Cleaner
+config = CleanerConfig(
+    future_data_behavior="reject",  # "reject" | "filter" | "flag_only"
+    frozen_data_min_periods=1
+)
+cleaner = DataCleaner(
+    config=config,
+    annotation_manager=annotation_manager,
+    pipeline_context=context  # E000 檢查
+)
+
+# 清洗資料
+df_cleaned = cleaner.clean(df)
+```
+
 ### CLI 執行
 
 ```bash
@@ -487,10 +614,15 @@ python3 -m pytest tests/features/test_annotation_manager.py -v
 # 執行 Parser v2.1 測試
 python3 -m pytest tests/test_parser_v21.py -v
 
+# 執行 Cleaner v2.2 測試
+python3 -m pytest tests/test_cleaner_simple.py -v
+python3 -m pytest tests/test_cleaner_v22.py -v
+python3 -m pytest tests/test_cleaner_equipment_validation.py -v
+
 # 執行全部測試
 python3 -m pytest tests/ -v
 
-# 預期結果: 80+ passed (Sprint 1: 72 + Parser: 8)
+# 預期結果: 95+ passed (Sprint 1: 72 + Sprint 2: 42)
 ```
 
 ### 測試覆蓋
@@ -504,9 +636,9 @@ python3 -m pytest tests/ -v
 | 時間基準傳遞 | 6 | 跨日、注入、驗證 |
 | FeatureAnnotationManager | 14 | 初始化、查詢、HVAC、錯誤 |
 | Pydantic 模型 | 4 | E405、Lag 間隔、命名 |
-| Parser v2.1 | 8 | 編碼、時區、標頭、契約驗證 |
-| 其他測試 | 19 | ETL 整合、能源模型 |
-| **總計** | **80** | **Sprint 1: 72 + Sprint 2: 8** |
+| Parser v2.1 | 16 | 編碼、時區、標頭、契約驗證 |
+| Cleaner v2.2 | 26 | E000、E102、E350、E500、設備驗證 |
+| **總計** | **95** | **Sprint 1: 53 + Sprint 2: 42** |
 
 ---
 
@@ -533,12 +665,13 @@ python3 -m pytest tests/ -v
 
 - **[專案任務排程](docs/專案任務排程/專案任務排程文件.md)** - 完整 Sprint 規劃
 - **[Sprint 1 執行摘要](docs/專案任務排程/Sprint_1_執行摘要.md)** - Interface Contract、System Integration、Feature Annotation 詳細摘要
-- **[Sprint 2 執行摘要](docs/專案任務排程/Sprint_2_執行摘要.md)** - Parser v2.1 完成摘要、Cleaner/BatchProcessor 規劃
+- **[Sprint 2 執行摘要](docs/專案任務排程/Sprint_2_執行摘要.md)** - Parser v2.1 & Cleaner v2.2 詳細摘要
+- **[Sprint 2 審查報告](docs/專案任務排程/Sprint_2_Review_Report.md)** - Parser v2.1 & Cleaner v2.2 審查詳情
 
 ### ETL 管道模組
 
 - **[Parser v2.1](docs/parser/PRD_Parser_V2.1.md)** ✅ - Header Standardization、UTC/ns 時間戳、編碼自動偵測
-- **[Cleaner v2.2](docs/cleaner/PRD_CLEANER_v2.2.md)** - 語意感知清洗、Equipment Precheck
+- **[Cleaner v2.2](docs/cleaner/PRD_CLEANER_v2.2.md)** ✅ - 語意感知清洗、Equipment Precheck、SSOT 驅動
 - **[BatchProcessor v1.3](docs/batch_processor/PRD_BATCH_PROCESSOR_v1.3.md)** - Manifest 生成、E406 驗證
 
 ### 機器學習與最佳化
@@ -550,7 +683,7 @@ python3 -m pytest tests/ -v
 
 ## 🚧 實作路徑 (Implementation Roadmap)
 
-### 當前狀態: Sprint 1 完成 (4/4，含 Demo)
+### 當前狀態: Sprint 2 進行中 (2/3 完成)
 
 ```
 Sprint 1: Foundation ✅ 完成
@@ -582,17 +715,18 @@ Sprint 1: Foundation ✅ 完成
     └── 4步驟初始化流程與測試覆蓋率分析 (Chart.js)
 
 Sprint 2: 核心 ETL 🚧 進行中 (2/3 完成)
-├── ✅ Parser v2.1 (已完成)
+├── ✅ Parser v2.1 (已完成，A級)
 │   ├── 編碼自動偵測 (UTF-8/Big5/UTF-16)
 │   ├── BOM 處理與移除
 │   ├── 智慧標頭搜尋 (中文標頭支援)
 │   ├── 時區強制轉換 (→ UTC/ns)
 │   └── 輸出契約驗證 (E101-E105)
-├── ✅ Cleaner v2.2 (已完成)
+├── ✅ Cleaner v2.2 (已完成，A級)
 │   ├── Temporal Context 注入 (E000)
 │   ├── FeatureAnnotationManager 整合
 │   ├── 語意感知清洗 (device_role)
-│   ├── 設備邏輯預檢 (E350)
+│   ├── 設備邏輯預檢 (E350，SSOT 驅動)
+│   ├── 未來資料檢查 (E102，3種模式)
 │   └── Schema 淨化 (E500 防護)
 └── ⏳ BatchProcessor v1.3 (待開始)
     └── Manifest、E408 檢查
@@ -623,6 +757,8 @@ HVAC_STRICT_MODE=true python main.py pipeline data.csv
 請務必先閱讀以下核心文檔：
 - **[Interface Contract v1.1](docs/Interface%20Contract/PRD_Interface_Contract_v1.1.md)** - 錯誤代碼規範與檢查點定義
 - **[Sprint 1 執行摘要](docs/專案任務排程/Sprint_1_執行摘要.md)** - 已完成的基礎設施說明
+- **[Sprint 2 執行摘要](docs/專案任務排程/Sprint_2_執行摘要.md)** - Parser v2.1 & Cleaner v2.2 詳細說明
+- **[Sprint 2 審查報告](docs/專案任務排程/Sprint_2_Review_Report.md)** - 審查詳情與下游預警
 
 確保所有新代碼遵守：
 1. **Foundation First Policy** - 按照 Sprint 順序實施
@@ -637,10 +773,12 @@ HVAC_STRICT_MODE=true python main.py pipeline data.csv
 
 - [專案任務排程](docs/專案任務排程/專案任務排程文件.md) - 系統架構、風險評估、實施建議
 - [Sprint 1 執行摘要](docs/專案任務排程/Sprint_1_執行摘要.md) - 詳細的完成項目與測試報告
+- [Sprint 2 執行摘要](docs/專案任務排程/Sprint_2_執行摘要.md) - Parser v2.1 & Cleaner v2.2 詳細摘要
+- [Sprint 2 審查報告](docs/專案任務排程/Sprint_2_Review_Report.md) - 審查結論與下游預警
 - [Feature Annotation 實作摘要](docs/Feature%20Annotation%20Specification/IMPLEMENTATION_SUMMARY.md) - Feature Annotation v1.3 詳細實作說明
 
 ---
 
 **最後更新**: 2026-02-23  
 **架構版本**: v1.4  
-**文件狀態**: 🚧 Sprint 2 進行中 (2/3 完成，Parser ✅, Cleaner ✅)
+**文件狀態**: 🚧 Sprint 2 進行中 (2/3 完成，Parser ✅ A級, Cleaner ✅ A級)

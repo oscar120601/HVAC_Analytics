@@ -33,12 +33,8 @@ from .models import (
     PhysicalType
 )
 
-# 嘗試匯入 TemporalContext
-try:
-    from ..context import PipelineContext
-    _HAS_CONTEXT = True
-except ImportError:
-    _HAS_CONTEXT = False
+# 直接匯入 PipelineContext（annotation_manager 為 ETL Pipeline 標準元件，context 必須存在）
+from ..context import PipelineContext
 
 logger = logging.getLogger(__name__)
 
@@ -233,17 +229,13 @@ class FeatureAnnotationManager:
         ssot_flags_version = raw_data.get('metadata', {}).get('ssot_flags_version')
         
         if ssot_flags_version:
-            # 嘗試從 config_models 取得版本
-            try:
-                from ..etl.config_models import VALID_QUALITY_FLAGS_VERSION
-                if ssot_flags_version != VALID_QUALITY_FLAGS_VERSION:
-                    raise SSOTMismatchError(
-                        f"E408: SSOT Quality Flags 版本不匹配: "
-                        f"YAML 為 {ssot_flags_version}，系統要求 {VALID_QUALITY_FLAGS_VERSION}"
-                    )
-            except (ImportError, AttributeError):
-                # config_models 尚未定義 VALID_QUALITY_FLAGS_VERSION，略過檢查
-                logger.warning("無法驗證 SSOT Quality Flags 版本，config_models 未定義")
+            # 直接從 config_models 取得版本（VALID_QUALITY_FLAGS_VERSION 已確認定義於 v1.3.0）
+            from ..etl.config_models import VALID_QUALITY_FLAGS_VERSION
+            if ssot_flags_version != VALID_QUALITY_FLAGS_VERSION:
+                raise SSOTMismatchError(
+                    f"E408: SSOT Quality Flags 版本不匹配: "
+                    f"YAML 為 {ssot_flags_version}，系統要求 {VALID_QUALITY_FLAGS_VERSION}"
+                )
 
     # ==================== 核心查詢 API ====================
 

@@ -42,11 +42,8 @@ class CleanerTestBase(unittest.TestCase):
     
     def setUp(self):
         """每個測試前重置 PipelineContext"""
-        # 重置 PipelineContext 單例
-        if PipelineContext._instance is not None:
-            # 使用新的時間戳重新初始化
-            PipelineContext._instance._initialized = False
-            PipelineContext._instance._origin_timestamp = None
+        # 重置 PipelineContext 單例（使用官方測試 API）
+        PipelineContext.reset_for_testing()
         
         self.context = PipelineContext()
         # 使用過去的時間初始化以避免未來資料問題
@@ -55,9 +52,7 @@ class CleanerTestBase(unittest.TestCase):
     
     def tearDown(self):
         """測試後清理"""
-        if PipelineContext._instance is not None:
-            PipelineContext._instance._initialized = False
-            PipelineContext._instance._origin_timestamp = None
+        PipelineContext.reset_for_testing()
     
     def create_test_dataframe(
         self,
@@ -122,9 +117,9 @@ class TestTemporalBaseline(CleanerTestBase):
         """C22-TB-02: 未來資料檢查拋出 E102"""
         # 使用較早的時間基準，這樣「現在」對它來說是未來
         old_baseline = datetime.now(timezone.utc) - timedelta(hours=2)
-        if PipelineContext._instance is not None:
-            PipelineContext._instance._initialized = False
-        
+        # 使用官方測試 API 重置 Singleton，避免直接操作私有屬性
+        PipelineContext.reset_for_testing()
+
         old_context = PipelineContext()
         old_context.initialize(timestamp=old_baseline)
         
@@ -150,9 +145,9 @@ class TestTemporalBaseline(CleanerTestBase):
         """C22-TB-03: 使用舊時間基準執行檢測"""
         # 建立舊時間基準（1小時前）
         old_time = datetime.now(timezone.utc) - timedelta(hours=2)
-        
-        # 建立新 Context
-        PipelineContext._instance = None
+
+        # 使用官方測試 API 重置 Singleton，避免直接操作私有屬性
+        PipelineContext.reset_for_testing()
         old_context = PipelineContext()
         old_context.initialize(timestamp=old_time)
         
@@ -407,8 +402,8 @@ class TestTimestampNormalization(CleanerTestBase):
         
         # 部分行應該被標記為凍結
         has_frozen = "FROZEN_DATA" in all_flags
-        # 注意：由於實作細節，可能不會全部標記，但至少應該有一些
-        self.assertTrue(has_frozen or len(all_flags) >= 0)
+        # 凍結資料偵測應該標記至少部分行
+        self.assertTrue(has_frozen, f"應至少標記一筆凍結資料，實際 flags: {all_flags}")
     
     def test_c22_ts_04_zero_ratio_check(self):
         """C22-TS-04: 零值比例檢查"""

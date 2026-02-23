@@ -95,6 +95,33 @@ PRECHECK_CONSTRAINTS: Dict[str, Dict[str, Any]] = {
 }
 
 
+# 設備類型識別模式（集中管理，避免硬編碼）
+EQUIPMENT_TYPE_PATTERNS: Dict[str, List[str]] = {
+    "chiller_status": [
+        "chiller_1_status", "chiller_01_status", "ch_1_status",
+        "chiller_2_status", "chiller_02_status", "ch_2_status",
+        "ch1_run", "ch2_run", "chiller1_status", "chiller2_status"
+    ],
+    "chw_pump_status": [
+        "chw_pump_1_status", "chw_pump_2_status",
+        "chwp_1_status", "chwp_2_status",
+        "chilled_water_pump_1", "chilled_water_pump_2"
+    ],
+    "cw_pump_status": [
+        "cw_pump_1_status", "cw_pump_2_status",
+        "cwp_1_status", "cwp_2_status",
+        "cooling_water_pump_1", "cooling_water_pump_2"
+    ],
+    "pump_status": [
+        "pump_1_status", "pump_2_status", "pump1_status", "pump2_status"
+    ],
+    "ct_status": [
+        "ct_1_status", "ct_2_status", "ct1_status", "ct2_status",
+        "cooling_tower_1_status", "cooling_tower_2_status"
+    ]
+}
+
+
 # =============================================================================
 # 配置類別
 # =============================================================================
@@ -115,9 +142,11 @@ class CleanerConfig:
     
     # 時間檢查
     future_data_tolerance_minutes: int = 5
+    future_data_behavior: str = "reject"  # "reject" | "filter" | "flag_only"
     
     # 凍結資料檢測
     frozen_data_window: int = 6
+    frozen_data_min_periods: int = 1  # 滾動計算最小樣本數
     frozen_data_std_threshold: float = 0.001
     
     # 重採樣策略
@@ -259,7 +288,7 @@ class DataCleaner:
         df = self._normalize_timestamp(df)
         
         # Step 2: 未來資料檢查 (E102)
-        self._check_future_data(df)
+        df = self._check_future_data(df)
         
         # Step 3: 初始化品質標記
         df = self._init_quality_flags(df)
@@ -470,11 +499,19 @@ class DataCleaner:
         
         return df
     
-    def _check_future_data(self, df: pl.DataFrame) -> None:
+    def _check_future_data(self, df: pl.DataFrame) -> pl.DataFrame:
         """
         未來資料檢查 (E102)
         
         【關鍵】使用 self.pipeline_origin_timestamp 而非 datetime.now()
+        
+        根據 future_data_behavior 設定採取不同策略：
+        - "reject": 拋出 DataValidationError（預設，生產環境）
+        - "filter": 標記並移除未來資料，繼續處理
+        - "flag_only": 標記但不移除
+        
+        Returns:
+            處理後的 DataFrame（根據設定可能已移除未來資料）
         """
         threshold = self.pipeline_origin_timestamp + timedelta(
             minutes=self.config.future_data_tolerance_minutes
@@ -483,8 +520,15 @@ class DataCleaner:
         future_mask = df["timestamp"] > threshold
         future_count = future_mask.sum()
         
-        if future_count > 0:
-            future_samples = df.filter(future_mask)["timestamp"].head(3).to_list()
+        if future_count == 0:
+            logger.debug(f"未來資料檢查通過（基準: {self.pipeline_origin_timestamp.isoformat()}）")
+            return df
+        
+        behavior = self.config.future_data_behavior
+        future_samples = df.filter(future_mask)["timestamp"].head(3).to_list()
+        
+        if behavior == "reject":
+            # 生產環境預設：嚴格拒絕
             raise DataValidationError(
                 f"E102: 偵測到 {future_count} 筆未來資料（>{threshold.isoformat()}）。"
                 f"樣本: {future_samples}。 "
@@ -492,7 +536,45 @@ class DataCleaner:
                 f"請檢查資料來源時鐘或時間基準傳遞。"
             )
         
-        logger.debug(f"未來資料檢查通過（基準: {self.pipeline_origin_timestamp.isoformat()}）")
+        elif behavior == "filter":
+            # 開發/測試環境：標記並移除，繼續處理
+            logger.warning(
+                f"E102: 偵測到 {future_count} 筆未來資料，標記並移除。"
+                f"樣本: {future_samples}"
+            )
+            df = df.with_columns(
+                pl.when(future_mask)
+                .then(
+                    pl.col("quality_flags").list.concat(pl.lit(["FUTURE_DATA"]))
+                )
+                .otherwise(pl.col("quality_flags"))
+                .alias("quality_flags")
+            )
+            df = df.filter(~future_mask)
+            logger.info(f"已移除 {future_count} 筆未來資料，剩餘 {len(df)} 筆")
+            return df
+        
+        elif behavior == "flag_only":
+            # 僅標記但不移除
+            logger.warning(
+                f"E102: 偵測到 {future_count} 筆未來資料，僅標記不移除。"
+                f"樣本: {future_samples}"
+            )
+            df = df.with_columns(
+                pl.when(future_mask)
+                .then(
+                    pl.col("quality_flags").list.concat(pl.lit(["FUTURE_DATA"]))
+                )
+                .otherwise(pl.col("quality_flags"))
+                .alias("quality_flags")
+            )
+            return df
+        
+        else:
+            raise ConfigurationError(
+                f"未知的 future_data_behavior: {behavior}。"
+                f"有效值: 'reject', 'filter', 'flag_only'"
+            )
     
     # =========================================================================
     # 語意感知清洗
@@ -540,9 +622,28 @@ class DataCleaner:
         - 計算滾動標準差
         - 標準差接近 0 表示資料凍結
         - 閾值依 device_role 調整（備用設備放寬）
+        
+        邊界條件防護:
+        - 資料行數 < window 時輸出警告並跳過偵測
+        - 使用 min_periods 允許較少樣本計算
         """
         window = self.config.frozen_data_window
+        min_periods = getattr(self.config, 'frozen_data_min_periods', 1)
         threshold = self.config.frozen_data_std_threshold
+        
+        # 資料量不足防護
+        if df.height < window:
+            logger.warning(
+                f"資料行數 ({df.height}) < 凍結偵測視窗 ({window})，"
+                f"凍結資料偵測可能不準確"
+            )
+            # 繼續處理，但使用更小的 window
+            effective_window = min(df.height, window)
+            if effective_window < 2:
+                logger.warning(f"資料行數不足 ({df.height})，無法進行凍結資料偵測")
+                return df
+        else:
+            effective_window = window
         
         for col in df.columns:
             if col in ["timestamp", "quality_flags"]:
@@ -560,12 +661,15 @@ class DataCleaner:
             
             adjusted_threshold = threshold * multiplier
             
-            # 計算滾動標準差
+            # 計算滾動標準差（使用 min_periods 允許較少樣本）
             df = df.with_columns(
-                pl.col(col).rolling_std(window_size=window).alias(f"_{col}_std")
+                pl.col(col).rolling_std(
+                    window_size=effective_window,
+                    min_periods=min_periods
+                ).alias(f"_{col}_std")
             )
             
-            # 標記凍結資料
+            # 標記凍結資料（前 min_periods-1 個值若為 null 則視為非凍結）
             is_frozen = (pl.col(f"_{col}_std") < adjusted_threshold).fill_null(False)
             
             # 更新 quality_flags
@@ -678,12 +782,16 @@ class DataCleaner:
     def _apply_equipment_validation_precheck(self, df: pl.DataFrame) -> pl.DataFrame:
         """
         設備邏輯預檢（對齊 Interface Contract v1.1 檢查點 #2）
-        
+
         檢查基礎設備邏輯違規:
         - 主機開啟時水泵不可全關（chiller_pump_mutex）
         - 主機開啟時冷卻水塔不可全關（pump_redundancy）
-        
+
         違規資料標記為 PHYSICAL_IMPOSSIBLE 或 EQUIPMENT_VIOLATION
+
+        驅動機制: PRECHECK_CONSTRAINTS（集中定義於常數區塊，符合 SSOT 原則）
+        新增 constraint 只需在 EQUIPMENT_VALIDATION_CONSTRAINTS 標記
+        check_phase="precheck" 並在下方 _CONSTRAINT_HANDLERS 登記 handler 即可。
         """
         if not self.config.enforce_equipment_validation_sync:
             self._equipment_validation_audit = {
@@ -691,52 +799,74 @@ class DataCleaner:
                 "constraints_applied": [],
                 "violations_detected": 0,
                 "violation_details": [],
-                "precheck_timestamp": datetime.now(timezone.utc).isoformat()
+                "precheck_timestamp": self.pipeline_origin_timestamp.isoformat(),
+                "audit_generated_at": datetime.now(timezone.utc).isoformat()
             }
             return df
-        
+
         logger.info("執行設備邏輯預檢（Equipment Validation Precheck）...")
-        
+
         violations = []
         df_result = df
-        
+
         # 取得欄位名稱映射（嘗試多種命名模式）
         col_map = self._detect_equipment_status_columns(df)
-        
-        # 檢查 chiller_pump_mutex
-        if col_map.get("chiller_status") and col_map.get("pump_status"):
-            df_result, violation = self._check_chiller_pump_mutex(
-                df_result, col_map["chiller_status"], col_map["pump_status"]
-            )
+
+        # ── SSOT 分派表：PRECHECK_CONSTRAINTS 鍵 → 具體檢查函數 ──────────────
+        # 僅需於此登記；PRECHECK_CONSTRAINTS 的鍵集合決定「哪些 constraint 被執行」
+        _CONSTRAINT_HANDLERS: Dict[str, Any] = {
+            "chiller_pump_mutex": lambda df_in: (
+                self._check_chiller_pump_mutex(
+                    df_in,
+                    col_map.get("chiller_status", []),
+                    col_map.get("pump_status", [])
+                )
+                if col_map.get("chiller_status") and col_map.get("pump_status")
+                else (df_in, None)
+            ),
+            "pump_redundancy": lambda df_in: (
+                self._check_pump_redundancy(
+                    df_in,
+                    col_map.get("chiller_status", []),
+                    col_map.get("chw_pump_status", []),
+                    col_map.get("cw_pump_status", [])
+                )
+                if col_map.get("chiller_status") and col_map.get("chw_pump_status")
+                else (df_in, None)
+            ),
+        }
+        # ─────────────────────────────────────────────────────────────────────
+
+        # 依據 PRECHECK_CONSTRAINTS 鍵逐一執行對應 handler（SSOT 驅動）
+        applied_constraints = list(PRECHECK_CONSTRAINTS.keys())
+        for constraint_id in applied_constraints:
+            handler = _CONSTRAINT_HANDLERS.get(constraint_id)
+            if handler is None:
+                logger.warning(
+                    f"PRECHECK_CONSTRAINTS 包含 '{constraint_id}' 但尚未登記 handler，跳過"
+                )
+                continue
+            df_result, violation = handler(df_result)
             if violation:
                 violations.append(violation)
-        
-        # 檢查 pump_redundancy（冷凍水 + 冷卻水）
-        if col_map.get("chiller_status") and col_map.get("chw_pump_status"):
-            df_result, violation = self._check_pump_redundancy(
-                df_result, col_map["chiller_status"], 
-                col_map.get("chw_pump_status", []),
-                col_map.get("cw_pump_status", [])
-            )
-            if violation:
-                violations.append(violation)
-        
-        # 記錄稽核軌跡
+
+        # 記錄稽核軌跡（constraints_applied 反映 PRECHECK_CONSTRAINTS 實際鍵集）
         self._equipment_validation_audit = {
             "validation_enabled": True,
-            "constraints_applied": ["chiller_pump_mutex", "pump_redundancy"],
+            "constraints_applied": applied_constraints,
             "violations_detected": sum(v["count"] for v in violations),
             "violation_details": violations,
-            "precheck_timestamp": datetime.now(timezone.utc).isoformat(),
+            "precheck_timestamp": self.pipeline_origin_timestamp.isoformat(),
+            "audit_generated_at": datetime.now(timezone.utc).isoformat(),
             "column_mapping_used": col_map
         }
-        
+
         if violations:
             logger.warning(
                 f"E350: 設備邏輯預檢發現 {len(violations)} 項違規: "
                 f"{[v['constraint_id'] for v in violations]}"
             )
-        
+
         return df_result
     
     def _detect_equipment_status_columns(self, df: pl.DataFrame) -> Dict[str, List[str]]:
@@ -755,46 +885,53 @@ class DataCleaner:
             "ct_status": []
         }
         
+        # 使用集中管理的模式識別（SSOT 原則）
+        # 優先嘗試從 AnnotationManager 取得設備類型
         for col in df.columns:
             col_lower = col.lower()
             
+            # 嘗試從 annotation 取得設備類型（更精確）
+            equipment_type = None
+            if self.annotation:
+                equipment_type = self.annotation.get_equipment_type(col)
+            
+            # 若有設備類型資訊，直接使用
+            if equipment_type == "chiller":
+                result["chiller_status"].append(col)
+                continue
+            elif equipment_type == "chw_pump":
+                result["chw_pump_status"].append(col)
+                result["pump_status"].append(col)
+                continue
+            elif equipment_type == "cw_pump":
+                result["cw_pump_status"].append(col)
+                result["pump_status"].append(col)
+                continue
+            elif equipment_type == "cooling_tower":
+                result["ct_status"].append(col)
+                continue
+            
+            # 若無 annotation 或無設備類型，使用模式匹配（向後相容）
             # 主機狀態
-            if any(pattern in col_lower for pattern in [
-                "chiller_1_status", "chiller_01_status", "ch_1_status",
-                "chiller_2_status", "chiller_02_status", "ch_2_status",
-                "ch1_run", "ch2_run", "chiller1_status", "chiller2_status"
-            ]):
+            if any(pattern in col_lower for pattern in EQUIPMENT_TYPE_PATTERNS["chiller_status"]):
                 result["chiller_status"].append(col)
             
             # 冷凍水泵
-            elif any(pattern in col_lower for pattern in [
-                "chw_pump_1_status", "chw_pump_2_status",
-                "chwp_1_status", "chwp_2_status",
-                "chilled_water_pump_1", "chilled_water_pump_2"
-            ]):
+            elif any(pattern in col_lower for pattern in EQUIPMENT_TYPE_PATTERNS["chw_pump_status"]):
                 result["chw_pump_status"].append(col)
                 result["pump_status"].append(col)
             
             # 冷卻水泵
-            elif any(pattern in col_lower for pattern in [
-                "cw_pump_1_status", "cw_pump_2_status",
-                "cwp_1_status", "cwp_2_status",
-                "cooling_water_pump_1", "cooling_water_pump_2"
-            ]):
+            elif any(pattern in col_lower for pattern in EQUIPMENT_TYPE_PATTERNS["cw_pump_status"]):
                 result["cw_pump_status"].append(col)
                 result["pump_status"].append(col)
             
             # 一般水泵
-            elif any(pattern in col_lower for pattern in [
-                "pump_1_status", "pump_2_status", "pump1_status", "pump2_status"
-            ]):
+            elif any(pattern in col_lower for pattern in EQUIPMENT_TYPE_PATTERNS["pump_status"]):
                 result["pump_status"].append(col)
             
             # 冷卻水塔
-            elif any(pattern in col_lower for pattern in [
-                "ct_1_status", "ct_2_status", "ct1_status", "ct2_status",
-                "cooling_tower_1_status", "cooling_tower_2_status"
-            ]):
+            elif any(pattern in col_lower for pattern in EQUIPMENT_TYPE_PATTERNS["ct_status"]):
                 result["ct_status"].append(col)
         
         return result
@@ -844,7 +981,7 @@ class DataCleaner:
                 "severity": "critical",
                 "trigger_columns": chiller_cols,
                 "required_columns": pump_cols,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": self.pipeline_origin_timestamp.isoformat()
             }
             return df, violation
         
@@ -918,7 +1055,7 @@ class DataCleaner:
                 "count": total_count,
                 "severity": "critical",
                 "details": violations,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": self.pipeline_origin_timestamp.isoformat()
             }
             return df, violation
         
@@ -973,8 +1110,11 @@ class DataCleaner:
             
             # quality_flags 需要特殊處理（合併並去重）
             elif col == "quality_flags":
-                # 使用 first() 作為近似（實際應合併所有 flags）
-                agg_exprs.append(pl.col(col).alias(col))
+                # 合併該時間窗內的所有 flags 並去重
+                # explode() 攤平列表 → unique() 去重 → implode() 重新打包成列表
+                agg_exprs.append(
+                    pl.col(col).explode().unique().implode().alias(col)
+                )
             
             # 瞬時值
             else:
@@ -1048,8 +1188,14 @@ class DataCleaner:
         return df
     
     def _is_snake_case(self, s: str) -> bool:
-        """檢查字串是否符合 snake_case 規範"""
-        return bool(re.match(r'^[a-z][a-z0-9_]*$', s))
+        """
+        檢查字串是否符合 snake_case 規範
+        
+        支援 ASCII 和中文前綴（如 col_1號冰水主機）
+        """
+        # 支援 ASCII 小寫開頭，或 col_ 前綴後接中文
+        return bool(re.match(r'^[a-z][a-z0-9_]*$', s)) or \
+               bool(re.match(r'^col_[\w\u4e00-\u9fff][\w\u4e00-\u9fff0-9_]*$', s))
     
     def _get_device_role(self, column_name: str) -> str:
         """取得欄位的 device_role（預設 primary）"""
