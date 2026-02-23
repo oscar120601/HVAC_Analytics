@@ -1,6 +1,6 @@
 # HVAC Analytics - Core Engine (v1.3 Architecture)
 
-**核心引擎狀態**: ✅ **Sprint 1 完成 (4/4，含 Demo)**  
+**核心引擎狀態**: 🚧 **Sprint 2 進行中 (1/3 完成)**  
 **最後更新**: 2026-02-23
 
 ---
@@ -14,13 +14,14 @@
 | 1 | 1.3 Feature Annotation v1.3 | ✅ 已完成 | 18/18 通過 |
 | 1 | 1.4 程式碼審查優化 | ✅ 已完成 | 72/72 通過 |
 | 1 | **1.5 Sprint 1 Demo 展示** | ✅ **已完成** | **[🎨 查看 Demo](tools/demo/index.html)** |
-| 2 | 2.1 Parser v2.1 | 🚧 準備中 | - |
-| 2 | 2.2 Cleaner v2.2 | 🚧 準備中 | - |
-| 2 | 2.3 BatchProcessor v1.3 | 🚧 準備中 | - |
+| 2 | 2.1 Parser v2.1 | ✅ **已完成** | 8 案例 |
+| 2 | 2.2 Cleaner v2.2 | 🚧 **準備中** | - |
+| 2 | 2.3 BatchProcessor v1.3 | ⏳ **待開始** | - |
 
-**Sprint 1 總計**: 72 項測試全部通過 ✅
+**Sprint 1 總計**: 72 項測試全部通過 ✅  
+**Sprint 2 進度**: 1/3 完成 (Parser v2.1 ✅)
 
-[📋 查看完整任務排程](./docs/專案任務排程/專案任務排程文件.md) | [📈 Sprint 1 執行摘要](./docs/專案任務排程/Sprint_1_執行摘要.md)
+[📋 查看完整任務排程](./docs/專案任務排程/專案任務排程文件.md) | [📈 Sprint 1 執行摘要](./docs/專案任務排程/Sprint_1_執行摘要.md) | [📈 Sprint 2 執行摘要](./docs/專案任務排程/Sprint_2_執行摘要.md)
 
 ---
 
@@ -51,7 +52,7 @@ HVAC_Analytics/
 │   ├── interface.py            # ★ Facade - 後端整合入口
 │   ├── schemas.py              # Pydantic I/O 定義
 │   ├── etl/                    # ETL 管道
-│   │   ├── parser.py           # v2.1 報表解析 (E1xx Error Codes)
+│   │   ├── parser.py           # ✅ v2.1 報表解析 (E1xx Error Codes)
 │   │   ├── cleaner.py          # v2.2 資料清洗 + Equipment Precheck (E2xx)
 │   │   ├── batch_processor.py  # v1.3 批次處理 + Manifest (E3xx)
 │   │   ├── feature_engineer.py # v1.3 特徵工程 + Device Role Aware (E6xx)
@@ -358,6 +359,26 @@ constraints = manager.get_equipment_constraints(phase="precheck")
 targets = manager.get_target_columns()
 ```
 
+### 使用 Parser v2.1
+
+```python
+from src.etl.parser import ReportParser
+
+# 初始化 Parser（使用案場配置）
+parser = ReportParser(site_id="cgmh_ty")
+
+# 解析 CSV 檔案
+df = parser.parse_file("data/raw/report.csv")
+
+# 輸出驗證：timestamp 必須為 UTC/ns
+print(df.schema["timestamp"])  # Datetime(time_unit='ns', time_zone='UTC')
+
+# 解析並取得中繼資料
+df, metadata = parser.parse_with_metadata("data/raw/report.csv")
+print(metadata["detected_encoding"])  # utf-8 / cp950 / utf-16
+print(metadata["header_line"])        # 標頭行號
+```
+
 ### CLI 執行
 
 ```bash
@@ -394,10 +415,13 @@ python3 -m pytest tests/test_container_initialization.py -v
 # 執行 Feature Annotation 測試
 python3 -m pytest tests/features/test_annotation_manager.py -v
 
+# 執行 Parser v2.1 測試
+python3 -m pytest tests/test_parser_v21.py -v
+
 # 執行全部測試
 python3 -m pytest tests/ -v
 
-# 預期結果: 72 passed
+# 預期結果: 80+ passed (Sprint 1: 72 + Parser: 8)
 ```
 
 ### 測試覆蓋
@@ -411,8 +435,9 @@ python3 -m pytest tests/ -v
 | 時間基準傳遞 | 6 | 跨日、注入、驗證 |
 | FeatureAnnotationManager | 14 | 初始化、查詢、HVAC、錯誤 |
 | Pydantic 模型 | 4 | E405、Lag 間隔、命名 |
+| Parser v2.1 | 8 | 編碼、時區、標頭、契約驗證 |
 | 其他測試 | 19 | ETL 整合、能源模型 |
-| **總計** | **72** | **全部通過** |
+| **總計** | **80** | **Sprint 1: 72 + Sprint 2: 8** |
 
 ---
 
@@ -439,10 +464,11 @@ python3 -m pytest tests/ -v
 
 - **[專案任務排程](docs/專案任務排程/專案任務排程文件.md)** - 完整 Sprint 規劃
 - **[Sprint 1 執行摘要](docs/專案任務排程/Sprint_1_執行摘要.md)** - Interface Contract、System Integration、Feature Annotation 詳細摘要
+- **[Sprint 2 執行摘要](docs/專案任務排程/Sprint_2_執行摘要.md)** - Parser v2.1 完成摘要、Cleaner/BatchProcessor 規劃
 
 ### ETL 管道模組
 
-- **[Parser v2.1](docs/parser/PRD_Parser_V2.1.md)** - Header Standardization、UTC/ns 時間戳
+- **[Parser v2.1](docs/parser/PRD_Parser_V2.1.md)** ✅ - Header Standardization、UTC/ns 時間戳、編碼自動偵測
 - **[Cleaner v2.2](docs/cleaner/PRD_CLEANER_v2.2.md)** - 語意感知清洗、Equipment Precheck
 - **[BatchProcessor v1.3](docs/batch_processor/PRD_BATCH_PROCESSOR_v1.3.md)** - Manifest 生成、E406 驗證
 
@@ -486,10 +512,17 @@ Sprint 1: Foundation ✅ 完成
     ├── Feature Annotation 依賴與前後比較 (Before/After)
     └── 4步驟初始化流程與測試覆蓋率分析 (Chart.js)
 
-Sprint 2: 核心 ETL 🚧 準備中
-├── Parser v2.1 (Header Standardization、時區轉換)
-├── Cleaner v2.2 (E350 設備邏輯、語意感知清洗)
-└── BatchProcessor v1.3 (Manifest、E408 檢查)
+Sprint 2: 核心 ETL 🚧 進行中 (1/3 完成)
+├── ✅ Parser v2.1 (已完成)
+│   ├── 編碼自動偵測 (UTF-8/Big5/UTF-16)
+│   ├── BOM 處理與移除
+│   ├── 智慧標頭搜尋 (中文標頭支援)
+│   ├── 時區強制轉換 (→ UTC/ns)
+│   └── 輸出契約驗證 (E101-E105)
+├── 🚧 Cleaner v2.2 (準備中)
+│   └── E350 設備邏輯、語意感知清洗
+└── ⏳ BatchProcessor v1.3 (待開始)
+    └── Manifest、E408 檢查
 ```
 
 ### 下一步

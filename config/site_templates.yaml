@@ -1,0 +1,177 @@
+# =============================================================================
+# HVAC-1 案場配置範本 (Site Templates)
+# 版本: 2.1
+# 說明: Parser v2.1 使用的案場特定配置
+# =============================================================================
+
+schema_version: "2.1"
+
+# =============================================================================
+# 預設配置 (Default)
+# =============================================================================
+default:
+  # 編碼設定
+  encoding: auto          # auto | utf-8 | cp950 | utf-16
+  
+  # 分隔符設定
+  delimiter: ","          # 自動偵測時的優先順序: , → \t → ;
+  
+  # 標頭關鍵字定義 (多語系支援)
+  header_keywords:
+    timestamp:
+      - "Date"
+      - "Time"
+      - "日期"
+      - "時間"
+      - "DateTime"
+      - "Timestamp"
+      - "时间"
+      - "日期時間"
+      - "timestamp"
+      - "datetime"
+    required:
+      - "Date"
+      - "日期"
+      - "Time"
+      - "時間"
+  
+  # 時區設定 (v2.1 新增)
+  # 僅在輸入無時區 (Naive datetime) 時使用
+  assumed_timezone: "Asia/Taipei"
+  
+  # Null 值定義 (會識別為缺失值)
+  null_values:
+    - ""
+    - "NA"
+    - "null"
+    - "NULL"
+    - "---"
+    - "Error"
+    - "N/A"
+    - "OFF"
+    - "OFFLINE"
+    - "#VALUE!"
+    - "#N/A"
+    - "None"
+    - "--"
+    - "NaN"
+    - "nan"
+    - "Null"
+  
+  # 欄位名稱映射 (標準化對照表)
+  # 將常見的中文/舊欄位名稱映射為標準名稱
+  column_mapping:
+    # 時間相關
+    "日期": "Date"
+    "時間": "Time"
+    "日期時間": "DateTime"
+    
+    # 冰水主機相關
+    "冰水主機電流": "chiller_current"
+    "冰水主機功率": "chiller_power"
+    "冰水主機狀態": "chiller_status"
+    "Chiller_Current": "chiller_current"
+    "Chiller_Power": "chiller_power"
+    "Chiller_Status": "chiller_status"
+    
+    # 冷卻水塔相關
+    "冷卻水塔溫度": "ct_temp"
+    "冷卻水塔風扇狀態": "ct_fan_status"
+    "CT_Temp": "ct_temp"
+    "CT_Fan_Status": "ct_fan_status"
+    
+    # 外氣相關
+    "外氣溫度": "oat"
+    "外氣濕度": "oah"
+    "OAT": "oat"
+    "OAH": "oah"
+    "Outdoor_Air_Temp": "oat"
+    "Outdoor_Air_Humidity": "oah"
+    
+    # 水泵相關
+    "冰水泵狀態": "chwp_status"
+    "冷卻水泵狀態": "cwp_status"
+    "CHWP_Status": "chwp_status"
+    "CWP_Status": "cwp_status"
+  
+  # 標頭搜尋設定
+  max_header_scan_lines: 500
+
+
+# =============================================================================
+# 長庚醫院桃園院區 (CGMH Taoyuan)
+# =============================================================================
+cgmh_ty:
+  inherit: default
+  
+  # 特殊前綴處理 (長庚 BAS 系統輸出格式)
+  header_prefix: "<>"
+  
+  # 時區設定
+  assumed_timezone: "Asia/Taipei"
+  
+  # 額外的欄位映射
+  column_mapping:
+    # 繼承 default 的映射，並添加院區特定映射
+    "<>Date": "Date"
+    "<>Time": "Time"
+    "冰水主機_1_電流": "chiller_1_current"
+    "冰水主機_2_電流": "chiller_2_current"
+    "冷卻水塔_1_溫度": "ct_1_temp"
+    "冷卻水塔_2_溫度": "ct_2_temp"
+
+
+# =============================================================================
+# 遠雄 O3 (Farglory O3)
+# =============================================================================
+farglory_o3:
+  inherit: default
+  
+  # 固定編碼 (效能優化)
+  encoding: cp950
+  
+  # Tab 分隔
+  delimiter: "\t"
+  
+  # 時區設定
+  assumed_timezone: "Asia/Taipei"
+
+
+# =============================================================================
+# 測試配置 (Test)
+# =============================================================================
+test:
+  inherit: default
+  
+  # 測試用的較小掃描範圍
+  max_header_scan_lines: 100
+  
+  # 測試用的時區
+  assumed_timezone: "UTC"
+
+
+# =============================================================================
+# 配置說明
+# =============================================================================
+# 
+# 繼承機制:
+# - 使用 "inherit: <parent_id>" 繼承父配置
+# - 子配置會覆蓋父配置的相同鍵值
+# - 支援多層繼承 (A inherit B, B inherit C)
+#
+# 編碼選項:
+# - "auto": 自動偵測 (UTF-8 → Big5 → UTF-16)
+# - "utf-8": 強制 UTF-8
+# - "cp950": 強制 Big5 (繁體中文 Windows 編碼)
+# - "utf-16": 強制 UTF-16
+#
+# 時區設定:
+# - assumed_timezone: 當輸入資料無時區資訊時，假設的時區
+# - 台灣案場建議使用 "Asia/Taipei"
+# - 國際案場請根據實際位置設定
+#
+# 標頭關鍵字:
+# - timestamp: 用於識別時間戳欄位的關鍵字列表
+# - required: 必須至少存在一個的關鍵字列表
+#
+# =============================================================================
