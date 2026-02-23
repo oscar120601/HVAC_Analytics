@@ -680,6 +680,12 @@ python3 -m pytest tests/ -v
 - **[Model Training v1.3](docs/Model_Training/PRD_Model_Training_v1.3.md)** - 三種訓練模式、Resource-Aware Training
 - **[Optimization Engine v1.2](docs/Chiller_Plant_Optimization_Engine/PRD_Chiller_Plant_Optimization_V1.2.md)** - 黑盒優化、Fallback 機制
 
+### Web 應用層 (Frontend & Backend Interface)
+
+- **[Web 應用層架構與 API 介面規範 v1.1](docs/Web_Application_Layer/PRD_Web_Application_Architecture_V1.1.md)** - 系統架構邊界與前後端解耦
+- **[Web API 介面規格設計 v1.1](docs/Web_Application_Layer/PRD_Web_API_Interface_V1.1.md)** - RESTful API 與 WebSocket 介面規範
+- **[Web UI 前端頁面流程與狀態圖 v1.1](docs/Web_Application_Layer/PRD_UI_Flow_and_State_V1.1.md)** - 前端頁面結構與狀態轉換
+
 ---
 
 ## 🚧 實作路徑 (Implementation Roadmap)
