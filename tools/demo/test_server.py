@@ -214,20 +214,43 @@ def process_pipeline_task(job_id: str, site_id: str, resample_interval: str, csv
         update_progress(f"開始 Parser 處理 (共 {total_files} 個檔案)...")
         
         df_parsed_list = []
+        current_stage = "Parser 解析"
+        current_file = None
+        
         for i, path in enumerate(csv_paths, 1):
             if i % 10 == 0 or i == 1 or i == total_files:
                 update_progress(f"正在解析檔案 ({i}/{total_files})")
+            
+            # Extract original filename for clearer error message
+            current_file = path.name.replace(f"input_{site_id}_", "")
+            
             df_p = parser.parse_file(str(path))
+            # 確保檔案間合併時，不會因為某些檔案無小數點被推斷為 Int 導致併檔失敗
+            # 將所有整數欄位轉換為 Float64，確保多檔案合併時類型一致
+            int_dtypes = (pl.Int8, pl.Int16, pl.Int32, pl.Int64, pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64)
+            cast_exprs = []
+            for col in df_p.columns:
+                if col == "timestamp":
+                    continue
+                if isinstance(df_p.schema[col], int_dtypes):
+                    cast_exprs.append(pl.col(col).cast(pl.Float64).alias(col))
+            if cast_exprs:
+                df_p = df_p.with_columns(cast_exprs)
+            
             df_parsed_list.append(df_p)
             
+        current_file = None
+        current_stage = "合併資料"
         update_progress("正在合併所有解析後的資料...")
-        df_parsed = pl.concat(df_parsed_list, how="diagonal")
+        df_parsed = pl.concat(df_parsed_list, how="diagonal_relaxed")
         
+        current_stage = "Cleaner 清洗"
         update_progress(f"開始 Cleaner 語意清洗與重採樣... (共 {len(df_parsed)} 行)")
         df_cleaned, column_metadata, equipment_audit = cleaner.clean(df_parsed)
         
+        current_stage = "BatchProcessor 落地"
         update_progress(f"正在執行 BatchProcessor 落地輸出... (共 {len(df_cleaned)} 行)")
-        source_name = f"multiple_files_({len(csv_paths)})" if len(csv_paths) > 1 else str(csv_paths[0].name)
+        source_name = f"multiple_files_({len(csv_paths)})" if len(csv_paths) > 1 else str(csv_paths[0].name.replace(f"input_{site_id}_", ""))
         result = bp.process_dataframe(
             df_cleaned, 
             column_metadata=column_metadata,
@@ -313,7 +336,12 @@ def process_pipeline_task(job_id: str, site_id: str, resample_interval: str, csv
 
     except Exception as e:
         pipeline_jobs[job_id]["status"] = "error"
-        pipeline_jobs[job_id]["message"] = f"Pipeline 執行失敗: {str(e)}"
+        
+        # Add context to the error message
+        stage_info = f"[{current_stage}] " if 'current_stage' in locals() else ""
+        file_info = f" (發生於檔案: {current_file})" if 'current_file' in locals() and current_file else ""
+        
+        pipeline_jobs[job_id]["message"] = f"Pipeline 執行失敗: {stage_info}{str(e)}{file_info}"
         logger.exception(f"Pipeline Task {job_id} failed")
     finally:
         for path in csv_paths:
@@ -586,7 +614,29 @@ async def diagnostic_full(
         df_clean, metadata, audit = cleaner.clean(df_parsed)
         results["stages"].append({"name": "container_cleaner", "status": "ok", "rows": len(df_clean)})
         
-        results["overall_status"] = "success"
+        from src.etl.batch_processor import BatchProcessor
+        output_dir = TEMP_DIR / "output_full"
+        output_dir.mkdir(exist_ok=True)
+        bp = BatchProcessor(
+            site_id=site_id,
+            output_dir=str(output_dir),
+            pipeline_context=container.get_context()
+        )
+        bp_result = bp.process_dataframe(
+            df_clean,
+            column_metadata=metadata,
+            equipment_validation_audit=audit,
+            source_file=str(csv_path)
+        )
+        
+        results["stages"].append({
+            "name": "container_batch_processor",
+            "status": bp_result.status,
+            "rows_processed": bp_result.rows_processed,
+            "error": bp_result.error
+        })
+        
+        results["overall_status"] = "success" if bp_result.status == "success" else "failed"
         
     except Exception as e:
         import traceback
