@@ -695,6 +695,21 @@ python -m http.server 8080
 # 接著在瀏覽器開啟: http://localhost:8080/index.html
 ```
 
+### 啟動互動式測試工具 (Sprint 2)
+
+本專案提供了一個完整三步互動式測試工具，涵蓋「產生標註 Excel」、「轉換 YAML」、「執行批次管線」。
+**v1.3 新增功能**: 支援多檔/資料夾上傳、階段性診斷工具 (Parser/Cleaner 獨立測試)、清洗與重採樣間隔設定下拉選單、Chaos Testing 防禦驗證機制、以及 parquet 檔案直連下載功能。
+詳細說明與變更紀錄請參閱：**[Interactive ETL Tester 說明文件](docs/測試工具說明/Interactive_ETL_Tester.md)**
+
+若要啟動互動式測試工具：
+
+1. 啟動後端 API (FastAPI):
+```bash
+pip install fastapi uvicorn python-multipart
+uvicorn tools.demo.test_server:app --reload --port 8000
+```
+2. 在瀏覽器點擊或雙擊開啟 `tools/demo/tester.html`，即可使用圖形化介面。
+
 ---
 
 ## 🧪 測試

@@ -9,6 +9,9 @@
 - Cleaner v2.2+, Feature Engineer v1.3+, Optimization v1.1+
 - Parser v2.1+ (含 Header Standardization)
 
+**修訂紀錄:**
+- **v1.3.1 (2026-02-24)**: 新增 Excel to YAML 轉換規則（章節 7.3），明確定義 `site_id` 從檔名提取的規則，支援多種檔案命名格式（`Feature_{site_id}_v1.3.xlsx`, `{site_id}_filled.xlsx` 等）
+
 ---
 
 ## 1. 執行總綱與設計哲學
@@ -148,7 +151,13 @@ __pycache__/
 
 ## 3. Excel 範本結構（v1.3 完整版）
 
-### 3.1 Sheet 1: Columns（主要編輯區）
+### 3.1 Sheet 1: Instructions（填寫說明，v1.3 新增）
+
+為降低使用者的學習門檻並確保標註品質，Excel 範本預設包含此說明頁作為第一分頁：
+- 詳列必填欄位定義（如 `physical_type`、`is_target`、`equipment_id`）
+- 提供常見 `physical_type` 的設定範例與適用情境
+
+### 3.2 Sheet 2: Columns（主要編輯區）
 
 **欄位定義（強化版）**:
 
@@ -231,7 +240,7 @@ __pycache__/
 - **選項**: `pending_review`（待確認）、`confirmed`（已確認）、`deprecated`（已棄用）
 - **Wizard 生成**: 新欄位預設為 `pending_review`
 
-### 3.2 Sheet 2: Group Policies（群組策略）
+### 3.3 Sheet 3: Group Policies（群組策略）
 
 簡化語法，無需 Regex，支援 HVAC 設備類型自動匹配：
 
@@ -246,7 +255,7 @@ __pycache__/
 | ahu_valves | prefix | ahu_ | valve_position | Valve_Position | 1,96 | 空調箱 |
 | ahu_filters | prefix | ahu_ | pressure_differential | Filter_DP | 1 | 空調箱 |
 
-### 3.3 Sheet 3: Metadata（文件元資料）
+### 3.4 Sheet 4: Metadata（文件元資料）
 
 | 屬性 | 值 | 說明 | 驗證規則 |
 |:---|:---|:---|:---|
@@ -568,12 +577,18 @@ def wizard_update_excel(
     
     print(f"🔍 發現 {len(new_cols)} 個新欄位待標註")
 
-    # === 步驟 3: HVAC 語意推測 ===
+    # === 步驟 3: CSV Header 進階解析與預處理 ===
+    # 針對具備複雜報告結構（如前段帶有 metadata、點位對應表）的 CSV 進行智能截斷與映射
+    column_mapping = parse_report_mappings(csv_path) # 解析如 "Point_1: AHWP-3.KWH" 的表頭 mapping
+    skip_rows = detect_actual_data_start(csv_path)   # 從真實數據列開始讀取
+    
+    # === 步驟 4: HVAC 語意推測 ===
     for col in sorted(new_cols):
         # 找回原始欄位名稱（用於統計計算）
         original_col = [k for k, v in standardized_map.items() if v == col][0]
+        mapped_name = column_mapping.get(col, col) # 若有定義對映，使用真實物理名稱
         stats = calculate_stats(df_csv[original_col])
-        suggestion = hvac_semantic_guess(col, stats)  # HVAC 專用推測邏輯
+        suggestion = hvac_semantic_guess(mapped_name, stats)  # HVAC 專用推測邏輯 (使用真實物理名稱)
 
         print(f"\n{'='*60}")
         print(f"🔍 新欄位: {col} (原始: {original_col})")
@@ -611,15 +626,15 @@ def wizard_update_excel(
         write_to_excel_row(wb['Columns'], row_data)
         print(f"✅ 已寫入 Excel（狀態: pending_review）")
 
-    # === 步驟 4: 更新 Metadata ===
+    # === 步驟 5: 更新 Metadata ===
     update_metadata(wb, source_csv=csv_path.name)
 
-    # === 步驟 5: 原子寫入 ===
+    # === 步驟 6: 原子寫入 ===
     temp_excel = excel_path.with_suffix('.tmp.xlsx')
     wb.save(temp_excel)
     temp_excel.replace(excel_path)
 
-    # === 步驟 6: 計算並記錄 Excel Checksum ===
+    # === 步驟 7: 計算並記錄 Excel Checksum ===
     excel_checksum = compute_file_hash(excel_path, algorithm='sha256')
     wb = load_workbook(excel_path)  # 重新載入以更新 System sheet
     wb['System']['B6'] = excel_checksum
@@ -701,6 +716,52 @@ def check_sync_status(excel_path: Path, yaml_path: Path) -> dict:
         "excel_checksum": stored_excel_checksum
     }
 ```
+
+### 7.3 Excel to YAML 轉換規則（v1.3.1 更新）
+
+#### 7.3.1 site_id 提取規則
+
+當 Excel 的 Metadata Sheet 未明確指定 `site_id` 時，`excel_to_yaml.py` 必須能從檔名自動提取。支援以下命名格式：
+
+| 檔案命名格式 | 提取結果 | 使用情境 |
+|------------|---------|---------|
+| `Feature_{site_id}_v1.3.xlsx` | `{site_id}` | 正式範本命名 |
+| `{site_id}_filled.xlsx` | `{site_id}` | test_server 臨時檔案 |
+| `{site_id}_template.xlsx` | `{site_id}` | 範本檔案 |
+| `{site_id}_features.xlsx` | `{site_id}` | 一般匯出檔案 |
+| `{site_id}_filled_v1.3.xlsx` | `{site_id}` | 版本化臨時檔案 |
+
+**實作要求**：
+```python
+def _extract_site_id_from_filename(self) -> str:
+    """從檔名提取 site_id（支援多種命名格式）"""
+    stem = self.excel_path.stem
+    site_id = stem
+    suffixes_to_remove = [
+        'Feature_', '_v1.3', '_filled', '_template', '_features',
+        '_filled_v1.3', '_template_v1.3'
+    ]
+    for suffix in suffixes_to_remove:
+        if site_id.startswith('Feature_') and suffix == 'Feature_':
+            site_id = site_id[len(suffix):]
+        elif suffix in site_id:
+            site_id = site_id.replace(suffix, '')
+    return site_id if site_id else stem
+```
+
+**驗證要求**：
+- 提取後的 `site_id` 必須與 YAML 檔案名稱一致（`{site_id}.yaml`）
+- 若提取失敗（空字串），必須使用原始檔名作為 fallback
+- 必須記錄日誌：`logger.info(f"從檔名推導 site_id: {stem} -> {site_id}")`
+
+#### 7.3.2 錯誤處理
+
+當 `site_id` 提取失敗或為空時，必須觸發以下錯誤：
+
+| 錯誤情境 | 錯誤碼 | 處理方式 |
+|---------|-------|---------|
+| Metadata 無 site_id 且檔名提取失敗 | E007 | 記錄錯誤，使用原始檔名作為 site_id |
+| 生成的 YAML site_id 與預期不符 | E406 | 提示檢查 Excel Metadata Sheet |
 
 ---
 

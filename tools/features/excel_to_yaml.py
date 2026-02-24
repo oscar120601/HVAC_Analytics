@@ -118,9 +118,10 @@ class TargetLagError(ExcelValidationError):
 class ExcelToYamlConverter:
     """Excel 轉 YAML 轉換器"""
     
-    def __init__(self, excel_path: Path, schema_path: Optional[Path] = None):
+    def __init__(self, excel_path: Path, schema_path: Optional[Path] = None, site_id: Optional[str] = None):
         self.excel_path = Path(excel_path)
         self.schema_path = schema_path
+        self.site_id = site_id  # 外部指定的 site_id（優先使用）
         self.workbook = None
         self.errors: List[str] = []
         self.warnings: List[str] = []
@@ -395,17 +396,37 @@ class ExcelToYamlConverter:
         metadata.setdefault('temporal_baseline_version', '1.0')
         metadata.setdefault('last_updated', datetime.now().isoformat())
         
-        # 從檔名推導 site_id
+        # 從檔名推導 site_id（支援多種命名格式）
+        # 格式1: Feature_{site_id}_v1.3.xlsx
+        # 格式2: {site_id}_filled.xlsx (test_server 臨時檔案)
+        # 格式3: {site_id}_template.xlsx
+        # 格式4: {site_id}_features.xlsx
         if 'site_id' not in metadata or not metadata['site_id']:
-            site_id = self.excel_path.stem.replace('Feature_', '').replace('_v1.3', '')
+            site_id = self._extract_site_id_from_filename()
             metadata['site_id'] = site_id
+            logger.info(f"從檔名推導 site_id: {self.excel_path.stem} -> {site_id}")
         
         logger.info(f"Metadata: site_id={metadata.get('site_id')}")
         return metadata
     
+    def _extract_site_id_from_filename(self) -> str:
+        """從檔名提取 site_id（支援多種命名格式）"""
+        stem = self.excel_path.stem
+        site_id = stem
+        suffixes_to_remove = [
+            'Feature_', '_v1.3', '_filled', '_template', '_features',
+            '_filled_v1.3', '_template_v1.3'
+        ]
+        for suffix in suffixes_to_remove:
+            if site_id.startswith('Feature_') and suffix == 'Feature_':
+                site_id = site_id[len(suffix):]
+            elif suffix in site_id:
+                site_id = site_id.replace(suffix, '')
+        return site_id if site_id else stem
+    
     def _create_default_metadata(self) -> Dict[str, Any]:
         """建立預設元資料"""
-        site_id = self.excel_path.stem.replace('Feature_', '').replace('_v1.3', '')
+        site_id = self._extract_site_id_from_filename()
         return {
             'schema_version': '1.3',
             'template_version': '1.3',
@@ -445,6 +466,12 @@ class ExcelToYamlConverter:
         except ExcelValidationError as e:
             logger.error(f"解析 Excel 失敗: {e}")
             return False, None
+        
+        # 強制使用外部指定的 site_id（如果提供）
+        if self.site_id:
+            old_site_id = metadata.get('site_id')
+            metadata['site_id'] = self.site_id
+            logger.info(f"使用外部指定的 site_id: {self.site_id} (覆蓋: {old_site_id})")
         
         # 檢查錯誤
         if self.errors:

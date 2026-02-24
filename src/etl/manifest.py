@@ -167,7 +167,15 @@ class Manifest(BaseModel):
         """將 Manifest 寫入檔案"""
         # 更新 checksum
         self.checksum = self.compute_checksum()
-        path.write_text(self.json(indent=2, ensure_ascii=False), encoding='utf-8')
+        
+        # 相容 Pydantic v1 與 v2
+        try:
+            data = self.model_dump(mode='json')
+        except AttributeError:
+            data = json.loads(self.json())
+            
+        content = json.dumps(data, indent=2, ensure_ascii=False)
+        path.write_text(content, encoding='utf-8')
     
     @classmethod
     def read_from_file(cls, path: Path) -> "Manifest":

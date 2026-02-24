@@ -335,7 +335,11 @@ class ETLContainer:
                 logger.debug("Parser 已初始化（使用預設構造函數）")
             
             # 4.2 Cleaner
-            self._cleaner = DataCleaner()
+            self._cleaner = DataCleaner(
+                pipeline_context=self._context,
+                annotation_manager=self._annotation_manager,
+                site_id=self.site_id
+            )
             logger.debug("Cleaner 已初始化")
             
             # 4.3 BatchProcessor（目前無法直接實例化，略過）

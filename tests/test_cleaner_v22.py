@@ -217,8 +217,9 @@ class TestEquipmentValidation(CleanerTestBase):
         flags_list = df_clean["quality_flags"].to_list()
         all_flags = set()
         for flags in flags_list:
-            if flags:
-                all_flags.update(flags)
+            if flags is not None and len(flags) > 0:
+                valid_flags = [f for f in flags if f is not None]
+                all_flags.update(valid_flags)
         
         self.assertIn("PHYSICAL_IMPOSSIBLE", all_flags)
     
@@ -397,8 +398,9 @@ class TestTimestampNormalization(CleanerTestBase):
         flags_list = df_clean["quality_flags"].to_list()
         all_flags = set()
         for flags in flags_list:
-            if flags:
-                all_flags.update(flags)
+            if flags is not None and len(flags) > 0:
+                valid_flags = [f for f in flags if f is not None]
+                all_flags.update(valid_flags)
         
         # 部分行應該被標記為凍結
         has_frozen = "FROZEN_DATA" in all_flags

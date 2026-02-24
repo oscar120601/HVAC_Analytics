@@ -20,6 +20,11 @@
 - 新增 Temporal Baseline 查詢 API
 - WebSocket 事件新增 `TRAINING_PROGRESS`、`EQUIPMENT_ALERT`、`CONSISTENCY_CHECK`
 
+**修訂紀錄 (v1.1 → v1.1.1):**
+- ETL Pipeline API 擴充：支援多檔案上傳（`files` 參數取代單一 `file`）
+- 新增資料夾批次上傳支援，系統自動過濾 CSV 檔案
+- 更新 API Response 格式，新增 `files_processed` 欄位
+
 ---
 
 ## 1. 總覽與約定 (General Conventions)
@@ -112,13 +117,18 @@
 *   **Endpoint**: `POST /api/v1/pipeline/batch`
 *   **Content-Type**: `multipart/form-data`
 *   **Payload**:
-    *   `file`: (CSV File) The raw data file.
+    *   `files`: (CSV Files, 支援多檔案) 原始資料檔案，支援批次上傳多個 CSV 檔案或資料夾。
     *   `site_id`: "cgmh_ty"
+*   **支援功能**:
+    *   **多檔案上傳**: 可同時上傳多個 CSV 檔案進行批次處理
+    *   **資料夾選擇**: 支援上傳整個資料夾，系統自動過濾其中的 CSV 檔案
+    *   **自動過濾**: 非 CSV 檔案會被自動忽略
 *   **Response (202 Accepted)**:
     ```json
     {
       "message": "ETL job started.",
       "task_id": "task_etl_98765",
+      "files_processed": 1,
       "pipeline_origin_timestamp": "2026-02-14T10:00:00.000000000Z"
     }
     ```

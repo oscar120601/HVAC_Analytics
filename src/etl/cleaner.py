@@ -451,8 +451,12 @@ class DataCleaner:
         """驗證品質標記欄位的所有值是否合法"""
         all_flags = set()
         for flags in flags_series:
-            if flags:
-                all_flags.update(flags)
+            # 修復: 避免直接使用 if flags 造成 Series 真值歧義
+            # flags 是 List[str] 類型，檢查是否為 None 且長度 > 0
+            if flags is not None and len(flags) > 0:
+                # 過濾掉 None 值，只加入有效的字串標記
+                valid_flags = [f for f in flags if f is not None]
+                all_flags.update(valid_flags)
         return all_flags - VALID_QUALITY_FLAGS_SET
     
     # =========================================================================

@@ -21,6 +21,18 @@ import shutil
 import sys
 from datetime import datetime
 from pathlib import Path
+
+# 強制設定標準輸出為 utf-8，避免 Windows cp950 編碼錯誤 (確保正確輸出 emoji 如 🔧)
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
+    try:
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 from typing import Dict, List, Optional, Tuple, Any
 
 import yaml
@@ -162,20 +174,17 @@ class HVACTypeGuesser:
             'description': f'自動推測: {column_name}'
         }
         
-        # 推測設備類型
+        # 推測設備類型與物理類型
         for key, config in cls.KEYWORD_PATTERNS.items():
-            if key.startswith('equipment_type'):
-                continue
-                
             patterns = config.get('patterns', [])
             if any(p in col_lower for p in patterns):
                 # 設備類型
-                if 'equipment_type' in config:
+                if 'equipment_type' in config and result['equipment_type'] == 'unknown':
                     result['equipment_type'] = config['equipment_type']
                     result['equipment_prefix'] = config.get('equipment_prefix', 'UNK')
                 
                 # 物理類型
-                if 'physical_type' in config:
+                if 'physical_type' in config and result['physical_type'] == 'gauge':
                     result['physical_type'] = config['physical_type']
                     result['unit'] = config.get('unit')
                 
@@ -183,8 +192,6 @@ class HVACTypeGuesser:
                 if config.get('is_target'):
                     result['is_target'] = True
                     result['lag_intervals'] = ''
-                
-                break
         
         # 從欄位名稱推測設備 ID
         result['equipment_id'] = cls._extract_equipment_id(
@@ -299,10 +306,57 @@ class FeatureAnnotationWizard:
         
         return True
     
+    def _create_instructions_sheet(self):
+        """建立填寫說明的 sheet"""
+        ws = self.workbook.create_sheet("Instructions", 0)  # 放第一頁
+        
+        # 設定標題
+        ws['A1'] = "📝 標註範本填寫說明 (Instructions)"
+        ws['A1'].font = Font(bold=True, size=14)
+        
+        instructions = [
+            ("【壹、整體說明】", "本範本用於定義 HVAC 分析系統的感測器和計算點位對應關係。請填寫 Columns 分頁。"),
+            ("",""),
+            ("【貳、欄位填寫說明 (Columns 分頁)】", "以下是每一欄位的詳細用途："),
+            ("1. column_name", "不可修改！為系統根據 CSV 或資料庫自動萃取/正規化後的欄位原始名稱。"),
+            ("2. physical_type", "重點！定義此欄位的物理意義，例如 temperature, power。支援的類型詳見下方列表。"),
+            ("3. unit", "數值單位 (如 °C, kW, kWh, Hz, %)。請配合 physical_type 填寫合適單位。"),
+            ("4. device_role", "設備角色，預設為 primary (主設備)。若為備載機組請改為 backup；季節性設備可改 seasonal。"),
+            ("5. is_target", "是否為未來重點預測指標 (如主機總耗電 kW)。若是填 TRUE，否填 FALSE。"),
+            ("6. enable_lag", "是否啟用時間延遲特徵 (Lag/Rolling)。若 is_target 為 TRUE，此欄系統自動禁止。"),
+            ("7. lag_intervals", "逗號分隔的整數序列 (如 1,4,96)，代表特徵工程要製造多少時間單位的落後特徵。"),
+            ("8. ignore_warnings", "若此欄位常有特定異常但可被接受，填入警告代碼忽略它 (如 W403 代表忽略高零值比例)。"),
+            ("9. equipment_id", "設備代碼 (如 CH-01, CT-02)。請確認與同一設備的其他感測點對齊，用於互相校驗。"),
+            ("10. description", "系統根據命名推測的中文含義，您可自行補充如「冰水主機 1 號回水溫度」。"),
+            ("11. status", "定義階段，系統預設 pending_review。確認無誤後請改為 confirmed，不要的點位改為 deprecated。"),
+            ("",""),
+            ("【參、可用物理類型 (physical_type)】", "請在 physical_type 欄位中準確填寫下列之一："),
+            ("▶ temporal", "時間欄位。非常重要，系統需依賴此欄位排序。"),
+            ("▶ temperature", "溫度 (°C) - 如冰水進回水溫、冷卻水進回水溫"),
+            ("▶ power", "功率 (kW) - 如各設備耗電功率"),
+            ("▶ energy", "耗電量 (kWh) - 如累積耗能"),
+            ("▶ frequency", "頻率 (Hz) - 如水泵/水塔 VFD 變頻器頻率"),
+            ("▶ valve_position", "閥門開度 (%) - 如空調箱冰水閥開度"),
+            ("▶ pressure_differential", "壓差 (kPa, Pa) - 如濾網壓差"),
+            ("▶ cooling_capacity", "冷凍噸容量 (RT) - 如主機負載"),
+            ("▶ efficiency", "效率 (COP) - 設備效率"),
+            ("▶ operating_status", "運轉狀態 - 通常值為 0 或 1"),
+            ("▶ gauge", "預設未知型別 - 一般通用的感測數值(位準、流量等)。建議手動指定更精準的上述類型。")
+        ]
+        
+        for i, (title, desc) in enumerate(instructions, 3):
+            ws.cell(row=i, column=1, value=title).font = Font(bold=True)
+            ws.cell(row=i, column=2, value=desc)
+        
+        ws.column_dimensions['A'].width = 35
+        ws.column_dimensions['B'].width = 80
+
     def _initialize_sheets(self):
         """初始化 Excel Sheets"""
+        self._create_instructions_sheet()
+        
         # Columns Sheet
-        ws = self.workbook.active
+        ws = self.workbook["Sheet"] if "Sheet" in self.workbook.sheetnames else self.workbook.active
         ws.title = "Columns"
         headers = [
             "column_name", "physical_type", "unit", "device_role",
@@ -348,17 +402,45 @@ class FeatureAnnotationWizard:
         ws_sys['B6'] = ""
     
     def _get_csv_columns(self) -> List[str]:
-        """取得 CSV 欄位列表"""
+        """取得 CSV 欄位列表並且解析 Mapping"""
+        import csv
+        self.column_mapping = {}
+        self.data_skip_rows = 0
+        actual_headers = []
+        
+        # 預先掃描 CSV 判斷是否有特殊的 Mapping 表頭
+        with open(self.csv_path, 'r', encoding='utf-8', errors='ignore') as f:
+            reader = csv.reader(f)
+            for i, row in enumerate(reader):
+                if not row:
+                    continue
+                # 解析 Point mapping (例如 "Point_1:", "AHWP-3.KWH")
+                if len(row) >= 2 and row[0].startswith("Point_") and row[0].endswith(":"):
+                    point_key = row[0].rstrip(":")
+                    if row[1].strip():
+                        self.column_mapping[point_key] = row[1].strip()
+                
+                # 判斷是否為真正的標題列 (特徵: 包含 Date 或 Time 相關文章，或欄位數量超過 10)
+                if len(row) > 3 and any("Date" in str(col) or "Time" in str(col) or "timestamp" in str(col).lower() for col in row):
+                    # 有些標題可能有特殊字元如 "<>Date"
+                    actual_headers = [col.replace("<>", "") for col in row]
+                    self.data_skip_rows = i + 1  # data_skip_rows 指的是要跳過幾行才能到真正的 metadata / data，這裡代表我們要跳過前 i 行
+                    break
+        
+        if actual_headers:
+            return actual_headers
+
+        # 若沒有特殊表頭，退回正常邏輯
         if not HAS_POLARS:
-            # 使用內建 csv 模組
-            import csv
             with open(self.csv_path, 'r', encoding='utf-8') as f:
                 reader = csv.reader(f)
-                headers = next(reader)
-                return headers
+                return next(reader)
         
-        # 使用 polars
-        df = pl.read_csv(self.csv_path, n_rows=5)
+        try:
+            df = pl.read_csv(self.csv_path, n_rows=5, truncate_ragged_lines=True)
+        except TypeError:
+            # fallback for older polars versions
+            df = pl.read_csv(self.csv_path, n_rows=5)
         return df.columns
     
     def _calculate_stats(self, column: str) -> Dict[str, Any]:
@@ -366,7 +448,16 @@ class FeatureAnnotationWizard:
         if not HAS_POLARS:
             return {'mean': 0, 'zero_ratio': 0}
         
-        df = pl.read_csv(self.csv_path, columns=[column])
+        try:
+            skip = getattr(self, 'data_skip_rows', 0)
+            if skip > 0:
+                df = pl.read_csv(self.csv_path, columns=[column], skip_rows=skip, truncate_ragged_lines=True)
+            else:
+                df = pl.read_csv(self.csv_path, columns=[column], truncate_ragged_lines=True)
+        except TypeError:
+            df = pl.read_csv(self.csv_path, columns=[column])
+        except Exception:
+            return {'mean': 0, 'zero_ratio': 0}
         
         # 嘗試轉換為數值
         try:
@@ -468,11 +559,19 @@ class FeatureAnnotationWizard:
             # 計算統計
             stats = self._calculate_stats(col)
             
-            # HVAC 推測
-            suggestion = HVACTypeGuesser.guess(col, stats)
+            # 判斷是否有對映 Mapping (針對報表類 CSV)
+            mapped_name = getattr(self, 'column_mapping', {}).get(col, col)
             
+            # HVAC 推測 (使用最真實的名字去推測)
+            suggestion = HVACTypeGuesser.guess(mapped_name, stats)
+            
+            if mapped_name != col:
+                suggestion['description'] = f"真實名稱: {mapped_name}. {suggestion.get('description', '')}"
+
             print(f"\n{'-'*60}")
             print(f"新欄位: {col}")
+            if mapped_name != col:
+                print(f"  映射名稱的真實意義: {mapped_name}")
             print(f"  統計: 均值={stats.get('mean', 0):.2f}, 零值比例={stats.get('zero_ratio', 0):.1%}")
             print(f"  HVAC推測: {suggestion['equipment_type']} / {suggestion['physical_type']}")
             print(f"  建議設備 ID: {suggestion['equipment_id']}")

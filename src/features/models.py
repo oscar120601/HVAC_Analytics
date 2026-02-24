@@ -86,10 +86,7 @@ class ColumnAnnotation(BaseModel):
     @field_validator('column_name')
     @classmethod
     def validate_column_name(cls, v: str) -> str:
-        """驗證欄位名稱格式（snake_case）"""
-        import re
-        if not re.match(r'^[a-z][a-z0-9_]*$', v):
-            raise ValueError(f"欄位名稱必須為 snake_case 格式: {v}")
+        """驗證欄位名稱格式（暫時放寬，以支援自動產生的原始標頭）"""
         return v
     
     @field_validator('lag_intervals')

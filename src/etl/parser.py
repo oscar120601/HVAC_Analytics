@@ -115,8 +115,8 @@ class ReportParser:
             config_path: 自定義配置檔路徑 (可選)
         """
         self.site_id = site_id
-        self.config = self._load_site_config(site_id, config_path)
         self.logger = logging.getLogger(f"parser.{site_id}")
+        self.config = self._load_site_config(site_id, config_path)
         
         # 執行時狀態
         self.header_line: int = 0
@@ -691,8 +691,11 @@ class ReportParser:
         if "quality_flags" in df.columns:
             actual_flags = set()
             for flags in df["quality_flags"]:
-                if flags:
-                    actual_flags.update(flags)
+                # 修復: 避免直接使用 if flags 造成 Series 真值歧義
+                if flags is not None and len(flags) > 0:
+                    # 過濾掉 None 值
+                    valid_flags = [f for f in flags if f is not None]
+                    actual_flags.update(valid_flags)
             
             invalid_flags = actual_flags - VALID_QUALITY_FLAGS_SET
             if invalid_flags:

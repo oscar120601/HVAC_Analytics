@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HVAC Analytics - 全域互動式 ETL 測試工具</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700;900&family=Space+Grotesk:wght@500;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-deep: #06101f;
+            --bg-card: #0d1d33;
+            --bg-card2: #111f35;
+            --cyan: #00d4ff;
+            --green: #06d6a0;
+            --yellow: #ffd166;
+            --purple: #a78bfa;
+            --text: #e2eeff;
+            --text-dim: #7a92b8;
+            --border: rgba(0, 212, 255, 0.12);
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            padding: 20px;
+            background: var(--bg-deep);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .header {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            color: var(--cyan);
+        }
+
+        .step-card {
+            background: linear-gradient(135deg, var(--bg-card), var(--bg-card2));
+            border: 1px solid var(--border);
+            padding: 2rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
+        .step-badge {
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background: var(--cyan);
+            color: var(--bg-deep);
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.85rem;
+        }
+
+        h3 {
+            color: var(--text);
+            margin-top: 0;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+        }
+
+        .result-box {
+            margin-top: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            color: #a8c7fa;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            max-height: 400px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: rgba(0, 212, 255, 0.1);
+            color: var(--cyan);
+            border: 1px solid var(--cyan);
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Noto Sans TC', sans-serif;
+            font-weight: 500;
+            transition: all 0.2s;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: rgba(0, 212, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        input[type="file"],
+        input[type="text"] {
+            display: block;
+            margin-bottom: 10px;
+            color: var(--text-dim);
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .success {
+            color: var(--green) !important;
+        }
+
+        .error {
+            color: #ef476f !important;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        canvas {
+            max-height: 300px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .health-banner {
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 500;
+            display: none;
+        }
+
+        .health-ok {
+            background: rgba(6, 214, 160, 0.15);
+            border: 1px solid var(--green);
+            color: var(--green);
+        }
+
+        .health-error {
+            background: rgba(239, 71, 111, 0.15);
+            border: 1px solid #ef476f;
+            color: #ef476f;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 4px 12px;
+            font-size: 0.75rem;
+            background: rgba(0, 212, 255, 0.15);
+            border: 1px solid var(--cyan);
+            color: var(--cyan);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .copy-btn:hover {
+            background: rgba(0, 212, 255, 0.25);
+        }
+
+        .copy-btn.copied {
+            background: rgba(6, 214, 160, 0.25);
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        .result-box-wrapper {
+            position: relative;
+        }
+
+        .error-box {
+            background: rgba(239, 71, 111, 0.1);
+            border: 1px solid #ef476f;
+            color: #ff8fa3;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .error-code {
+            background: #ef476f;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div id="healthBanner" class="health-banner">
+            <span id="healthIcon">⏳</span> <span id="healthText">檢查後端連線中...</span>
+        </div>
+
+        <div class="header">
+            <h1>🚀 核心 ETL 全域互動測試平台</h1>
+            <p style="color: var(--text-dim);">此工具整合了從資料清洗、特徵標註到批次落地，乃至未來最佳化引擎的完整端到端測試體驗。</p>
+        </div>
+
+        <!-- Chaos Testing (防禦機制驗證) -->
+        <div class="step-card" style="border-color: #ef476f;">
+            <div class="step-badge" style="background: #ef476f;">CHAOS TESTING</div>
+            <h3>🚨 防禦機制驗證 (Sprint 1 & 2)</h3>
+            <p style="font-size: 0.9rem; color: var(--text-dim);">這些按鈕會刻意觸發系統防護網，驗證當異常發生時是否能確實攔截並回傳正確錯誤碼。</p>
+
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
+                <button onclick="testError('E000')"
+                    style="background: rgba(239, 71, 111, 0.1); border-color: #ef476f; color: #ff8fa3;">觸發 E000
+                    (時間基準遺失)</button>
+                <button onclick="testError('E406')"
+                    style="background: rgba(239, 71, 111, 0.1); border-color: #ef476f; color: #ff8fa3;">觸發 E406
+                    (YAML/Excel 不同步)</button>
+                <button onclick="testError('E500')"
+                    style="background: rgba(239, 71, 111, 0.1); border-color: #ef476f; color: #ff8fa3;">觸發 E500
+                    (敏感欄位外洩)</button>
+            </div>
+
+            <div id="chaosOutput" class="error-box" style="display: none; margin: 0;"></div>
+        </div>
+
+        <!-- Step 1 -->
+        <div class="step-card">
+            <div class="step-badge">STEP 1 (Sprint 1)</div>
+            <h3>自動生成 Excel 標註範本</h3>
+            <p style="font-size: 0.9rem; color: var(--text-dim);">上傳一份含有原始資料的 CSV，Wizard 將分析標頭並產生對應案場的空白標註 Excel 供您填寫。
+            </p>
+
+            <label>案場名稱 (Site ID):</label>
+            <input type="text" id="siteId1" value="demo_site">
+            <input type="file" id="rawCsvFile" accept=".csv">
+
+            <button onclick="generateTemplate()" id="btnStep1">📄 產生 Excel 範本</button>
+            <div id="loader1" style="display:none; margin-top:10px; color: var(--yellow);">⏳ 產生中... 會自動下載檔案</div>
+            <div id="msg1" style="margin-top:10px; font-size:0.9rem;"></div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="step-card">
+            <div class="step-badge">STEP 2 (Sprint 1)</div>
+            <h3>轉換 Excel 為 YAML SSOT (ConfigLoader)</h3>
+            <p style="font-size: 0.9rem; color: var(--text-dim);">將您剛才填寫好（或我們預先準備好的）Excel 標註檔上傳，系統會驗證邏輯並轉換成 `.yaml` 放入
+                config/ 中。</p>
+
+            <label>案場名稱 (Site ID):</label>
+            <input type="text" id="siteId2" value="demo_site">
+            <input type="file" id="excelFile" accept=".xlsx">
+
+            <button onclick="convertYaml()" id="btnStep2">⚙️ 執行 YAML 轉換</button>
+            <div id="loader2" style="display:none; margin-top:10px; color: var(--yellow);">⏳ 轉換中...</div>
+            <pre id="msg2" class="result-box" style="display:none;"></pre>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="step-card">
+            <div class="step-badge">STEP 3 (Sprint 2)</div>
+            <h3>執行完整 ETL Pipeline (Parser -> Cleaner -> BatchProcessor)</h3>
+            <p style="font-size: 0.9rem; color: var(--text-dim);">重新上傳 CSV，開始進行編碼自動偵測、時區校正、語意清洗，最終輸出 BatchProcessor
+                Manifest。<br><strong>前置條件：</strong>請確定 STEP 2 已經成功產生該案場名稱的 YAML。</p>
+
+            <label>案場名稱 (Site ID):</label>
+            <input type="text" id="siteId3" value="demo_site">
+
+            <label style="margin-top: 10px; display: block;">選擇 CSV 檔案 (可複選) 或資料夾：</label>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+                <button type="button" onclick="document.getElementById('pipelineCsvFile').click()"
+                    style="margin-top: 0;">📁 選擇檔案</button>
+                <button type="button" onclick="document.getElementById('pipelineCsvFolder').click()"
+                    style="margin-top: 0;">📂 選擇資料夾</button>
+                <button type="button" onclick="clearFileSelection()"
+                    style="margin-top: 0; border-color: #ef476f; color: #ff8fa3;">✕ 清除選擇</button>
+            </div>
+            <input type="file" id="pipelineCsvFile" accept=".csv" multiple style="display: none;">
+            <input type="file" id="pipelineCsvFolder" webkitdirectory directory style="display: none;">
+            <div id="fileSelectionInfo" style="color: var(--text-dim); font-size: 0.9rem; margin-top: 5px;">尚未選擇檔案</div>
+
+            <label style="margin-top: 15px; display: block;">清洗與重採樣間隔 (Resample Interval):</label>
+            <select id="resampleInterval"
+                style="display: block; margin-bottom: 15px; color: var(--text-dim); padding: 8px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-radius: 4px; width: 100%; max-width: 400px;">
+                <option value="5m" selected>5 分鐘 (預設)</option>
+                <option value="10m">10 分鐘</option>
+                <option value="15m">15 分鐘</option>
+                <option value="30m">30 分鐘</option>
+                <option value="1h">1 小時</option>
+            </select>
+
+            <button onclick="runPipeline()" id="btnStep3">🚀 執行資料清洗與批次生產</button>
+            <div id="loader3" style="display:none; margin-top:10px; color: var(--yellow);">⏳ Pipeline 運作中...</div>
+            <div id="errorOutput" class="error-box" style="display:none;"></div>
+
+            <!-- 診斷工具區塊 (預設隱藏, Step 3 失敗時顯示) -->
+            <div id="diagnosticSection"
+                style="display:none; margin-top: 20px; padding: 15px; background: linear-gradient(135deg, rgba(26,26,46,0.8), rgba(22,33,62,0.8)); border: 1px solid #ff6b6b; border-radius: 8px;">
+                <h4 style="color: #ff6b6b; margin-top: 0;">🔧 診斷工具 - 快速定位問題</h4>
+                <p style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 10px;">
+                    Step 3 執行失敗。使用以下按鈕逐步測試每個階段,找出問題所在:
+                </p>
+
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button onclick="runDiagnosticFromStep3('parser')" id="btnDiagStep3Parser"
+                        style="padding: 6px 12px; font-size: 0.85rem; background: rgba(255,107,107,0.15); border-color: #ff6b6b; color: #ff8fa3;">
+                        1️⃣ 測試 Parser
+                    </button>
+                    <button onclick="runDiagnosticFromStep3('cleaner')" id="btnDiagStep3Cleaner"
+                        style="padding: 6px 12px; font-size: 0.85rem; background: rgba(255,193,7,0.15); border-color: #ffc107; color: #ffd54f;">
+                        2️⃣ Parser + Cleaner
+                    </button>
+                    <button onclick="runDiagnosticFromStep3('batch-processor')" id="btnDiagStep3BP"
+                        style="padding: 6px 12px; font-size: 0.85rem; background: rgba(0,212,255,0.15); border-color: var(--cyan); color: var(--cyan);">
+                        3️⃣ 到 BatchProcessor
+                    </button>
+                    <button onclick="runDiagnosticFromStep3('full')" id="btnDiagStep3Full"
+                        style="padding: 6px 12px; font-size: 0.85rem; background: rgba(6,214,160,0.15); border-color: var(--green); color: var(--green);">
+                        🔍 完整 ETLContainer
+                    </button>
+                </div>
+
+                <div id="loaderDiagStep3"
+                    style="display:none; margin-top:10px; color: var(--yellow); font-size: 0.9rem;">⏳ 診斷中...</div>
+                <div id="diagOutputStep3" class="result-box"
+                    style="display:none; margin-top: 10px; max-height: 400px; font-size: 0.8rem;"></div>
+            </div>
+
+            <!-- Results Grid -->
+            <div id="pipelineResult" style="display:none; margin-top: 20px;">
+                <div class="grid-2">
+                    <div>
+                        <h4 style="color:var(--cyan)">📊 清洗品質雷達圖</h4>
+                        <canvas id="qualityChart"></canvas>
+                    </div>
+                    <div>
+                        <h4 style="color:var(--orange)">⚠️ E350 設備預檢違規 (前 3 筆)</h4>
+                        <div class="result-box-wrapper">
+                            <button class="copy-btn" onclick="copyToClipboard('e350Output', this)">複製 JSON</button>
+                            <div class="result-box" id="e350Output" style="max-height: 250px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <h4 style="color:var(--purple); margin-top: 20px;">📦 批次輸出 Manifest (v1.3)</h4>
+                <div class="result-box-wrapper">
+                    <button class="copy-btn" onclick="copyToClipboard('manifestOutput', this)" style="right: 120px;">複製
+                        JSON</button>
+                    <button class="copy-btn" onclick="downloadParquet()"
+                        style="border-color: var(--green); color: var(--green); background: rgba(6, 214, 160, 0.1);">⬇️
+                        下載 Parquet</button>
+                    <div class="result-box" id="manifestOutput"></div>
+                </div>
+
+                <h4 style="margin-top: 20px;">🔍 原始 vs 清洗資料預覽</h4>
+                <div class="grid-2">
+                    <div class="result-box" id="parsedOutput" style="border-color:var(--red);">[解析後原始資料]</div>
+                    <div class="result-box" id="cleanedOutput" style="border-color:var(--green);">[清洗後正規化資料]</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4 (Sprint 3 預留) -->
+        <div class="step-card" id="step4Card" style="display: none; border-color: var(--purple);">
+            <div class="step-badge" style="background: var(--purple);">STEP 4 (Sprint 3)</div>
+            <h3>執行特徵工程 (Feature Engineer v1.3)</h3>
+            <p style="font-size: 0.9rem; color: var(--text-dim);">此為 Sprint 3 的預留擴充點。將讀取 BatchProcessor 輸出的資料進行
+                Lag/Rolling 回溯與特徵轉換。</p>
+            <button onclick="runFeatureEngineer()" id="btnStep4">🔮 開始特徵工程</button>
+            <div id="loader4" style="display:none; margin-top:10px; color: var(--yellow);">⏳ 執行中...</div>
+            <pre id="msg4" class="result-box" style="display:none;"></pre>
+        </div>
+
+        <!-- Step 5 (Sprint 4 預留) -->
+        <div class="step-card" id="step5Card" style="display: none; border-color: var(--yellow);">
+            <div class="step-badge" style="background: var(--yellow); color: var(--bg-deep);">STEP 5 (Sprint 4)</div>
+            <h3>執行最佳化引擎 (Optimization Engine)</h3>
+            <p style="font-size: 0.9rem; color: var(--text-dim);">計算冷水機組最佳效率配置，並驗證 E901-E904 特徵與限制條件對齊。</p>
+            <button onclick="runOptimization()" id="btnStep5"
+                style="border-color: var(--yellow); color: var(--yellow);">⚡ 開始能源最佳化</button>
+            <div id="loader5" style="display:none; margin-top:10px; color: var(--yellow);">⏳ 執行中...</div>
+            <pre id="msg5" class="result-box" style="display:none;"></pre>
+        </div>
+
+        <!-- Step 6 (Sprint 5 預留) -->
+        <div class="step-card" id="step6Card" style="display: none; border-color: var(--green);">
+            <div class="step-badge" style="background: var(--green); color: var(--bg-deep);">STEP 6 (Sprint 5)</div>
+            <h3>系統端到端整合 (End-to-End Integration)</h3>
+            <p style="font-size: 0.9rem; color: var(--text-dim);">執行完整的 Pipeline 與長時間運行基準測試。</p>
+            <button onclick="runIntegration()" id="btnStep6" style="border-color: var(--green); color: var(--green);">🎯
+                執行 E2E 整合測試</button>
+            <div id="loader6" style="display:none; margin-top:10px; color: var(--yellow);">⏳ 執行中...</div>
+            <pre id="msg6" class="result-box" style="display:none;"></pre>
+        </div>
+    </div>
+
+    <script>
+        let myChart = null;
+
+        // 頁面載入時執行健康檢查
+        async function checkHealth() {
+            const banner = document.getElementById('healthBanner');
+            const icon = document.getElementById('healthIcon');
+            const text = document.getElementById('healthText');
+
+            banner.style.display = 'block';
+
+            try {
+                const response = await fetch('http://localhost:8000/api/health', {
+                    method: 'GET',
+                    signal: AbortSignal.timeout(3000)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    banner.className = 'health-banner health-ok';
+                    icon.textContent = '✅';
+                    text.textContent = '後端伺服器已連線 (' + data.service + ')';
+                } else {
+                    throw new Error('Health check failed');
+                }
+            } catch (error) {
+                banner.className = 'health-banner health-error';
+                icon.textContent = '⚠️';
+                text.textContent = '後端伺服器未啟動，請先執行: uvicorn tools.demo.test_server:app --reload --port 8000';
+            }
+        }
+
+        // 頁面載入時執行健康檢查
+        document.addEventListener('DOMContentLoaded', checkHealth);
+
+        // 複製到剪貼簿功能
+        async function copyToClipboard(elementId, btn) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent;
+
+            try {
+                await navigator.clipboard.writeText(text);
+                const originalText = btn.textContent;
+                btn.textContent = '✓ 已複製';
+                btn.classList.add('copied');
+
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.classList.remove('copied');
+                }, 2000);
+            } catch (err) {
+                btn.textContent = '複製失敗';
+                setTimeout(() => {
+                    btn.textContent = '複製 JSON';
+                }, 2000);
+            }
+        }
+
+        // 下載 Parquet
+        async function downloadParquet() {
+            const siteId = document.getElementById('siteId3').value;
+            if (!siteId) return alert("請先填寫案場 ID (需先完成 Step 3)");
+
+            try {
+                const response = await fetch(`http://localhost:8000/api/download-parquet/${siteId}`);
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || "檔案下載失敗");
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${siteId}_cleaned_data.parquet`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                alert("❌ " + error.message);
+            }
+        }
+
+        // 觸發錯誤碼測試
+        async function testError(errorCode) {
+            const output = document.getElementById('chaosOutput');
+            output.style.display = 'none';
+            output.className = 'error-box';
+
+            const formData = new FormData();
+            formData.append("error_code", errorCode);
+
+            output.innerHTML = '⏳ 傳送中...';
+            output.style.display = 'block';
+            output.style.borderColor = 'var(--text-dim)';
+            output.style.color = 'var(--text-dim)';
+
+            try {
+                const response = await fetch("http://localhost:8000/api/test-error", {
+                    method: "POST", body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    // API 回傳 400/500 系列，會被 FastAPI 攔截成 detail
+                    let errorHtml = '<strong>🛡️ 防禦機制啟動成功</strong><br><br>';
+                    errorHtml += `<span class="error-code">${errorCode}</span> ` + (data.detail || JSON.stringify(data));
+                    output.innerHTML = errorHtml;
+                    output.className = 'error-box';
+                    output.style.borderColor = '#ef476f';
+                    output.style.color = '#ff8fa3';
+                } else {
+                    output.innerHTML = '<strong>' + data.message + '</strong>';
+                    output.style.borderColor = 'var(--cyan)';
+                    output.style.color = 'var(--cyan)';
+                }
+            } catch (error) {
+                output.innerHTML = '❌ 網路連線失敗: ' + error.message;
+            }
+        }
+
+        async function generateTemplate() {
+            const fileInput = document.getElementById('rawCsvFile');
+            const siteId = document.getElementById('siteId1').value;
+            const msg = document.getElementById('msg1');
+
+            if (!fileInput.files[0] || !siteId) return alert("請填寫案場 ID 並選擇 CSV！");
+
+            document.getElementById('loader1').style.display = 'block';
+            document.getElementById('btnStep1').disabled = true;
+            msg.textContent = '';
+            msg.className = '';
+
+            const formData = new FormData();
+            formData.append("site_id", siteId);
+            formData.append("file", fileInput.files[0]);
+
+            try {
+                const response = await fetch("http://localhost:8000/api/generate-template", {
+                    method: "POST", body: formData
+                });
+
+                if (!response.ok) throw new Error(await response.text());
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${siteId}_features.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+
+                msg.textContent = "✅ Excel 範本產生成功，已自動下載";
+                msg.classList.add("success");
+
+                // Auto fill step 2
+                document.getElementById('siteId2').value = siteId;
+            } catch (error) {
+                msg.textContent = "❌ 發生錯誤: " + error.message;
+                msg.classList.add("error");
+            } finally {
+                document.getElementById('loader1').style.display = 'none';
+                document.getElementById('btnStep1').disabled = false;
+            }
+        }
+
+        async function convertYaml() {
+            const fileInput = document.getElementById('excelFile');
+            const siteId = document.getElementById('siteId2').value;
+            const msg = document.getElementById('msg2');
+
+            if (!fileInput.files[0] || !siteId) return alert("請填寫案場 ID 並選擇 Excel！");
+
+            document.getElementById('loader2').style.display = 'block';
+            document.getElementById('btnStep2').disabled = true;
+            msg.style.display = 'none';
+            msg.className = 'result-box';
+
+            const formData = new FormData();
+            formData.append("site_id", siteId);
+            formData.append("excel_file", fileInput.files[0]);
+
+            try {
+                const response = await fetch("http://localhost:8000/api/convert-yaml", {
+                    method: "POST", body: formData
+                });
+                const data = await response.json();
+
+                msg.textContent = JSON.stringify(data, null, 2);
+                msg.style.display = 'block';
+                if (data.status === 'success') {
+                    msg.classList.add("success");
+                    document.getElementById('siteId3').value = siteId;
+                } else {
+                    msg.classList.add("error");
+                }
+            } catch (error) {
+                msg.textContent = "❌ API 請求失敗: " + error.message;
+                msg.style.display = 'block';
+                msg.classList.add("error");
+            } finally {
+                document.getElementById('loader2').style.display = 'none';
+                document.getElementById('btnStep2').disabled = false;
+            }
+        }
+
+        // 檔案選擇處理
+        let selectedFiles = [];
+
+        document.getElementById('pipelineCsvFile').addEventListener('change', function (e) {
+            selectedFiles = Array.from(e.target.files);
+            updateFileSelectionInfo();
+        });
+
+        document.getElementById('pipelineCsvFolder').addEventListener('change', function (e) {
+            // 過濾只保留 CSV 檔案
+            selectedFiles = Array.from(e.target.files).filter(f => f.name.toLowerCase().endsWith('.csv'));
+            updateFileSelectionInfo();
+        });
+
+        function updateFileSelectionInfo() {
+            const info = document.getElementById('fileSelectionInfo');
+            if (selectedFiles.length === 0) {
+                info.textContent = '尚未選擇檔案';
+                info.style.color = 'var(--text-dim)';
+            } else if (selectedFiles.length === 1) {
+                info.textContent = `已選擇: ${selectedFiles[0].name}`;
+                info.style.color = 'var(--green)';
+            } else {
+                info.textContent = `已選擇 ${selectedFiles.length} 個檔案`;
+                info.style.color = 'var(--green)';
+            }
+        }
+
+        function clearFileSelection() {
+            selectedFiles = [];
+            document.getElementById('pipelineCsvFile').value = '';
+            document.getElementById('pipelineCsvFolder').value = '';
+            updateFileSelectionInfo();
+        }
+
+        async function runPipeline() {
+            const siteId = document.getElementById('siteId3').value;
+            const resultSection = document.getElementById('pipelineResult');
+
+            if (selectedFiles.length === 0 || !siteId) return alert("請填寫案場 ID 並選擇 CSV 檔案或資料夾！");
+
+            document.getElementById('loader3').style.display = 'block';
+            document.getElementById('btnStep3').disabled = true;
+            resultSection.style.display = 'none';
+            document.getElementById('errorOutput').style.display = 'none';
+
+            const formData = new FormData();
+            formData.append("site_id", siteId);
+            formData.append("resample_interval", document.getElementById('resampleInterval').value);
+            // 支援多檔案上傳
+            selectedFiles.forEach((file, index) => {
+                formData.append("files", file);
+            });
+
+            // 建立 AbortController 用於超時控制
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 300000); // 5分鐘超時
+
+            try {
+                const response = await fetch("http://localhost:8000/api/run-pipeline", {
+                    method: "POST",
+                    body: formData,
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+
+                const data = await response.json();
+
+                if (data.status === "error") {
+                    const errorBox = document.getElementById('errorOutput');
+                    const errorCode = data.message.match(/^(E\d+)/);
+
+                    let errorHtml = '<strong>❌ 執行失敗</strong><br><br>';
+                    if (errorCode) {
+                        errorHtml += '<span class="error-code">' + errorCode[1] + '</span> ';
+                    }
+                    errorHtml += data.message;
+
+                    errorBox.innerHTML = errorHtml;
+                    errorBox.style.display = 'block';
+                    document.getElementById('pipelineResult').style.display = 'none';
+
+                    // 顯示診斷工具區塊
+                    document.getElementById('diagnosticSection').style.display = 'block';
+                    return;
+                }
+
+                // 隱藏錯誤訊息和診斷區塊
+                document.getElementById('errorOutput').style.display = 'none';
+                document.getElementById('diagnosticSection').style.display = 'none';
+
+                // 檢查是否可以開啟 Step 4
+                if (data.feature_engineer_input_ready) {
+                    document.getElementById('step4Card').style.display = 'block';
+                }
+
+                // Update UI
+                document.getElementById('e350Output').textContent = JSON.stringify(data.e350_samples, null, 2);
+                document.getElementById('manifestOutput').textContent = JSON.stringify(data.manifest, null, 2);
+                document.getElementById('parsedOutput').textContent = JSON.stringify(data.parsed_sample, null, 2);
+                document.getElementById('cleanedOutput').textContent = JSON.stringify(data.cleaned_sample, null, 2);
+
+                drawChart(data.stats);
+                resultSection.style.display = 'block';
+
+            } catch (error) {
+                clearTimeout(timeoutId);
+                const errorBox = document.getElementById('errorOutput');
+                let errorMsg = error.message;
+
+                if (error.name === 'AbortError') {
+                    errorMsg = '請求超時（超過 5 分鐘）。請檢查：<br>1. 檔案大小是否過大<br>2. 後端日誌是否有錯誤<br>3. 減少一次處理的檔案數量';
+                }
+
+                errorBox.innerHTML = '<strong>❌ 執行失敗</strong><br><br>' + errorMsg;
+                errorBox.style.display = 'block';
+                document.getElementById('pipelineResult').style.display = 'none';
+
+                // 顯示診斷工具區塊
+                document.getElementById('diagnosticSection').style.display = 'block';
+            } finally {
+                document.getElementById('loader3').style.display = 'none';
+                document.getElementById('btnStep3').disabled = false;
+            }
+        }
+
+        async function runFeatureEngineer() {
+            const siteId = document.getElementById('siteId3').value;
+            const msg = document.getElementById('msg4');
+
+            document.getElementById('loader4').style.display = 'block';
+            document.getElementById('btnStep4').disabled = true;
+            msg.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append("site_id", siteId);
+
+            try {
+                const response = await fetch("http://localhost:8000/api/run-feature-engineer", {
+                    method: "POST", body: formData
+                });
+                const data = await response.json();
+
+                msg.textContent = JSON.stringify(data, null, 2);
+                msg.style.display = 'block';
+
+                if (data.optimization_input_ready) {
+                    document.getElementById('step5Card').style.display = 'block';
+                }
+            } catch (error) {
+                msg.textContent = "❌ API 請求失敗: " + error.message;
+                msg.style.display = 'block';
+            } finally {
+                document.getElementById('loader4').style.display = 'none';
+                document.getElementById('btnStep4').disabled = false;
+            }
+        }
+
+        async function runOptimization() {
+            const siteId = document.getElementById('siteId3').value;
+            const msg = document.getElementById('msg5');
+            document.getElementById('loader5').style.display = 'block';
+            document.getElementById('btnStep5').disabled = true;
+            msg.style.display = 'none';
+            const formData = new FormData();
+            formData.append("site_id", siteId);
+            try {
+                const response = await fetch("http://localhost:8000/api/run-optimization", { method: "POST", body: formData });
+                const data = await response.json();
+                msg.textContent = JSON.stringify(data, null, 2);
+                msg.style.display = 'block';
+                if (data.integration_input_ready) {
+                    document.getElementById('step6Card').style.display = 'block';
+                }
+            } catch (error) {
+                msg.textContent = "❌ API 請求失敗: " + error.message;
+                msg.style.display = 'block';
+            } finally {
+                document.getElementById('loader5').style.display = 'none';
+                document.getElementById('btnStep5').disabled = false;
+            }
+        }
+
+        async function runIntegration() {
+            const siteId = document.getElementById('siteId3').value;
+            const msg = document.getElementById('msg6');
+            document.getElementById('loader6').style.display = 'block';
+            document.getElementById('btnStep6').disabled = true;
+            msg.style.display = 'none';
+            const formData = new FormData();
+            formData.append("site_id", siteId);
+            try {
+                const response = await fetch("http://localhost:8000/api/run-integration", { method: "POST", body: formData });
+                const data = await response.json();
+                msg.textContent = JSON.stringify(data, null, 2);
+                msg.style.display = 'block';
+            } catch (error) {
+                msg.textContent = "❌ API 請求失敗: " + error.message;
+                msg.style.display = 'block';
+            } finally {
+                document.getElementById('loader6').style.display = 'none';
+                document.getElementById('btnStep6').disabled = false;
+            }
+        }
+
+        function drawChart(stats) {
+            const ctx = document.getElementById('qualityChart').getContext('2d');
+            if (myChart) myChart.destroy();
+
+            myChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['空值率', 'NaN/Inf', '時區錯誤', '格式錯誤', '極端值'],
+                    datasets: [{
+                        label: 'Parser 前',
+                        data: [
+                            stats.missing_rate_before || 0,
+                            stats.nan_inf_rate || 0,
+                            stats.timezone_error_rate || 0,
+                            stats.format_error_rate || 0,
+                            stats.outlier_rate || 0
+                        ],
+                        backgroundColor: 'rgba(239, 71, 111, 0.2)',
+                        borderColor: 'rgba(239, 71, 111, 1)',
+                        pointBackgroundColor: 'rgba(239, 71, 111, 1)'
+                    }, {
+                        label: 'Batch 後 (SSOT合規)',
+                        data: [
+                            stats.missing_rate_after || 0,
+                            0, 0, 0,
+                            Math.max(0, (stats.outlier_rate || 0) - 2)  // 清洗後極端值應減少
+                        ],
+                        backgroundColor: 'rgba(6, 214, 160, 0.2)',
+                        borderColor: 'rgba(6, 214, 160, 1)',
+                        pointBackgroundColor: 'rgba(6, 214, 160, 1)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            pointLabels: { color: '#a8c7fa', font: { size: 12 } },
+                            ticks: { display: false, max: 100 }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#e2eeff' } }
+                    }
+                }
+            });
+        }
+
+        // ====================================================================
+        // 階段性診斷功能 (整合至 Step 3)
+        // ====================================================================
+        async function runDiagnosticFromStep3(stage) {
+            const siteId = document.getElementById('siteId3').value;
+            const loader = document.getElementById('loaderDiagStep3');
+            const output = document.getElementById('diagOutputStep3');
+
+            if (selectedFiles.length === 0 || !siteId) {
+                alert("請先選擇 CSV 檔案！");
+                return;
+            }
+
+            // 顯示載入狀態
+            loader.style.display = 'block';
+            output.style.display = 'none';
+
+            // 禁用診斷按鈕
+            document.querySelectorAll('[id^="btnDiagStep3"]').forEach(btn => btn.disabled = true);
+
+            const formData = new FormData();
+            formData.append("site_id", siteId);
+            formData.append("resample_interval", document.getElementById('resampleInterval').value);
+            // 使用 Step 3 選擇的第一個檔案
+            formData.append("file", selectedFiles[0]);
+
+            const stageNames = {
+                'parser': 'Parser 解析',
+                'cleaner': 'Parser + Cleaner',
+                'batch-processor': '到 BatchProcessor',
+                'full': '完整 ETLContainer'
+            };
+
+            try {
+                const response = await fetch(`http://localhost:8000/api/diagnostic/${stage}`, {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await response.json();
+
+                // 格式化輸出
+                let html = `<div style="margin-bottom: 10px; font-weight: bold; color: var(--cyan);">`;
+                html += `🔍 診斷階段: ${stageNames[stage]}</div>`;
+
+                if (data.status === 'success' || data.overall_status === 'success') {
+                    html += `<div style="color: var(--green); margin-bottom: 10px;">✅ 診斷成功</div>`;
+                } else if (data.status === 'error' || data.overall_status === 'error') {
+                    html += `<div style="color: #ef476f; margin-bottom: 10px;">❌ 診斷失敗</div>`;
+                } else {
+                    html += `<div style="color: var(--yellow); margin-bottom: 10px;">⚠️ 部分完成</div>`;
+                }
+
+                // 顯示階段結果
+                if (data.stages && data.stages.length > 0) {
+                    html += `<div style="margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px;">`;
+                    html += `<strong>執行階段:</strong><br>`;
+                    data.stages.forEach(s => {
+                        const icon = s.status === 'ok' ? '✅' : (s.status === 'error' ? '❌' : '⏳');
+                        html += `${icon} <strong>${s.name}</strong>: ${s.status}`;
+                        if (s.rows !== undefined) html += ` (${s.rows} 行)`;
+                        html += '<br>';
+                    });
+                    html += '</div>';
+                }
+
+                // 顯示錯誤詳情
+                if (data.error || (data.stages && data.stages.some(s => s.error))) {
+                    html += `<div style="margin: 10px 0; padding: 10px; background: rgba(239,71,111,0.1); border: 1px solid #ef476f; border-radius: 6px;">`;
+                    html += `<strong style="color: #ef476f;">❌ 錯誤詳情:</strong><br>`;
+                    if (data.error) html += `<pre style="margin: 5px 0; white-space: pre-wrap;">${data.error}</pre>`;
+                    if (data.error_type) html += `<div style="color: var(--text-dim);">類型: ${data.error_type}</div>`;
+                    html += '</div>';
+                }
+
+                // 顯示詳細結果
+                html += `<details style="margin-top: 10px;">`;
+                html += `<summary style="cursor: pointer; color: var(--cyan);">📋 查看完整結果</summary>`;
+                html += `<pre style="margin-top: 10px; overflow-x: auto;">${JSON.stringify(data, null, 2)}</pre>`;
+                html += `</details>`;
+
+                output.innerHTML = html;
+                output.style.display = 'block';
+
+            } catch (error) {
+                output.innerHTML = `<div style="color: #ef476f;">❌ 網路請求失敗: ${error.message}</div>`;
+                output.style.display = 'block';
+            } finally {
+                loader.style.display = 'none';
+                document.querySelectorAll('[id^="btnDiagStep3"]').forEach(btn => btn.disabled = false);
+            }
+        }
+
+        // ====================================================================
+        // 階段性診斷功能 (獨立診斷卡片 - 保留向後相容)
+        // ====================================================================
+        async function runDiagnostic(stage) {
+            const siteId = document.getElementById('siteIdDiag').value;
+            const fileInput = document.getElementById('diagCsvFile');
+            const loader = document.getElementById('loaderDiag');
+            const output = document.getElementById('diagOutput');
+
+            if (!fileInput.files[0] || !siteId) {
+                alert("請填寫案場 ID 並選擇 CSV 檔案！");
+                return;
+            }
+
+            // 顯示載入狀態
+            loader.style.display = 'block';
+            output.style.display = 'none';
+
+            // 禁用所有按鈕
+            document.querySelectorAll('[id^="btnDiag"]').forEach(btn => btn.disabled = true);
+
+            const formData = new FormData();
+            formData.append("site_id", siteId);
+            formData.append("file", fileInput.files[0]);
+
+            const stageNames = {
+                'parser': 'Parser 解析',
+                'cleaner': 'Parser + Cleaner',
+                'batch-processor': '到 BatchProcessor',
+                'full': '完整 ETLContainer'
+            };
+
+            try {
+                const response = await fetch(`http://localhost:8000/api/diagnostic/${stage}`, {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await response.json();
+
+                // 格式化輸出
+                let html = `<div style="margin-bottom: 10px; font-weight: bold; color: var(--cyan);">`;
+                html += `🔍 診斷階段: ${stageNames[stage]}</div>`;
+
+                if (data.status === 'success' || data.overall_status === 'success') {
+                    html += `<div style="color: var(--green); margin-bottom: 10px;">✅ 診斷成功</div>`;
+                } else if (data.status === 'error' || data.overall_status === 'error') {
+                    html += `<div style="color: #ef476f; margin-bottom: 10px;">❌ 診斷失敗</div>`;
+                } else {
+                    html += `<div style="color: var(--yellow); margin-bottom: 10px;">⚠️ 部分完成</div>`;
+                }
+
+                // 顯示階段結果
+                if (data.stages && data.stages.length > 0) {
+                    html += `<div style="margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px;">`;
+                    html += `<strong>執行階段:</strong><br>`;
+                    data.stages.forEach(s => {
+                        const icon = s.status === 'ok' ? '✅' : (s.status === 'error' ? '❌' : '⏳');
+                        html += `${icon} <strong>${s.name}</strong>: ${s.status}`;
+                        if (s.rows !== undefined) html += ` (${s.rows} 行)`;
+                        html += '<br>';
+                    });
+                    html += '</div>';
+                }
+
+                // 顯示錯誤詳情
+                if (data.error || (data.stages && data.stages.some(s => s.error))) {
+                    html += `<div style="margin: 10px 0; padding: 10px; background: rgba(239,71,111,0.1); border: 1px solid #ef476f; border-radius: 6px;">`;
+                    html += `<strong style="color: #ef476f;">❌ 錯誤詳情:</strong><br>`;
+                    if (data.error) html += `<pre style="margin: 5px 0; white-space: pre-wrap;">${data.error}</pre>`;
+                    if (data.error_type) html += `<div style="color: var(--text-dim);">類型: ${data.error_type}</div>`;
+                    html += '</div>';
+                }
+
+                // 顯示詳細結果
+                html += `<details style="margin-top: 10px;">`;
+                html += `<summary style="cursor: pointer; color: var(--cyan);">📋 查看完整結果</summary>`;
+                html += `<pre style="margin-top: 10px; overflow-x: auto;">${JSON.stringify(data, null, 2)}</pre>`;
+                html += `</details>`;
+
+                output.innerHTML = html;
+                output.style.display = 'block';
+
+            } catch (error) {
+                output.innerHTML = `<div style="color: #ef476f;">❌ 網路請求失敗: ${error.message}</div>`;
+                output.style.display = 'block';
+            } finally {
+                loader.style.display = 'none';
+                document.querySelectorAll('[id^="btnDiag"]').forEach(btn => btn.disabled = false);
+            }
+        }
+    </script>
+
+</body>
+
+</html>

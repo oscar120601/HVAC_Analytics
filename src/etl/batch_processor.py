@@ -439,8 +439,11 @@ class BatchProcessor:
                 # 收集所有 flags
                 actual_flags: Set[str] = set()
                 for flags in df["quality_flags"]:
-                    if flags:
-                        actual_flags.update(flags)
+                    # 修復: 避免直接使用 if flags 造成 Series 真值歧義
+                    if flags is not None and len(flags) > 0:
+                        # 過濾掉 None 值
+                        valid_flags = [f for f in flags if f is not None]
+                        actual_flags.update(valid_flags)
                 
                 invalid_flags = actual_flags - VALID_QUALITY_FLAGS_SET
                 if invalid_flags:
@@ -489,16 +492,16 @@ class BatchProcessor:
             FutureDataError: 若發現未來資料
         """
         threshold_dt = self.pipeline_origin_timestamp + timedelta(minutes=5)
-        # 明確使用 Polars literal 避免 timezone 比較問題
         threshold = pl.lit(threshold_dt).cast(pl.Datetime(time_unit="ns", time_zone="UTC"))
         
-        future_mask = df["timestamp"] > threshold
-        future_count = future_mask.sum()
+        future_mask_expr = pl.col("timestamp") > threshold
+        future_df = df.filter(future_mask_expr)
+        future_count = future_df.height
         
         if future_count > 0:
-            future_samples = df.filter(future_mask)["timestamp"].head(3).to_list()
+            future_samples = future_df["timestamp"].head(3).to_list()
             raise FutureDataError(
-                message=f"E205: 檢測到 {future_count} 筆未來資料（>{threshold.isoformat()}）",
+                message=f"E205: 檢測到 {future_count} 筆未來資料（>{threshold_dt.isoformat()}）",
                 detected_timestamp=future_samples[0] if future_samples else None,
                 pipeline_timestamp=self.pipeline_origin_timestamp,
                 file_path=None
@@ -559,7 +562,8 @@ class BatchProcessor:
         
         # 1. 驗證 timestamp 欄位
         if "timestamp" in schema.names:
-            ts_field = schema.field_by_name("timestamp")
+            ts_index = schema.names.index("timestamp")
+            ts_field = schema.column(ts_index)
             
             # 檢查物理型別
             if ts_field.physical_type == "INT96":
@@ -666,7 +670,7 @@ class BatchProcessor:
             total_rows=len(df),
             total_cols=len(df.columns),
             time_range=time_range,
-            null_percent=float(df.null_count().sum()) / (len(df) * len(df.columns)) if len(df) > 0 else 0.0,
+            null_percent=float(df.null_count().to_numpy().sum()) / (len(df) * len(df.columns)) if len(df) > 0 else 0.0,
             files_count=len(output_files or [])
         )
         

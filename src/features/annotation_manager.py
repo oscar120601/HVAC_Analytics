@@ -199,6 +199,9 @@ class FeatureAnnotationManager:
                 parent_path = self.config_root / f"{current}.yaml"
             
             if not parent_path.exists():
+                if current == "base":
+                    logger.debug("繼承來源 base 不存在，已自動忽略")
+                    break
                 raise AnnotationNotFoundError(
                     f"E402: 繼承來源不存在: {current}"
                 )
@@ -264,6 +267,23 @@ class FeatureAnnotationManager:
     def get_columns_by_equipment_id(self, equipment_id: str) -> List[str]:
         """依設備 ID 取得所有相關欄位"""
         return self._equipment_map.get(equipment_id, [])
+
+    def get_equipment_type(self, column_name: str) -> Optional[str]:
+        """推導欄位的設備類型 (基於命名前綴分析)"""
+        prefix_map = {
+            "chiller": ["chiller_", "ch_"],
+            "chw_pump": ["chw_pump_", "chwp_"],
+            "cw_pump": ["cw_pump_", "cwp_"],
+            "pump": ["pump_", "chw_pri_pump_", "chw_sec_pump_"],
+            "cooling_tower": ["ct_", "cooling_tower_"],
+            "ahu": ["ahu_"]
+        }
+        
+        col_lower = column_name.lower()
+        for eq_type, prefixes in prefix_map.items():
+            if any(col_lower.startswith(p) for p in prefixes):
+                return eq_type
+        return None
 
     def get_columns_by_equipment_type(self, equipment_type: str) -> List[str]:
         """

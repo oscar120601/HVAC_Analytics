@@ -22,7 +22,10 @@ import os
 import json
 import yaml
 import hashlib
-import fcntl
+try:
+    import fcntl
+except ImportError:
+    fcntl = None  # 處理 Windows 環境
 import logging
 import shutil
 from pathlib import Path
@@ -72,8 +75,13 @@ class FileLock:
     def __enter__(self):
         self.lock_file = open(self.lock_path, 'w')
         try:
-            # 嘗試取得獨佔鎖
-            fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            if fcntl:
+                # 嘗試取得獨佔鎖 ( Unix/Linux/macOS )
+                fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            else:
+                # 嘗試取得獨佔鎖 ( Windows )
+                import msvcrt
+                msvcrt.locking(self.lock_file.fileno(), msvcrt.LK_NBLCK, 1)
             logger.debug(f"取得檔案鎖: {self.lock_path}")
         except (IOError, OSError) as e:
             # 鎖已被其他程序持有
@@ -85,9 +93,17 @@ class FileLock:
     
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.lock_file:
-            fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
-            self.lock_file.close()
-            logger.debug(f"釋放檔案鎖: {self.lock_path}")
+            try:
+                if fcntl:
+                    fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
+                else:
+                    import msvcrt
+                    msvcrt.locking(self.lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+            except Exception as e:
+                logger.debug(f"釋放檔案鎖異常: {e}")
+            finally:
+                self.lock_file.close()
+                logger.debug(f"釋放檔案鎖: {self.lock_path}")
 
 
 class ConfigLoader:
@@ -339,7 +355,10 @@ class ConfigLoader:
         # 檢查 Checksum
         try:
             yaml_data = self.load_yaml(str(yaml_file), validate_schema=False)
-            stored_checksum = yaml_data.get('excel_checksum')
+            metadata = yaml_data.get('metadata', {})
+            
+            # 從 metadata 中取 checksum（支援舊版直接在最外層）
+            stored_checksum = metadata.get('excel_checksum') or metadata.get('yaml_checksum') or yaml_data.get('excel_checksum')
             
             if stored_checksum:
                 actual_checksum = self._compute_checksum(str(excel_file))
@@ -418,8 +437,28 @@ class ConfigLoader:
         # 載入 YAML
         data = self.load_yaml(str(yaml_path))
         
+        # 處理 YAML 結構對應（將 metadata 與 columns 攤平以符合 SiteFeatureConfig）
+        if "metadata" in data and "columns" in data:
+            metadata = data.get("metadata", {})
+            columns_dict = data.get("columns", {})
+            
+            mapped_data = {
+                "schema_version": metadata.get("schema_version", "1.3"),
+                "site_id": metadata.get("site_id", site_id),
+                "inherit": metadata.get("inherit"),
+                "description": metadata.get("description", ""),
+                "excel_source": metadata.get("excel_source"),
+                "excel_checksum": metadata.get("excel_checksum") or metadata.get("yaml_checksum"),
+                "last_sync_timestamp": metadata.get("last_updated"),
+                "quality_flags_reference": metadata.get("quality_flags_reference", []),
+                "features": list(columns_dict.values()),
+                "equipment_constraints": data.get("equipment_constraints", {})
+            }
+        else:
+            mapped_data = data
+        
         # 解析為 Pydantic 模型
-        config = SiteFeatureConfig(**data)
+        config = SiteFeatureConfig(**mapped_data)
         logger.info(f"已載入案場配置: {site_id}")
         
         return config

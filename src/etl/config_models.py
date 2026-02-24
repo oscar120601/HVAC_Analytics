@@ -930,6 +930,14 @@ VALID_QUALITY_FLAGS: List[str] = [
     "PHYSICAL_IMPOSSIBLE",     # 物理上不可能
     "EQUIPMENT_VIOLATION",     # 設備邏輯違規
     "FROZEN",                  # 凍結資料（連續相同值）
+    "FROZEN_DATA",             # 凍結資料（Cleaner v2.2 使用）
+    "ZERO_VALUE_EXCESS",       # 零值過多（Cleaner v2.2 使用）
+    "PHYSICAL_LIMIT_VIOLATION", # 物理限制違規（Cleaner v2.2 使用）
+    "FUTURE_DATA",             # 未來資料（Cleaner v2.2 使用）
+    "TIMEZONE_MISMATCH",       # 時區不匹配
+    "DST_GAP",                 # 夏令時間隙
+    "FORMAT_INVALID",          # 格式無效
+    "ENCODING_ERROR",          # 編碼錯誤
     "INSUFFICIENT_DATA",       # 資料不足
     "MISSING_VALUE",           # 缺值
     "SENSOR_ERROR",            # 感測器錯誤
@@ -1007,16 +1015,12 @@ FEATURE_ANNOTATION_CONSTANTS: Dict[str, Any] = {
         "standby",
     ],
     "physical_types": [                          # 物理類型允許值
-        "temperature",
-        "pressure",
-        "flow_rate",
-        "power",
-        "frequency",
-        "status",
-        "efficiency",
-        "count",
-        "ratio",
-        "other",
+        "temperature", "pressure", "flow_rate", "power", 
+        "frequency", "status", "efficiency", "count", 
+        "ratio", "other", "chiller_load", "gauge", 
+        "cooling_capacity", "energy", "valve_position", 
+        "rotational_speed", "current", "voltage", 
+        "power_factor", "pressure_differential", "operating_status"
     ],
     "units": {                                   # 單位對應
         "temperature": ["°C", "°F", "K"],
@@ -1522,7 +1526,7 @@ class AnnotationConfig(BaseModel):
     """
     column_name: str = Field(..., description="CSV 欄位名稱（經正規化後）")
     physical_type: str = Field(..., description="物理類型")
-    unit: str = Field(..., description="單位")
+    unit: Optional[str] = Field(None, description="單位")
     description: str = Field("", description="欄位描述")
     device_role: Optional[str] = Field(None, description="設備角色")
     is_target: bool = Field(False, description="是否為目標變數")

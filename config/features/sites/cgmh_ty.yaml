@@ -1,0 +1,420 @@
+﻿# HVAC 案場特徵標註範本 - Factory Template
+# 此為工廠範本，供複製到新案場使用
+
+metadata:
+  schema_version: "1.3"
+  template_version: "1.3"
+  site_id: "cgmh_ty"
+  inherit: "base"
+  description: "工廠冰水主機房特徵標註範本"
+  editor: "system"
+  last_updated: "2026-02-21T00:00:00"
+  yaml_checksum: null
+  equipment_schema: "hvac_v1.3"
+  temporal_baseline_version: "1.0"
+
+columns:
+  # =============================================================================
+  # 冰水主機 01
+  # =============================================================================
+  chiller_01_status:
+    column_name: "chiller_01_status"
+    physical_type: "operating_status"
+    unit: null
+    device_role: "primary"
+    equipment_id: "CH-01"
+    description: "一號冰水主機運轉狀態"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4]
+    ignore_warnings: []
+    status: "confirmed"
+  
+  chiller_01_chwst:
+    column_name: "chiller_01_chwst"
+    physical_type: "temperature"
+    unit: "°C"
+    device_role: "primary"
+    equipment_id: "CH-01"
+    description: "一號機冰水出水溫度"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4, 96]
+    ignore_warnings: []
+    status: "confirmed"
+  
+  chiller_01_chwrt:
+    column_name: "chiller_01_chwrt"
+    physical_type: "temperature"
+    unit: "°C"
+    device_role: "primary"
+    equipment_id: "CH-01"
+    description: "一號機冰水回水溫度"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4, 96]
+    ignore_warnings: []
+    status: "confirmed"
+  
+  chiller_01_cwst:
+    column_name: "chiller_01_cwst"
+    physical_type: "temperature"
+    unit: "°C"
+    device_role: "primary"
+    equipment_id: "CH-01"
+    description: "一號機冷卻水出水溫度"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4, 96]
+    ignore_warnings: []
+    status: "confirmed"
+  
+  chiller_01_cwrt:
+    column_name: "chiller_01_cwrt"
+    physical_type: "temperature"
+    unit: "°C"
+    device_role: "primary"
+    equipment_id: "CH-01"
+    description: "一號機冷卻水回水溫度"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4, 96]
+    ignore_warnings: []
+    status: "confirmed"
+  
+  chiller_01_kw:
+    column_name: "chiller_01_kw"
+    physical_type: "power"
+    unit: "kW"
+    device_role: "primary"
+    equipment_id: "CH-01"
+    description: "一號機功率（目標變數）"
+    is_target: true
+    enable_lag: false
+    lag_intervals: []
+    ignore_warnings: []
+    status: "confirmed"
+  
+  chiller_01_kwh:
+    column_name: "chiller_01_kwh"
+    physical_type: "energy"
+    unit: "kWh"
+    device_role: "primary"
+    equipment_id: "CH-01"
+    description: "一號機累積用電量"
+    is_target: false
+    enable_lag: false
+    lag_intervals: []
+    ignore_warnings: []
+    status: "confirmed"
+  
+  chiller_01_rt:
+    column_name: "chiller_01_rt"
+    physical_type: "cooling_capacity"
+    unit: "RT"
+    device_role: "primary"
+    equipment_id: "CH-01"
+    description: "一號機冷凍噸"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4]
+    ignore_warnings: []
+    status: "confirmed"
+  
+  chiller_01_cop:
+    column_name: "chiller_01_cop"
+    physical_type: "efficiency"
+    unit: "COP"
+    device_role: "primary"
+    equipment_id: "CH-01"
+    description: "一號機效率"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4]
+    ignore_warnings: []
+    status: "confirmed"
+  
+  # =============================================================================
+  # 冰水主機 02 (備用)
+  # =============================================================================
+  chiller_02_status:
+    column_name: "chiller_02_status"
+    physical_type: "operating_status"
+    unit: null
+    device_role: "backup"
+    equipment_id: "CH-02"
+    description: "二號冰水主機運轉狀態（備用）"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4]
+    ignore_warnings: ["W403"]
+    status: "confirmed"
+  
+  chiller_02_chwst:
+    column_name: "chiller_02_chwst"
+    physical_type: "temperature"
+    unit: "°C"
+    device_role: "backup"
+    equipment_id: "CH-02"
+    description: "二號機冰水出水溫度（備用）"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4, 96]
+    ignore_warnings: []
+    status: "confirmed"
+  
+  chiller_02_kw:
+    column_name: "chiller_02_kw"
+    physical_type: "power"
+    unit: "kW"
+    device_role: "backup"
+    equipment_id: "CH-02"
+    description: "二號機功率（備用目標變數）"
+    is_target: true
+    enable_lag: false
+    lag_intervals: []
+    ignore_warnings: []
+    status: "confirmed"
+  
+  # =============================================================================
+  # 冰水泵
+  # =============================================================================
+  chw_pri_pump_01_status:
+    column_name: "chw_pri_pump_01_status"
+    physical_type: "operating_status"
+    unit: null
+    device_role: "primary"
+    equipment_id: "CHWP-01"
+    description: "冰水泵 01 運轉狀態"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4]
+    ignore_warnings: []
+    status: "confirmed"
+  
+  chw_pri_pump_01_hz:
+    column_name: "chw_pri_pump_01_hz"
+    physical_type: "frequency"
+    unit: "Hz"
+    device_role: "primary"
+    equipment_id: "CHWP-01"
+    description: "冰水泵 01 變頻器頻率"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4]
+    ignore_warnings: []
+    status: "confirmed"
+  
+  chw_pri_pump_02_status:
+    column_name: "chw_pri_pump_02_status"
+    physical_type: "operating_status"
+    unit: null
+    device_role: "primary"
+    equipment_id: "CHWP-02"
+    description: "冰水泵 02 運轉狀態"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4]
+    ignore_warnings: []
+    status: "confirmed"
+  
+  chw_pri_pump_02_hz:
+    column_name: "chw_pri_pump_02_hz"
+    physical_type: "frequency"
+    unit: "Hz"
+    device_role: "primary"
+    equipment_id: "CHWP-02"
+    description: "冰水泵 02 變頻器頻率"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4]
+    ignore_warnings: []
+    status: "confirmed"
+  
+  # =============================================================================
+  # 冷卻水泵
+  # =============================================================================
+  cw_pump_01_status:
+    column_name: "cw_pump_01_status"
+    physical_type: "operating_status"
+    unit: null
+    device_role: "primary"
+    equipment_id: "CWP-01"
+    description: "冷卻水泵 01 運轉狀態"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4]
+    ignore_warnings: []
+    status: "confirmed"
+  
+  cw_pump_01_hz:
+    column_name: "cw_pump_01_hz"
+    physical_type: "frequency"
+    unit: "Hz"
+    device_role: "primary"
+    equipment_id: "CWP-01"
+    description: "冷卻水泵 01 變頻器頻率"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4]
+    ignore_warnings: []
+    status: "confirmed"
+  
+  # =============================================================================
+  # 冷卻水塔
+  # =============================================================================
+  ct_01_status:
+    column_name: "ct_01_status"
+    physical_type: "operating_status"
+    unit: null
+    device_role: "primary"
+    equipment_id: "CT-01"
+    description: "冷卻水塔 01 運轉狀態"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4]
+    ignore_warnings: []
+    status: "confirmed"
+  
+  ct_01_hz:
+    column_name: "ct_01_hz"
+    physical_type: "frequency"
+    unit: "Hz"
+    device_role: "primary"
+    equipment_id: "CT-01"
+    description: "冷卻水塔 01 風扇頻率"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4]
+    ignore_warnings: []
+    status: "confirmed"
+  
+  # =============================================================================
+  # 環境參數
+  # =============================================================================
+  wb_temp:
+    column_name: "wb_temp"
+    physical_type: "temperature"
+    unit: "°C"
+    device_role: "primary"
+    equipment_id: null
+    description: "室外濕球溫度"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4, 96]
+    ignore_warnings: []
+    status: "confirmed"
+  
+  db_temp:
+    column_name: "db_temp"
+    physical_type: "temperature"
+    unit: "°C"
+    device_role: "primary"
+    equipment_id: null
+    description: "室外乾球溫度"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4, 96]
+    ignore_warnings: []
+    status: "confirmed"
+  
+  rh:
+    column_name: "rh"
+    physical_type: "gauge"
+    unit: "%"
+    device_role: "primary"
+    equipment_id: null
+    description: "相對濕度"
+    is_target: false
+    enable_lag: true
+    lag_intervals: [1, 4, 96]
+    ignore_warnings: []
+    status: "confirmed"
+
+# =============================================================================
+# 設備限制條件
+# =============================================================================
+equipment_constraints:
+  # 冰水主機與冰水泵互鎖
+  chiller_pump_interlock:
+    constraint_id: "chiller_pump_interlock"
+    description: "冰水主機開啟時必須有對應冰水泵運轉"
+    check_type: "requires"
+    check_phase: "precheck"
+    trigger_status: ["chiller_01_status", "chiller_02_status"]
+    required_status: ["chw_pri_pump_01_status", "chw_pri_pump_02_status"]
+    severity: "critical"
+    applicable_roles: ["primary", "backup"]
+    error_code: "E350"
+  
+  # 冰水主機與冷卻水泵互鎖
+  chiller_cw_pump_interlock:
+    constraint_id: "chiller_cw_pump_interlock"
+    description: "冰水主機開啟時必須有對應冷卻水泵運轉"
+    check_type: "requires"
+    check_phase: "precheck"
+    trigger_status: ["chiller_01_status", "chiller_02_status"]
+    required_status: ["cw_pump_01_status"]
+    severity: "critical"
+    applicable_roles: ["primary", "backup"]
+    error_code: "E350"
+  
+  # 冰水主機與冷卻水塔互鎖
+  chiller_ct_interlock:
+    constraint_id: "chiller_ct_interlock"
+    description: "冰水主機開啟時必須有對應冷卻水塔運轉"
+    check_type: "requires"
+    check_phase: "precheck"
+    trigger_status: ["chiller_01_status", "chiller_02_status"]
+    required_status: ["ct_01_status"]
+    severity: "critical"
+    applicable_roles: ["primary", "backup"]
+    error_code: "E350"
+  
+  # 冰水出水溫度保護
+  chiller_temperature_protection:
+    constraint_id: "chiller_temperature_protection"
+    description: "冰水出水溫度過低保護（防凍）"
+    check_type: "range_check"
+    check_phase: "precheck"
+    target_column: "chiller_01_chwst"
+    min_value: 4.0
+    max_value: 15.0
+    severity: "critical"
+    applicable_roles: ["primary", "backup"]
+    error_code: "E350"
+  
+  # 主機最小運轉時間
+  chiller_min_runtime:
+    constraint_id: "chiller_min_runtime"
+    description: "主機開啟後最少運轉 15 分鐘（防止頻繁啟停）"
+    check_type: "sequence"
+    check_phase: "optimization"
+    trigger_status: ["chiller_01_status", "chiller_02_status"]
+    min_duration_minutes: 15
+    severity: "warning"
+    applicable_roles: ["primary", "backup"]
+    error_code: "E355"
+  
+  # 主機最小停機時間
+  chiller_min_downtime:
+    constraint_id: "chiller_min_downtime"
+    description: "主機關閉後最少停機 10 分鐘（壓縮機保護）"
+    check_type: "sequence"
+    check_phase: "optimization"
+    trigger_status: ["chiller_01_status", "chiller_02_status"]
+    min_duration_minutes: 10
+    severity: "warning"
+    applicable_roles: ["primary", "backup"]
+    error_code: "E355"
+  
+  # 主機與備用主機互斥
+  chiller_mutual_backup:
+    constraint_id: "chiller_mutual_backup"
+    description: "主機與備用主機不可同時開啟（依案場策略）"
+    check_type: "mutex"
+    check_phase: "optimization"
+    trigger_status: ["chiller_01_status", "chiller_02_status"]
+    severity: "warning"
+    applicable_roles: ["backup"]
+    error_code: "E354"
