@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
 from typing import List
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -10,8 +10,12 @@ import tempfile
 import json
 import math
 from pathlib import Path
+import uuid
 
 import polars as pl
+
+# 儲存背景任務狀態
+pipeline_jobs = {}
 
 from src.container import ETLContainer
 from src.context import PipelineContext
@@ -123,13 +127,14 @@ async def convert_yaml(site_id: str = Form(...), excel_file: UploadFile = File(.
 
 @app.post("/api/run-pipeline")
 async def run_pipeline(
+    background_tasks: BackgroundTasks,
     site_id: str = Form(...),
     resample_interval: str = Form("5m"),
     files: List[UploadFile] = File(...)
 ):
     """STEP 3: 執行完整的 Sprint 2 ETL Pipeline (Parser -> Cleaner -> BatchProcessor)
     
-    支援單一檔案、多檔案或資料夾上傳
+    支援單一檔案、多檔案或資料夾上傳，並使用背景任務執行以支援進度顯示。
     """
     import logging
     logger = logging.getLogger(__name__)
@@ -142,14 +147,12 @@ async def run_pipeline(
     output_dir = Path("data/processed")
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # 處理多個檔案 - 目前合併處理
+    # 處理多個檔案 - 儲存至暫存區
     csv_paths = []
     for file in files:
         if not file.filename.lower().endswith('.csv'):
-            logger.info(f"[Pipeline] 跳過非 CSV 檔案: {file.filename}")
             continue  # 跳過非 CSV 檔案
         csv_path = TEMP_DIR / f"input_{site_id}_{file.filename}"
-        logger.info(f"[Pipeline] 儲存檔案: {file.filename} -> {csv_path}")
         with open(csv_path, "wb") as f:
             f.write(await file.read())
         csv_paths.append(csv_path)
@@ -157,48 +160,74 @@ async def run_pipeline(
     if not csv_paths:
         raise HTTPException(status_code=400, detail="找不到有效的 CSV 檔案")
     
+    # 產生 Job ID 並註冊背景任務
+    job_id = str(uuid.uuid4())
+    pipeline_jobs[job_id] = {
+        "status": "running",
+        "progress": "初始化任務中...",
+        "result": None,
+        "message": ""
+    }
+    
+    background_tasks.add_task(
+        process_pipeline_task,
+        job_id,
+        site_id,
+        resample_interval,
+        csv_paths,
+        output_dir
+    )
+    
+    return {"status": "started", "job_id": job_id}
+
+@app.get("/api/job-status/{job_id}")
+async def get_job_status(job_id: str):
+    if job_id not in pipeline_jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return pipeline_jobs[job_id]
+
+def process_pipeline_task(job_id: str, site_id: str, resample_interval: str, csv_paths: List[Path], output_dir: Path):
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    def update_progress(msg: str):
+        pipeline_jobs[job_id]["progress"] = msg
+        logger.info(f"[Job {job_id[:8]}] {msg}")
+
     try:
-        # 1. 系統初始化
-        logger.info("[Pipeline] 重置 PipelineContext...")
-        # 由於 FastAPI 會在同一行程處理多個請求，必須重置 PipelineContext 單例以防報錯
-        PipelineContext.reset_for_testing()
+        update_progress("系統初始化...")
         
-        logger.info("[Pipeline] 初始化 ETLContainer...")
+        PipelineContext.reset_for_testing()
         container = ETLContainer(site_id=site_id)
         container.initialize_all()
-        
         context = container.get_context()
 
-        logger.info("[Pipeline] 取得 Parser/Cleaner/BatchProcessor...")
         parser = container.get_parser()
         cleaner = container.get_cleaner()
         
-        # 套用前端自訂的重採樣間隔
         if hasattr(cleaner, 'config') and cleaner.config:
             cleaner.config.resample_interval = resample_interval
             
         bp = BatchProcessor(site_id=site_id, output_dir=str(output_dir), pipeline_context=context)
 
-        # 2. 執行處理 (合併多個檔案)
-        logger.info(f"[Pipeline] 開始 Parser 處理 (共 {len(csv_paths)} 個檔案)...")
+        total_files = len(csv_paths)
+        update_progress(f"開始 Parser 處理 (共 {total_files} 個檔案)...")
+        
         df_parsed_list = []
-        for path in csv_paths:
-            logger.info(f"  - 處理檔案: {path.name}")
+        for i, path in enumerate(csv_paths, 1):
+            if i % 10 == 0 or i == 1 or i == total_files:
+                update_progress(f"正在解析檔案 ({i}/{total_files})")
             df_p = parser.parse_file(str(path))
             df_parsed_list.append(df_p)
             
-        # 使用 diagonal 合併以防止欄位不完全一致時拋出異常
+        update_progress("正在合併所有解析後的資料...")
         df_parsed = pl.concat(df_parsed_list, how="diagonal")
-        logger.info(f"[Pipeline] Parser 完成: 合併後共 {len(df_parsed)} 行, {len(df_parsed.columns)} 欄位")
         
-        logger.info("[Pipeline] 開始 Cleaner 處理...")
-        # 修復: clean() 返回 tuple (df, metadata, audit)，需要解包
+        update_progress(f"開始 Cleaner 語意清洗與重採樣... (共 {len(df_parsed)} 行)")
         df_cleaned, column_metadata, equipment_audit = cleaner.clean(df_parsed)
-        logger.info(f"[Pipeline] Cleaner 完成: {len(df_cleaned)} 行")
         
-        logger.info("[Pipeline] 開始 BatchProcessor 處理...")
+        update_progress(f"正在執行 BatchProcessor 落地輸出... (共 {len(df_cleaned)} 行)")
         source_name = f"multiple_files_({len(csv_paths)})" if len(csv_paths) > 1 else str(csv_paths[0].name)
-        # 修復: BatchProcessor 使用 process_dataframe() 方法
         result = bp.process_dataframe(
             df_cleaned, 
             column_metadata=column_metadata,
@@ -206,18 +235,17 @@ async def run_pipeline(
             source_file=source_name
         )
         if result.status == "success":
-            df_processed = df_cleaned  # 成功時使用清洗後的資料
-            logger.info(f"[Pipeline] BatchProcessor 完成: {result.rows_processed} 行")
+            df_processed = df_cleaned
         else:
             raise Exception(f"BatchProcessor 失敗: {result.error}")
 
-        # 3. 提取分析數據供圖表使用
-        # Parser 數據
+        update_progress("計算資料品質統計報告...")
+        
+        # 統計運算
         missing_before = sum(df_parsed.null_count().row(0)) if len(df_parsed) > 0 else 0
         total_cells = len(df_parsed) * len(df_parsed.columns)
         missing_rate_before = (missing_before / total_cells) * 100 if total_cells > 0 else 0
         
-        # 計算 NaN/Inf 率
         nan_inf_count = 0
         for col in df_parsed.columns:
             dtype = df_parsed[col].dtype
@@ -225,8 +253,6 @@ async def run_pipeline(
                 nan_inf_count += df_parsed[col].is_nan().sum() if hasattr(df_parsed[col], 'is_nan') else 0
         nan_inf_rate = (nan_inf_count / total_cells) * 100 if total_cells > 0 else 0
         
-        # 時區錯誤率 (檢查 quality_flags 中的 TIMEZONE issues)
-        # 修復: 使用 pl.col() 避免 Expr 真值歧義
         if "quality_flags" in df_cleaned.columns:
             tz_mask = (
                 pl.col("quality_flags").list.contains("TIMEZONE_MISMATCH") | 
@@ -237,7 +263,6 @@ async def run_pipeline(
             timezone_errors = None
         timezone_error_rate = (len(timezone_errors) / len(df_cleaned)) * 100 if timezone_errors is not None and len(df_cleaned) > 0 else 0
         
-        # 格式錯誤率
         if "quality_flags" in df_cleaned.columns:
             fmt_mask = (
                 pl.col("quality_flags").list.contains("FORMAT_INVALID") | 
@@ -248,7 +273,6 @@ async def run_pipeline(
             format_errors = None
         format_error_rate = (len(format_errors) / len(df_cleaned)) * 100 if format_errors is not None and len(df_cleaned) > 0 else 0
         
-        # 極端值率 (E350 違規)
         if "quality_flags" in df_cleaned.columns:
             e350_mask = pl.col("quality_flags").list.contains("PHYSICAL_IMPOSSIBLE")
             e350_violations = df_cleaned.filter(e350_mask)
@@ -256,20 +280,21 @@ async def run_pipeline(
             e350_violations = None
         outlier_rate = (len(e350_violations) / len(df_cleaned)) * 100 if e350_violations is not None and len(df_cleaned) > 0 else 0
         
-        # Manifest
         manifest_path = output_dir / "latest" / "manifest_v1.3.json"
         manifest_data = {}
         if manifest_path.exists():
             with open(manifest_path, 'r', encoding='utf-8') as f:
                 manifest_data = json.load(f)
 
-        return {
+        pipeline_jobs[job_id]["status"] = "success"
+        pipeline_jobs[job_id]["progress"] = "✅ 執行完成"
+        pipeline_jobs[job_id]["result"] = {
             "status": "success",
             "stats": {
                 "rows_processed": len(df_processed),
                 "columns": len(df_processed.columns),
                 "missing_rate_before": round(missing_rate_before, 2),
-                "missing_rate_after": 0.0, # 清洗後由 BP 控制
+                "missing_rate_after": 0.0,
                 "nan_inf_rate": round(nan_inf_rate, 2),
                 "timezone_error_rate": round(timezone_error_rate, 2),
                 "format_error_rate": round(format_error_rate, 2),
@@ -285,12 +310,15 @@ async def run_pipeline(
             "cleaned_sample": df_cleaned.head(3).to_dicts(),
             "feature_engineer_input_ready": True
         }
+
     except Exception as e:
-        return {"status": "error", "message": f"Pipeline 執行失敗: {str(e)}"}
+        pipeline_jobs[job_id]["status"] = "error"
+        pipeline_jobs[job_id]["message"] = f"Pipeline 執行失敗: {str(e)}"
+        logger.exception(f"Pipeline Task {job_id} failed")
     finally:
-        # 清理所有臨時檔案
         for path in csv_paths:
             cleanup_file(path)
+
 
 @app.post("/api/run-feature-engineer")
 async def run_feature_engineer(site_id: str = Form(...)):

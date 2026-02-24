@@ -697,17 +697,17 @@
                     throw new Error(`HTTP ${response.status}: ${errorText}`);
                 }
 
-                const data = await response.json();
+                const initData = await response.json();
 
-                if (data.status === "error") {
+                if (initData.status === "error") {
                     const errorBox = document.getElementById('errorOutput');
-                    const errorCode = data.message.match(/^(E\d+)/);
+                    const errorCode = initData.message.match(/^(E\d+)/);
 
                     let errorHtml = '<strong>❌ 執行失敗</strong><br><br>';
                     if (errorCode) {
                         errorHtml += '<span class="error-code">' + errorCode[1] + '</span> ';
                     }
-                    errorHtml += data.message;
+                    errorHtml += initData.message;
 
                     errorBox.innerHTML = errorHtml;
                     errorBox.style.display = 'block';
@@ -718,23 +718,49 @@
                     return;
                 }
 
-                // 隱藏錯誤訊息和診斷區塊
-                document.getElementById('errorOutput').style.display = 'none';
-                document.getElementById('diagnosticSection').style.display = 'none';
+                if (initData.status === "started") {
+                    const jobId = initData.job_id;
+                    const loader = document.getElementById('loader3');
+                    let isDone = false;
+                    let pipelineData = null;
 
-                // 檢查是否可以開啟 Step 4
-                if (data.feature_engineer_input_ready) {
-                    document.getElementById('step4Card').style.display = 'block';
+                    while (!isDone) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+
+                        const statusRes = await fetch(`http://localhost:8000/api/job-status/${jobId}`);
+                        if (!statusRes.ok) throw new Error("取得任務進度失敗");
+
+                        const job = await statusRes.json();
+
+                        if (job.status === "running") {
+                            loader.innerHTML = `⏳ Pipeline 運作中... <br><span style="color: var(--cyan); font-size: 0.9em; margin-top: 5px; display: inline-block;">${job.progress}</span>`;
+                        } else if (job.status === "success") {
+                            isDone = true;
+                            pipelineData = job.result;
+                        } else {
+                            isDone = true;
+                            throw new Error(job.message || "處理失敗");
+                        }
+                    }
+
+                    // 隱藏錯誤訊息和診斷區塊
+                    document.getElementById('errorOutput').style.display = 'none';
+                    document.getElementById('diagnosticSection').style.display = 'none';
+
+                    // 檢查是否可以開啟 Step 4
+                    if (pipelineData.feature_engineer_input_ready) {
+                        document.getElementById('step4Card').style.display = 'block';
+                    }
+
+                    // Update UI
+                    document.getElementById('e350Output').textContent = JSON.stringify(pipelineData.e350_samples, null, 2);
+                    document.getElementById('manifestOutput').textContent = JSON.stringify(pipelineData.manifest, null, 2);
+                    document.getElementById('parsedOutput').textContent = JSON.stringify(pipelineData.parsed_sample, null, 2);
+                    document.getElementById('cleanedOutput').textContent = JSON.stringify(pipelineData.cleaned_sample, null, 2);
+
+                    drawChart(pipelineData.stats);
+                    resultSection.style.display = 'block';
                 }
-
-                // Update UI
-                document.getElementById('e350Output').textContent = JSON.stringify(data.e350_samples, null, 2);
-                document.getElementById('manifestOutput').textContent = JSON.stringify(data.manifest, null, 2);
-                document.getElementById('parsedOutput').textContent = JSON.stringify(data.parsed_sample, null, 2);
-                document.getElementById('cleanedOutput').textContent = JSON.stringify(data.cleaned_sample, null, 2);
-
-                drawChart(data.stats);
-                resultSection.style.display = 'block';
 
             } catch (error) {
                 clearTimeout(timeoutId);
