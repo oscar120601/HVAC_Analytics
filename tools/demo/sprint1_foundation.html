@@ -1093,7 +1093,8 @@
             </div>
             <div class="arch-legend">
                 <span class="legend-item"><span class="legend-dot ld-done"></span>Sprint 1 已完成（本次展示）</span>
-                <span class="legend-item"><span class="legend-dot ld-next"></span>Sprint 2 即將啟動</span>
+                <span class="legend-item"><span class="legend-dot" style="background:var(--green)"></span>Sprint 2
+                    已完成</span>
                 <span class="legend-item"><span class="legend-dot ld-later"></span>Sprint 3-5 待開始</span>
             </div>
             <div class="mermaid-wrap">
@@ -1108,7 +1109,7 @@ flowchart LR
         FA2 --> SI
     end
 
-    subgraph S2["🚧 Sprint 2: 核心 ETL（即將）"]
+    subgraph S2["✅ Sprint 2: 核心 ETL（已完成）"]
         direction TB
         P["Parser v2.1\n編碼偵測 / UTC 標準化"]
         C["Cleaner v2.2\n語意感知清洗 / 設備驗證"]
@@ -1130,14 +1131,14 @@ flowchart LR
     BP --> FE
 
     style S1 fill:#0a2040,stroke:#00d4ff,stroke-width:2px,color:#e2eeff
-    style S2 fill:#1a1a0a,stroke:#ff6b35,stroke-width:1.5px,color:#e2eeff
+    style S2 fill:#0a2040,stroke:#06d6a0,stroke-width:2px,color:#e2eeff
     style S34 fill:#0f0f1a,stroke:#3a4b63,stroke-width:1px,color:#7a92b8
     style IC fill:#0d2a42,stroke:#00d4ff,stroke-width:2px,color:#e2eeff
     style FA2 fill:#0d2a42,stroke:#00d4ff,stroke-width:2px,color:#e2eeff
     style SI fill:#0d2a42,stroke:#00d4ff,stroke-width:2px,color:#e2eeff
-    style P fill:#2a1a0a,stroke:#ff6b35,stroke-width:1.5px,color:#e2eeff
-    style C fill:#2a1a0a,stroke:#ff6b35,stroke-width:1.5px,color:#e2eeff
-    style BP fill:#2a1a0a,stroke:#ff6b35,stroke-width:1.5px,color:#e2eeff
+    style P fill:#0d2a42,stroke:#06d6a0,stroke-width:2px,color:#e2eeff
+    style C fill:#0d2a42,stroke:#06d6a0,stroke-width:2px,color:#e2eeff
+    style BP fill:#0d2a42,stroke:#06d6a0,stroke-width:2px,color:#e2eeff
     style FE fill:#1a1a2a,stroke:#3a4b63,stroke-width:1px,color:#7a92b8
     style MT fill:#1a1a2a,stroke:#3a4b63,stroke-width:1px,color:#7a92b8
     style OPT fill:#1a1a2a,stroke:#3a4b63,stroke-width:1px,color:#7a92b8

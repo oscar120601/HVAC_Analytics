@@ -292,19 +292,21 @@
             <div class="hero-tag">HVAC_Analytics / Demo Dashboard</div>
             <h1>HVAC-1 專案進度總覽</h1>
             <p>空調節能系統 — 嚴格契約導向設計 (Contract-First) + SSOT 原則<br>點擊已完成的 Sprint 查看詳細 Demo</p>
+            <p style="margin-top:0.5rem; font-size:0.9rem; color:var(--green);">✅ Parser v2.1 + Cleaner v2.2 +
+                BatchProcessor v1.3 全部完成</p>
         </div>
 
         <div class="overall-stats">
             <div class="os-item">
-                <div class="os-val">1 / 5</div>
+                <div class="os-val">2 / 5</div>
                 <div class="os-label">已完成 Sprint</div>
             </div>
             <div class="os-item">
-                <div class="os-val">5,000+</div>
+                <div class="os-val">9,600+</div>
                 <div class="os-label">程式碼行数</div>
             </div>
             <div class="os-item">
-                <div class="os-val">53</div>
+                <div class="os-val">132</div>
                 <div class="os-label">單元測試</div>
             </div>
             <div class="os-item">
@@ -336,23 +338,24 @@
             </a>
 
             <!-- Sprint 2 -->
-            <div class="sprint-card inprog" onclick="alert('Sprint 2 尚未開始 Demo 開發')">
-                <span class="status-pill inprog">🚧 準備中</span>
+            <a href="sprint2_etl.html" class="sprint-card done">
+                <span class="status-pill done">✅ 已完成</span>
                 <div class="sprint-num">SPRINT 02</div>
                 <h2 class="sprint-title">核心 ETL</h2>
                 <p class="sprint-desc">Parser v2.1 編碼偵測與 UTC 標準化、Cleaner v2.2 語意感知清洗、BatchProcessor v1.3 Parquet 輸出。</p>
                 <div class="sprint-meta">
                     <span>⏱ 15-17 天</span>
-                    <span>📄 Parser v2.1</span>
-                    <span>🧹 Cleaner v2.2</span>
+                    <span>📝 3,800+ 行</span>
+                    <span>✓ 79 項測試</span>
                 </div>
                 <div class="progress-bar-wrap">
                     <div class="progress-bar-bg">
-                        <div class="progress-bar-fill" style="width:0%;background:var(--orange)"></div>
+                        <div class="progress-bar-fill"
+                            style="width:100%;background:linear-gradient(90deg,var(--green),var(--cyan))"></div>
                     </div>
-                    <div class="progress-label">0 / 3 模組完成 — 相依 Sprint 1 ✅</div>
+                    <div class="progress-label">3 / 3 模組完成 (100%)</div>
                 </div>
-            </div>
+            </a>
 
             <!-- Sprint 3 -->
             <div class="sprint-card pending">
@@ -414,7 +417,7 @@
 
         <footer>
             <p>HVAC-1 空調節能系統 &nbsp;|&nbsp; 嚴格契約導向設計 + SSOT 原則</p>
-            <p>文件版本 v1.3 &nbsp;|&nbsp; 最後更新 2026-02-23</p>
+            <p>文件版本 v1.4 &nbsp;|&nbsp; 最後更新 2026-02-24</p>
         </footer>
     </div>
 </body>

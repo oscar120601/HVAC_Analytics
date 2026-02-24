@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprint 2: 核心 ETL | HVAC-1 Demo</title>
+    <script src="vendor/chart.umd.min.js"></script>
+    <script src="vendor/mermaid.min.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700;900&family=Space+Grotesk:wght@500;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #06101f;
+            --bg-card: #0d1d33;
+            --bg-card2: #111f35;
+            --cyan: #00d4ff;
+            --orange: #ff6b35;
+            --green: #06d6a0;
+            --red: #ef476f;
+            --yellow: #ffd166;
+            --purple: #a78bfa;
+            --text: #e2eeff;
+            --text-dim: #7a92b8;
+            --border: rgba(0, 212, 255, 0.12);
+            --border-hover: rgba(0, 212, 255, 0.35);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: var(--bg-deep);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .bg-layer {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background:
+                radial-gradient(ellipse 60% 40% at 15% 15%, rgba(0, 212, 255, 0.07) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 35% at 85% 80%, rgba(255, 107, 53, 0.05) 0%, transparent 60%),
+                repeating-linear-gradient(0deg, transparent, transparent 49px, rgba(0, 212, 255, 0.025) 50px),
+                repeating-linear-gradient(90deg, transparent, transparent 49px, rgba(0, 212, 255, 0.025) 50px);
+        }
+
+        .content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .section {
+            padding: 3rem 2rem;
+            max-width: 1360px;
+            margin: 0 auto;
+        }
+
+        .section+.section {
+            padding-top: 0;
+        }
+
+        /* NAV */
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(6, 16, 31, 0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 2rem;
+            gap: 1rem;
+        }
+
+        .topbar-brand {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--cyan);
+        }
+
+        .topbar-nav {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .topbar-nav a {
+            font-size: 0.75rem;
+            padding: 0.35rem 0.8rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .topbar-nav a:hover {
+            border-color: var(--cyan);
+            color: var(--cyan);
+            background: rgba(0, 212, 255, 0.07);
+        }
+
+        .back-btn {
+            font-size: 0.75rem;
+            padding: 0.35rem 0.8rem;
+            border-radius: 6px;
+            border: 1px solid rgba(6, 214, 160, 0.3);
+            color: var(--green);
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .back-btn:hover {
+            background: rgba(6, 214, 160, 0.1);
+        }
+
+        /* HERO */
+        .hero {
+            padding: 4rem 2rem 2.5rem;
+            text-align: center;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 1.1rem;
+            border-radius: 999px;
+            background: rgba(6, 214, 160, 0.1);
+            border: 1px solid rgba(6, 214, 160, 0.35);
+            font-size: 0.8rem;
+            color: var(--green);
+            margin-bottom: 1.5rem;
+            animation: pulse 2.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1 }
+            50% { opacity: 0.65 }
+        }
+
+        .hero h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(2.2rem, 6vw, 4rem);
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--text) 0%, var(--cyan) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.75rem;
+            letter-spacing: -0.02em;
+        }
+
+        .hero-sub {
+            font-size: 1.1rem;
+            color: var(--text-dim);
+            max-width: 700px;
+            margin: 0 auto 2.5rem;
+            line-height: 1.7;
+        }
+
+        .hero-kpis {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .kpi {
+            text-align: center;
+        }
+
+        .kpi-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.4rem;
+            font-weight: 600;
+            color: var(--cyan);
+        }
+
+        .kpi-label {
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-top: 0.2rem;
+        }
+
+        /* SECTION HEADER */
+        .sec-head {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.75rem;
+        }
+
+        .sec-num {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem;
+            color: var(--orange);
+            border: 1px solid var(--orange);
+            padding: 0.2rem 0.65rem;
+            border-radius: 4px;
+        }
+
+        .sec-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+
+        .rationale {
+            background: rgba(167, 139, 250, 0.07);
+            border-left: 3px solid var(--purple);
+            border-radius: 0 10px 10px 0;
+            padding: 0.9rem 1.2rem;
+            margin-bottom: 1.75rem;
+            font-size: 0.88rem;
+            color: rgba(200, 210, 255, 0.85);
+            line-height: 1.65;
+        }
+
+        .rationale strong {
+            color: var(--purple);
+        }
+
+        /* CARD */
+        .card {
+            background: linear-gradient(135deg, var(--bg-card), var(--bg-card2));
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.75rem;
+            backdrop-filter: blur(8px);
+            transition: border-color 0.25s, box-shadow 0.25s;
+        }
+
+        .card:hover {
+            border-color: var(--border-hover);
+            box-shadow: 0 0 32px rgba(0, 212, 255, 0.07);
+        }
+
+        /* PIPELINE FLOW */
+        .pipeline-flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+        }
+
+        .flow-stage {
+            background: linear-gradient(135deg, var(--bg-card), var(--bg-card2));
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.25rem 1.5rem;
+            min-width: 220px;
+            text-align: center;
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        .flow-stage:hover {
+            border-color: var(--cyan);
+            transform: translateY(-2px);
+        }
+
+        .flow-stage.active {
+            border-color: var(--green);
+            box-shadow: 0 0 20px rgba(6, 214, 160, 0.15);
+        }
+
+        .flow-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .flow-name {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .flow-desc {
+            font-size: 0.78rem;
+            color: var(--text-dim);
+        }
+
+        .flow-arrow {
+            font-size: 1.5rem;
+            color: var(--cyan);
+            animation: flowPulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes flowPulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+
+        .checkpoint {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--orange);
+            background: rgba(255, 107, 53, 0.1);
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            margin-top: 0.5rem;
+            display: inline-block;
+        }
+
+        /* DATA COMPARISON */
+        .compare-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media(max-width:900px) {
+            .compare-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .compare-card {
+            background: linear-gradient(135deg, var(--bg-card), var(--bg-card2));
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.25rem;
+        }
+
+        .compare-card.before {
+            border-left: 3px solid var(--red);
+        }
+
+        .compare-card.after {
+            border-left: 3px solid var(--green);
+        }
+
+        .compare-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+        }
+
+        .compare-header.before { color: var(--red); }
+        .compare-header.after { color: var(--green); }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .data-table th {
+            text-align: left;
+            padding: 0.5rem 0.6rem;
+            color: var(--text-dim);
+            border-bottom: 1px solid var(--border);
+            font-weight: 500;
+        }
+
+        .data-table td {
+            padding: 0.5rem 0.6rem;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.05);
+            vertical-align: top;
+        }
+
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .col-name {
+            color: var(--cyan);
+        }
+
+        .col-sample {
+            color: var(--text-dim);
+        }
+
+        .col-issue {
+            color: var(--red);
+            font-size: 0.7rem;
+        }
+
+        .col-dtype {
+            color: var(--purple);
+            font-size: 0.7rem;
+        }
+
+        .col-flags {
+            color: var(--yellow);
+            font-size: 0.7rem;
+        }
+
+        /* RADAR CHART */
+        .radar-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        @media(max-width:800px) {
+            .radar-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .radar-chart-wrap {
+            position: relative;
+            height: 350px;
+        }
+
+        .quality-metrics {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .metric-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 1rem;
+            background: rgba(0, 212, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .metric-name {
+            flex: 1;
+            font-size: 0.85rem;
+        }
+
+        .metric-values {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .metric-before {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem;
+            color: var(--red);
+            text-decoration: line-through;
+        }
+
+        .metric-after {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--green);
+            font-weight: 600;
+        }
+
+        .metric-improve {
+            font-size: 0.7rem;
+            color: var(--green);
+            background: rgba(6, 214, 160, 0.1);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+        }
+
+        /* EQUIPMENT VALIDATION */
+        .equip-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media(max-width:900px) {
+            .equip-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .constraint-card {
+            background: rgba(239, 71, 111, 0.05);
+            border: 1px solid rgba(239, 71, 111, 0.2);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .constraint-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--red);
+            margin-bottom: 0.25rem;
+        }
+
+        .constraint-desc {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-bottom: 0.5rem;
+        }
+
+        .constraint-violations {
+            font-size: 0.78rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .violation-count {
+            background: rgba(239, 71, 111, 0.15);
+            color: var(--red);
+            padding: 0.1rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .violation-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+        }
+
+        .violation-table th {
+            text-align: left;
+            padding: 0.5rem;
+            color: var(--text-dim);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .violation-table td {
+            padding: 0.5rem;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.05);
+        }
+
+        .e350-tag {
+            background: rgba(239, 71, 111, 0.15);
+            color: var(--red);
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+        }
+
+        .action-tag {
+            background: rgba(255, 209, 102, 0.1);
+            color: var(--yellow);
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+        }
+
+        /* DEVICE ROLE THRESHOLDS */
+        .role-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.75rem;
+        }
+
+        @media(max-width:800px) {
+            .role-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .role-card {
+            background: rgba(0, 212, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .role-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .role-name {
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .role-desc {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-bottom: 0.5rem;
+        }
+
+        .role-threshold {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--cyan);
+            background: rgba(0, 212, 255, 0.1);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        /* MANIFEST */
+        .yaml-viewer {
+            background: #070f1c;
+            border-radius: 10px;
+            padding: 1.25rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem;
+            line-height: 1.7;
+            color: #a8c7fa;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+        }
+
+        .yaml-key { color: #7dd3fc; }
+        .yaml-str { color: #86efac; }
+        .yaml-num { color: #fbbf24; }
+        .yaml-comment { color: #4b6080; font-style: italic; }
+        .yaml-bool { color: #f472b6; }
+
+        .manifest-sections {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        @media(max-width:900px) {
+            .manifest-sections {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .manifest-sec {
+            background: rgba(0, 212, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+        }
+
+        .manifest-sec-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--cyan);
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .manifest-field {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .manifest-field-key {
+            color: var(--text-dim);
+        }
+
+        .manifest-field-val {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text);
+        }
+
+        /* ERROR CODES */
+        .err-code-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .err-code-card {
+            background: rgba(0, 212, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .err-code-id {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--cyan);
+            background: rgba(0, 212, 255, 0.1);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .err-code-info {
+            flex: 1;
+        }
+
+        .err-code-name {
+            font-size: 0.78rem;
+            font-weight: 500;
+            margin-bottom: 0.1rem;
+        }
+
+        .err-code-module {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+        }
+
+        .err-code-sev {
+            font-size: 0.65rem;
+            padding: 0.1rem 0.35rem;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .sev-critical {
+            background: rgba(239, 71, 111, 0.15);
+            color: var(--red);
+        }
+
+        .sev-high {
+            background: rgba(255, 107, 53, 0.15);
+            color: var(--orange);
+        }
+
+        /* TEST RESULTS */
+        .test-summary {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        .test-box {
+            text-align: center;
+            padding: 1.5rem 2rem;
+            background: rgba(6, 214, 160, 0.05);
+            border: 1px solid rgba(6, 214, 160, 0.2);
+            border-radius: 12px;
+        }
+
+        .test-box-num {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: var(--green);
+        }
+
+        .test-box-label {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-top: 0.25rem;
+        }
+
+        .test-coverage {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .coverage-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.6rem 0.9rem;
+            background: rgba(0, 212, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .coverage-name {
+            font-size: 0.85rem;
+        }
+
+        .coverage-num {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--cyan);
+            font-size: 0.9rem;
+        }
+
+        /* TIMELINE */
+        .timeline {
+            padding-left: 1.5rem;
+            border-left: 2px solid rgba(0, 212, 255, 0.2);
+        }
+
+        .tl-item {
+            position: relative;
+            padding-bottom: 1.5rem;
+            opacity: 0;
+            transform: translateX(-20px);
+            transition: all 0.4s ease;
+        }
+
+        .tl-item.vis {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .tl-item::before {
+            content: '';
+            position: absolute;
+            left: -1.6rem;
+            top: 0.3rem;
+            width: 12px;
+            height: 12px;
+            background: var(--green);
+            border-radius: 50%;
+            border: 2px solid var(--bg-deep);
+            box-shadow: 0 0 0 2px var(--green);
+        }
+
+        .tl-date {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--cyan);
+            margin-bottom: 0.2rem;
+        }
+
+        .tl-title {
+            font-weight: 500;
+            font-size: 0.92rem;
+        }
+
+        .tl-detail {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-top: 0.15rem;
+            line-height: 1.5;
+        }
+
+        .tl-status {
+            font-size: 0.82rem;
+            color: var(--green);
+            margin-top: 0.2rem;
+        }
+
+        /* SCROLL REVEAL */
+        .reveal {
+            opacity: 0;
+            transform: translateY(28px);
+            transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .reveal.vis {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* FOOTER */
+        footer {
+            text-align: center;
+            padding: 2.5rem 2rem;
+            color: var(--text-dim);
+            font-size: 0.82rem;
+            border-top: 1px solid var(--border);
+        }
+
+        footer p+p {
+            margin-top: 0.35rem;
+            opacity: 0.55;
+        }
+
+        /* RESPONSIVE */
+        @media(max-width:600px) {
+            .hero-kpis {
+                gap: 1.75rem;
+            }
+            .pipeline-flow {
+                flex-direction: column;
+            }
+            .flow-arrow {
+                transform: rotate(90deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-layer"></div>
+    <div class="content">
+        <!-- NAV -->
+        <nav class="topbar">
+            <span class="topbar-brand">⚡ HVAC-1</span>
+            <div class="topbar-nav">
+                <a href="#pipeline">① ETL流程</a>
+                <a href="#comparison">② 資料對比</a>
+                <a href="#radar">③ 品質雷達</a>
+                <a href="#equipment">④ 設備預檢</a>
+                <a href="#manifest">⑤ Manifest</a>
+                <a href="#tests">⑥ 測試</a>
+            </div>
+            <a href="index.html" class="back-btn">← 返回總覽</a>
+        </nav>
+
+        <!-- HERO -->
+        <section class="hero">
+            <div class="hero-badge"><span>●</span><span>Sprint 2 已完成 (3/3)</span></div>
+            <h1>Sprint 2: 核心 ETL</h1>
+            <p class="hero-sub">Parser v2.1 → Cleaner v2.2 → BatchProcessor v1.3 三階段流程完成。<br>編碼偵測、語意感知清洗、設備邏輯預檢、Manifest 生成。</p>
+            <div class="hero-kpis">
+                <div class="kpi">
+                    <div class="kpi-val" id="kpi-loc">0</div>
+                    <div class="kpi-label">程式碼行數</div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi-val" id="kpi-tests">0</div>
+                    <div class="kpi-label">單元測試</div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi-val" id="kpi-modules">0</div>
+                    <div class="kpi-label">完成模組</div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi-val" id="kpi-checks">0</div>
+                    <div class="kpi-label">檢查點</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 01 PIPELINE FLOW -->
+        <section class="section reveal" id="pipeline">
+            <div class="sec-head">
+                <span class="sec-num">01</span>
+                <h2 class="sec-title">ETL 三階段流程</h2>
+            </div>
+            <div class="rationale">
+                <strong>設計動機：</strong>原始 CSV 必須經過三階段嚴格轉換才能進入下游 ML 流程。Parser 處理編碼與時區，Cleaner 執行語意感知清洗與設備驗證，BatchProcessor 負責事務性輸出與稽核軌跡生成。每個階段都有明確的<strong>檢查點 (Checkpoint)</strong>確保資料品質。
+            </div>
+            <div class="pipeline-flow" id="pipelineFlow"></div>
+        </section>
+
+        <!-- 02 DATA COMPARISON -->
+        <section class="section reveal" id="comparison">
+            <div class="sec-head">
+                <span class="sec-num">02</span>
+                <h2 class="sec-title">輸入/輸出 DataFrame 範例對比</h2>
+            </div>
+            <div class="rationale">
+                <strong>轉換過程：</strong>Parser 處理編碼問題（Big5→UTF-8、移除 BOM）、時區轉換（本地→UTC）、標頭正規化（snake_case）。Cleaner 加入 quality_flags、執行語意感知清洗。BatchProcessor 強制輸出 INT64/UTC Parquet 格式。
+            </div>
+            <div class="compare-grid">
+                <div class="compare-card before">
+                    <div class="compare-header before">❌ 原始輸入 (Raw CSV)</div>
+                    <table class="data-table" id="beforeTable"></table>
+                </div>
+                <div class="compare-card after">
+                    <div class="compare-header after">✅ BP 輸出 (Parquet)</div>
+                    <table class="data-table" id="afterTable"></table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 03 QUALITY RADAR -->
+        <section class="section reveal" id="radar">
+            <div class="sec-head">
+                <span class="sec-num">03</span>
+                <h2 class="sec-title">品質檢查雷達圖</h2>
+            </div>
+            <div class="rationale">
+                <strong>品質提升：</strong>通過 Parser 的標準化和 Cleaner 的語意感知清洗，資料品質在多個維度都有顯著提升。設備邏輯預檢 (E350) 是 Sprint 2 新增功能，可偵測物理不可能狀態。
+            </div>
+            <div class="card">
+                <div class="radar-container">
+                    <div class="radar-chart-wrap">
+                        <canvas id="qualityRadar"></canvas>
+                    </div>
+                    <div class="quality-metrics" id="qualityMetrics"></div>
+                </div>
+                <div id="radarDataSource" style="margin-top: 12px; padding: 8px 12px; background: rgba(0,212,255,0.05); border-left: 3px solid var(--cyan); font-size: 12px; color: var(--text-dim);">
+                    📊 資料來源: <span id="radarSourceText">載入中...</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 04 EQUIPMENT VALIDATION -->
+        <section class="section reveal" id="equipment">
+            <div class="sec-head">
+                <span class="sec-num">04</span>
+                <h2 class="sec-title">設備邏輯預檢結果 (E350)</h2>
+            </div>
+            <div class="rationale">
+                <strong>物理約束：</strong>HVAC 設備之間存在邏輯依賴，例如冰水主機啟動時冷凍水泵必須運轉。Cleaner v2.2 的設備邏輯預檢會偵測這些<strong>物理不可能狀態</strong>並標記為 PHYSICAL_IMPOSSIBLE。
+            </div>
+            <div class="equip-grid">
+                <div>
+                    <div class="card" style="margin-bottom:1.5rem;">
+                        <h3 style="font-family:'Space Grotesk',sans-serif; font-size:1rem; margin-bottom:1rem;">設備限制條件</h3>
+                        <div id="constraintCards"></div>
+                    </div>
+                    <div class="card">
+                        <h3 style="font-family:'Space Grotesk',sans-serif; font-size:1rem; margin-bottom:1rem;">語意感知閾值調整</h3>
+                        <div class="role-grid" id="roleGrid"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3 style="font-family:'Space Grotesk',sans-serif; font-size:1rem; margin-bottom:1rem;">違規案例</h3>
+                    <table class="violation-table" id="violationTable"></table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 05 MANIFEST -->
+        <section class="section reveal" id="manifest">
+            <div class="sec-head">
+                <span class="sec-num">05</span>
+                <h2 class="sec-title">Manifest v1.3-CA 輸出</h2>
+            </div>
+            <div class="rationale">
+                <strong>稽核軌跡：</strong>BatchProcessor 生成的 Manifest 包含 temporal_baseline（時間基準）、equipment_validation_audit（設備驗證稽核）、annotation_audit_trail（標注稽核軌跡），確保下游模組可追蹤資料來源與處理過程。
+            </div>
+            <div class="card">
+                <div class="yaml-viewer" id="yamlViewer"></div>
+                <div class="manifest-sections" id="manifestSections"></div>
+            </div>
+        </section>
+
+        <!-- 06 ERROR CODES -->
+        <section class="section reveal" id="errors">
+            <div class="sec-head">
+                <span class="sec-num">06</span>
+                <h2 class="sec-title">Sprint 2 新增錯誤碼</h2>
+            </div>
+            <div class="rationale">
+                <strong>錯誤碼擴充：</strong>Sprint 2 新增 9 個錯誤碼，涵蓋 Parser (E101-E105)、Cleaner (E205, E350)、BatchProcessor (E206, E351) 三個模組。
+            </div>
+            <div class="card">
+                <div class="err-code-grid" id="errCodeGrid"></div>
+            </div>
+        </section>
+
+        <!-- 07 TEST RESULTS -->
+        <section class="section reveal" id="tests">
+            <div class="sec-head">
+                <span class="sec-num">07</span>
+                <h2 class="sec-title">測試覆蓋率</h2>
+            </div>
+            <div class="rationale">
+                <strong>測試驗證：</strong>Sprint 2 新增 79 項測試，總計 132 項測試全部通過。涵蓋編碼偵測、時區轉換、設備邏輯預檢、E408 SSOT 版本驗證等關鍵功能。
+            </div>
+            <div class="card">
+                <div class="test-summary">
+                    <div class="test-box">
+                        <div class="test-box-num" id="testTotal">132</div>
+                        <div class="test-box-label">總測試數</div>
+                    </div>
+                    <div class="test-box">
+                        <div class="test-box-num" style="color:var(--green);">132</div>
+                        <div class="test-box-label">通過 / 失敗</div>
+                    </div>
+                </div>
+                <div class="test-coverage" id="testCoverage"></div>
+            </div>
+        </section>
+
+        <!-- 08 TIMELINE -->
+        <section class="section reveal" id="timeline">
+            <div class="sec-head">
+                <span class="sec-num">08</span>
+                <h2 class="sec-title">開發里程碑</h2>
+            </div>
+            <div class="card">
+                <div class="timeline" id="timelineContainer"></div>
+            </div>
+        </section>
+
+        <footer>
+            <p>HVAC-1 空調節能系統 &nbsp;|&nbsp; Sprint 2 Demo &nbsp;|&nbsp; 2026-02-24</p>
+            <p>嚴格契約導向設計 (Contract-First Design) + SSOT (Single Source of Truth)</p>
+        </footer>
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            themeVariables: {
+                primaryColor: '#0d1d33',
+                primaryTextColor: '#e2eeff',
+                primaryBorderColor: '#00d4ff',
+                lineColor: '#00d4ff',
+                secondaryColor: '#1a2d4a',
+                tertiaryColor: '#1a1a0a',
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: '13px'
+            }
+        });
+
+        let D = null;
+
+        async function init() {
+            try {
+                const r = await fetch('./data/sprint2_etl_sample.json');
+                D = await r.json();
+            } catch (e) {
+                D = getDefaultData();
+            }
+            renderAll();
+            animateKPIs();
+            setupScrollReveal();
+        }
+
+        function getDefaultData() {
+            return {
+                "summary": { "total_lines_of_code": 9600, "total_tests": 132, "modules_completed": 3 },
+                "etl_pipeline": { "stages": [] },
+                "quality_metrics": { "radar_data": { "labels": [], "before": [], "after": [] } },
+                "milestones": []
+            };
+        }
+
+        function renderAll() {
+            renderPipelineFlow();
+            renderDataComparison();
+            renderRadarChart();
+            renderQualityMetrics();
+            renderEquipmentValidation();
+            renderManifest();
+            renderErrorCodes();
+            renderTestResults();
+            renderTimeline();
+        }
+
+        function animateKPIs() {
+            const s = D.summary;
+            animNum('kpi-loc', s.total_lines_of_code, 1600);
+            animNum('kpi-tests', s.total_tests, 1200);
+            animNum('kpi-modules', s.modules_completed, 900);
+            animNum('kpi-checks', 3, 700);
+        }
+
+        function animNum(id, target, dur) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const start = performance.now();
+            function tick(now) {
+                const p = Math.min((now - start) / dur, 1);
+                const ep = 1 - Math.pow(1 - p, 3);
+                el.textContent = Math.round(ep * target).toLocaleString();
+                if (p < 1) requestAnimationFrame(tick);
+            }
+            requestAnimationFrame(tick);
+        }
+
+        function renderPipelineFlow() {
+            const stages = D.etl_pipeline?.stages || [];
+            const container = document.getElementById('pipelineFlow');
+            container.innerHTML = stages.map((s, i) => `
+                <div class="flow-stage ${i === 0 ? 'active' : ''}">
+                    <div class="flow-icon">${s.icon}</div>
+                    <div class="flow-name">${s.name}</div>
+                    <div class="flow-desc">${s.description.split('—')[1] || s.description}</div>
+                    <span class="checkpoint">檢查點 #${i + 1}</span>
+                </div>
+                ${i < stages.length - 1 ? '<span class="flow-arrow">→</span>' : ''}
+            `).join('');
+        }
+
+        function renderDataComparison() {
+            const bt = D.data_transformation?.before;
+            const at = D.data_transformation?.after;
+            
+            if (bt) {
+                document.getElementById('beforeTable').innerHTML = `
+                    <tr><th>欄位名</th><th>範例值</th><th>問題</th></tr>
+                    ${bt.columns.map(c => `
+                        <tr>
+                            <td class="col-name">${c.name}</td>
+                            <td class="col-sample">${c.sample}</td>
+                            <td class="col-issue">${c.issue || '-'}</td>
+                        </tr>
+                    `).join('')}
+                `;
+            }
+            
+            if (at) {
+                document.getElementById('afterTable').innerHTML = `
+                    <tr><th>欄位名</th><th>型別</th><th>範例值</th></tr>
+                    ${at.columns.map(c => `
+                        <tr>
+                            <td class="col-name">${c.name}</td>
+                            <td class="col-dtype">${c.dtype}</td>
+                            <td class="col-sample">${c.sample}</td>
+                        </tr>
+                    `).join('')}
+                `;
+            }
+        }
+
+        function renderRadarChart() {
+            const rd = D.quality_metrics?.radar_data;
+            if (!rd) return;
+            
+            // 更新資料來源顯示
+            const meta = rd.metadata;
+            const sourceText = meta 
+                ? `${meta.data_source} | 樣本數: ${meta.sample_size?.toLocaleString() || 'N/A'} | 計算時間: ${new Date(meta.calculated_at).toLocaleDateString('zh-TW')}`
+                : 'sprint2_etl_sample.json (靜態資料)';
+            const sourceEl = document.getElementById('radarSourceText');
+            if (sourceEl) sourceEl.textContent = sourceText;
+            
+            const ctx = document.getElementById('qualityRadar').getContext('2d');
+            new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: rd.labels,
+                    datasets: [
+                        {
+                            label: '處理前',
+                            data: rd.before,
+                            backgroundColor: 'rgba(239, 71, 111, 0.2)',
+                            borderColor: '#ef476f',
+                            borderWidth: 2,
+                            pointBackgroundColor: '#ef476f'
+                        },
+                        {
+                            label: '處理後',
+                            data: rd.after,
+                            backgroundColor: 'rgba(6, 214, 160, 0.2)',
+                            borderColor: '#06d6a0',
+                            borderWidth: 2,
+                            pointBackgroundColor: '#06d6a0'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            min: 0,
+                            max: 100,
+                            grid: { color: 'rgba(0, 212, 255, 0.1)' },
+                            angleLines: { color: 'rgba(0, 212, 255, 0.1)' },
+                            pointLabels: {
+                                color: '#e2eeff',
+                                font: { family: 'Noto Sans TC', size: 12 }
+                            },
+                            ticks: {
+                                color: '#7a92b8',
+                                backdropColor: 'transparent'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#e2eeff', font: { family: 'Noto Sans TC' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderQualityMetrics() {
+            const metrics = D.quality_metrics?.metrics_detail || [];
+            document.getElementById('qualityMetrics').innerHTML = metrics.map(m => `
+                <div class="metric-row">
+                    <span class="metric-name">${m.name}</span>
+                    <div class="metric-values">
+                        <span class="metric-before">${m.before}</span>
+                        <span>→</span>
+                        <span class="metric-after">${m.after}</span>
+                        <span class="metric-improve">${m.improvement}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderEquipmentValidation() {
+            const ev = D.equipment_validation;
+            if (!ev) return;
+            
+            // Constraint cards
+            document.getElementById('constraintCards').innerHTML = (ev.constraints || []).map(c => `
+                <div class="constraint-card">
+                    <div class="constraint-name">${c.name}</div>
+                    <div class="constraint-desc">${c.description}</div>
+                    <div class="constraint-violations">
+                        <span>違規:</span>
+                        <span class="violation-count">${c.violations}</span>
+                        <span style="color:var(--text-dim); font-size:0.7rem;">${c.example}</span>
+                    </div>
+                </div>
+            `).join('');
+            
+            // Role grid
+            const roles = ev.device_role_thresholds?.roles || [];
+            document.getElementById('roleGrid').innerHTML = roles.map(r => `
+                <div class="role-card">
+                    <div class="role-icon">${r.role === 'primary' ? '⚡' : r.role === 'auxiliary' ? '🔧' : r.role === 'backup' ? '🔋' : '🎯'}</div>
+                    <div class="role-name">${r.description}</div>
+                    <div class="role-desc">${r.role}</div>
+                    <div class="role-threshold">閾值×${r.outlier_multiplier}</div>
+                </div>
+            `).join('');
+            
+            // Violation table
+            document.getElementById('violationTable').innerHTML = `
+                <tr><th>時間戳</th><th>類型</th><th>描述</th><th>處理</th></tr>
+                ${(ev.violation_samples || []).map(v => `
+                    <tr>
+                        <td style="font-family:monospace; font-size:0.75rem;">${v.timestamp}</td>
+                        <td><span class="e350-tag">${v.type}</span></td>
+                        <td>${v.description}</td>
+                        <td><span class="action-tag">${v.action}</span></td>
+                    </tr>
+                `).join('')}
+            `;
+        }
+
+        function renderManifest() {
+            const mf = D.manifest?.sample;
+            if (!mf) return;
+            
+            // YAML viewer
+            const yamlText = JSON.stringify(mf, null, 2)
+                .replace(/"/g, '')
+                .replace(/true/g, 'true')
+                .replace(/false/g, 'false');
+            
+            document.getElementById('yamlViewer').innerHTML = `
+                <pre>${yamlText.substring(0, 1500)}...</pre>
+            `;
+            
+            // Manifest sections
+            document.getElementById('manifestSections').innerHTML = `
+                <div class="manifest-sec">
+                    <div class="manifest-sec-title">temporal_baseline</div>
+                    <div class="manifest-field"><span class="manifest-field-key">pipeline_origin</span><span class="manifest-field-val">${mf.temporal_baseline?.pipeline_origin_timestamp?.substring(0, 10) || 'N/A'}</span></div>
+                    <div class="manifest-field"><span class="manifest-field-key">data_start</span><span class="manifest-field-val">${mf.temporal_baseline?.data_start?.substring(0, 10) || 'N/A'}</span></div>
+                    <div class="manifest-field"><span class="manifest-field-key">timezone</span><span class="manifest-field-val">${mf.temporal_baseline?.timezone || 'UTC'}</span></div>
+                </div>
+                <div class="manifest-sec">
+                    <div class="manifest-sec-title">equipment_validation</div>
+                    <div class="manifest-field"><span class="manifest-field-key">violations</span><span class="manifest-field-val">${mf.equipment_validation_audit?.violations_found || 0}</span></div>
+                    <div class="manifest-field"><span class="manifest-field-key">chiller_pump</span><span class="manifest-field-val">${mf.equipment_validation_audit?.violation_summary?.chiller_pump_mutex || 0}</span></div>
+                    <div class="manifest-field"><span class="manifest-field-key">pump_redundancy</span><span class="manifest-field-val">${mf.equipment_validation_audit?.violation_summary?.pump_redundancy || 0}</span></div>
+                </div>
+                <div class="manifest-sec">
+                    <div class="manifest-sec-title">ssot_snapshot</div>
+                    <div class="manifest-field"><span class="manifest-field-key">version</span><span class="manifest-field-val">${mf.ssot_snapshot?.schema_version || '1.3'}</span></div>
+                    <div class="manifest-field"><span class="manifest-field-key">checksum</span><span class="manifest-field-val">${mf.ssot_snapshot?.checksum?.substring(0, 12) || 'N/A'}...</span></div>
+                </div>
+            `;
+        }
+
+        function renderErrorCodes() {
+            const codes = D.error_codes_new?.codes || [];
+            document.getElementById('errCodeGrid').innerHTML = codes.map(c => `
+                <div class="err-code-card">
+                    <span class="err-code-id">${c.code}</span>
+                    <div class="err-code-info">
+                        <div class="err-code-name">${c.name}</div>
+                        <div class="err-code-module">${c.module}</div>
+                    </div>
+                    <span class="err-code-sev sev-${c.severity.toLowerCase()}">${c.severity}</span>
+                </div>
+            `).join('');
+        }
+
+        function renderTestResults() {
+            const cov = D.test_results?.coverage || {};
+            document.getElementById('testCoverage').innerHTML = Object.entries(cov).map(([k, v]) => `
+                <div class="coverage-item">
+                    <span class="coverage-name">${k}</span>
+                    <span class="coverage-num">${v} 項</span>
+                </div>
+            `).join('');
+        }
+
+        function renderTimeline() {
+            const cont = document.getElementById('timelineContainer');
+            (D.milestones || []).forEach((m, i) => {
+                const div = document.createElement('div');
+                div.className = 'tl-item';
+                div.style.transitionDelay = `${i * 80}ms`;
+                div.innerHTML = `
+                    <div class="tl-date">${m.date}</div>
+                    <div class="tl-title">${m.milestone}</div>
+                    ${m.detail ? `<div class="tl-detail">${m.detail}</div>` : ''}
+                    <div class="tl-status">${m.status}</div>
+                `;
+                cont.appendChild(div);
+            });
+            setTimeout(() => document.querySelectorAll('.tl-item').forEach(el => el.classList.add('vis')), 300);
+        }
+
+        function setupScrollReveal() {
+            const obs = new IntersectionObserver(entries => {
+                entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('vis'); });
+            }, { threshold: 0.08 });
+            document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+
+</html>
