@@ -714,7 +714,7 @@ python -m http.server 8080
 1. 啟動後端 API (FastAPI):
 ```bash
 pip install fastapi uvicorn python-multipart
-uvicorn tools.demo.test_server:app --reload --port 8000
+uvicorn tools.demo.test_server:app --reload --port 8000 --host 0.0.0.0
 ```
 2. 在瀏覽器點擊或雙擊開啟 `tools/demo/tester.html`，即可使用圖形化介面。
 

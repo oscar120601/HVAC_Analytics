@@ -25,9 +25,11 @@
 **[啟動後端伺服器]**
 請在專案根目錄 (例如 `D:\12.任務\HVAC-1`) 啟動終端機，執行以下指令：
 ```bash
-uvicorn tools.demo.test_server:app --reload --port 8000
+uvicorn tools.demo.test_server:app --reload --port 8000 --host 0.0.0.0
 ```
 *(註：Windows 環境已內建對應的 `msvcrt` 以取代 `fcntl`，防止跨平台崩潰)*
+
+> **💡 提示**: 使用 `--host 0.0.0.0` 可確保前端透過 `localhost:8000` 或 `127.0.0.1:8000` 都能正確連線。
 
 **[操作前台]**
 伺服器啟動後，請直接用瀏覽器開啟 `tools/demo/tester.html` 檔案。
