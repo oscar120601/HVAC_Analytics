@@ -567,33 +567,36 @@ raise FutureDataError(
 |:---|:---:|:---:|:---:|:---|
 | Parser | v2.1 | 🟢 **A** | ✅ 可生產 | 無未解決問題 |
 | Cleaner | v2.2 | 🟢 **A** | ✅ 可生產 | 所有識別問題已關閉 |
-| BatchProcessor | v1.3 | 🟡 **B** | ⚠️ **修復後可生產** | 2 個 Critical Bug 需修復 |
-| Sprint 2 Demo | - | 🟢 **B+** | ✅ 已上線 | 版本鎖定建議改善 |
-| **Sprint 2 整體** | - | **B+** | ⚠️ **條件通過** | **BP 修復後可進入 Sprint 3** |
+| BatchProcessor | v1.3 | 🟡 **A-** | ✅ **通過** | 4項 Critical/High 修復完成，1項 Medium 待修復 |
+| Sprint 2 Demo | - | 🟢 **B+** | ✅ 已上線 | 5/5 項任務達成 |
+| **Sprint 2 整體** | - | **A-** | ✅ **完成** | **可進入 Sprint 3** |
 
 ### 5.2 進入 Sprint 3 前決策點
 
 | 決策 | 條件 | 當前狀態 |
 |:---|:---|:---:|
-| 允許進入 Sprint 3 | BatchProcessor 問題 #1 & #2 修復 | ⏳ **待修復** |
-| Feature Engineer 銜接 | BP v1.3 輸出格式穩定且 E408 有效 | ⏳ **待修復/確認** |
-| CI/CD 品質門禁 | 全部 69 項測試通過 | ✅ 通過（但 E202 型別 Bug 讓測試本身有盲點） |
+| 允許進入 Sprint 3 | BatchProcessor 問題 #1-#4 & #6 修復 | ✅ **已通過** |
+| Feature Engineer 銜接 | BP v1.3 輸出格式穩定且 E408 有效 | ✅ **已確認** |
+| CI/CD 品質門禁 | 全部 74 項測試通過 | ✅ **通過** |
 
 ### 5.3 Sprint 3 必要前置行動
 
-**P0（必須在 Sprint 3 開始前完成）:**
-1. **修復 `isinstance(qf_dtype, pl.List)` → 正確 Polars 型別比較**（問題 #1）
-2. **修復 `future_mask = df["timestamp"] > threshold` 時區比較**（問題 #2）
-3. **修復 `create_default_manifest()` naive datetime**（問題 #3）
+**P0（v4.0 已完成）:**
+1. ✅ ~~修復 `isinstance(qf_dtype, pl.List)` → 正確 Polars 型別比較~~（問題 #1）
+2. ✅ ~~修復 `future_mask = df["timestamp"] > threshold` 時區比較~~（問題 #2）
+3. ✅ ~~修復 `create_default_manifest()` naive datetime~~（問題 #3）
+4. ✅ ~~實作 `_validate_ssot_versions()`~~（問題 #4）
+6. ✅ ~~修復 `ERROR_CODES` 命名衝突~~（問題 #6）
 
-**P1（Sprint 3 Week 1 完成）:**
-4. 實作 `_validate_ssot_versions()` 或更新文件/移除 E408 宣稱
-5. 補充 BatchProcessor E202 型別真實驗證測試
+**P1（Sprint 3 可選）:**
+- 修復 L501 `threshold.isoformat()` 呼叫 Polars Expr（問題 #7，Medium）
+- 離線環境 Google Fonts 處理（問題 #8，Low）
 
 ---
 
 *報告結束*
 
-*報告版本: v3.0 | 最後更新: 2026-02-24 | 審查者: Antigravity (Claude Code)*  
+*報告版本: v4.0 | 最後更新: 2026-02-24 | 審查者: Antigravity (Claude Code)*  
 *v1.0 ~ v2.1: Parser v2.1 & Cleaner v2.2 審查（2026-02-23）*  
-*v3.0: BatchProcessor v1.3 & Sprint 2 Demo 首次審查（2026-02-24）*
+*v3.0: BatchProcessor v1.3 & Sprint 2 Demo 首次審查（2026-02-24）*  
+*v4.0: v3.0 問題修復驗收 + 新風險識別（2026-02-24）*
