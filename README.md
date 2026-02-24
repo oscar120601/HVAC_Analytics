@@ -48,6 +48,7 @@ HVAC_Analytics/
 ├── src/                        # 核心源碼
 │   ├── container.py            # ✅ ETLContainer (4步驟初始化)
 │   ├── context.py              # ✅ PipelineContext (時間基準)
+│   ├── exceptions.py           # ✅ 自定義異常類別
 │   ├── features/               # ✅ Feature Annotation v1.3
 │   │   ├── __init__.py
 │   │   ├── models.py           # ✅ Pydantic 模型
@@ -57,7 +58,8 @@ HVAC_Analytics/
 │   ├── etl/                    # ETL 管道
 │   │   ├── parser.py           # ✅ v2.1 報表解析 (E1xx Error Codes)
 │   │   ├── cleaner.py          # ✅ v2.2 資料清洗 + Equipment Precheck (E2xx/E3xx/E5xx)
-│   │   ├── batch_processor.py  # v1.3 批次處理 + Manifest (E2xx/E3xx)
+│   │   ├── batch_processor.py  # ✅ v1.3 批次處理 + Manifest (E2xx/E3xx)
+│   │   ├── manifest.py         # ✅ v1.3 Manifest 模型
 │   │   ├── feature_engineer.py # v1.3 特徵工程 + Device Role Aware (E6xx)
 │   │   └── config_models.py    # ✅ SSOT 配置模型 (E000-E999)
 │   ├── utils/                  
@@ -66,12 +68,16 @@ HVAC_Analytics/
 │   ├── optimization/           # 優化演算法
 │   └── equipment/              # [TODO] 設備驗證
 ├── config/                     # 配置檔案
+│   ├── site_templates.yaml     # ✅ Parser 案場範本
 │   └── features/               # ✅ Feature Annotation 配置
 │       ├── schema.json         # ✅ JSON Schema v1.3
 │       ├── physical_types.yaml # ✅ 18+ 物理類型
 │       ├── equipment_taxonomy.yaml  # ✅ 設備分類法
 │       └── sites/              # ✅ 案場標註
 ├── tools/                      # 工具鏈
+│   ├── demo/                   # ✅ Sprint 1 & 2 展示 / 互動測試UI
+│   │   ├── tester.html         # ✅ ETL 測試網頁介面
+│   │   └── test_server.py      # ✅ ETL 測試後端 API
 │   └── features/               # ✅ Feature Annotation 工具
 │       ├── wizard.py           # ✅ Wizard CLI
 │       └── excel_to_yaml.py    # ✅ 轉換器
@@ -81,10 +87,12 @@ HVAC_Analytics/
 │   ├── test_cleaner_simple.py  # ✅ 12 項測試
 │   ├── test_cleaner_v22.py     # ✅ 10 項測試
 │   ├── test_cleaner_equipment_validation.py  # ✅ 14 項測試
+│   ├── test_batch_processor_v13.py # ✅ 32 項測試
 │   └── features/               # ✅ Feature Annotation 測試
 │       └── test_annotation_manager.py    # ✅ 18 項測試
 ├── docs/                       # 專案文檔
 │   ├── 專案任務排程/           # 任務排程與執行摘要
+│   ├── 測試工具說明/           # ✅ 互動測試工具說明
 │   ├── Interface Contract/     # Interface Contract v1.1
 │   ├── System Integration/     # System Integration v1.2
 │   └── Feature Annotation Specification/  # Feature Annotation v1.3
