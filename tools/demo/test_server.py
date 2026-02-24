@@ -157,10 +157,6 @@ async def run_pipeline(
     if not csv_paths:
         raise HTTPException(status_code=400, detail="找不到有效的 CSV 檔案")
     
-    # 使用第一個檔案作為主要輸入（未來可擴展為合併多檔案）
-    csv_path = csv_paths[0]
-    logger.info(f"[Pipeline] 使用主要檔案: {csv_path}")
-    
     try:
         # 1. 系統初始化
         logger.info("[Pipeline] 重置 PipelineContext...")
@@ -183,10 +179,17 @@ async def run_pipeline(
             
         bp = BatchProcessor(site_id=site_id, output_dir=str(output_dir), pipeline_context=context)
 
-        # 2. 執行處理
-        logger.info(f"[Pipeline] 開始 Parser 處理: {csv_path}")
-        df_parsed = parser.parse_file(str(csv_path))
-        logger.info(f"[Pipeline] Parser 完成: {len(df_parsed)} 行, {len(df_parsed.columns)} 欄位")
+        # 2. 執行處理 (合併多個檔案)
+        logger.info(f"[Pipeline] 開始 Parser 處理 (共 {len(csv_paths)} 個檔案)...")
+        df_parsed_list = []
+        for path in csv_paths:
+            logger.info(f"  - 處理檔案: {path.name}")
+            df_p = parser.parse_file(str(path))
+            df_parsed_list.append(df_p)
+            
+        # 使用 diagonal 合併以防止欄位不完全一致時拋出異常
+        df_parsed = pl.concat(df_parsed_list, how="diagonal")
+        logger.info(f"[Pipeline] Parser 完成: 合併後共 {len(df_parsed)} 行, {len(df_parsed.columns)} 欄位")
         
         logger.info("[Pipeline] 開始 Cleaner 處理...")
         # 修復: clean() 返回 tuple (df, metadata, audit)，需要解包
@@ -194,12 +197,13 @@ async def run_pipeline(
         logger.info(f"[Pipeline] Cleaner 完成: {len(df_cleaned)} 行")
         
         logger.info("[Pipeline] 開始 BatchProcessor 處理...")
+        source_name = f"multiple_files_({len(csv_paths)})" if len(csv_paths) > 1 else str(csv_paths[0].name)
         # 修復: BatchProcessor 使用 process_dataframe() 方法
         result = bp.process_dataframe(
             df_cleaned, 
             column_metadata=column_metadata,
             equipment_validation_audit=equipment_audit,
-            source_file=str(csv_path)
+            source_file=source_name
         )
         if result.status == "success":
             df_processed = df_cleaned  # 成功時使用清洗後的資料
