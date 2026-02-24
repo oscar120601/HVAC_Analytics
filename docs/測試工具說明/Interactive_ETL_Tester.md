@@ -119,6 +119,16 @@ tests/fixtures/
 > **紀錄規範 (Skill 套用: `changelog-writer` & `documentation-templates`)**
 > 未來若針對此測試工具有任何修改（包含 UI 更動、後端 API 更新、或發生 Bug修復），請依照 [Semantic Versioning](https://semver.org/) 手動或透過 AI 紀錄於此處。
 
+### [v1.3.1] - 2026-02-24
+#### 新增 (Added)
+- **非同步任務與進度輪詢**: 
+  - `test_server.py` 將 Pipeline 執行改為背景任務 (`BackgroundTasks`)，避免一次處理大量檔案 (如 200+ 個 CSV) 時造成 HTTP 連線 Timeout (AbortError)。
+  - 新增 `/api/job-status/{job_id}` 端點供前端輪詢背景任務狀況。
+  - `tester.html` 加入即時進度狀態顯示，可清晰看到如「正在解析檔案 (10/214)」、「執行 Clean...」等步驟回饋。
+
+#### 修復 (Fixed)
+- **多檔案處理遺漏**: 修復先前雖然可選取多個檔案，但後端只有針對 `csv_paths[0]` 進行執行的問題。現在會透過 `pl.concat(..., how="diagonal")` 自動合併所有上傳的資料。
+
 ### [v1.3.0] - 2026-02-24
 #### 新增 (Added)
 - **階段性診斷工具**: 在 Step 3 與 Step 4 之間新增 **DIAGNOSTIC** 卡片，提供四個獨立診斷端點：
@@ -216,4 +226,4 @@ tests/fixtures/
 
 #### 已知問題 (Known Issues)
 - **錯誤碼測試路由限制**: 目前 `POST /api/test-error` 端點僅模擬錯誤回應，若要完整驗證 E000 (Cleaner & BatchProcessor 前置條件失敗)、E406 (ConfigLoader 同步檢查)、E500 (輸入契約防護) 的實際觸發情境，仍需直接執行單元測試 `pytest tests/ -v`。
-- 網頁端在處理超過 500MB 以上超大 CSV 時，可能發生 timeout 斷線，未來可考慮進一步增強非同步進度條回報功能。
+- ~~網頁端在處理超過 500MB 以上超大 CSV 時，可能發生 timeout 斷線，未來可考慮進一步增強非同步進度條回報功能。~~ *(已於 v1.3.1 透過 BackgroundTasks 與前端輪詢實作解決)*
