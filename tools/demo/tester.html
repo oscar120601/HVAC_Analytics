@@ -323,6 +323,12 @@
                     Step 3 執行失敗。使用以下按鈕逐步測試每個階段,找出問題所在:
                 </p>
 
+                <div style="margin-bottom: 15px;">
+                    <label style="color: var(--text-dim); font-size: 0.85rem;">欲診斷的檔案 (當選取多檔時):</label>
+                    <select id="diagFileSelect" style="display: block; width: 100%; max-width: 400px; padding: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,107,107,0.3); color: var(--text); border-radius: 4px; margin-top: 5px;">
+                    </select>
+                </div>
+
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                     <button onclick="runDiagnosticFromStep3('parser')" id="btnDiagStep3Parser"
                         style="padding: 6px 12px; font-size: 0.85rem; background: rgba(255,107,107,0.15); border-color: #ff6b6b; color: #ff8fa3;">
@@ -775,6 +781,25 @@
                 errorBox.style.display = 'block';
                 document.getElementById('pipelineResult').style.display = 'none';
 
+                // 準備診斷工具的檔案選單
+                const diagFileSelect = document.getElementById('diagFileSelect');
+                if (diagFileSelect && selectedFiles.length > 0) {
+                    diagFileSelect.innerHTML = '';
+                    selectedFiles.forEach((f, idx) => {
+                        const opt = document.createElement('option');
+                        opt.value = idx;
+                        opt.textContent = f.name;
+                        diagFileSelect.appendChild(opt);
+                    });
+                     // 根據 errorMsg 自動選取有問題的檔案
+                    for (let i = 0; i < selectedFiles.length; i++) {
+                        if (errorMsg.includes(selectedFiles[i].name)) {
+                            diagFileSelect.value = i;
+                            break;
+                        }
+                    }
+                }
+
                 // 顯示診斷工具區塊
                 document.getElementById('diagnosticSection').style.display = 'block';
             } finally {
@@ -935,8 +960,12 @@
             const formData = new FormData();
             formData.append("site_id", siteId);
             formData.append("resample_interval", document.getElementById('resampleInterval').value);
-            // 使用 Step 3 選擇的第一個檔案
-            formData.append("file", selectedFiles[0]);
+            
+            // 取得使用者從選單選取的檔案
+            const fileMenu = document.getElementById("diagFileSelect");
+            const fileIndex = fileMenu ? fileMenu.value : 0;
+            const targetFile = selectedFiles[fileIndex] || selectedFiles[0];
+            formData.append("file", targetFile);
 
             const stageNames = {
                 'parser': 'Parser 解析',
