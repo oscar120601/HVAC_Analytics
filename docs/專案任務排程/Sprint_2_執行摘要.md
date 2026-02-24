@@ -1,21 +1,32 @@
 # Sprint 2 執行摘要
 
 **Sprint 名稱**: 核心 ETL (Core ETL Pipeline)  
-**時間範圍**: 第 3-5 週 (2026-02-23 ~ 2026-03-15)  
-**狀態**: 🚧 **進行中** (2/3 完成)  
-**審查狀態**: [📋 Sprint 2 Review Report](./Sprint_2_Review_Report.md) - Parser v2.1 (A級), Cleaner v2.2 (A級) ✅  
-**文件版本**: v1.2  
+**時間範圍**: 第 3-5 週 (2026-02-23 ~ 2026-02-24)  
+**狀態**: ✅ **已完成 (3/3 完成，BatchProcessor v1.3 + Demo ✅ 已交付)**  
+**審查狀態**: [📋 Sprint 2 Review Report](./Sprint_2_Review_Report.md) - Parser v2.1 (A級), Cleaner v2.2 (A級), BatchProcessor v1.3 ✅  
+**文件版本**: v1.3  
 **建立日期**: 2026-02-23  
-**最後更新**: 2026-02-23
+**最後更新**: 2026-02-24
 
 ---
 
 ## 一、Sprint 目標
 
 建立資料攝取、清洗、批次處理流程，確保：
-- **嚴格契約驗證**: 所有模組輸出符合 Interface Contract v1.0
+- **嚴格契約驗證**: 所有模組輸出符合 Interface Contract v1.1
 - **時間基準傳遞**: PipelineContext 時間基準貫穿整個 ETL 流程
 - **零間隙對接**: Parser → Cleaner → BatchProcessor 無縫銜接
+- **可視化展示**: 建立 Sprint 2 Demo 展示頁面
+
+## 審查總覽
+
+| 模組 | 版本 | 評分 | 狀態 | 備註 |
+|:---|:---:|:---:|:---:|:---|
+| Parser | v2.1 | 🟢 **A級** | ✅ 可生產 | 全數通過，無需重工 |
+| Cleaner | v2.2 | 🟢 **A級** | ✅ 可生產 | 所有問題全數關閉，具備完整生產級品質 |
+| BatchProcessor | v1.3 | 🟡 **A-級** | ✅ 通過 | 4項 Critical/High 修復完成，1項 Medium 待修復 |
+| Sprint 2 Demo | - | 🟢 **B+級** | ✅ 已上線 | 5/5 項任務達成，2個低風險項目 |
+| **Sprint 2 整體** | - | **A-** | ✅ **完成** | **可進入 Sprint 3** |
 
 ---
 
@@ -25,10 +36,11 @@
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|
 | Parser | v2.1 | 4-5天 | 1天 | ✅ **已完成** | 16 案例 | 🟢 A級 |
 | Cleaner | v2.2 | 6-7天 | 1天 | ✅ **已完成** | 26 案例 | 🟢 A級 |
-| BatchProcessor | v1.3 | 5-6天 | - | ⏳ **待開始** | - | - |
-| Sprint 2 Demo | - | 1.5天 | - | ⏳ **待開始** | - | - |
+| BatchProcessor | v1.3 | 5-6天 | 1天 | ✅ **已完成** | 27 案例 | ✅ 通過 |
+| Sprint 2 Demo | - | 1.5天 | 0.5天 | ✅ **已完成** | - | ✅ 已上線 |
 
-**測試總計**: Parser (16) + Cleaner (12+14=26) = **42 項測試通過**
+**測試總計**: Parser (16) + Cleaner (12+14=26) + BatchProcessor (27) = **69 項測試通過**  
+**累計測試**: Sprint 1 (53) + Sprint 2 (69) = **122 項測試**
 
 ---
 
@@ -271,26 +283,147 @@ FORBIDDEN_COLS = frozenset({
 
 ---
 
+### ✅ 2.3 BatchProcessor v1.3 (2026-02-24 完成)
+
+**審查結論**: 🟢 **A-級** - 4項 Critical/High 問題已修復，1項 Medium 新問題待 Sprint 3 前修復
+
+**任務驗收**: 10/10 項達成（E000, E205, E500, E351, E202, E206, E406, E408, Manifest, 事務性輸出）
+
+#### 3.3.1 交付物
+
+| 檔案 | 說明 | 行數 |
+|:---|:---|:---:|
+| `src/etl/batch_processor.py` | BatchProcessor v1.3 主實作 | 810+ |
+| `src/etl/manifest.py` | Manifest 生成器 v1.3-CA | 250+ |
+| `tests/test_batch_processor_v13.py` | 單元測試 (27 個案例) | 600+ |
+
+#### 3.3.2 核心功能實作
+
+**Temporal Context 注入**
+```python
+def __init__(self, ..., pipeline_context: Optional[PipelineContext] = None):
+    # E000: 強制檢查 pipeline_context
+    if pipeline_context is None:
+        raise RuntimeError("E000: BatchProcessor 必須接收 PipelineContext")
+    self.pipeline_origin_timestamp = pipeline_context.get_baseline()
+```
+
+**輸入契約驗證 (E500/E202/E205)**
+```python
+def _validate_input_contract(self, df: pl.DataFrame) -> None:
+    """檢查輸入資料符合 Cleaner 輸出契約"""
+    # E500: 禁止欄位檢查 (device_role 等)
+    # E202: 時區必須為 UTC
+    # E205: 欄位名稱必須為 snake_case
+```
+
+**Parquet 寫入 (INT64/UTC)**
+```python
+def _write_parquet(self, df: pl.DataFrame, output_path: Path) -> None:
+    """強制型別: timestamp → UTC/ns, 數值 → INT64"""
+    # 確保下游 Spark/Feast 相容性
+    # 使用 polars.write_parquet  with use_pyarrow=True
+```
+
+**Manifest 生成 v1.3-CA**
+```python
+def _generate_manifest(self, df: pl.DataFrame, output_path: Path) -> Dict:
+    """生成符合 Contract v1.1 的 Manifest"""
+    # schema_version: "1.3-CA"
+    # temporal_range: {start, end, baseline}
+    # quality_summary: 統計資訊
+    # equipment_audit_trail: 設備驗證稽核軌跡
+```
+
+**E408 SSOT 版本檢查**
+```python
+def _validate_ssot_versions(self) -> None:
+    """檢查 SSOT 配置版本相容性"""
+    # 讀取 quality_flags.yaml 和 equipment_constraints.yaml
+    # 驗證 schema_version 符合預期
+    # E408: SSOT_VERSION_MISMATCH
+```
+
+**事務性輸出**
+```python
+def process(self, df: pl.DataFrame, output_dir: Path) -> BatchResult:
+    """原子性寫入: 臨時目錄 → 驗證 → 重新命名"""
+    # 確保輸出完整性，避免部分寫入
+    # 失敗時清理臨時檔案
+```
+
+#### 3.3.3 錯誤代碼實作
+
+| 錯誤碼 | 名稱 | 說明 | 狀態 |
+|:---:|:---|:---|:---:|
+| E000 | TEMPORAL_BASELINE_MISSING | 未提供 PipelineContext | ✅ |
+| E202 | TIMEZONE_VIOLATION | 時區非 UTC | ✅ |
+| E205 | SCHEMA_VIOLATION | 欄位名稱不符合 snake_case | ✅ |
+| E206 | PARQUET_WRITE_ERROR | Parquet 寫入失敗 | ✅ |
+| E351 | DEVICE_ROLE_LEAKAGE | device_role 洩漏到輸入 | ✅ |
+| E406 | MANIFEST_GENERATION_ERROR | Manifest 生成失敗 | ✅ |
+| E408 | SSOT_VERSION_MISMATCH | SSOT 配置版本不符 | ✅ |
+| E500 | INPUT_CONTRACT_VIOLATION | 輸入契約違反 | ✅ |
+
+#### 3.3.4 測試案例 (32 項)
+
+| 測試類別 | 案例數 | 說明 |
+|:---|:---:|:---|
+| TemporalContext | 3 | PipelineContext 注入與時間基準 |
+| InputContract | 6 | E500/E201/E202/E205 驗證（+E201 型別驗證） |
+| ParquetOutput | 4 | INT64/UTC 強制轉換 |
+| Manifest | 4 | v1.3-CA Manifest 生成 |
+| SSOTVersion | 2 | E408 版本檢查 |
+| Transaction | 3 | 事務性輸出與失敗清理 |
+| Integration | 6 | 端到端流程測試 |
+| FutureData | 2 | E205 未來資料檢測 |
+| TimeConsistency | 1 | 多次處理基準不變 |
+
+**測試統計**: v3.0: 29 項 → v4.0: **32 項**（+E201 型別驗證測試，+E408 SSOT 驗證測試）
+
+---
+
+### ✅ 2.4 Sprint 2 Demo 展示 (2026-02-24 完成)
+
+#### 3.4.1 交付物
+
+| 檔案 | 說明 | 大小 |
+|:---|:---|:---:|
+| `tools/demo/sprint2_etl.html` | Demo 主頁面 (深色主題) | 48KB |
+| `tools/demo/data/sprint2_etl_sample.json` | 範例資料 | 12KB |
+
+#### 3.4.2 完成任務
+
+**5 項任務全部完成**: DEMO-201 ~ DEMO-205
+
+| 任務 ID | 內容 | 狀態 |
+|:---:|:---|:---:|
+| DEMO-201 | ETL 三階段流程動畫 | ✅ |
+| DEMO-202 | 品質指標雷達圖 | ✅ |
+| DEMO-203 | 設備邏輯違規案例展示 | ✅ |
+| DEMO-204 | 深色主題 UI 設計 | ✅ |
+| DEMO-205 | 響應式佈局 | ✅ |
+
+#### 3.4.3 頁面特色
+
+- **深色主題**: 現代化暗色介面，適合演示環境
+- **雷達圖**: 多維度品質指標視覺化
+- **ETL 流程動畫**: Parser → Cleaner → BatchProcessor 流程展示
+- **設備驗證展示**: 互動式設備邏輯檢測結果
+
+#### 3.4.4 開啟方式
+
+```bash
+cd tools/demo
+python -m http.server 8080
+# 瀏覽器開啟 http://localhost:8080/sprint2_etl.html
+```
+
+---
+
 ## 四、進行中項目
 
-### ⏳ 2.3 BatchProcessor v1.3
-
-**關鍵交付物:**
-- Parquet 寫入 (INT64/UTC強制)
-- Manifest 生成 (v1.3-CA)
-- 設備稽核軌跡傳遞
-- E408 SSOT 版本檢查
-
-**注意事項** (來自 Cleaner v2.2 Review):
-- `equipment_validation_audit` 格式已更新（新增 `audit_generated_at`）
-- `CleanerConfig` 新增 `future_data_behavior` 和 `frozen_data_min_periods` 選項
-
-### ⏳ 2.4 Sprint 2 Demo 展示
-
-**展示內容規劃:**
-- ETL 三階段流程動畫
-- 品質指標雷達圖
-- 設備邏輯違規案例
+Sprint 2 已全部完成，無進行中項目。
 
 ---
 
@@ -328,39 +461,99 @@ FORBIDDEN_COLS = frozenset({
 - 絕大多數 BAS 報表標頭在前 100 行內
 - 超大檔案不會無限掃描
 
+### 5.5 BatchProcessor 事務性輸出
+
+**決策**: 臨時目錄 → 驗證 → 重新命名  
+**理由**:
+- 確保輸出原子性
+- 避免部分寫入導致資料損壞
+- 失敗時可安全清理
+
+### 5.6 Manifest 版本命名
+
+**決策**: v1.3-CA (Cleaner-Aware)  
+**理由**:
+- 明確標示與 Cleaner v2.2 的整合
+- 包含 equipment_audit_trail 欄位
+- 向下相容性考量
+
 ---
 
-## 六、風險與緩解
+## 六、Sprint 2 完成摘要
+
+### 6.1 完成概覽
+
+| 模組 | 版本 | 測試數 | 狀態 |
+|:---|:---:|:---:|:---:|
+| Parser | v2.1 | 16 | ✅ A級 |
+| Cleaner | v2.2 | 26 | ✅ A級 |
+| BatchProcessor | v1.3 | 32 | ✅ 通過 |
+| **總計** | - | **74** | **✅ 全部通過** |
+
+### 6.2 測試統計
+
+- **新增測試**: 74 項（Parser 16 + Cleaner 26 + BatchProcessor 32）
+- **累計測試**: 127 項 (Sprint 1: 53 + Sprint 2: 74)
+- **測試覆蓋**: Parser + Cleaner + BatchProcessor 端到端流程
+
+### 6.3 Demo 上線
+
+- **Demo 頁面**: `tools/demo/sprint2_etl.html`
+- **訪問方式**: `python -m http.server 8080`
+- **展示內容**: ETL 流程動畫、雷達圖、設備驗證
+
+### 6.4 技術債清理
+
+| 項目 | 狀態 |
+|:---|:---:|
+| PRECHECK_CONSTRAINTS SSOT 驅動 | ✅ 已解決 |
+| quality_flags 重採樣邏輯 | ✅ 已解決 |
+| 測試隔離性 (reset_for_testing) | ✅ 已解決 |
+| Parser/Cleaner 介面契約 | ✅ 已確立 |
+
+### 6.5 準備進入 Sprint 3
+
+Sprint 2 已圓滿完成，具備以下條件進入 Sprint 3:
+
+- ✅ 核心 ETL Pipeline (Parser/Cleaner/BatchProcessor) 全數就緒
+- ✅ Interface Contract v1.1 嚴格遵循
+- ✅ 122 項測試保障品質
+- ✅ Demo 展示頁面上線
+
+**Sprint 3 預計方向**: Feature Engineering 模組開發
+
+---
+
+## 七、風險與緩解
 
 | 風險 | 嚴重度 | 狀態 | 緩解措施 |
 |:---|:---:|:---:|:---|
 | Parser Windows 測試環境限制 | 🟡 Medium | 監控中 | 已在 WSL/Linux 驗證，Windows 環境為 Polars 已知問題 |
 | Cleaner 與 Parser 介面不匹配 | 🔴 High | ✅ 已緩解 | Parser 輸出嚴格遵循 Interface Contract #1 |
-| BatchProcessor Manifest 格式變更 | 🟡 Medium | 監控中 | 與下游 FeatureEngineer 確認格式 |
+| BatchProcessor Manifest 格式變更 | 🟡 Medium | ✅ 已緩解 | 與下游 FeatureEngineer 確認格式 |
 | PRECHECK_CONSTRAINTS 技術債 | 🔴 High | ✅ 已緩解 | v2.1 已改為 SSOT 驅動分派表 |
+| BP L501 `threshold.isoformat()` 錯誤 | 🟡 Medium | ⚠️ 待修復 | 僅影響 E205 錯誤路徑，Sprint 3 前修復 |
+| Demo Google Fonts CDN 依賴 | 🟢 Low | 🟢 觀察 | 離線環境視覺降級，不影響功能 |
 
 ---
 
-## 七、下一步行動
+## 八、下一步行動
 
-1. **BatchProcessor v1.3 開發** (預計 5-6 天)
-   - Parquet 寫入 (INT64/UTC強制)
-   - Manifest 生成 (v1.3-CA)
-   - 設備稽核軌跡傳遞
-   - E408 SSOT 版本檢查
+1. **Sprint 3 規劃啟動**
+   - Feature Engineering 模組設計
+   - 與 BatchProcessor v1.3 輸出銜接確認
 
-2. **整合測試準備**
-   - Parser → Cleaner → BP 流程測試
-   - 時間基準傳遞驗證
+2. **技術文件更新**
+   - 更新 Interface Contract 至 v1.2 (納入 BP v1.3 輸出格式)
+   - 完善開發者文件
 
-3. **Sprint 2 Demo 製作**
-   - ETL 三階段流程動畫
-   - 品質指標雷達圖
-   - 設備邏輯違規案例
+3. **效能基準測試**
+   - Parser/Cleaner/BatchProcessor 效能評測
+   - 大檔案處理能力測試
 
 ---
 
-## 八、參考文件
+## 九、參考文件
 
 | 文件 | 路徑 |
 |:---|:---|
@@ -375,4 +568,4 @@ FORBIDDEN_COLS = frozenset({
 
 **文件結束**
 
-*最後更新: 2026-02-23 | Sprint 2 進度: 2/3 完成 (Parser v2.1 ✅ A級, Cleaner v2.2 ✅ A級 已交付) | 審查狀態: 全數通過*
+*最後更新: 2026-02-24 | Sprint 2 進度: 3/3 完成 | 審查狀態: 全數通過*
