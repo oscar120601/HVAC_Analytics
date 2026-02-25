@@ -17,6 +17,8 @@
             --cyan: #00d4ff;
             --green: #06d6a0;
             --yellow: #ffd166;
+            --orange: #ff6b35;
+            --red: #ef476f;
             --purple: #a78bfa;
             --text: #e2eeff;
             --text-dim: #7a92b8;
@@ -282,7 +284,37 @@
 
         <!-- Step 1 -->
         <div class="step-card">
-            <div class="step-badge">STEP 1 (Sprint 1)</div>
+            <div class="step-badge">STEP 1 (Parser v2.2)</div>
+            <h3>選擇 Parser 並預覽解析結果</h3>
+            <p style="font-size: 0.9rem; color: var(--text-dim);">
+                上傳 CSV 並選擇解析策略（Auto / Generic / Siemens Scheduler），先確認欄位與點位映射，再進入 Excel 標註流程。
+            </p>
+
+            <label>案場名稱 (Site ID):</label>
+            <input type="text" id="siteId0" value="demo_site">
+
+            <label>選擇 Parser 類型:</label>
+            <select id="parserTypeSelect"
+                style="display: block; margin-bottom: 10px; color: var(--text-dim); padding: 8px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-radius: 4px; width: 100%; max-width: 400px;">
+                <option value="auto">Auto Detect</option>
+            </select>
+
+            <input type="file" id="previewCsvFile" accept=".csv">
+
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button onclick="loadParserStrategies()" id="btnLoadStrategies">🔄 載入 Parser 類型</button>
+                <button onclick="previewParser()" id="btnPreviewParser">🔍 預覽解析結果</button>
+            </div>
+            <div id="loader0" style="display:none; margin-top:10px; color: var(--yellow);">⏳ 解析預覽中...</div>
+            <div id="parserHint" style="margin-top: 10px; color: var(--text-dim); font-size: 0.9rem;">
+                尚未執行預覽，Step 4 會預設使用 Auto Detect。
+            </div>
+            <pre id="msg0" class="result-box" style="display:none;"></pre>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="step-card">
+            <div class="step-badge">STEP 2 (Sprint 1)</div>
             <h3>自動生成 Excel 標註範本</h3>
             <p style="font-size: 0.9rem; color: var(--text-dim);">上傳一份含有原始資料的 CSV，Wizard 將分析標頭並產生對應案場的空白標註 Excel 供您填寫。
             </p>
@@ -296,9 +328,9 @@
             <div id="msg1" style="margin-top:10px; font-size:0.9rem;"></div>
         </div>
 
-        <!-- Step 2 -->
+        <!-- Step 3 -->
         <div class="step-card">
-            <div class="step-badge">STEP 2 (Sprint 1)</div>
+            <div class="step-badge">STEP 3 (Sprint 1)</div>
             <h3>轉換 Excel 為 YAML SSOT (ConfigLoader)</h3>
             <p style="font-size: 0.9rem; color: var(--text-dim);">將您剛才填寫好（或我們預先準備好的）Excel 標註檔上傳，系統會驗證邏輯並轉換成 `.yaml` 放入
                 config/ 中。</p>
@@ -312,12 +344,17 @@
             <pre id="msg2" class="result-box" style="display:none;"></pre>
         </div>
 
-        <!-- Step 3 -->
+        <!-- Step 4 -->
         <div class="step-card">
-            <div class="step-badge">STEP 3 (Sprint 2)</div>
+            <div class="step-badge">STEP 4 (Sprint 2)</div>
             <h3>執行完整 ETL Pipeline (Parser -> Cleaner -> BatchProcessor)</h3>
             <p style="font-size: 0.9rem; color: var(--text-dim);">重新上傳 CSV，開始進行編碼自動偵測、時區校正、語意清洗，最終輸出 BatchProcessor
                 Manifest。<br><strong>前置條件：</strong>請確定 STEP 2 已經成功產生該案場名稱的 YAML。</p>
+
+            <div id="pipelineParserHint"
+                style="margin: 10px 0 12px 0; color: var(--cyan); font-size: 0.9rem; background: rgba(0, 212, 255, 0.08); border: 1px solid rgba(0, 212, 255, 0.25); border-radius: 6px; padding: 8px 10px;">
+                Parser 一致性：目前使用 <strong>Auto Detect</strong>。
+            </div>
 
             <label>案場名稱 (Site ID):</label>
             <input type="text" id="siteId3" value="demo_site">
@@ -361,12 +398,12 @@
                 </div>
             </div>
 
-            <!-- 診斷工具區塊 (預設隱藏, Step 3 失敗時顯示) -->
+            <!-- 診斷工具區塊 (預設隱藏, Step 4 失敗時顯示) -->
             <div id="diagnosticSection"
                 style="display:none; margin-top: 20px; padding: 15px; background: linear-gradient(135deg, rgba(26,26,46,0.8), rgba(22,33,62,0.8)); border: 1px solid #ff6b6b; border-radius: 8px;">
                 <h4 style="color: #ff6b6b; margin-top: 0;">🔧 診斷工具 - 快速定位問題</h4>
                 <p style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 10px;">
-                    Step 3 執行失敗。使用以下按鈕逐步測試每個階段,找出問題所在:
+                    Step 4 執行失敗。使用以下按鈕逐步測試每個階段,找出問題所在:
                 </p>
 
                 <div style="margin-bottom: 15px;">
@@ -434,9 +471,9 @@
             </div>
         </div>
 
-        <!-- Step 4 (Sprint 3 預留) -->
+        <!-- Step 5 (Sprint 3 預留) -->
         <div class="step-card" id="step4Card" style="display: none; border-color: var(--purple);">
-            <div class="step-badge" style="background: var(--purple);">STEP 4 (Sprint 3)</div>
+            <div class="step-badge" style="background: var(--purple);">STEP 5 (Sprint 3)</div>
             <h3>執行特徵工程 (Feature Engineer v1.3)</h3>
             <p style="font-size: 0.9rem; color: var(--text-dim);">此為 Sprint 3 的預留擴充點。將讀取 BatchProcessor 輸出的資料進行
                 Lag/Rolling 回溯與特徵轉換。</p>
@@ -445,9 +482,9 @@
             <pre id="msg4" class="result-box" style="display:none;"></pre>
         </div>
 
-        <!-- Step 5 (Sprint 4 預留) -->
+        <!-- Step 6 (Sprint 4 預留) -->
         <div class="step-card" id="step5Card" style="display: none; border-color: var(--yellow);">
-            <div class="step-badge" style="background: var(--yellow); color: var(--bg-deep);">STEP 5 (Sprint 4)</div>
+            <div class="step-badge" style="background: var(--yellow); color: var(--bg-deep);">STEP 6 (Sprint 4)</div>
             <h3>執行最佳化引擎 (Optimization Engine)</h3>
             <p style="font-size: 0.9rem; color: var(--text-dim);">計算冷水機組最佳效率配置，並驗證 E901-E904 特徵與限制條件對齊。</p>
             <button onclick="runOptimization()" id="btnStep5"
@@ -456,9 +493,9 @@
             <pre id="msg5" class="result-box" style="display:none;"></pre>
         </div>
 
-        <!-- Step 6 (Sprint 5 預留) -->
+        <!-- Step 7 (Sprint 5 預留) -->
         <div class="step-card" id="step6Card" style="display: none; border-color: var(--green);">
-            <div class="step-badge" style="background: var(--green); color: var(--bg-deep);">STEP 6 (Sprint 5)</div>
+            <div class="step-badge" style="background: var(--green); color: var(--bg-deep);">STEP 7 (Sprint 5)</div>
             <h3>系統端到端整合 (End-to-End Integration)</h3>
             <p style="font-size: 0.9rem; color: var(--text-dim);">執行完整的 Pipeline 與長時間運行基準測試。</p>
             <button onclick="runIntegration()" id="btnStep6" style="border-color: var(--green); color: var(--green);">🎯
@@ -470,6 +507,36 @@
 
     <script>
         let myChart = null;
+        let selectedParserType = 'auto';
+        let resolvedParserType = 'auto';
+
+        function parserDisplayName(parserType) {
+            const names = {
+                auto: 'Auto Detect',
+                generic: 'Generic CSV',
+                siemens_scheduler: 'Siemens Scheduler Report'
+            };
+            return names[parserType] || parserType;
+        }
+
+        function syncSiteIds(siteId) {
+            const ids = ['siteId0', 'siteId1', 'siteId2', 'siteId3'];
+            ids.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.value = siteId;
+                }
+            });
+        }
+
+        function updatePipelineParserHint() {
+            const parserHint = document.getElementById('parserHint');
+            const pipelineHint = document.getElementById('pipelineParserHint');
+            const requested = parserDisplayName(selectedParserType);
+            const resolved = parserDisplayName(resolvedParserType);
+            parserHint.textContent = `已選擇 Parser: ${requested}，最近預覽解析結果: ${resolved}`;
+            pipelineHint.innerHTML = `Parser 一致性：Step 4 將使用 <strong>${requested}</strong>（最近預覽解析結果: ${resolved}）。`;
+        }
 
         // 頁面載入時執行健康檢查
         async function checkHealth() {
@@ -500,8 +567,19 @@
             }
         }
 
-        // 頁面載入時執行健康檢查
-        document.addEventListener('DOMContentLoaded', checkHealth);
+        // 頁面載入初始化
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkHealth();
+            await loadParserStrategies();
+
+            const siteInput = document.getElementById('siteId0');
+            siteInput.addEventListener('input', (event) => {
+                const value = (event.target.value || '').trim();
+                if (value) {
+                    syncSiteIds(value);
+                }
+            });
+        });
 
         // 複製到剪貼簿功能
         async function copyToClipboard(elementId, btn) {
@@ -529,7 +607,7 @@
         // 下載 Parquet
         async function downloadParquet() {
             const siteId = document.getElementById('siteId3').value;
-            if (!siteId) return alert("請先填寫案場 ID (需先完成 Step 3)");
+            if (!siteId) return alert("請先填寫案場 ID (需先完成 Step 4)");
 
             try {
                 const response = await fetch(`http://localhost:8000/api/download-parquet/${siteId}`);
@@ -591,6 +669,119 @@
             }
         }
 
+        async function loadParserStrategies() {
+            const select = document.getElementById('parserTypeSelect');
+            const button = document.getElementById('btnLoadStrategies');
+            button.disabled = true;
+
+            try {
+                const response = await fetch("http://localhost:8000/api/v1/parser/strategies");
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.detail || "載入 Parser 類型失敗");
+                }
+
+                select.innerHTML = '';
+                data.forEach(strategy => {
+                    const option = document.createElement('option');
+                    option.value = strategy.id;
+                    option.textContent = `${strategy.name} (${strategy.id})`;
+                    select.appendChild(option);
+                });
+
+                if (!Array.from(select.options).some(opt => opt.value === selectedParserType)) {
+                    selectedParserType = 'auto';
+                }
+                select.value = selectedParserType;
+                updatePipelineParserHint();
+            } catch (error) {
+                const msg = document.getElementById('msg0');
+                msg.style.display = 'block';
+                msg.className = 'result-box error';
+                msg.textContent = "❌ 無法載入 Parser 類型: " + error.message;
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        async function previewParser() {
+            const fileInput = document.getElementById('previewCsvFile');
+            const parserSelect = document.getElementById('parserTypeSelect');
+            const siteId = document.getElementById('siteId0').value.trim();
+            const msg = document.getElementById('msg0');
+            const loader = document.getElementById('loader0');
+            const button = document.getElementById('btnPreviewParser');
+
+            if (!fileInput.files[0] || !siteId) {
+                alert("請填寫案場 ID 並上傳 CSV 檔案！");
+                return;
+            }
+
+            loader.style.display = 'block';
+            button.disabled = true;
+            msg.style.display = 'none';
+            msg.className = 'result-box';
+
+            const formData = new FormData();
+            formData.append("site_id", siteId);
+            formData.append("parser_type", parserSelect.value);
+            formData.append("file", fileInput.files[0]);
+
+            try {
+                const response = await fetch("http://localhost:8000/api/v1/pipeline/parse-preview", {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.detail || "解析預覽失敗");
+                }
+
+                selectedParserType = data.selected_parser_type || parserSelect.value;
+                resolvedParserType = data.resolved_parser_type || selectedParserType;
+                parserSelect.value = selectedParserType;
+                syncSiteIds(siteId);
+                updatePipelineParserHint();
+
+                const metadata = data.metadata || {};
+                const pointMapping = metadata.point_mapping || {};
+                const pointPreview = Object.entries(pointMapping).slice(0, 10).map(([k, v]) => {
+                    const source = v.name || '-';
+                    const normalized = v.normalized_name || '-';
+                    return `${k}: ${source} -> ${normalized}`;
+                });
+
+                const previewPayload = {
+                    parser: {
+                        selected: selectedParserType,
+                        resolved: resolvedParserType,
+                        resolved_name: data.resolved_parser_name || parserDisplayName(resolvedParserType)
+                    },
+                    summary: {
+                        row_count: metadata.row_count,
+                        column_count: metadata.column_count,
+                        timestamp_range: metadata.timestamp_range,
+                        encoding: metadata.encoding || metadata.detected_encoding,
+                        header_line: metadata.header_line
+                    },
+                    columns: data.columns || [],
+                    point_mapping_preview: pointPreview,
+                    sample_rows: data.sample_rows || []
+                };
+
+                msg.style.display = 'block';
+                msg.className = 'result-box success';
+                msg.textContent = JSON.stringify(previewPayload, null, 2);
+            } catch (error) {
+                msg.style.display = 'block';
+                msg.className = 'result-box error';
+                msg.textContent = "❌ 解析預覽失敗: " + error.message;
+            } finally {
+                loader.style.display = 'none';
+                button.disabled = false;
+            }
+        }
+
         async function generateTemplate() {
             const fileInput = document.getElementById('rawCsvFile');
             const siteId = document.getElementById('siteId1').value;
@@ -605,6 +796,7 @@
 
             const formData = new FormData();
             formData.append("site_id", siteId);
+            formData.append("parser_type", selectedParserType);
             formData.append("file", fileInput.files[0]);
 
             try {
@@ -627,8 +819,7 @@
                 msg.textContent = "✅ Excel 範本產生成功，已自動下載";
                 msg.classList.add("success");
 
-                // Auto fill step 2
-                document.getElementById('siteId2').value = siteId;
+                syncSiteIds(siteId);
             } catch (error) {
                 msg.textContent = "❌ 發生錯誤: " + error.message;
                 msg.classList.add("error");
@@ -664,7 +855,7 @@
                 msg.style.display = 'block';
                 if (data.status === 'success') {
                     msg.classList.add("success");
-                    document.getElementById('siteId3').value = siteId;
+                    syncSiteIds(siteId);
                 } else {
                     msg.classList.add("error");
                 }
@@ -767,6 +958,7 @@
 
             const formData = new FormData();
             formData.append("site_id", siteId);
+            formData.append("parser_type", selectedParserType);
             formData.append("resample_interval", document.getElementById('resampleInterval').value);
             // 支援多檔案上傳
             selectedFiles.forEach((file, index) => {
@@ -840,12 +1032,19 @@
                     }
 
                     renderPipelineLive(latestJob);
+                    if (pipelineData && pipelineData.processing_summary) {
+                        const detected = pipelineData.processing_summary.parser_types_detected || [];
+                        if (detected.length > 0) {
+                            resolvedParserType = detected[0];
+                            updatePipelineParserHint();
+                        }
+                    }
 
                     // 隱藏錯誤訊息和診斷區塊
                     document.getElementById('errorOutput').style.display = 'none';
                     document.getElementById('diagnosticSection').style.display = 'none';
 
-                    // 檢查是否可以開啟 Step 4
+                    // 檢查是否可以開啟 Step 5
                     if (pipelineData.feature_engineer_input_ready) {
                         document.getElementById('step4Card').style.display = 'block';
                     }
@@ -1030,7 +1229,7 @@
         }
 
         // ====================================================================
-        // 階段性診斷功能 (整合至 Step 3)
+        // 階段性診斷功能 (整合至 Step 4)
         // ====================================================================
         async function runDiagnosticFromStep3(stage) {
             const siteId = document.getElementById('siteId3').value;
@@ -1051,6 +1250,7 @@
 
             const formData = new FormData();
             formData.append("site_id", siteId);
+            formData.append("parser_type", selectedParserType);
             formData.append("resample_interval", document.getElementById('resampleInterval').value);
             
             // 取得使用者從選單選取的檔案
@@ -1148,6 +1348,7 @@
 
             const formData = new FormData();
             formData.append("site_id", siteId);
+            formData.append("parser_type", selectedParserType);
             formData.append("file", fileInput.files[0]);
 
             const stageNames = {

@@ -20,7 +20,7 @@
 | **格式支援** | 通用 Date/Time 合併 | **Siemens Scheduler Report 專屬解析** | 🔴 Critical |
 | **點位映射** | 無 | **動態 Point-to-Name 映射表** | 🔴 Critical |
 | **配置方式** | site_id 字串 | **parser_type + site_config 雙層配置** | 🟡 Medium |
-| **向下相容** | 直接繼承 | **LegacyReportParser 保留 v2.1 行為** | 🟢 Low |
+| **向下相容** | `src/etl/parser.py` + `ReportParser` 既有入口 | **保留相容層（Facade/Shim）並委派至 GenericParser** | 🔴 Critical |
 
 ### 1.2 核心設計原則
 
@@ -28,6 +28,16 @@
 2. **契約優先 (Contract-First)**: 所有 Parser 輸出必須通過 Interface Contract v1.1 檢查點 #1
 3. **單一職責 (SRP)**: 每個 Parser Strategy 只負責一種 CSV 格式
 4. **零間隙對接**: 確保與 Cleaner v2.2 / Feature Annotation v1.3 的記憶體銜接無需額外轉換
+
+### 1.3 遷移與相容策略（必須）
+
+1. **保留舊入口**: `src/etl/parser.py` 與 `ReportParser` 在 v2.2 過渡期仍可 import，內部委派至 `src/etl/parser/generic_parser.py`。
+2. **雙軌相容期**: 新程式碼使用 `ParserFactory`；舊程式碼無痛沿用 `ReportParser`，避免一次性切換造成 Container/測試失效。
+3. **移除時機**: 僅在以下條件皆成立後，才可移除相容層：
+   - `src/container.py` 不再 import `ReportParser`
+   - `tests/test_parser_v21.py` 與整合測試全數改用新入口
+   - `MIGRATION_v2.1_to_v2.2.md` 所列檢核清單完成
+4. **回滾策略**: 若 v2.2 上線後發生 Critical 回歸，允許以 `parser_type=generic` 與 `ReportParser` 相容層回退。
 
 ---
 
@@ -124,12 +134,14 @@ Line 12:  "2016/10/10","00:00:00","4583","10725945",...  (資料開始)
 PARSER_STRATEGIES = {
     "generic": GenericParser,           # v2.1 相容的通用解析器
     "siemens_scheduler": SiemensSchedulerReportParser,  # Siemens 排程報表
-    "auto": AutoDetectParser,           # 自動偵測並選擇最適策略
 }
 
 # 使用方式
 parser = ParserFactory.create_parser("siemens_scheduler", site_config)
 df = parser.parse_file("data.csv")
+
+# 自動偵測由工廠方法提供（不是策略類別）
+parser = ParserFactory.auto_detect(file_path, site_config)
 ```
 
 ---
@@ -165,7 +177,8 @@ import polars as pl
 import logging
 
 from src.etl.config_models import VALID_QUALITY_FLAGS_SET
-from src.exceptions import ContractViolationError
+from src.context import PipelineContext
+from src.exceptions import ContractViolationError, EncodingError, TimezoneError
 
 
 class BaseParser(ABC):
@@ -183,7 +196,11 @@ class BaseParser(ABC):
         self._metadata: Dict[str, Any] = {}
     
     @abstractmethod
-    def parse_file(self, file_path: Path) -> pl.DataFrame:
+    def parse_file(
+        self,
+        file_path: Path,
+        temporal_context: Optional[PipelineContext] = None,
+    ) -> pl.DataFrame:
         """
         解析 CSV 檔案
         
@@ -192,6 +209,7 @@ class BaseParser(ABC):
             
         Returns:
             Polars DataFrame，必須包含 'timestamp' 欄位 (UTC, ns)
+            並在 metadata 記錄 pipeline_origin_timestamp（檢查點 #1）
             
         Raises:
             各種 ContractViolationError 子類別
@@ -209,6 +227,7 @@ class BaseParser(ABC):
             - header_line: 表頭行號
             - point_mapping: 點位對應表 (如果適用)
             - column_count: 欄位數量
+            - pipeline_origin_timestamp: 時間基準（ISO 8601 UTC）
         """
         pass
     
@@ -245,6 +264,16 @@ class BaseParser(ABC):
             if df[col].dtype == pl.Utf8:
                 if df[col].str.contains("\ufeff").any():
                     errors.append(f"E101: 欄位 '{col}' 包含 UTF-8 BOM 殘留")
+
+        # 4. quality_flags 合規檢查（若欄位存在）
+        if "quality_flags" in df.columns:
+            invalid = (
+                df.explode("quality_flags")
+                .filter(pl.col("quality_flags").is_not_null())
+                .filter(~pl.col("quality_flags").is_in(list(VALID_QUALITY_FLAGS_SET)))
+            )
+            if invalid.height > 0:
+                errors.append("E103: quality_flags 含未定義值，與 SSOT 不一致")
         
         if errors:
             raise ContractViolationError(
@@ -306,6 +335,7 @@ class BaseParser(ABC):
 - [ ] validate_output() 正確檢查 E101, E102, E103
 - [ ] _detect_encoding() 支援 UTF-8/BOM/Big5/UTF-16
 - [ ] _standardize_timezone() 輸出正確的 UTC/ns Datetime
+- [ ] get_metadata() 必須包含 `pipeline_origin_timestamp`
 
 ---
 
@@ -953,7 +983,7 @@ df = parser.parse_file("data.csv")
 | **E102** | `TIMEZONE_VIOLATION` | 時區轉換 | 輸出時間戳時區非 UTC |
 | **E103** | `CONTRACT_VIOLATION` | 輸出驗證 | 缺少必要欄位 (timestamp) |
 | **E104** | `HEADER_NOT_FOUND` | 表頭定位 | 無法定位資料表頭行 |
-| **E105** | `COLUMN_VALIDATION` | 欄位處理 | 欄位正規化後重複 |
+| **E105** | `HEADER_STANDARDIZATION_FAILED` | 欄位處理 | 欄位正規化失敗或正規化後重複 |
 | **E106** | `POINT_MAPPING_ERROR` | 點位映射 | 無法建立點位對應表 |
 | **E107** | `METADATA_INCOMPLETE` | 中繼資料 | 缺少必要中繼資料 (Date Range) |
 
@@ -965,6 +995,7 @@ df = parser.parse_file("data.csv")
 
 | 路徑 | 說明 |
 |:---|:---|
+| `src/etl/parser.py` | **相容層（Facade/Shim）**，維持 `ReportParser` 舊入口並委派到 v2.2 架構 |
 | `src/etl/parser/__init__.py` | 模組入口，Factory 與策略註冊 |
 | `src/etl/parser/base.py` | BaseParser 抽象類別 |
 | `src/etl/parser/exceptions.py` | Parser 專屬例外類別 |
@@ -1002,11 +1033,12 @@ df = parser.parse_file("data.csv")
 
 | 風險 | 嚴重度 | 可能性 | 緩解措施 |
 |:---|:---:|:---:|:---|
-| **向下相容性破壞** | 🔴 High | Medium | 保留 GenericParser，舊 site_id 預設使用 generic |
+| **向下相容性破壞** | 🔴 High | Medium | 保留 `src/etl/parser.py` 相容層與 `ReportParser`，分階段切換 |
 | **點位名稱衝突** | 🟡 Medium | Medium | 正規化後檢查重複，衝突時加入後綴 (_1, _2) |
 | **效能下降** | 🟡 Medium | Low | 點位定義快取，避免重複解析 |
 | **檔案格式變異** | 🟡 Medium | Medium | 提供彈性的正規表示式，記錄警告而非拋出錯誤 |
 | **與 Cleaner 整合失敗** | 🔴 High | Low | 嚴格遵循 Interface Contract，輸出驗證 |
+| **Temporal Baseline 遺失** | 🔴 High | Medium | parse_file 接收 temporal_context，metadata 強制帶 `pipeline_origin_timestamp` |
 
 ---
 

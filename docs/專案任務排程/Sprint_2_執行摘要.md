@@ -1,12 +1,12 @@
 # Sprint 2 執行摘要
 
 **Sprint 名稱**: 核心 ETL (Core ETL Pipeline)  
-**時間範圍**: 第 3-5 週 (2026-02-23 ~ 2026-02-24)  
-**狀態**: ✅ **已完成 (3/3 完成，BatchProcessor v1.3 + Demo ✅ 已交付)**  
-**審查狀態**: [📋 Sprint 2 Review Report](./Sprint_2_Review_Report.md) - Parser v2.1 (A級), Cleaner v2.2 (A級), BatchProcessor v1.3 ✅  
-**文件版本**: v1.3  
+**時間範圍**: 第 3-6 週 (2026-02-23 ~ 2026-02-25)  
+**狀態**: ✅ **已完成 (4/4 完成，含 Parser v2.2 模組化重構 + Demo ✅ 已交付)**  
+**審查狀態**: [📋 Sprint 2 Review Report](./Sprint_2_Review_Report.md) - Parser v2.1 (A級), Cleaner v2.2 (A級), BatchProcessor v1.3 (A-級)；Parser v2.2 模組化驗收完成  
+**文件版本**: v1.4  
 **建立日期**: 2026-02-23  
-**最後更新**: 2026-02-24
+**最後更新**: 2026-02-25
 
 ---
 
@@ -23,6 +23,7 @@
 | 模組 | 版本 | 評分 | 狀態 | 備註 |
 |:---|:---:|:---:|:---:|:---|
 | Parser | v2.1 | 🟢 **A級** | ✅ 可生產 | 全數通過，無需重工 |
+| Parser (模組化) | v2.2 | ✅ **完成** | ✅ 可生產 | Strategy Pattern、Siemens Scheduler、相容層與遷移指南已交付 |
 | Cleaner | v2.2 | 🟢 **A級** | ✅ 可生產 | 所有問題全數關閉，具備完整生產級品質 |
 | BatchProcessor | v1.3 | 🟡 **A-級** | ✅ 通過 | 4項 Critical/High 修復完成，1項 Medium 待修復 |
 | Sprint 2 Demo | - | 🟢 **B+級** | ✅ 已上線 | 5/5 項任務達成，2個低風險項目 |
@@ -34,13 +35,14 @@
 
 | 任務 | 版本 | 預估工時 | 實際工時 | 狀態 | 測試 | 審查結果 |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|
-| Parser | v2.1 | 4-5天 | 1天 | ✅ **已完成** | 16 案例 | 🟢 A級 |
+| Parser | v2.1 | 4-5天 | 1天 | ✅ **已完成** | 16 案例（已納入 v2.2 回歸） | 🟢 A級 |
+| Parser 模組化重構 | v2.2 | 6-8天 | 1天 | ✅ **已完成** | 29 案例（含 v2.1 回歸） | ✅ 驗收通過（覆蓋率 84%） |
 | Cleaner | v2.2 | 6-7天 | 1天 | ✅ **已完成** | 26 案例 | 🟢 A級 |
-| BatchProcessor | v1.3 | 5-6天 | 1天 | ✅ **已完成** | 27 案例 | ✅ 通過 |
+| BatchProcessor | v1.3 | 5-6天 | 1天 | ✅ **已完成** | 32 案例 | ✅ 通過 |
 | Sprint 2 Demo | - | 1.5天 | 0.5天 | ✅ **已完成** | - | ✅ 已上線 |
 
-**測試總計**: Parser (16) + Cleaner (12+14=26) + BatchProcessor (27) = **69 項測試通過**  
-**累計測試**: Sprint 1 (53) + Sprint 2 (69) = **122 項測試**
+**測試總計**: Parser v2.2（含 v2.1 回歸）(29) + Cleaner (12+14=26) + BatchProcessor (32) = **87 項測試通過**  
+**累計測試**: Sprint 1 (53) + Sprint 2 (87) = **140 項測試**
 
 ---
 
@@ -159,6 +161,41 @@ farglory_o3:  # 遠雄 O3
 | P21-010 | 中文標頭保留 | 1號冰水主機 → col_1號冰水主機 |
 | P21-011 | 標頭正規化唯一性 | 重複欄位偵測 (E105) |
 | P21-012 | 整合測試 | Parser → DataFrame 端到端 |
+
+---
+
+### ✅ 2.1.1 Parser v2.2 模組化重構 (2026-02-25 完成)
+
+**驗收結論**: ✅ **完成** - 模組化架構與相容層均已上線，通過回歸與整合測試
+
+#### 3.1.6 交付物
+
+| 檔案 | 說明 |
+|:---|:---|
+| `src/etl/parser/__init__.py` | `ParserFactory`、`get_parser`、`ReportParser` 相容 facade |
+| `src/etl/parser/base.py` | `BaseParser` 抽象類別 |
+| `src/etl/parser/generic_parser.py` | `GenericParser`（v2.1 行為相容） |
+| `src/etl/parser/siemens/scheduler_report.py` | Siemens Scheduler 解析器 |
+| `src/etl/parser/siemens/point_mapping.py` | Siemens 點位映射處理 |
+| `src/etl/parser.py` | 舊入口相容 shim（re-export v2.2 API） |
+| `tests/parser/test_base.py` | BaseParser 契約測試 |
+| `tests/parser/test_factory.py` | Factory / auto_detect 測試 |
+| `tests/parser/test_siemens_scheduler.py` | Siemens 格式測試 |
+| `tests/parser/test_integration.py` | Parser → Cleaner 整合測試 |
+| `docs/parser/MIGRATION_v2.1_to_v2.2.md` | 遷移指南 |
+
+#### 3.1.7 關鍵能力
+
+- Strategy Pattern 解析器策略切換（`generic` / `siemens_scheduler` / `auto`）
+- `ParserFactory.auto_detect()` 可辨識 Siemens 格式，未知格式 fallback `generic`
+- `ReportParser` 舊呼叫入口維持可用，不破壞既有 v2.1 流程
+- 新增 API 端點：`/api/v1/parser/strategies`、`/api/v1/pipeline/parse-preview`
+
+#### 3.1.8 測試與品質門檻
+
+- `pytest -q tests/parser tests/test_parser_v21.py`：29 項測試通過
+- `pytest --cov=src.etl.parser`：Parser 模組覆蓋率 **84%**
+- Gate 全數通過：E101-E105 一致性、metadata 含 `pipeline_origin_timestamp`、相容層驗證
 
 ---
 
@@ -295,7 +332,7 @@ FORBIDDEN_COLS = frozenset({
 |:---|:---|:---:|
 | `src/etl/batch_processor.py` | BatchProcessor v1.3 主實作 | 810+ |
 | `src/etl/manifest.py` | Manifest 生成器 v1.3-CA | 250+ |
-| `tests/test_batch_processor_v13.py` | 單元測試 (27 個案例) | 600+ |
+| `tests/test_batch_processor_v13.py` | 單元測試 (32 個案例) | 600+ |
 
 #### 3.3.2 核心功能實作
 
@@ -485,15 +522,15 @@ Sprint 2 已全部完成，無進行中項目。
 
 | 模組 | 版本 | 測試數 | 狀態 |
 |:---|:---:|:---:|:---:|
-| Parser | v2.1 | 16 | ✅ A級 |
+| Parser (含模組化) | v2.2 | 29 | ✅ 完成（含 v2.1 回歸） |
 | Cleaner | v2.2 | 26 | ✅ A級 |
 | BatchProcessor | v1.3 | 32 | ✅ 通過 |
-| **總計** | - | **74** | **✅ 全部通過** |
+| **總計** | - | **87** | **✅ 全部通過** |
 
 ### 6.2 測試統計
 
-- **新增測試**: 74 項（Parser 16 + Cleaner 26 + BatchProcessor 32）
-- **累計測試**: 127 項 (Sprint 1: 53 + Sprint 2: 74)
+- **新增測試**: 87 項（Parser 29 + Cleaner 26 + BatchProcessor 32）
+- **累計測試**: 140 項 (Sprint 1: 53 + Sprint 2: 87)
 - **測試覆蓋**: Parser + Cleaner + BatchProcessor 端到端流程
 
 ### 6.3 Demo 上線
@@ -517,7 +554,7 @@ Sprint 2 已圓滿完成，具備以下條件進入 Sprint 3:
 
 - ✅ 核心 ETL Pipeline (Parser/Cleaner/BatchProcessor) 全數就緒
 - ✅ Interface Contract v1.1 嚴格遵循
-- ✅ 122 項測試保障品質
+- ✅ 140 項測試保障品質
 - ✅ Demo 展示頁面上線
 
 **Sprint 3 預計方向**: Feature Engineering 模組開發
@@ -559,7 +596,9 @@ Sprint 2 已圓滿完成，具備以下條件進入 Sprint 3:
 |:---|:---|
 | 完整任務排程 | [專案任務排程文件.md](./專案任務排程文件.md) |
 | Sprint 2 審查報告 | [Sprint_2_Review_Report.md](./Sprint_2_Review_Report.md) |
-| Parser PRD | [PRD_Parser_V2.1.md](../parser/PRD_Parser_V2.1.md) |
+| Parser PRD | [PRD_Parser_V2.1.md](../parser/_archive/PRD_Parser_V2.1.md) |
+| Parser v2.2 PRD | [PRD_Parser_V2.2.md](../parser/PRD_Parser_V2.2.md) |
+| Parser v2.2 遷移指南 | [MIGRATION_v2.1_to_v2.2.md](../parser/MIGRATION_v2.1_to_v2.2.md) |
 | Cleaner PRD | [PRD_CLEANER_v2.2.md](../cleaner/PRD_CLEANER_v2.2.md) |
 | Interface Contract | [PRD_Interface_Contract_v1.1.md](../Interface%20Contract/PRD_Interface_Contract_v1.1.md) |
 | Sprint 1 摘要 | [Sprint_1_執行摘要.md](./Sprint_1_執行摘要.md) |
@@ -568,4 +607,4 @@ Sprint 2 已圓滿完成，具備以下條件進入 Sprint 3:
 
 **文件結束**
 
-*最後更新: 2026-02-24 | Sprint 2 進度: 3/3 完成 | 審查狀態: 全數通過*
+*最後更新: 2026-02-25 | Sprint 2 進度: 4/4 完成（含 Parser v2.2 模組化） | 審查狀態: 全數通過*

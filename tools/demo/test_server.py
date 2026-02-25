@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
@@ -37,6 +37,8 @@ def _append_job_log(job_id: str, message: str, level: str = "INFO", stage: str =
 from src.container import ETLContainer
 from src.context import PipelineContext
 from src.etl.batch_processor import BatchProcessor
+from src.etl.parser import ParserFactory
+from src.etl.parser.utils import load_site_config
 from tools.features.wizard import FeatureAnnotationWizard
 from tools.features.excel_to_yaml import ExcelToYamlConverter
 
@@ -47,12 +49,58 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 TEMP_DIR = Path(tempfile.gettempdir()) / "hvac_demo"
 TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
+
+PARSER_NAMES = {
+    "auto": "Auto Detect",
+    "generic": "Generic CSV",
+    "siemens_scheduler": "Siemens Scheduler Report",
+}
+
+
 def cleanup_file(filepath: Path):
     if filepath.exists():
         try:
             filepath.unlink()
         except:
             pass
+
+
+def _normalize_parser_type(parser_type: str) -> str:
+    return (parser_type or "auto").strip().lower()
+
+
+def _validate_parser_type(parser_type: str) -> str:
+    normalized = _normalize_parser_type(parser_type)
+    if normalized == "auto":
+        return normalized
+
+    available = set(ParserFactory.list_strategies())
+    if normalized not in available:
+        available_text = ", ".join(["auto"] + sorted(available))
+        raise HTTPException(
+            status_code=400,
+            detail=f"未知 parser_type: {parser_type}。可用類型: {available_text}",
+        )
+    return normalized
+
+
+def _parse_with_selected_parser(
+    site_id: str,
+    csv_path: Path,
+    parser_type: str,
+    context: PipelineContext = None,
+) -> Tuple[pl.DataFrame, Dict[str, Any], str]:
+    parser_type = _normalize_parser_type(parser_type)
+    site_config = load_site_config(site_id=site_id)
+
+    if parser_type == "auto":
+        parser = ParserFactory.auto_detect(csv_path, config=site_config)
+    else:
+        parser = ParserFactory.create_parser(parser_type, config=site_config)
+
+    df, metadata = parser.parse_with_metadata(csv_path, temporal_context=context)
+    resolved_parser_type = metadata.get("parser_type", parser_type)
+    return df, metadata, resolved_parser_type
 
 @app.get("/api/health")
 async def health_check():
@@ -146,10 +194,11 @@ async def convert_yaml(site_id: str = Form(...), excel_file: UploadFile = File(.
 async def run_pipeline(
     background_tasks: BackgroundTasks,
     site_id: str = Form(...),
+    parser_type: str = Form("auto"),
     resample_interval: str = Form("5m"),
     files: List[UploadFile] = File(...)
 ):
-    """STEP 3: 執行完整的 Sprint 2 ETL Pipeline (Parser -> Cleaner -> BatchProcessor)
+    """STEP 4: 執行完整的 Sprint 2 ETL Pipeline (Parser -> Cleaner -> BatchProcessor)
     
     支援單一檔案、多檔案或資料夾上傳，並使用背景任務執行以支援進度顯示。
     """
@@ -158,6 +207,8 @@ async def run_pipeline(
     
     if not files:
         raise HTTPException(status_code=400, detail="請至少選擇一個 CSV 檔案")
+
+    parser_type = _validate_parser_type(parser_type)
     
     logger.info(f"[Pipeline] 開始處理 site_id={site_id}, 檔案數量={len(files)}")
     
@@ -189,20 +240,79 @@ async def run_pipeline(
         "current_file": "",
         "progress_log": [],
         "result": None,
-        "message": ""
+        "message": "",
+        "parser_type": parser_type,
     }
-    _append_job_log(job_id, f"任務建立完成，待處理檔案 {len(csv_paths)} 個", stage="初始化")
-    
+    _append_job_log(
+        job_id,
+        f"任務建立完成，待處理檔案 {len(csv_paths)} 個，parser={parser_type}",
+        stage="初始化",
+    )
+
     background_tasks.add_task(
         process_pipeline_task,
         job_id,
         site_id,
+        parser_type,
         resample_interval,
         csv_paths,
         output_dir
     )
-    
+
     return {"status": "started", "job_id": job_id}
+
+
+@app.get("/api/v1/parser/strategies")
+async def list_parser_strategies():
+    """取得可用 Parser 類型（供 UI 下拉選單）"""
+    descriptions = {
+        "auto": "自動偵測檔案格式（建議）",
+        "generic": "通用 CSV 格式（Date/Time 或 DateTime）",
+        "siemens_scheduler": "Siemens Scheduler Report（Point_N 對應）",
+    }
+
+    strategies = [{"id": "auto", "name": PARSER_NAMES["auto"], "description": descriptions["auto"]}]
+    for parser_id in ParserFactory.list_strategies():
+        strategies.append(
+            {
+                "id": parser_id,
+                "name": PARSER_NAMES.get(parser_id, parser_id),
+                "description": descriptions.get(parser_id, ""),
+            }
+        )
+    return strategies
+
+
+@app.post("/api/v1/pipeline/parse-preview")
+async def parse_preview(
+    file: UploadFile = File(...),
+    parser_type: str = Form("auto"),
+    site_id: str = Form("default"),
+):
+    """使用指定 parser 預覽解析結果"""
+    parser_type = _validate_parser_type(parser_type)
+    temp_path = TEMP_DIR / f"preview_{site_id}_{uuid.uuid4().hex}_{file.filename}"
+    with open(temp_path, "wb") as f:
+        f.write(await file.read())
+
+    try:
+        df, metadata, resolved_parser_type = _parse_with_selected_parser(
+            site_id=site_id,
+            csv_path=temp_path,
+            parser_type=parser_type,
+        )
+        return {
+            "columns": df.columns,
+            "metadata": metadata,
+            "sample_rows": df.head(10).to_dicts(),
+            "selected_parser_type": parser_type,
+            "resolved_parser_type": resolved_parser_type,
+            "resolved_parser_name": PARSER_NAMES.get(resolved_parser_type, resolved_parser_type),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"解析預覽失敗: {e}")
+    finally:
+        cleanup_file(temp_path)
 
 @app.get("/api/job-status/{job_id}")
 async def get_job_status(job_id: str):
@@ -210,7 +320,14 @@ async def get_job_status(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
     return pipeline_jobs[job_id]
 
-def process_pipeline_task(job_id: str, site_id: str, resample_interval: str, csv_paths: List[Path], output_dir: Path):
+def process_pipeline_task(
+    job_id: str,
+    site_id: str,
+    parser_type: str,
+    resample_interval: str,
+    csv_paths: List[Path],
+    output_dir: Path,
+):
     import logging
     logger = logging.getLogger(__name__)
     
@@ -243,7 +360,17 @@ def process_pipeline_task(job_id: str, site_id: str, resample_interval: str, csv
             stage="初始化"
         )
 
-        parser = container.get_parser()
+        requested_parser_type = _normalize_parser_type(parser_type)
+        site_config = load_site_config(site_id=site_id)
+        fixed_parser = None
+        if requested_parser_type != "auto":
+            fixed_parser = ParserFactory.create_parser(requested_parser_type, config=site_config)
+            _append_job_log(
+                job_id,
+                f"指定 Parser strategy={requested_parser_type}",
+                stage="初始化",
+            )
+
         cleaner = container.get_cleaner()
         
         if hasattr(cleaner, 'config') and cleaner.config:
@@ -257,9 +384,13 @@ def process_pipeline_task(job_id: str, site_id: str, resample_interval: str, csv
         bp = BatchProcessor(site_id=site_id, output_dir=str(output_dir), pipeline_context=context)
 
         total_files = len(csv_paths)
-        update_progress(f"開始 Parser 處理 (共 {total_files} 個檔案)...", stage="Parser 解析")
+        update_progress(
+            f"開始 Parser 處理 (strategy={requested_parser_type}, 共 {total_files} 個檔案)...",
+            stage="Parser 解析",
+        )
         
         df_parsed_list = []
+        detected_parser_types = []
         current_stage = "Parser 解析"
         current_file = None
         
@@ -273,12 +404,21 @@ def process_pipeline_task(job_id: str, site_id: str, resample_interval: str, csv
                 parsed_files=i - 1
             )
             
-            df_p, parse_meta = parser.parse_with_metadata(str(path))
+            if fixed_parser is not None:
+                df_p, parse_meta = fixed_parser.parse_with_metadata(path, temporal_context=context)
+                resolved_parser_type = parse_meta.get("parser_type", requested_parser_type)
+            else:
+                auto_parser = ParserFactory.auto_detect(path, config=site_config)
+                df_p, parse_meta = auto_parser.parse_with_metadata(path, temporal_context=context)
+                resolved_parser_type = parse_meta.get("parser_type", "generic")
+
+            detected_parser_types.append(resolved_parser_type)
             _append_job_log(
                 job_id,
                 (
                     f"解析完成: {current_file} | "
-                    f"encoding={parse_meta.get('detected_encoding')} | "
+                    f"parser={resolved_parser_type} | "
+                    f"encoding={parse_meta.get('encoding', parse_meta.get('detected_encoding'))} | "
                     f"rows={parse_meta.get('row_count')} cols={parse_meta.get('column_count')} | "
                     f"ts={parse_meta.get('timestamp_range', {}).get('min')} ~ "
                     f"{parse_meta.get('timestamp_range', {}).get('max')}"
@@ -401,6 +541,8 @@ def process_pipeline_task(job_id: str, site_id: str, resample_interval: str, csv
             "processing_summary": {
                 "site_id": site_id,
                 "files_processed": total_files,
+                "parser_type_requested": requested_parser_type,
+                "parser_types_detected": sorted(set(detected_parser_types)),
                 "resample_interval": resample_interval,
                 "equipment_violations": equipment_audit.get("violations_detected", 0)
             },
@@ -449,7 +591,7 @@ def process_pipeline_task(job_id: str, site_id: str, resample_interval: str, csv
 
 @app.post("/api/run-feature-engineer")
 async def run_feature_engineer(site_id: str = Form(...)):
-    """STEP 4: 執行 Sprint 3 特徵工程 (預留擴充點)"""
+    """STEP 5: 執行 Sprint 3 特徵工程 (預留擴充點)"""
     # TODO: 在 Sprint 3 實作 FeatureEngineer 時完善此路由
     return {
         "status": "success",
@@ -460,7 +602,7 @@ async def run_feature_engineer(site_id: str = Form(...)):
 
 @app.post("/api/run-optimization")
 async def run_optimization(site_id: str = Form(...)):
-    """STEP 5: 執行 Sprint 4 最佳化引擎 (預留擴充點)"""
+    """STEP 6: 執行 Sprint 4 最佳化引擎 (預留擴充點)"""
     # TODO: 在 Sprint 4 實作 Optimization Engine 時完善此路由
     return {
         "status": "success",
@@ -471,7 +613,7 @@ async def run_optimization(site_id: str = Form(...)):
 
 @app.post("/api/run-integration")
 async def run_integration(site_id: str = Form(...)):
-    """STEP 6: 執行 Sprint 5 系統整合 (預留擴充點)"""
+    """STEP 7: 執行 Sprint 5 系統整合 (預留擴充點)"""
     # TODO: 在 Sprint 5 實作 E2E 整合測試時完善此路由
     return {
         "status": "success",
@@ -489,7 +631,7 @@ async def download_parquet(site_id: str):
     parquet_files = list(search_dir.rglob("*.parquet"))
     
     if not parquet_files:
-        raise HTTPException(status_code=404, detail="找不到由 BatchProcessor 產生的 Parquet 檔案。請先執行 Step 3。")
+        raise HTTPException(status_code=404, detail="找不到由 BatchProcessor 產生的 Parquet 檔案。請先執行 Step 4。")
     
     # 找最新的檔案
     latest_file = max(parquet_files, key=os.path.getmtime)
@@ -506,26 +648,36 @@ async def download_parquet(site_id: str):
 # =============================================================================
 
 @app.post("/api/diagnostic/parser")
-async def diagnostic_parser(site_id: str = Form(...), file: UploadFile = File(...)):
+async def diagnostic_parser(
+    site_id: str = Form(...),
+    parser_type: str = Form("auto"),
+    file: UploadFile = File(...),
+):
     """階段 1: 僅測試 Parser"""
-    from src.etl.parser import ReportParser
+    parser_type = _validate_parser_type(parser_type)
     
     csv_path = TEMP_DIR / f"diag_parser_{site_id}_{file.filename}"
     with open(csv_path, "wb") as f:
         f.write(await file.read())
     
     try:
-        parser = ReportParser(site_id=site_id)
-        df = parser.parse_file(str(csv_path))
+        df, metadata, resolved_parser_type = _parse_with_selected_parser(
+            site_id=site_id,
+            csv_path=csv_path,
+            parser_type=parser_type,
+        )
         
         return {
             "stage": "parser",
             "status": "success",
+            "parser_type_requested": parser_type,
+            "parser_type_resolved": resolved_parser_type,
             "rows": len(df),
             "columns": len(df.columns),
             "column_names": df.columns[:20],
             "timestamp_type": str(df["timestamp"].dtype) if "timestamp" in df.columns else "missing",
-            "sample": df.head(3).to_dicts() if len(df) > 0 else []
+            "sample": df.head(3).to_dicts() if len(df) > 0 else [],
+            "metadata": metadata,
         }
     except Exception as e:
         import traceback
@@ -543,23 +695,20 @@ async def diagnostic_parser(site_id: str = Form(...), file: UploadFile = File(..
 @app.post("/api/diagnostic/cleaner")
 async def diagnostic_cleaner(
     site_id: str = Form(...),
+    parser_type: str = Form("auto"),
     resample_interval: str = Form("5m"),
     file: UploadFile = File(...)
 ):
     """階段 2: 測試 Parser + Cleaner"""
-    from src.etl.parser import ReportParser
     from src.etl.cleaner import DataCleaner
     from src.context import PipelineContext
+    parser_type = _validate_parser_type(parser_type)
     
     csv_path = TEMP_DIR / f"diag_cleaner_{site_id}_{file.filename}"
     with open(csv_path, "wb") as f:
         f.write(await file.read())
     
     try:
-        # Parser
-        parser = ReportParser(site_id=site_id)
-        df_parsed = parser.parse_file(str(csv_path))
-        
         # Cleaner
         context = PipelineContext()
         try:
@@ -568,6 +717,14 @@ async def diagnostic_cleaner(
             PipelineContext.reset_for_testing()
             context = PipelineContext()
             context.initialize()
+
+        # Parser
+        df_parsed, parse_metadata, resolved_parser_type = _parse_with_selected_parser(
+            site_id=site_id,
+            csv_path=csv_path,
+            parser_type=parser_type,
+            context=context,
+        )
         
         cleaner = DataCleaner(pipeline_context=context)
         if hasattr(cleaner, 'config') and cleaner.config:
@@ -577,8 +734,11 @@ async def diagnostic_cleaner(
         return {
             "stage": "cleaner",
             "status": "success",
+            "parser_type_requested": parser_type,
+            "parser_type_resolved": resolved_parser_type,
             "parser_output": {"rows": len(df_parsed), "columns": len(df_parsed.columns)},
             "cleaner_output": {"rows": len(df_clean), "columns": len(df_clean.columns)},
+            "parse_metadata": parse_metadata,
             "metadata_keys": list(metadata.keys())[:10],
             "audit_keys": list(audit.keys()),
             "quality_flags_present": "quality_flags" in df_clean.columns,
@@ -600,14 +760,15 @@ async def diagnostic_cleaner(
 @app.post("/api/diagnostic/batch-processor")
 async def diagnostic_batch_processor(
     site_id: str = Form(...),
+    parser_type: str = Form("auto"),
     resample_interval: str = Form("5m"),
     file: UploadFile = File(...)
 ):
     """階段 3: 測試完整 Pipeline 到 BatchProcessor"""
-    from src.etl.parser import ReportParser
     from src.etl.cleaner import DataCleaner
     from src.etl.batch_processor import BatchProcessor
     from src.context import PipelineContext
+    parser_type = _validate_parser_type(parser_type)
     
     csv_path = TEMP_DIR / f"diag_bp_{site_id}_{file.filename}"
     output_dir = TEMP_DIR / "output"
@@ -619,12 +780,6 @@ async def diagnostic_batch_processor(
     results = {"stages": []}
     
     try:
-        # Stage 1: Parser
-        parser = ReportParser(site_id=site_id)
-        df_parsed = parser.parse_file(str(csv_path))
-        results["stages"].append({"name": "parser", "status": "ok", "rows": len(df_parsed)})
-        
-        # Stage 2: Cleaner
         context = PipelineContext()
         try:
             context.initialize()
@@ -632,6 +787,22 @@ async def diagnostic_batch_processor(
             PipelineContext.reset_for_testing()
             context = PipelineContext()
             context.initialize()
+
+        # Stage 1: Parser
+        df_parsed, parse_metadata, resolved_parser_type = _parse_with_selected_parser(
+            site_id=site_id,
+            csv_path=csv_path,
+            parser_type=parser_type,
+            context=context,
+        )
+        results["stages"].append({
+            "name": "parser",
+            "status": "ok",
+            "rows": len(df_parsed),
+            "parser_type": resolved_parser_type,
+        })
+        
+        # Stage 2: Cleaner
         
         cleaner = DataCleaner(pipeline_context=context)
         if hasattr(cleaner, 'config') and cleaner.config:
@@ -659,6 +830,9 @@ async def diagnostic_batch_processor(
             "error": result.error
         })
         
+        results["parser_type_requested"] = parser_type
+        results["parser_type_resolved"] = resolved_parser_type
+        results["parse_metadata"] = parse_metadata
         results["overall_status"] = "success" if result.status == "success" else "failed"
         
     except Exception as e:
@@ -676,11 +850,13 @@ async def diagnostic_batch_processor(
 @app.post("/api/diagnostic/full")
 async def diagnostic_full(
     site_id: str = Form(...),
+    parser_type: str = Form("auto"),
     resample_interval: str = Form("5m"),
     file: UploadFile = File(...)
 ):
     """完整診斷：包含所有階段 + ETLContainer"""
     from src.container import ETLContainer
+    parser_type = _validate_parser_type(parser_type)
     
     csv_path = TEMP_DIR / f"diag_full_{site_id}_{file.filename}"
     with open(csv_path, "wb") as f:
@@ -700,15 +876,24 @@ async def diagnostic_full(
             results["container_status"] = f"failed: {e}"
             raise
         
-        # 使用 Container 執行
-        parser = container.get_parser()
+        # 使用 Container 執行（Parser 可覆寫為 UI 選定 strategy）
         cleaner = container.get_cleaner()
         
         if hasattr(cleaner, 'config') and cleaner.config:
             cleaner.config.resample_interval = resample_interval
         
-        df_parsed = parser.parse_file(str(csv_path))
-        results["stages"].append({"name": "container_parser", "status": "ok", "rows": len(df_parsed)})
+        df_parsed, parse_metadata, resolved_parser_type = _parse_with_selected_parser(
+            site_id=site_id,
+            csv_path=csv_path,
+            parser_type=parser_type,
+            context=container.get_context(),
+        )
+        results["stages"].append({
+            "name": "container_parser",
+            "status": "ok",
+            "rows": len(df_parsed),
+            "parser_type": resolved_parser_type,
+        })
         
         df_clean, metadata, audit = cleaner.clean(df_parsed)
         results["stages"].append({"name": "container_cleaner", "status": "ok", "rows": len(df_clean)})
@@ -735,6 +920,9 @@ async def diagnostic_full(
             "error": bp_result.error
         })
         
+        results["parser_type_requested"] = parser_type
+        results["parser_type_resolved"] = resolved_parser_type
+        results["parse_metadata"] = parse_metadata
         results["overall_status"] = "success" if bp_result.status == "success" else "failed"
         
     except Exception as e:

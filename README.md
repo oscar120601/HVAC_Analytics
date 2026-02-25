@@ -1,8 +1,8 @@
-# HVAC Analytics - Core Engine (v1.3 Architecture)
+# HVAC Analytics - Core Engine (v1.6 Architecture)
 
-**核心引擎狀態**: ✅ **Sprint 2 已完成 (3/3 完成，Parser A級 / Cleaner A級 / BP 通過)**  
-**審查報告**: [Sprint 2 Review Report](docs/專案任務排程/Sprint_2_Review_Report.md) - Parser v2.1 (A級), Cleaner v2.2 (A級), BatchProcessor v1.3 (A-級)  
-**Parser V2.2**: 🔄 **規劃中** - 模組化 Strategy Pattern 架構，支援多格式 CSV  
+**核心引擎狀態**: ✅ **Sprint 2 已完成 (4/4 完成，含 Parser v2.2 模組化重構)**  
+**審查報告**: [Sprint 2 Review Report](docs/專案任務排程/Sprint_2_Review_Report.md) - Parser v2.1 (A級), Cleaner v2.2 (A級), BatchProcessor v1.3 (A-級)；Parser v2.2 模組化驗收完成  
+**Parser V2.2**: ✅ **已完成** - 模組化 Strategy Pattern 架構已上線，支援多格式 CSV + Siemens Scheduler  
 **最後更新**: 2026-02-25
 
 ---
@@ -17,13 +17,14 @@
 | 1 | 1.4 程式碼審查優化 | ✅ 已完成 | 72/72 通過 |
 | 1 | **1.5 Sprint 1 Demo 展示** | ✅ **已完成** | **[🎨 查看 Demo](tools/demo/index.html)** |
 | 2 | 2.1 Parser v2.1 | ✅ **已完成** | 16/16 通過 🟢 A級 |
+| 2 | 2.1.1 Parser v2.2 模組化重構 | ✅ **已完成** | 29/29 通過（含 v2.1 回歸） |
 | 2 | 2.2 Cleaner v2.2 | ✅ **已完成** | 26/26 通過 🟢 A級 |
 | 2 | 2.3 BatchProcessor v1.3 | ✅ **已完成** | 32/32 通過 🟡 A-級 |
 
 **Sprint 1 總計**: 53 項測試全部通過 ✅  
-**Sprint 2 總計**: 74 項測試全部通過 ✅  
-**累計測試**: 127 項全部通過 ✅  
-**Sprint 2 狀態**: 3/3 完成 (Parser v2.1 🟢 A級, Cleaner v2.2 🟢 A級, BatchProcessor v1.3 🟡 A-級)
+**Sprint 2 總計**: 87 項測試全部通過 ✅  
+**累計測試**: 140 項全部通過 ✅  
+**Sprint 2 狀態**: 4/4 完成 (Parser v2.1 🟢 A級, Parser v2.2 ✅ 完成, Cleaner v2.2 🟢 A級, BatchProcessor v1.3 🟡 A-級)
 
 [📋 查看完整任務排程](./docs/專案任務排程/專案任務排程文件.md) | [📈 Sprint 1 執行摘要](./docs/專案任務排程/Sprint_1_執行摘要.md) | [📋 Sprint 1 審查報告](./docs/專案任務排程/Sprint_1_Review_Report.md) | [📈 Sprint 2 執行摘要](./docs/專案任務排程/Sprint_2_執行摘要.md) | [📋 Sprint 2 審查報告](./docs/專案任務排程/Sprint_2_Review_Report.md)
 
@@ -42,7 +43,7 @@ HVAC 冰水系統資料處理與分析的核心引擎，專注於提供高可信
 
 ---
 
-## 📁 專案結構 (v1.3)
+## 📁 專案結構 (v1.6)
 
 ```
 HVAC_Analytics/
@@ -57,12 +58,16 @@ HVAC_Analytics/
 │   ├── interface.py            # ★ Facade - 後端整合入口
 │   ├── schemas.py              # Pydantic I/O 定義
 │   ├── etl/                    # ETL 管道
-│   │   ├── parser/             # 🔄 Parser V2.2 模組化 (Strategy Pattern)
-│   │   │   ├── __init__.py     # ParserFactory + get_parser() 工廠函數
+│   │   ├── parser/             # ✅ Parser V2.2 模組化 (Strategy Pattern)
+│   │   │   ├── __init__.py     # ParserFactory + get_parser() + ReportParser Facade
 │   │   │   ├── base.py         # BaseParser 抽象基類
-│   │   │   ├── generic.py      # GenericParser (V2.1 相容)
-│   │   │   └── siemens_scheduler.py  # SiemensSchedulerReportParser
-│   │   ├── parser.py           # ✅ v2.1 報表解析 (E1xx Error Codes) - 將遷移至模組
+│   │   │   ├── generic_parser.py # GenericParser (V2.1 相容)
+│   │   │   ├── exceptions.py   # Parser 專用錯誤定義
+│   │   │   ├── utils.py        # 站點設定載入/共用工具
+│   │   │   └── siemens/
+│   │   │       ├── point_mapping.py
+│   │   │       └── scheduler_report.py  # SiemensSchedulerReportParser
+│   │   ├── parser.py           # ✅ v2.2 相容 shim (re-export，保留舊入口)
 │   │   ├── cleaner.py          # ✅ v2.2 資料清洗 + Equipment Precheck (E2xx/E3xx/E5xx)
 │   │   ├── batch_processor.py  # ✅ v1.3 批次處理 + Manifest (E2xx/E3xx)
 │   │   ├── manifest.py         # ✅ v1.3 Manifest 模型
@@ -90,6 +95,11 @@ HVAC_Analytics/
 ├── tests/                      # 單元測試
 │   ├── test_container_initialization.py  # ✅ 35 項測試
 │   ├── test_parser_v21.py      # ✅ 16 項測試
+│   ├── parser/                 # ✅ Parser v2.2 模組化測試
+│   │   ├── test_base.py
+│   │   ├── test_factory.py
+│   │   ├── test_siemens_scheduler.py
+│   │   └── test_integration.py
 │   ├── test_cleaner_simple.py  # ✅ 12 項測試
 │   ├── test_cleaner_v22.py     # ✅ 10 項測試
 │   ├── test_cleaner_equipment_validation.py  # ✅ 14 項測試
@@ -341,7 +351,7 @@ python tools/features/excel_to_yaml.py \
 
 ---
 
-## 🎯 已完成項目 (Sprint 2 - 3/3 完成)
+## 🎯 已完成項目 (Sprint 2 - 4/4 完成)
 
 ### ✅ 2.1 Parser v2.1
 
@@ -349,7 +359,7 @@ python tools/features/excel_to_yaml.py \
 **測試結果**: 16 項單元測試全部通過 ✅  
 **審查結果**: 🟢 **A級** - 全數通過，無需重工
 
-> **📌 注意**: Parser V2.2 正在規劃中，將採用 **Strategy Pattern** 實現模組化架構，支援多格式 CSV 解析。V2.1 作為 `GenericParser` 將繼續保持向後相容。
+> Parser V2.1 已保留為 `GenericParser` 相容策略，並由 `ReportParser` facade 與 `src/etl/parser.py` shim 維持舊入口相容。
 
 #### 編碼自動偵測 (P-001~P-002)
 
@@ -406,114 +416,59 @@ def _validate_output_contract(self, df: pl.DataFrame) -> None:
 
 ---
 
-### 🔄 2.1+ Parser v2.2 (規劃中)
+### ✅ 2.1.1 Parser v2.2 模組化重構
 
-**預計完成**: Sprint 2 後期  
-**設計原則**: Strategy Pattern 模組化架構  
-**狀態**: 🔄 PRD 已定稿，待實作
+**完成日期**: 2026-02-25  
+**測試結果**: 29 項測試全部通過（含 `tests/test_parser_v21.py` 回歸）✅  
+**覆蓋率**: `src/etl/parser` = **84%**  
+**驗收結果**: ✅ Strategy Pattern、Siemens Scheduler、相容層、Container 整合全數完成
 
-#### V2.2 新架構
-
-Parser V2.2 採用 **Strategy Pattern** 實現模組化設計，支援多種 CSV 格式的即插即用解析：
+#### V2.2 架構與能力
 
 ```python
-# Factory 模式創建 Parser
 from src.etl.parser import ParserFactory, get_parser
 
-# 方式 1: 明確指定 Parser 類型
-parser = ParserFactory.create_parser("siemens_scheduler", config)
+# 明確指定策略
+parser = ParserFactory.create_parser("siemens_scheduler")
 df = parser.parse_file("siemens_report.csv")
 
-# 方式 2: 自動偵測（根據檔案內容選擇最適合的 Parser）
-parser = get_parser("auto", file_path="data.csv")
-df = parser.parse_file("data.csv")
-
-# 取得點位映射（Siemens 格式專用）
-metadata = parser.get_metadata()
-print(metadata["point_mapping"])  # {"point_1": "ahwp_3_kwh", ...}
+# 自動偵測策略
+auto_parser = get_parser("auto", file_path="data/raw/report.csv")
+df_auto = auto_parser.parse_file("data/raw/report.csv")
 ```
 
-#### 支援格式
+- 支援策略：`generic`、`siemens_scheduler`、`auto`
+- `ParserFactory.auto_detect()` 可辨識 Siemens 報表，未知格式 fallback `generic`
+- `ReportParser` facade + `src/etl/parser.py` shim 保持 v2.1 舊入口可用
+- 新增 API：`/api/v1/parser/strategies`、`/api/v1/pipeline/parse-preview`
 
-| Parser 類型 | ID | 說明 | 案場適用 |
-|:---|:---|:---|:---|
-| **通用 CSV** | `generic` | V2.1 向後相容，標準 Date/Time 格式 | 所有案場 |
-| **Siemens Scheduler** | `siemens_scheduler` | Siemens Report 格式，含 Point_N 映射 | CGMH-TY, Farglory O3, KMUH |
-| **自動偵測** | `auto` | 根據檔案特徵自動選擇最適合的 Parser | 所有案場 |
-
-#### 統一輸出契約
-
-所有 Parser 實作統一的輸出契約，確保與 Cleaner V2.2 相容：
+#### Siemens Scheduler 支援
 
 ```python
-# 輸出 DataFrame 規格（所有 Parser 統一）
-df.schema = {
-    "timestamp": pl.Datetime(time_unit="ns", time_zone="UTC"),
-    "ahwp_3_kwh": pl.Float64,       # snake_case 欄位名稱
-    "chiller_status": pl.Float64,
-    # ... 其他資料欄位
-}
-
-# 無 BOM、無敏感欄位（device_role 等已移除）
-```
-
-#### Siemens Scheduler 格式支援
-
-針對 CGMH-TY、Farglory O3、KMUH 等使用 Siemens 系統的案場：
-
-```python
-# 原始 Siemens Report 格式
-# Point_1:,AHWP-3.KWH
-# Point_2:,CHWP-1.KWH
-# ...
-# Date,Time,Point_1,Point_2,...
-# 2024/01/01,08:00,123.4,56.7,...
-
-# Parser V2.2 自動處理
 parser = ParserFactory.create_parser("siemens_scheduler")
 df = parser.parse_file("report.csv")
-
-# 輸出欄位已轉換為 snake_case
-print(df.columns)  # ["timestamp", "ahwp_3_kwh", "chwp_1_kwh", ...]
-
-# 元資料包含點位映射
 metadata = parser.get_metadata()
-print(metadata["point_mapping"])
-# {"point_1": "ahwp_3_kwh", "point_2": "chwp_1_kwh", ...}
+
+print(df.columns)               # ["timestamp", "ahwp_3_kwh", ...]
+print(metadata["point_mapping"])  # {"point_1": {...}, "point_2": {...}}
 ```
 
-#### 擴展新 Parser
-
-新增 Parser 只需三步：
-
-```python
-# 1. 繼承 BaseParser
-class CustomParser(BaseParser):
-    def can_handle(self, file_path: Path) -> bool:
-        # 檢查是否支援此檔案格式
-        pass
-    
-    def parse_file(self, file_path: Path) -> pl.DataFrame:
-        # 實作解析邏輯
-        pass
-
-# 2. 註冊到 Factory
-ParserFactory.register("custom", CustomParser)
-
-# 3. 使用
-parser = ParserFactory.create_parser("custom")
-```
-
-#### 新增檔案（規劃）
+#### 新增檔案（已完成）
 
 | 檔案 | 說明 |
 |:---|:---|
-| `src/etl/parser/__init__.py` | Factory 函數 (`get_parser`, `ParserFactory`) |
-| `src/etl/parser/base.py` | `BaseParser` 抽象基類 |
-| `src/etl/parser/generic.py` | `GenericParser` - V2.1 相容實作 |
-| `src/etl/parser/siemens_scheduler.py` | `SiemensSchedulerReportParser` |
-| `tests/test_parser_v22_factory.py` | Factory 單元測試 |
-| `tests/test_parser_v22_siemens.py` | Siemens Parser 測試 |
+| `src/etl/parser/__init__.py` | Factory + facade + auto detect |
+| `src/etl/parser/base.py` | BaseParser 抽象介面 |
+| `src/etl/parser/generic_parser.py` | GenericParser（v2.1 相容） |
+| `src/etl/parser/siemens/point_mapping.py` | Siemens 點位映射 |
+| `src/etl/parser/siemens/scheduler_report.py` | Siemens Scheduler 解析器 |
+| `src/etl/parser/utils.py` | 設定載入與共用函式 |
+| `src/etl/parser.py` | 相容 shim（re-export v2.2 API） |
+| `tests/parser/test_base.py` | BaseParser 測試 |
+| `tests/parser/test_factory.py` | Factory/auto_detect 測試 |
+| `tests/parser/test_siemens_scheduler.py` | Siemens 測試 |
+| `tests/parser/test_integration.py` | Parser→Cleaner 整合測試 |
+| `docs/parser/MIGRATION_v2.1_to_v2.2.md` | v2.1→v2.2 遷移指南 |
 
 ---
 
@@ -863,6 +818,9 @@ python3 -m pytest tests/features/test_annotation_manager.py -v
 # 執行 Parser v2.1 測試
 python3 -m pytest tests/test_parser_v21.py -v
 
+# 執行 Parser v2.2 模組化測試（含回歸）
+python3 -m pytest tests/parser tests/test_parser_v21.py -v
+
 # 執行 Cleaner v2.2 測試
 python3 -m pytest tests/test_cleaner_simple.py -v
 python3 -m pytest tests/test_cleaner_v22.py -v
@@ -874,7 +832,7 @@ python3 -m pytest tests/test_batch_processor_v13.py -v
 # 執行全部測試
 python3 -m pytest tests/ -v
 
-# 預期結果: 122+ passed (Sprint 1: 53 + Sprint 2: 69)
+# 預期結果: 140+ passed (Sprint 1: 53 + Sprint 2: 87)
 ```
 
 ### 測試覆蓋
@@ -888,10 +846,10 @@ python3 -m pytest tests/ -v
 | 時間基準傳遞 | 6 | 跨日、注入、驗證 |
 | FeatureAnnotationManager | 14 | 初始化、查詢、HVAC、錯誤 |
 | Pydantic 模型 | 4 | E405、Lag 間隔、命名 |
-| Parser v2.1 | 16 | 編碼、時區、標頭、契約驗證 |
+| Parser v2.2 (含 v2.1 回歸) | 29 | Factory、Siemens、相容層、回歸驗證 |
 | Cleaner v2.2 | 26 | E000、E102、E350、E500、設備驗證 |
 | BatchProcessor v1.3 | 32 | E000、E201、E206、E351、E408、Manifest |
-| **總計** | **127** | **Sprint 1: 53 + Sprint 2: 74** |
+| **總計** | **140** | **Sprint 1: 53 + Sprint 2: 87** |
 
 ---
 
@@ -919,13 +877,14 @@ python3 -m pytest tests/ -v
 - **[專案任務排程](docs/專案任務排程/專案任務排程文件.md)** - 完整 Sprint 規劃
 - **[Sprint 1 執行摘要](docs/專案任務排程/Sprint_1_執行摘要.md)** - Interface Contract、System Integration、Feature Annotation 詳細摘要
 - **[Sprint 1 審查報告](docs/專案任務排程/Sprint_1_Review_Report.md)** - Sprint 1 審查詳情
-- **[Sprint 2 執行摘要](docs/專案任務排程/Sprint_2_執行摘要.md)** - Parser v2.1 & Cleaner v2.2 詳細摘要
-- **[Sprint 2 審查報告](docs/專案任務排程/Sprint_2_Review_Report.md)** - Parser v2.1 & Cleaner v2.2 審查詳情
+- **[Sprint 2 執行摘要](docs/專案任務排程/Sprint_2_執行摘要.md)** - Parser v2.1 + v2.2、Cleaner v2.2、BatchProcessor v1.3 詳細摘要
+- **[Sprint 2 審查報告](docs/專案任務排程/Sprint_2_Review_Report.md)** - Parser v2.1、Cleaner v2.2、BatchProcessor v1.3 審查詳情
 
 ### ETL 管道模組
 
-- **[Parser v2.1](docs/parser/PRD_Parser_V2.1.md)** ✅ - Header Standardization、UTC/ns 時間戳、編碼自動偵測
-- **[Parser v2.2](docs/parser/PRD_Parser_V2.2.md)** 🔄 - **NEW!** Strategy Pattern 模組化架構、多格式支援
+- **[Parser v2.1](docs/parser/_archive/PRD_Parser_V2.1.md)** ✅ - Header Standardization、UTC/ns 時間戳、編碼自動偵測
+- **[Parser v2.2](docs/parser/PRD_Parser_V2.2.md)** ✅ - Strategy Pattern 模組化架構、Siemens Scheduler、多格式支援
+- **[Parser v2.2 Migration](docs/parser/MIGRATION_v2.1_to_v2.2.md)** ✅ - 舊入口相容與遷移指南
 - **[Cleaner v2.2](docs/cleaner/PRD_CLEANER_v2.2.md)** ✅ - 語意感知清洗、Equipment Precheck、SSOT 驅動
 - **[BatchProcessor v1.3](docs/batch_processor/PRD_BATCH_PROCESSOR_v1.3.md)** - Manifest 生成、E406 驗證
 
@@ -944,7 +903,7 @@ python3 -m pytest tests/ -v
 
 ## 🚧 實作路徑 (Implementation Roadmap)
 
-### 當前狀態: Sprint 2 已完成 (3/3 完成)
+### 當前狀態: Sprint 2 已完成 (4/4 完成)
 
 ```
 Sprint 1: Foundation ✅ 完成
@@ -975,17 +934,18 @@ Sprint 1: Foundation ✅ 完成
     ├── Feature Annotation 依賴與前後比較 (Before/After)
     └── 4步驟初始化流程與測試覆蓋率分析 (Chart.js)
 
-Sprint 2: 核心 ETL ✅ 已完成 (3/3 完成)
+Sprint 2: 核心 ETL ✅ 已完成 (4/4 完成)
 ├── ✅ Parser v2.1 (已完成，A級)
 │   ├── 編碼自動偵測 (UTF-8/Big5/UTF-16)
 │   ├── BOM 處理與移除
 │   ├── 智慧標頭搜尋 (中文標頭支援)
 │   ├── 時區強制轉換 (→ UTC/ns)
 │   └── 輸出契約驗證 (E101-E105)
-├── 🔄 Parser v2.2 (規劃中)
+├── ✅ Parser v2.2 (已完成)
 │   ├── Strategy Pattern 模組化架構
 │   ├── GenericParser (V2.1 向後相容)
 │   ├── SiemensSchedulerReportParser (CGMH-TY, Farglory O3, KMUH)
+│   ├── 相容 shim + facade（舊入口維持可用）
 │   └── 統一輸出契約（Cleaner V2.2 相容）
 ├── ✅ Cleaner v2.2 (已完成，A級)
 │   ├── Temporal Context 注入 (E000)
@@ -1020,7 +980,7 @@ Sprint 2: 核心 ETL ✅ 已完成 (3/3 完成)
 |:---|:---|:---:|
 | 允許進入 Sprint 3 | BatchProcessor 問題修復 | ✅ **已通過** |
 | Feature Engineer 銜接 | BP v1.3 輸出格式穩定且 E408 有效 | ✅ **已確認** |
-| CI/CD 品質門禁 | 全部 127 項測試通過 | ✅ **通過** |
+| CI/CD 品質門禁 | 全部 140 項測試通過 | ✅ **通過** |
 
 ### 生產環境配置
 
@@ -1042,7 +1002,7 @@ HVAC_STRICT_MODE=true python main.py pipeline data.csv
 請務必先閱讀以下核心文檔：
 - **[Interface Contract v1.1](docs/Interface%20Contract/PRD_Interface_Contract_v1.1.md)** - 錯誤代碼規範與檢查點定義
 - **[Sprint 1 執行摘要](docs/專案任務排程/Sprint_1_執行摘要.md)** - 已完成的基礎設施說明
-- **[Sprint 2 執行摘要](docs/專案任務排程/Sprint_2_執行摘要.md)** - Parser v2.1 & Cleaner v2.2 詳細說明
+- **[Sprint 2 執行摘要](docs/專案任務排程/Sprint_2_執行摘要.md)** - Parser v2.1 + v2.2、Cleaner v2.2 詳細說明
 - **[Sprint 2 審查報告](docs/專案任務排程/Sprint_2_Review_Report.md)** - 審查詳情與下游預警
 
 確保所有新代碼遵守：
@@ -1059,12 +1019,12 @@ HVAC_STRICT_MODE=true python main.py pipeline data.csv
 - [專案任務排程](docs/專案任務排程/專案任務排程文件.md) - 系統架構、風險評估、實施建議
 - [Sprint 1 執行摘要](docs/專案任務排程/Sprint_1_執行摘要.md) - 詳細的完成項目與測試報告
 - [Sprint 1 審查報告](docs/專案任務排程/Sprint_1_Review_Report.md) - 審查結論與優化項目
-- [Sprint 2 執行摘要](docs/專案任務排程/Sprint_2_執行摘要.md) - Parser v2.1 & Cleaner v2.2 詳細摘要
+- [Sprint 2 執行摘要](docs/專案任務排程/Sprint_2_執行摘要.md) - Parser v2.1 + v2.2、Cleaner v2.2 詳細摘要
 - [Sprint 2 審查報告](docs/專案任務排程/Sprint_2_Review_Report.md) - 審查結論與下游預警
 - [Feature Annotation 實作摘要](docs/Feature%20Annotation%20Specification/IMPLEMENTATION_SUMMARY.md) - Feature Annotation v1.3 詳細實作說明
 
 ---
 
-**最後更新**: 2026-02-24  
-**架構版本**: v1.5  
-**文件狀態**: ✅ Sprint 2 已完成 (3/3 完成，Parser 🟢 A級, Cleaner 🟢 A級, BatchProcessor 🟡 A-級)
+**最後更新**: 2026-02-25  
+**架構版本**: v1.6  
+**文件狀態**: ✅ Sprint 2 已完成 (4/4 完成，Parser v2.1 🟢 A級, Parser v2.2 ✅ 完成, Cleaner 🟢 A級, BatchProcessor 🟡 A-級)

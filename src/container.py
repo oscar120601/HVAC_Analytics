@@ -38,7 +38,8 @@ from src.etl.config_models import (
 )
 from src.utils.config_loader import ConfigLoader, SyncCheckResult
 from src.features.annotation_manager import FeatureAnnotationManager
-from src.etl.parser import ReportParser
+from src.etl.parser import ParserFactory, ReportParser
+from src.etl.parser.utils import load_site_config
 from src.etl.cleaner import DataCleaner
 
 logger = logging.getLogger(__name__)
@@ -324,15 +325,20 @@ class ETLContainer:
             
             # 4.1 Parser
             try:
+                parser_config = load_site_config(site_id=self.site_id)
+                parser_type = parser_config.get("parser_type", "generic")
+                self._parser = ParserFactory.create_parser(
+                    parser_type=parser_type,
+                    config=parser_config
+                )
+                logger.debug(f"Parser 已初始化（strategy={parser_type}）")
+            except Exception:
+                # fallback: 相容層，避免初始化中斷
                 self._parser = ReportParser(
                     site_id=self.site_id,
                     annotation_manager=self._annotation_manager
                 )
-                logger.debug("Parser 已初始化")
-            except TypeError:
-                # 使用現有 Parser 的簡單構造函數
-                self._parser = ReportParser()
-                logger.debug("Parser 已初始化（使用預設構造函數）")
+                logger.debug("Parser 已初始化（fallback: ReportParser 相容層）")
             
             # 4.2 Cleaner
             self._cleaner = DataCleaner(
