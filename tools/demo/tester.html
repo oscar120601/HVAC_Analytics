@@ -210,6 +210,40 @@
             font-size: 0.85rem;
             font-weight: bold;
         }
+
+        .pipeline-live-grid {
+            display: grid;
+            grid-template-columns: 1.3fr 0.7fr;
+            gap: 16px;
+            margin-top: 12px;
+        }
+
+        .terminal-box {
+            margin-top: 0;
+            background: #07090f;
+            border: 1px solid rgba(6, 214, 160, 0.45);
+            color: #b2f7dc;
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            line-height: 1.45;
+            max-height: 280px;
+            overflow: auto;
+            white-space: pre-wrap;
+        }
+
+        .job-meta {
+            margin-top: 0;
+            white-space: pre-wrap;
+            max-height: 280px;
+        }
+
+        @media (max-width: 900px) {
+            .pipeline-live-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 
@@ -314,6 +348,18 @@
             <button onclick="runPipeline()" id="btnStep3">🚀 執行資料清洗與批次生產</button>
             <div id="loader3" style="display:none; margin-top:10px; color: var(--yellow);">⏳ Pipeline 運作中...</div>
             <div id="errorOutput" class="error-box" style="display:none;"></div>
+            <div id="pipelineLiveSection" style="display:none;">
+                <div class="pipeline-live-grid">
+                    <div>
+                        <h4 style="color: var(--green); margin: 0 0 8px 0;">🖥️ 即時執行日誌 (Live)</h4>
+                        <div id="pipelineLiveLog" class="terminal-box">[尚未開始執行]</div>
+                    </div>
+                    <div>
+                        <h4 style="color: var(--cyan); margin: 0 0 8px 0;">📌 即時狀態</h4>
+                        <div id="pipelineLiveMeta" class="result-box job-meta">等待任務啟動...</div>
+                    </div>
+                </div>
+            </div>
 
             <!-- 診斷工具區塊 (預設隱藏, Step 3 失敗時顯示) -->
             <div id="diagnosticSection"
@@ -667,6 +713,46 @@
             updateFileSelectionInfo();
         }
 
+        function resetPipelineLivePanel() {
+            const liveSection = document.getElementById('pipelineLiveSection');
+            const liveLog = document.getElementById('pipelineLiveLog');
+            const liveMeta = document.getElementById('pipelineLiveMeta');
+            liveSection.style.display = 'block';
+            liveLog.textContent = '[等待後端回傳任務進度]';
+            liveMeta.textContent = '狀態: waiting\n階段: -\n進度: 0/0';
+        }
+
+        function renderPipelineLive(job) {
+            if (!job) return;
+
+            const liveSection = document.getElementById('pipelineLiveSection');
+            const liveLog = document.getElementById('pipelineLiveLog');
+            const liveMeta = document.getElementById('pipelineLiveMeta');
+
+            liveSection.style.display = 'block';
+
+            const logs = Array.isArray(job.progress_log) ? job.progress_log : [];
+            const logLines = logs.map(entry => {
+                const stageTag = entry.stage ? ` [${entry.stage}]` : '';
+                return `${entry.timestamp || ''} ${entry.level || 'INFO'}${stageTag} - ${entry.message || ''}`;
+            });
+            liveLog.textContent = logLines.length > 0 ? logLines.join('\n') : '[暫無日誌]';
+            liveLog.scrollTop = liveLog.scrollHeight;
+
+            const currentFile = job.current_file ? job.current_file : '-';
+            const parsedFiles = Number.isFinite(job.parsed_files) ? job.parsed_files : 0;
+            const totalFiles = Number.isFinite(job.total_files) ? job.total_files : 0;
+            const stage = job.stage || '-';
+            const progress = job.progress || '-';
+
+            liveMeta.textContent =
+                `狀態: ${job.status || '-'}\n` +
+                `階段: ${stage}\n` +
+                `檔案進度: ${parsedFiles}/${totalFiles}\n` +
+                `目前檔案: ${currentFile}\n` +
+                `訊息: ${progress}`;
+        }
+
         async function runPipeline() {
             const siteId = document.getElementById('siteId3').value;
             const resultSection = document.getElementById('pipelineResult');
@@ -677,6 +763,7 @@
             document.getElementById('btnStep3').disabled = true;
             resultSection.style.display = 'none';
             document.getElementById('errorOutput').style.display = 'none';
+            resetPipelineLivePanel();
 
             const formData = new FormData();
             formData.append("site_id", siteId);
@@ -729,6 +816,7 @@
                     const loader = document.getElementById('loader3');
                     let isDone = false;
                     let pipelineData = null;
+                    let latestJob = null;
 
                     while (!isDone) {
                         await new Promise(resolve => setTimeout(resolve, 500));
@@ -737,6 +825,8 @@
                         if (!statusRes.ok) throw new Error("取得任務進度失敗");
 
                         const job = await statusRes.json();
+                        latestJob = job;
+                        renderPipelineLive(job);
 
                         if (job.status === "running") {
                             loader.innerHTML = `⏳ Pipeline 運作中... <br><span style="color: var(--cyan); font-size: 0.9em; margin-top: 5px; display: inline-block;">${job.progress}</span>`;
@@ -748,6 +838,8 @@
                             throw new Error(job.message || "處理失敗");
                         }
                     }
+
+                    renderPipelineLive(latestJob);
 
                     // 隱藏錯誤訊息和診斷區塊
                     document.getElementById('errorOutput').style.display = 'none';

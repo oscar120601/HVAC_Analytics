@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
-from typing import List
+from typing import List, Dict, Any
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
@@ -16,6 +16,23 @@ import polars as pl
 
 # 儲存背景任務狀態
 pipeline_jobs = {}
+MAX_JOB_LOG_LINES = 200
+
+
+def _append_job_log(job_id: str, message: str, level: str = "INFO", stage: str = "") -> None:
+    """新增 job 即時日誌，保留固定長度以避免無限制成長。"""
+    if job_id not in pipeline_jobs:
+        return
+
+    logs = pipeline_jobs[job_id].setdefault("progress_log", [])
+    logs.append({
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+        "level": level,
+        "stage": stage,
+        "message": message
+    })
+    if len(logs) > MAX_JOB_LOG_LINES:
+        pipeline_jobs[job_id]["progress_log"] = logs[-MAX_JOB_LOG_LINES:]
 
 from src.container import ETLContainer
 from src.context import PipelineContext
@@ -164,10 +181,17 @@ async def run_pipeline(
     job_id = str(uuid.uuid4())
     pipeline_jobs[job_id] = {
         "status": "running",
+        "stage": "初始化",
+        "started_at": datetime.now(timezone.utc).isoformat(),
         "progress": "初始化任務中...",
+        "total_files": len(csv_paths),
+        "parsed_files": 0,
+        "current_file": "",
+        "progress_log": [],
         "result": None,
         "message": ""
     }
+    _append_job_log(job_id, f"任務建立完成，待處理檔案 {len(csv_paths)} 個", stage="初始化")
     
     background_tasks.add_task(
         process_pipeline_task,
@@ -190,41 +214,78 @@ def process_pipeline_task(job_id: str, site_id: str, resample_interval: str, csv
     import logging
     logger = logging.getLogger(__name__)
     
-    def update_progress(msg: str):
+    def update_progress(
+        msg: str,
+        stage: str = "",
+        current_file: str = "",
+        parsed_files: int = -1
+    ):
+        if stage:
+            pipeline_jobs[job_id]["stage"] = stage
+        if current_file:
+            pipeline_jobs[job_id]["current_file"] = current_file
+        if parsed_files >= 0:
+            pipeline_jobs[job_id]["parsed_files"] = parsed_files
         pipeline_jobs[job_id]["progress"] = msg
+        _append_job_log(job_id, msg, stage=stage or pipeline_jobs[job_id].get("stage", ""))
         logger.info(f"[Job {job_id[:8]}] {msg}")
 
     try:
-        update_progress("系統初始化...")
+        update_progress("系統初始化...", stage="初始化")
         
         PipelineContext.reset_for_testing()
         container = ETLContainer(site_id=site_id)
         container.initialize_all()
         context = container.get_context()
+        _append_job_log(
+            job_id,
+            f"Container 初始化完成，baseline={context.get_baseline().isoformat()}",
+            stage="初始化"
+        )
 
         parser = container.get_parser()
         cleaner = container.get_cleaner()
         
         if hasattr(cleaner, 'config') and cleaner.config:
             cleaner.config.resample_interval = resample_interval
+            _append_job_log(
+                job_id,
+                f"Cleaner 重採樣間隔設定為 {resample_interval}",
+                stage="初始化"
+            )
             
         bp = BatchProcessor(site_id=site_id, output_dir=str(output_dir), pipeline_context=context)
 
         total_files = len(csv_paths)
-        update_progress(f"開始 Parser 處理 (共 {total_files} 個檔案)...")
+        update_progress(f"開始 Parser 處理 (共 {total_files} 個檔案)...", stage="Parser 解析")
         
         df_parsed_list = []
         current_stage = "Parser 解析"
         current_file = None
         
         for i, path in enumerate(csv_paths, 1):
-            if i % 10 == 0 or i == 1 or i == total_files:
-                update_progress(f"正在解析檔案 ({i}/{total_files})")
-            
             # Extract original filename for clearer error message
             current_file = path.name.replace(f"input_{site_id}_", "")
+            update_progress(
+                f"正在解析檔案 ({i}/{total_files}): {current_file}",
+                stage=current_stage,
+                current_file=current_file,
+                parsed_files=i - 1
+            )
             
-            df_p = parser.parse_file(str(path))
+            df_p, parse_meta = parser.parse_with_metadata(str(path))
+            _append_job_log(
+                job_id,
+                (
+                    f"解析完成: {current_file} | "
+                    f"encoding={parse_meta.get('detected_encoding')} | "
+                    f"rows={parse_meta.get('row_count')} cols={parse_meta.get('column_count')} | "
+                    f"ts={parse_meta.get('timestamp_range', {}).get('min')} ~ "
+                    f"{parse_meta.get('timestamp_range', {}).get('max')}"
+                ),
+                stage=current_stage
+            )
+
             # 確保檔案間合併時，不會因為某些檔案無小數點被推斷為 Int 導致併檔失敗
             # 將所有整數欄位轉換為 Float64，確保多檔案合併時類型一致
             int_dtypes = (pl.Int8, pl.Int16, pl.Int32, pl.Int64, pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64)
@@ -238,18 +299,38 @@ def process_pipeline_task(job_id: str, site_id: str, resample_interval: str, csv
                 df_p = df_p.with_columns(cast_exprs)
             
             df_parsed_list.append(df_p)
+            pipeline_jobs[job_id]["parsed_files"] = i
             
         current_file = None
         current_stage = "合併資料"
-        update_progress("正在合併所有解析後的資料...")
+        update_progress("正在合併所有解析後的資料...", stage=current_stage, parsed_files=total_files)
         df_parsed = pl.concat(df_parsed_list, how="diagonal_relaxed")
+        _append_job_log(
+            job_id,
+            f"合併完成: {len(df_parsed_list)} 檔 -> {df_parsed.shape[0]} 行 x {df_parsed.shape[1]} 列",
+            stage=current_stage
+        )
         
         current_stage = "Cleaner 清洗"
-        update_progress(f"開始 Cleaner 語意清洗與重採樣... (共 {len(df_parsed)} 行)")
+        update_progress(
+            f"開始 Cleaner 語意清洗與重採樣... (共 {len(df_parsed)} 行)",
+            stage=current_stage
+        )
         df_cleaned, column_metadata, equipment_audit = cleaner.clean(df_parsed)
+        _append_job_log(
+            job_id,
+            (
+                f"清洗完成: {df_cleaned.shape[0]} 行 x {df_cleaned.shape[1]} 列 | "
+                f"E350違規={equipment_audit.get('violations_detected', 0)}"
+            ),
+            stage=current_stage
+        )
         
         current_stage = "BatchProcessor 落地"
-        update_progress(f"正在執行 BatchProcessor 落地輸出... (共 {len(df_cleaned)} 行)")
+        update_progress(
+            f"正在執行 BatchProcessor 落地輸出... (共 {len(df_cleaned)} 行)",
+            stage=current_stage
+        )
         source_name = f"multiple_files_({len(csv_paths)})" if len(csv_paths) > 1 else str(csv_paths[0].name.replace(f"input_{site_id}_", ""))
         result = bp.process_dataframe(
             df_cleaned, 
@@ -259,10 +340,11 @@ def process_pipeline_task(job_id: str, site_id: str, resample_interval: str, csv
         )
         if result.status == "success":
             df_processed = df_cleaned
+            _append_job_log(job_id, "BatchProcessor 完成並寫出輸出檔", stage=current_stage)
         else:
             raise Exception(f"BatchProcessor 失敗: {result.error}")
 
-        update_progress("計算資料品質統計報告...")
+        update_progress("計算資料品質統計報告...", stage="統計與收尾")
         
         # 統計運算
         missing_before = sum(df_parsed.null_count().row(0)) if len(df_parsed) > 0 else 0
@@ -310,9 +392,18 @@ def process_pipeline_task(job_id: str, site_id: str, resample_interval: str, csv
                 manifest_data = json.load(f)
 
         pipeline_jobs[job_id]["status"] = "success"
+        pipeline_jobs[job_id]["stage"] = "完成"
+        pipeline_jobs[job_id]["ended_at"] = datetime.now(timezone.utc).isoformat()
         pipeline_jobs[job_id]["progress"] = "✅ 執行完成"
+        _append_job_log(job_id, "Pipeline 全流程執行完成", stage="完成")
         pipeline_jobs[job_id]["result"] = {
             "status": "success",
+            "processing_summary": {
+                "site_id": site_id,
+                "files_processed": total_files,
+                "resample_interval": resample_interval,
+                "equipment_violations": equipment_audit.get("violations_detected", 0)
+            },
             "stats": {
                 "rows_processed": len(df_processed),
                 "columns": len(df_processed.columns),
@@ -331,17 +422,25 @@ def process_pipeline_task(job_id: str, site_id: str, resample_interval: str, csv
             "manifest": manifest_data,
             "parsed_sample": df_parsed.head(3).to_dicts(),
             "cleaned_sample": df_cleaned.head(3).to_dicts(),
+            "equipment_audit": equipment_audit,
             "feature_engineer_input_ready": True
         }
 
     except Exception as e:
         pipeline_jobs[job_id]["status"] = "error"
+        pipeline_jobs[job_id]["ended_at"] = datetime.now(timezone.utc).isoformat()
         
         # Add context to the error message
         stage_info = f"[{current_stage}] " if 'current_stage' in locals() else ""
         file_info = f" (發生於檔案: {current_file})" if 'current_file' in locals() and current_file else ""
         
         pipeline_jobs[job_id]["message"] = f"Pipeline 執行失敗: {stage_info}{str(e)}{file_info}"
+        _append_job_log(
+            job_id,
+            f"Pipeline 執行失敗: {stage_info}{str(e)}{file_info}",
+            level="ERROR",
+            stage=pipeline_jobs[job_id].get("stage", "未知")
+        )
         logger.exception(f"Pipeline Task {job_id} failed")
     finally:
         for path in csv_paths:

@@ -2,7 +2,8 @@
 
 **核心引擎狀態**: ✅ **Sprint 2 已完成 (3/3 完成，Parser A級 / Cleaner A級 / BP 通過)**  
 **審查報告**: [Sprint 2 Review Report](docs/專案任務排程/Sprint_2_Review_Report.md) - Parser v2.1 (A級), Cleaner v2.2 (A級), BatchProcessor v1.3 (A-級)  
-**最後更新**: 2026-02-24
+**Parser V2.2**: 🔄 **規劃中** - 模組化 Strategy Pattern 架構，支援多格式 CSV  
+**最後更新**: 2026-02-25
 
 ---
 
@@ -56,7 +57,12 @@ HVAC_Analytics/
 │   ├── interface.py            # ★ Facade - 後端整合入口
 │   ├── schemas.py              # Pydantic I/O 定義
 │   ├── etl/                    # ETL 管道
-│   │   ├── parser.py           # ✅ v2.1 報表解析 (E1xx Error Codes)
+│   │   ├── parser/             # 🔄 Parser V2.2 模組化 (Strategy Pattern)
+│   │   │   ├── __init__.py     # ParserFactory + get_parser() 工廠函數
+│   │   │   ├── base.py         # BaseParser 抽象基類
+│   │   │   ├── generic.py      # GenericParser (V2.1 相容)
+│   │   │   └── siemens_scheduler.py  # SiemensSchedulerReportParser
+│   │   ├── parser.py           # ✅ v2.1 報表解析 (E1xx Error Codes) - 將遷移至模組
 │   │   ├── cleaner.py          # ✅ v2.2 資料清洗 + Equipment Precheck (E2xx/E3xx/E5xx)
 │   │   ├── batch_processor.py  # ✅ v1.3 批次處理 + Manifest (E2xx/E3xx)
 │   │   ├── manifest.py         # ✅ v1.3 Manifest 模型
@@ -343,6 +349,8 @@ python tools/features/excel_to_yaml.py \
 **測試結果**: 16 項單元測試全部通過 ✅  
 **審查結果**: 🟢 **A級** - 全數通過，無需重工
 
+> **📌 注意**: Parser V2.2 正在規劃中，將採用 **Strategy Pattern** 實現模組化架構，支援多格式 CSV 解析。V2.1 作為 `GenericParser` 將繼續保持向後相容。
+
 #### 編碼自動偵測 (P-001~P-002)
 
 ```python
@@ -395,6 +403,117 @@ def _validate_output_contract(self, df: pl.DataFrame) -> None:
 | `src/etl/parser.py` | 770+ | ReportParser v2.1 主實作 |
 | `tests/test_parser_v21.py` | 450+ | 16 項單元測試 |
 | `config/site_templates.yaml` | 120+ | 案場配置範本 |
+
+---
+
+### 🔄 2.1+ Parser v2.2 (規劃中)
+
+**預計完成**: Sprint 2 後期  
+**設計原則**: Strategy Pattern 模組化架構  
+**狀態**: 🔄 PRD 已定稿，待實作
+
+#### V2.2 新架構
+
+Parser V2.2 採用 **Strategy Pattern** 實現模組化設計，支援多種 CSV 格式的即插即用解析：
+
+```python
+# Factory 模式創建 Parser
+from src.etl.parser import ParserFactory, get_parser
+
+# 方式 1: 明確指定 Parser 類型
+parser = ParserFactory.create_parser("siemens_scheduler", config)
+df = parser.parse_file("siemens_report.csv")
+
+# 方式 2: 自動偵測（根據檔案內容選擇最適合的 Parser）
+parser = get_parser("auto", file_path="data.csv")
+df = parser.parse_file("data.csv")
+
+# 取得點位映射（Siemens 格式專用）
+metadata = parser.get_metadata()
+print(metadata["point_mapping"])  # {"point_1": "ahwp_3_kwh", ...}
+```
+
+#### 支援格式
+
+| Parser 類型 | ID | 說明 | 案場適用 |
+|:---|:---|:---|:---|
+| **通用 CSV** | `generic` | V2.1 向後相容，標準 Date/Time 格式 | 所有案場 |
+| **Siemens Scheduler** | `siemens_scheduler` | Siemens Report 格式，含 Point_N 映射 | CGMH-TY, Farglory O3, KMUH |
+| **自動偵測** | `auto` | 根據檔案特徵自動選擇最適合的 Parser | 所有案場 |
+
+#### 統一輸出契約
+
+所有 Parser 實作統一的輸出契約，確保與 Cleaner V2.2 相容：
+
+```python
+# 輸出 DataFrame 規格（所有 Parser 統一）
+df.schema = {
+    "timestamp": pl.Datetime(time_unit="ns", time_zone="UTC"),
+    "ahwp_3_kwh": pl.Float64,       # snake_case 欄位名稱
+    "chiller_status": pl.Float64,
+    # ... 其他資料欄位
+}
+
+# 無 BOM、無敏感欄位（device_role 等已移除）
+```
+
+#### Siemens Scheduler 格式支援
+
+針對 CGMH-TY、Farglory O3、KMUH 等使用 Siemens 系統的案場：
+
+```python
+# 原始 Siemens Report 格式
+# Point_1:,AHWP-3.KWH
+# Point_2:,CHWP-1.KWH
+# ...
+# Date,Time,Point_1,Point_2,...
+# 2024/01/01,08:00,123.4,56.7,...
+
+# Parser V2.2 自動處理
+parser = ParserFactory.create_parser("siemens_scheduler")
+df = parser.parse_file("report.csv")
+
+# 輸出欄位已轉換為 snake_case
+print(df.columns)  # ["timestamp", "ahwp_3_kwh", "chwp_1_kwh", ...]
+
+# 元資料包含點位映射
+metadata = parser.get_metadata()
+print(metadata["point_mapping"])
+# {"point_1": "ahwp_3_kwh", "point_2": "chwp_1_kwh", ...}
+```
+
+#### 擴展新 Parser
+
+新增 Parser 只需三步：
+
+```python
+# 1. 繼承 BaseParser
+class CustomParser(BaseParser):
+    def can_handle(self, file_path: Path) -> bool:
+        # 檢查是否支援此檔案格式
+        pass
+    
+    def parse_file(self, file_path: Path) -> pl.DataFrame:
+        # 實作解析邏輯
+        pass
+
+# 2. 註冊到 Factory
+ParserFactory.register("custom", CustomParser)
+
+# 3. 使用
+parser = ParserFactory.create_parser("custom")
+```
+
+#### 新增檔案（規劃）
+
+| 檔案 | 說明 |
+|:---|:---|
+| `src/etl/parser/__init__.py` | Factory 函數 (`get_parser`, `ParserFactory`) |
+| `src/etl/parser/base.py` | `BaseParser` 抽象基類 |
+| `src/etl/parser/generic.py` | `GenericParser` - V2.1 相容實作 |
+| `src/etl/parser/siemens_scheduler.py` | `SiemensSchedulerReportParser` |
+| `tests/test_parser_v22_factory.py` | Factory 單元測試 |
+| `tests/test_parser_v22_siemens.py` | Siemens Parser 測試 |
 
 ---
 
@@ -631,24 +750,34 @@ constraints = manager.get_equipment_constraints(phase="precheck")
 targets = manager.get_target_columns()
 ```
 
-### 使用 Parser v2.1
+### 使用 Parser v2.1/v2.2
 
 ```python
+# === V2.1 方式（維護模式，保持向後相容）===
 from src.etl.parser import ReportParser
 
-# 初始化 Parser（使用案場配置）
 parser = ReportParser(site_id="cgmh_ty")
-
-# 解析 CSV 檔案
 df = parser.parse_file("data/raw/report.csv")
 
-# 輸出驗證：timestamp 必須為 UTC/ns
-print(df.schema["timestamp"])  # Datetime(time_unit='ns', time_zone='UTC')
+# === V2.2 方式（推薦新專案使用）===
+from src.etl.parser import ParserFactory, get_parser
 
-# 解析並取得中繼資料
-df, metadata = parser.parse_with_metadata("data/raw/report.csv")
-print(metadata["detected_encoding"])  # utf-8 / cp950 / utf-16
-print(metadata["header_line"])        # 標頭行號
+# 方式 1: 自動偵測最佳 Parser
+parser = get_parser("auto", file_path="data/raw/report.csv")
+df = parser.parse_file("data/raw/report.csv")
+
+# 方式 2: 明確指定 Parser 類型
+parser = ParserFactory.create_parser("siemens_scheduler")
+df = parser.parse_file("siemens_report.csv")
+
+# 取得解析元資料
+metadata = parser.get_metadata()
+print(metadata["source_format"])      # "siemens_scheduler"
+print(metadata["header_line"])        # 127
+print(metadata["point_mapping"])      # {"point_1": "ahwp_3_kwh", ...}
+
+# 輸出驗證：所有 Parser 統一輸出 UTC/ns 時間戳
+print(df.schema["timestamp"])  # Datetime(time_unit='ns', time_zone='UTC')
 ```
 
 ### 使用 Cleaner v2.2
@@ -796,6 +925,7 @@ python3 -m pytest tests/ -v
 ### ETL 管道模組
 
 - **[Parser v2.1](docs/parser/PRD_Parser_V2.1.md)** ✅ - Header Standardization、UTC/ns 時間戳、編碼自動偵測
+- **[Parser v2.2](docs/parser/PRD_Parser_V2.2.md)** 🔄 - **NEW!** Strategy Pattern 模組化架構、多格式支援
 - **[Cleaner v2.2](docs/cleaner/PRD_CLEANER_v2.2.md)** ✅ - 語意感知清洗、Equipment Precheck、SSOT 驅動
 - **[BatchProcessor v1.3](docs/batch_processor/PRD_BATCH_PROCESSOR_v1.3.md)** - Manifest 生成、E406 驗證
 
@@ -852,6 +982,11 @@ Sprint 2: 核心 ETL ✅ 已完成 (3/3 完成)
 │   ├── 智慧標頭搜尋 (中文標頭支援)
 │   ├── 時區強制轉換 (→ UTC/ns)
 │   └── 輸出契約驗證 (E101-E105)
+├── 🔄 Parser v2.2 (規劃中)
+│   ├── Strategy Pattern 模組化架構
+│   ├── GenericParser (V2.1 向後相容)
+│   ├── SiemensSchedulerReportParser (CGMH-TY, Farglory O3, KMUH)
+│   └── 統一輸出契約（Cleaner V2.2 相容）
 ├── ✅ Cleaner v2.2 (已完成，A級)
 │   ├── Temporal Context 注入 (E000)
 │   ├── FeatureAnnotationManager 整合

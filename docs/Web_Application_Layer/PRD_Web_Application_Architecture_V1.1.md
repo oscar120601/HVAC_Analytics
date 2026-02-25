@@ -104,6 +104,107 @@ Web Backend 需對 Frontend 提供以下核心 REST API 分群：
 *   **`GET /api/v1/pipeline/temporal-context`**
     *   **用途**: 查詢當前或最近一次 Pipeline 執行的時間基準（Temporal Baseline），供前端展示「資料截止時間」與「處理基準時間」。
 
+### 2.1.1 CSV 解析與格式選擇 (Parser V2.2)
+*取代原本單一 Parser，改用模組化策略模式，支援多種 CSV 格式。*
+
+**Parser 策略管理**
+*   **`GET /api/v1/parser/strategies`**
+    *   **用途**: 取得所有可用的 CSV Parser 類型列表。
+    *   **Response**: 
+        ```json
+        {
+          "strategies": [
+            {
+              "id": "generic",
+              "name": "通用 CSV 解析器",
+              "description": "適用於標準 Date/Time 格式的通用 CSV 檔案",
+              "supported_patterns": ["*.csv"]
+            },
+            {
+              "id": "siemens_scheduler",
+              "name": "Siemens Scheduler Report",
+              "description": "適用於 Siemens Scheduler 匯出格式 (CGMH-TY, Farglory O3, KMUH)",
+              "supported_patterns": ["TI_ANDY_SCHEDULER_USE_REPORT_*.csv", "adv_*.csv", "TR_KH_*.csv"]
+            }
+          ]
+        }
+        ```
+
+**CSV 解析與預覽**
+*   **`POST /api/v1/pipeline/parse-preview`**
+    *   **用途**: 使用指定的 Parser 類型解析 CSV，回傳預覽結果（不執行完整 ETL）。
+    *   **Payload**: 
+        ```json
+        {
+          "temp_file_id": "temp_abc123",
+          "parser_type": "siemens_scheduler",
+          "site_id": "cgmh_ty"
+        }
+        ```
+    *   **Response**:
+        ```json
+        {
+          "status": "success",
+          "parser_used": "siemens_scheduler",
+          "metadata": {
+            "encoding": "utf-8",
+            "header_line": 127,
+            "total_points": 122,
+            "row_count": 672,
+            "timestamp_range": {
+              "min": "2015-12-13T00:00:00+00:00",
+              "max": "2015-12-19T23:45:00+00:00"
+            }
+          },
+          "point_mapping": {
+            "Point_1": {"name": "AHWP-3.KWH", "normalized_name": "ahwp_3_kwh"},
+            "Point_2": {"name": "AHWP-4.KWH", "normalized_name": "ahwp_4_kwh"}
+          },
+          "columns": ["timestamp", "ahwp_3_kwh", "ahwp_4_kwh", "..."],
+          "sample_rows": [
+            {"timestamp": "2015-12-13T00:00:00+00:00", "ahwp_3_kwh": 127316}
+          ]
+        }
+        ```
+
+**Wizard Excel 生成**
+*   **`POST /api/v1/wizard/generate-excel`**
+    *   **用途**: 根據 CSV 解析結果生成 Feature Annotation Excel 範本。
+    *   **Payload**:
+        ```json
+        {
+          "temp_file_id": "temp_abc123",
+          "parser_type": "siemens_scheduler",
+          "site_id": "cgmh_ty",
+          "template_version": "1.3"
+        }
+        ```
+    *   **Response**: HTTP 202 Accepted
+        ```json
+        {
+          "task_id": "wizard_task_456",
+          "status": "processing",
+          "download_url": "/api/v1/wizard/download/wizard_task_456",
+          "preview_data": {
+            "total_columns": 124,
+            "new_columns": 122,
+            "point_mapping_summary": "122 points mapped"
+          }
+        }
+        ```
+
+**UI 操作流程**:
+```
+┌─────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  上傳 CSV   │ →  │ 選擇 Parser 類型 │ →  │ 預覽解析結果    │
+└─────────────┘    └─────────────────┘    └─────────────────┘
+                                                  ↓
+┌─────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ 執行 ETL    │ ←  │ 轉換為 YAML     │ ←  │ 下載/編輯 Excel │
+│ Pipeline    │    │ (excel_to_yaml) │    │ 標註範本        │
+└─────────────┘    └─────────────────┘    └─────────────────┘
+```
+
 ### 2.2 設備與特徵設定 (Feature Annotation v1.3)
 *取代原本文本化的 Wizard CLI，改用直覺的網頁操作。*
 

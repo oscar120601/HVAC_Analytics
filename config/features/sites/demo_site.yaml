@@ -4,11 +4,27 @@ metadata:
   site_id: demo_site
   inherit: base
   editor: wizard
-  last_updated: '2026-02-24T20:08:11.400373'
+  last_updated: '2026-02-24T14:45:26.818518'
   equipment_schema: hvac_v1.3
   temporal_baseline_version: '1.0'
-  yaml_checksum: sha256:5a389982f1552794c3a980076190e0a63c20dbcfbf995626be5ef51a853e4462
+  yaml_checksum: sha256:6d898f20ad66f6d3cd670daf997727ea4c3a85366b2f26c54128e7a3d18bcb08
 columns:
+  Key            Name:Suffix                                Trend Definitions Used:
+    column_name: Key            Name:Suffix                                Trend Definitions
+      Used
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: null
+    description: '自動推測: Key            Name:Suffix                                Trend
+      Definitions Used'
+    status: pending_review
   Date:
     column_name: Date
     physical_type: gauge
@@ -2802,214 +2818,4 @@ columns:
     ignore_warnings: []
     equipment_id: UNK-03
     description: '真實名稱: CH-3.ENGER. 自動推測: CH-3.ENGER'
-    status: pending_review
-  Point_207:
-    column_name: Point_207
-    physical_type: cooling_capacity
-    unit: RT
-    device_role: primary
-    is_target: false
-    enable_lag: true
-    lag_intervals:
-    - 1
-    - 4
-    ignore_warnings: []
-    equipment_id: UNK-01
-    description: '真實名稱: BCH1.RT.TOT. 自動推測: BCH1.RT.TOT'
-    status: pending_review
-  Point_208:
-    column_name: Point_208
-    physical_type: cooling_capacity
-    unit: RT
-    device_role: primary
-    is_target: false
-    enable_lag: true
-    lag_intervals:
-    - 1
-    - 4
-    ignore_warnings: []
-    equipment_id: UNK-01
-    description: '真實名稱: CH-1.RT.TOT. 自動推測: CH-1.RT.TOT'
-    status: pending_review
-  Point_209:
-    column_name: Point_209
-    physical_type: cooling_capacity
-    unit: RT
-    device_role: primary
-    is_target: false
-    enable_lag: true
-    lag_intervals:
-    - 1
-    - 4
-    ignore_warnings: []
-    equipment_id: UNK-02
-    description: '真實名稱: CH-2.RT.TOT. 自動推測: CH-2.RT.TOT'
-    status: pending_review
-  Point_210:
-    column_name: Point_210
-    physical_type: cooling_capacity
-    unit: RT
-    device_role: primary
-    is_target: false
-    enable_lag: true
-    lag_intervals:
-    - 1
-    - 4
-    ignore_warnings: []
-    equipment_id: UNK-03
-    description: '真實名稱: CH-3.RT.TOT. 自動推測: CH-3.RT.TOT'
-    status: pending_review
-  Point_211:
-    column_name: Point_211
-    physical_type: cooling_capacity
-    unit: RT
-    device_role: primary
-    is_target: false
-    enable_lag: true
-    lag_intervals:
-    - 1
-    - 4
-    ignore_warnings: []
-    equipment_id: null
-    description: '真實名稱: ICE.RT.TOT. 自動推測: ICE.RT.TOT'
-    status: pending_review
-  Point_212:
-    column_name: Point_212
-    physical_type: gauge
-    unit: null
-    device_role: primary
-    is_target: false
-    enable_lag: true
-    lag_intervals:
-    - 1
-    - 4
-    ignore_warnings: []
-    equipment_id: UNK-01
-    description: '真實名稱: BCH-1.S. 自動推測: BCH-1.S'
-    status: pending_review
-  Point_213:
-    column_name: Point_213
-    physical_type: gauge
-    unit: null
-    device_role: primary
-    is_target: false
-    enable_lag: true
-    lag_intervals:
-    - 1
-    - 4
-    ignore_warnings: []
-    equipment_id: UNK-01
-    description: '真實名稱: CH-1.S. 自動推測: CH-1.S'
-    status: pending_review
-  Point_214:
-    column_name: Point_214
-    physical_type: gauge
-    unit: null
-    device_role: primary
-    is_target: false
-    enable_lag: true
-    lag_intervals:
-    - 1
-    - 4
-    ignore_warnings: []
-    equipment_id: UNK-02
-    description: '真實名稱: CH-2.S. 自動推測: CH-2.S'
-    status: pending_review
-  Point_215:
-    column_name: Point_215
-    physical_type: gauge
-    unit: null
-    device_role: primary
-    is_target: false
-    enable_lag: true
-    lag_intervals:
-    - 1
-    - 4
-    ignore_warnings: []
-    equipment_id: UNK-03
-    description: '真實名稱: CH-3.S. 自動推測: CH-3.S'
-    status: pending_review
-  Point_216:
-    column_name: Point_216
-    physical_type: gauge
-    unit: null
-    device_role: primary
-    is_target: false
-    enable_lag: true
-    lag_intervals:
-    - 1
-    - 4
-    ignore_warnings: []
-    equipment_id: UNK-01
-    description: '真實名稱: CHU-01:CH RWT. 自動推測: CHU-01:CH RWT'
-    status: pending_review
-  Point_217:
-    column_name: Point_217
-    physical_type: gauge
-    unit: null
-    device_role: primary
-    is_target: false
-    enable_lag: true
-    lag_intervals:
-    - 1
-    - 4
-    ignore_warnings: []
-    equipment_id: UNK-01
-    description: '真實名稱: CHU-01:CH SWT. 自動推測: CHU-01:CH SWT'
-    status: pending_review
-  Point_218:
-    column_name: Point_218
-    physical_type: gauge
-    unit: null
-    device_role: primary
-    is_target: false
-    enable_lag: true
-    lag_intervals:
-    - 1
-    - 4
-    ignore_warnings: []
-    equipment_id: UNK-02
-    description: '真實名稱: CHU-02:CH RWT. 自動推測: CHU-02:CH RWT'
-    status: pending_review
-  Point_219:
-    column_name: Point_219
-    physical_type: gauge
-    unit: null
-    device_role: primary
-    is_target: false
-    enable_lag: true
-    lag_intervals:
-    - 1
-    - 4
-    ignore_warnings: []
-    equipment_id: UNK-02
-    description: '真實名稱: CHU-02:CH SWT. 自動推測: CHU-02:CH SWT'
-    status: pending_review
-  Point_220:
-    column_name: Point_220
-    physical_type: gauge
-    unit: null
-    device_role: primary
-    is_target: false
-    enable_lag: true
-    lag_intervals:
-    - 1
-    - 4
-    ignore_warnings: []
-    equipment_id: UNK-03
-    description: '真實名稱: CHU-03:CH RWT. 自動推測: CHU-03:CH RWT'
-    status: pending_review
-  Point_221:
-    column_name: Point_221
-    physical_type: gauge
-    unit: null
-    device_role: primary
-    is_target: false
-    enable_lag: true
-    lag_intervals:
-    - 1
-    - 4
-    ignore_warnings: []
-    equipment_id: UNK-03
-    description: '真實名稱: CHU-03:CH SWT. 自動推測: CHU-03:CH SWT'
     status: pending_review

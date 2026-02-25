@@ -647,6 +647,103 @@ def wizard_update_excel(
     print(f"   python tools/features/excel_to_yaml.py --input {excel_path}")
 ```
 
+### 7.1.1 Wizard 與 Parser V2.2 整合（新增）
+
+**功能說明**: Wizard 現在支援與模組化 Parser V2.2 整合，允許使用者指定 CSV 格式類型。
+
+```python
+def wizard_update_excel_with_parser(
+    site_id: str,
+    csv_path: Path,
+    excel_path: Path,
+    parser_type: str = "auto",  # 新增: Parser 類型選擇
+    template_version: str = "1.3"
+):
+    """
+    Wizard：整合 Parser V2.2 的 Excel 更新流程
+    
+    Args:
+        site_id: 案場 ID
+        csv_path: CSV 檔案路徑
+        excel_path: 輸出 Excel 路徑
+        parser_type: Parser 類型 ("auto", "generic", "siemens_scheduler", ...)
+        template_version: Excel 範本版本
+    
+    流程:
+        1. 使用指定 Parser 解析 CSV
+        2. 取得標準化後的欄位名稱
+        3. 若有點位映射，顯示對照資訊
+        4. 生成 Excel 標註範本
+    """
+    from src.etl.parser import get_parser
+    
+    # 0. 自動備份機制（原有邏輯）
+    # ...
+    
+    # 1. 使用選定的 Parser 解析 CSV
+    print(f"🔧 使用 Parser: {parser_type}")
+    parser = get_parser(parser_type, file_path=csv_path)
+    df = parser.parse_file(csv_path)
+    metadata = parser.get_metadata()
+    
+    print(f"✅ 解析完成: {df.shape[0]} 行 x {df.shape[1]} 列")
+    
+    # 2. 取得標準化後的欄位（已由 Parser 處理）
+    standardized_headers = df.columns
+    
+    # 3. 顯示點位映射資訊（若適用）
+    if "point_mapping" in metadata and metadata["point_mapping"]:
+        print("\n📋 點位映射預覽:")
+        for point_id, info in list(metadata["point_mapping"].items())[:10]:
+            print(f"   {point_id} → {info['normalized_name']} ({info['name']})")
+        if len(metadata["point_mapping"]) > 10:
+            print(f"   ... 共 {len(metadata['point_mapping'])} 個點位")
+    
+    # 4. 檢查 Excel 版本相容性（原有邏輯）
+    # ...
+    
+    # 5. 使用 standardized_headers 進行後續處理
+    existing_cols = get_existing_columns(wb)
+    new_cols = set(standardized_headers) - existing_cols - {'timestamp', 'Date', 'Time'}
+    
+    # 6. HVAC 語意推測與寫入 Excel（原有邏輯，但使用 Parser 輸出的欄位）
+    for col in sorted(new_cols):
+        # 若有點位映射，使用原始名稱進行推測
+        original_name = col
+        if "point_mapping" in metadata:
+            for point_id, info in metadata["point_mapping"].items():
+                if info['normalized_name'] == col:
+                    original_name = info['name']
+                    break
+        
+        stats = calculate_stats(df[col])
+        suggestion = hvac_semantic_guess(original_name, stats)
+        
+        # ... 寫入 Excel
+    
+    # 7. 更新 Metadata 與儲存（原有邏輯）
+    # 記錄使用的 Parser 類型
+    update_metadata(wb, source_csv=csv_path.name, parser_type=parser_type)
+    # ...
+```
+
+**Web UI 整合規範**:
+
+| API 端點 | 用途 |
+|:---|:---|
+| `GET /api/v1/parser/strategies` | 取得可用 Parser 列表供 UI 選擇 |
+| `POST /api/v1/wizard/generate-excel` | 接收 parser_type 參數生成 Excel |
+
+**UI 流程**:
+```
+上傳 CSV → 選擇 Parser 類型 → 預覽解析結果 → 生成 Excel 範本
+```
+
+**相容性注意事項**:
+- `parser_type="auto"` 會自動偵測格式（向後相容）
+- 未指定 `parser_type` 時，預設為 `"auto"`
+- 現有 site_config 可選擇性加入 `parser_type` 欄位
+
 ### 7.2 同步狀態檢查（防止遺忘生成 YAML）
 
 ```python

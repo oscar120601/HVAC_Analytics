@@ -7,18 +7,41 @@
 - **前端 UI**: `tools/demo/tester.html` (HTML + CSS + JS)
 
 ## ⚙️ 2. 架構與功能 (Architecture & Features)
-本測試工具總共涵蓋三個主要步驟，模擬真實的案場導入流程：
+本測試工具總共涵蓋四個主要步驟，模擬真實的案場導入流程：
 
-1. **Step 1: 自動生成 Excel 標註範本 (`/api/generate-template`)**
+1. **Step 1: 選擇 Parser 並解析 CSV (`/api/v1/parser/strategies` → `/api/v1/pipeline/parse-preview`)**
+   - **背後機制**：呼叫 `ParserFactory` (`src/etl/parser/__init__.py`)
+   - **功能**：
+     - 上傳 CSV 後，系統顯示可用的 Parser 類型（通用、Siemens Scheduler、自動偵測）
+     - 使用者手動選擇 Parser 類型（或選擇自動偵測）
+     - 系統使用選定 Parser 解析 CSV，回傳預覽結果（欄位列表、點位映射、統計資訊）
+   - **支援格式**：
+     - **通用 CSV**：標準 Date/Time 格式
+     - **Siemens Scheduler Report**：CGMH-TY, Farglory O3, KMUH 格式（含 Point_1~N 映射）
+
+2. **Step 2: 自動生成 Excel 標註範本 (`/api/generate-template`)**
    - **背後機制**：呼叫 `FeatureAnnotationWizard` (`tools/features/wizard.py`)
-   - **功能**：上傳任意原始 CSV，系統自動分析欄位 (Header) 並結合內部演算法，推測出潛在的 HVAC 設備類型，最終產生並下載一份空白但帶有下拉選單與輔助提示的 Excel 檔案。
-2. **Step 2: 轉換 Excel 為 YAML SSOT (`/api/convert-yaml`)**
+   - **功能**：根據 Step 1 解析結果（已標準化的欄位名稱），系統自動分析並推測潛在的 HVAC 設備類型，最終產生並下載一份空白但帶有下拉選單與輔助提示的 Excel 檔案。
+   - **與 Parser V2.2 整合**：Wizard 會接收 Parser 輸出的 `point_mapping`（如 Point_1 → ahwp_3_kwh），在 Excel 中顯示原始點位名稱對照。
+
+3. **Step 3: 轉換 Excel 為 YAML SSOT (`/api/convert-yaml`)**
    - **背後機制**：呼叫 `ExcelToYamlConverter` (`tools/features/excel_to_yaml.py`)
    - **功能**：人工填寫完 Excel 後將其上傳，系統會檢查硬性約束 (E400, E403 等錯誤碼) 並產出為單一真相源 (`.yaml`) 檔案至 `config/features/sites/` 下。
-3. **Step 3: 執行完整 ETL Pipeline (`/api/run-pipeline`)**
-   - **背後機制**：呼叫 `ETLContainer`, `PipelineContext`, `ReportParser`, `DataCleaner` 以及 `BatchProcessor`。
-   - **功能**：輸入原始 CSV，系統將讀取 Step 2 產生的 YAML 設定檔。執行編碼偵測、時區校正、語意對應清洗與 E350 設備物理違規檢查，最後由 `BatchProcessor` 將資料落地，並返回清洗圖表、異常條目與 `Manifest v1.3`。
-   - **批次處理**：支援選擇**多個 CSV 檔案**或**整個資料夾**，系統會自動過濾並處理所有 CSV 檔案（目前實作為處理第一個檔案，未來版本將支援批次合併處理）。
+
+4. **Step 4: 執行完整 ETL Pipeline (`/api/run-pipeline`)**
+   - **背後機制**：呼叫 `ETLContainer`, `PipelineContext`, 選定的 Parser, `DataCleaner` 以及 `BatchProcessor`。
+   - **功能**：輸入原始 CSV，系統將讀取 Step 3 產生的 YAML 設定檔。執行編碼偵測、時區校正、語意對應清洗與 E350 設備物理違規檢查，最後由 `BatchProcessor` 將資料落地，並返回清洗圖表、異常條目與 `Manifest v1.3`。
+   - **Parser 一致性**：此階段使用的 Parser 必須與 Step 1 選擇的類型一致。
+   - **非同步執行**：
+     - `POST /api/run-pipeline` 會立即回傳 `job_id`（`status=started`）
+     - 前端會輪詢 `GET /api/job-status/{job_id}` 取得進度，不再等待單次長連線
+   - **即時狀態資訊 (`job-status`)**：
+     - `status`：`running/success/error`
+     - `stage`：目前階段（初始化、Parser、合併、Cleaner、BatchProcessor、完成）
+     - `progress`：可讀進度文字
+     - `current_file`、`parsed_files`、`total_files`：多檔案進度
+     - `progress_log`：即時日誌（最多保留 200 筆）
+   - **批次處理**：支援選擇**多個 CSV 檔案**或**整個資料夾**，會過濾非 CSV 檔案，逐檔解析後以 `pl.concat(..., how="diagonal_relaxed")` 合併。為避免多檔型別推斷差異，整數欄位會在合併前轉為 `Float64`（`timestamp` 除外）。
 
 ## 🚀 3. 啟動與使用方式 (Setup & Usage)
 
@@ -50,6 +73,7 @@ uvicorn tools.demo.test_server:app --reload --port 8000 --host 0.0.0.0
 ```
 1️⃣ Parser → 2️⃣ Cleaner → 3️⃣ BatchProcessor → 🔍 Full
 ```
+若 Step 3 一次選了多個 CSV，診斷區塊可先從下拉選單挑選特定檔案，再執行診斷端點。
 
 ### 診斷按鈕說明
 
@@ -81,6 +105,7 @@ uvicorn tools.demo.test_server:app --reload --port 8000 --host 0.0.0.0
 ### UI 行為
 
 - **Step 3 執行中**: 顯示載入動畫
+- **Step 3 執行中（新）**: 顯示「即時執行日誌 (Live)」與「即時狀態」面板，回饋目前階段、目前檔案與處理進度
 - **Step 3 成功**: 隱藏診斷區塊，顯示結果圖表
 - **Step 3 失敗**: 顯示錯誤訊息，並**自動展開診斷區塊**
 - **診斷執行中**: 顯示「⏳ 診斷中...」
@@ -130,6 +155,34 @@ tests/fixtures/
 
 #### 修復 (Fixed)
 - **多檔案處理遺漏**: 修復先前雖然可選取多個檔案，但後端只有針對 `csv_paths[0]` 進行執行的問題。現在會透過 `pl.concat(..., how="diagonal_relaxed")` 自動合併所有上傳的資料。
+
+### [v1.4.0] - 2026-02-25
+#### 新增 (Added)
+- **Parser V2.2 模組化架構整合**:
+  - **Step 1 重構**：新增 Parser 選擇流程，支援手動選擇 Parser 類型（通用 / Siemens Scheduler / 自動偵測）
+  - **新 API 端點**：
+    - `GET /api/v1/parser/strategies` - 列出可用 Parser 類型
+    - `POST /api/v1/pipeline/parse-preview` - 預覽解析結果（含欄位列表、點位映射）
+  - **點位映射預覽**：Siemens 格式顯示 Point_N → 設備名稱對照表（如 Point_1: AHWP-3.KWH → ahwp_3_kwh）
+  - **命名標準化確認**：顯示原始欄位名稱 → snake_case 轉換後的名稱對照
+
+#### 變更 (Changed)
+- **流程調整**：原本的 Step 1 改為 Step 2，新增 Parser 選擇作為 Step 1
+- **Wizard 整合**：`wizard_update_excel_with_parser()` 函數支援接收 Parser 輸出，使用已標準化的欄位名稱
+
+### [v1.3.2] - 2026-02-25
+#### 新增 (Added)
+- **Step 3 即時監控資訊擴充**:
+  - 前端新增「🖥️ 即時執行日誌 (Live)」與「📌 即時狀態」區塊，顯示背景任務各階段進度。
+  - `job-status` 顯示 `stage/current_file/parsed_files/total_files/progress/progress_log` 等欄位，能即時追蹤多檔案處理狀態。
+- **Step 3 失敗後的診斷檔案選擇**:
+  - 當一次上傳多檔時，診斷工具新增檔案下拉選單，可指定單一目標檔案進行 Parser/Cleaner/BatchProcessor/Full 診斷。
+- **診斷端點支援重採樣參數**:
+  - Step 3 診斷流程會帶入 `resample_interval`，讓診斷與主流程配置一致。
+
+#### 改善 (Improved)
+- **錯誤上下文更完整**:
+  - 後端在 Pipeline 失敗時，會在錯誤訊息附上發生階段與檔名，便於快速定位問題檔案。
 
 ### [v1.3.0] - 2026-02-24
 #### 新增 (Added)
