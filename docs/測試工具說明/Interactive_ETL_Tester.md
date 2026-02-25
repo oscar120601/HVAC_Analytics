@@ -2,7 +2,12 @@
 
 ## 📖 1. 工具總覽 (Overview)
 
-**目標**：提供一個無需手動輸入終端機指令（Command Line），透過網頁即可完整體驗從資料清洗、特徵標註、設備預檢與批次落地 (Sprint 1~5) 的單一互動式測試平台。
+**目標**：提供一個無需手動輸入終端機指令（Command Line），透過網頁即可完整體驗從資料解析、特徵標註、設備預檢與批次落地 (Sprint 1~5) 的單一互動式測試平台。
+
+**核心設計理念**：**Step 1 → Step 2 無縫整合**
+- Step 1 解析 CSV 後，Step 2 **直接沿用**解析結果產生 Excel，無需重新上傳 CSV
+- 確保欄位名稱從 Step 1 到 Step 4 **完全一致**，避免 E409 (Header Annotation Mismatch) 錯誤
+
 **位置**：
 
 - **後端 API**: `tools/demo/test_server.py` (FastAPI)
@@ -12,29 +17,53 @@
 
 本測試工具總共涵蓋四個主要步驟，模擬真實的案場導入流程：
 
-1. **Step 1: 選擇 Parser 並解析 CSV (`/api/v1/parser/strategies` → `/api/v1/pipeline/parse-preview`)**
+### 🔄 整合流程：Step 1 → Step 2（推薦）
+
+```
+Step 1: 解析 CSV 預覽 ───────┐
+    │                        │
+    ▼                        │
+顯示 Parser 結果              │
+(欄位列表、點位映射)          │
+    │                        │
+    ▼                        ▼
+點擊「從預覽結果產生」   →   Step 2: Excel 標註範本
+    │                        │
+    ▼                        ▼
+欄位名稱完全一致 ←───────────┘
+(確保與 Step 4 ETL Pipeline 相容)
+```
+
+1. **Step 1: 選擇 Parser 並解析 CSV (`/api/v1/pipeline/parse-preview`)**
    - **背後機制**：呼叫 `ParserFactory` (`src/etl/parser/__init__.py`)
-   - **功能**：
+   - **核心功能**：
      - 上傳 CSV 後，系統顯示可用的 Parser 類型（通用、Siemens Scheduler、自動偵測）
      - 使用者手動選擇 Parser 類型（或選擇自動偵測）
      - 系統使用選定 Parser 解析 CSV，回傳預覽結果（欄位列表、點位映射、統計資訊）
    - **支援格式**：
      - **通用 CSV**：標準 Date/Time 格式
      - **Siemens Scheduler Report**：CGMH-TY, Farglory O3, KMUH 格式（含 Point_1~N 映射）
+   - **與 Step 2 整合**：預覽成功後，可直接點擊「從預覽結果產生 Excel 範本」按鈕，無需重新上傳 CSV
 
-2. **Step 2: 自動生成 Excel 標註範本 (`/api/generate-template`)**
-   - **背後機制**：呼叫 `FeatureAnnotationWizard` (`tools/features/wizard.py`)
-   - **功能**：根據 Step 1 解析結果（已標準化的欄位名稱），系統自動分析並推測潛在的 HVAC 設備類型，最終產生並下載一份空白但帶有下拉選單與輔助提示的 Excel 檔案。
-   - **與 Parser V2.2 整合**：Wizard 會接收 Parser 輸出的 `point_mapping`（如 Point_1 → ahwp_3_kwh），在 Excel 中顯示原始點位名稱對照。
+2. **Step 2: 自動生成 Excel 標註範本 (`/api/generate-template-from-preview`)**
+   - **推薦方式**：**從 Step 1 預覽結果產生**（預設選項）
+     - 使用 Step 1 已解析的 `columns` 和 `point_mapping`
+     - 確保欄位名稱與 Step 4 ETL Pipeline 完全一致
+     - Excel `column_name` 顯示 Parser 標準化後的 snake_case 名稱
+     - Excel `description` 顯示 Point_X → 原始監控點名稱對照（如 `[Point_1 | AHWP-3.KWH]`）
+   - **背後機制**：呼叫 `FeatureAnnotationWizard.run_from_parser_result()` (`tools/features/wizard.py`)
+   - **功能**：根據 Step 1 解析結果，系統自動分析並推測潛在的 HVAC 設備類型，產生帶有下拉選單與輔助提示的 Excel 檔案
 
 3. **Step 3: 轉換 Excel 為 YAML SSOT (`/api/convert-yaml`)**
    - **背後機制**：呼叫 `ExcelToYamlConverter` (`tools/features/excel_to_yaml.py`)
-   - **功能**：人工填寫完 Excel 後將其上傳，系統會檢查硬性約束 (E400, E403 等錯誤碼) 並產出為單一真相源 (`.yaml`) 檔案至 `config/features/sites/` 下。
+   - **功能**：人工填寫完 Excel 後將其上傳，系統會檢查硬性約束 (E400, E403 等錯誤碼) 並產出為單一真相源 (`.yaml`) 檔案至 `config/features/sites/` 下
+   - **欄位對應**：Excel 中的 `column_name`（標準化 snake_case 名稱）會成為 YAML 的欄位識別碼，與 Step 4 Parser 輸出的欄位名稱自動匹配
 
 4. **Step 4: 執行完整 ETL Pipeline (`/api/run-pipeline`)**
-   - **背後機制**：呼叫 `ETLContainer`, `PipelineContext`, 選定的 Parser, `DataCleaner` 以及 `BatchProcessor`。
-   - **功能**：輸入原始 CSV，系統將讀取 Step 3 產生的 YAML 設定檔。執行編碼偵測、時區校正、語意對應清洗與 E350 設備物理違規檢查，最後由 `BatchProcessor` 將資料落地，並返回清洗圖表、異常條目與 `Manifest v1.3`。
-   - **Parser 一致性**：此階段使用的 Parser 必須與 Step 1 選擇的類型一致。
+   - **背後機制**：呼叫 `ETLContainer`, `PipelineContext`, 選定的 Parser, `DataCleaner` 以及 `BatchProcessor`
+   - **功能**：輸入原始 CSV，系統將讀取 Step 3 產生的 YAML 設定檔。執行編碼偵測、時區校正、語意對應清洗與 E350 設備物理違規檢查，最後由 `BatchProcessor` 將資料落地，並返回清洗圖表、異常條目與 `Manifest v1.3`
+   - **Parser 一致性保證**：此階段使用的 Parser 類型會自動與 Step 1 選擇的類型一致，確保欄位名稱標準化邏輯完全相同
+   - **欄位匹配**：Step 4 Parser 輸出的標準化欄位名稱會與 Step 2 Excel / Step 3 YAML 中的 `column_name` 自動對應
    - **非同步執行**：
      - `POST /api/run-pipeline` 會立即回傳 `job_id`（`status=started`）
      - 前端會輪詢 `GET /api/job-status/{job_id}` 取得進度，不再等待單次長連線
@@ -148,10 +177,15 @@ tests/fixtures/
 
 **快速開始四步驟**：
 
-1. 於 Step 1 指定 Parser 類型（或自動偵測），並上傳 `tests/fixtures/sample_hvac_data.csv` 預覽解析結果
-2. 於 Step 2 產生 Excel 範本，並標註 `timestamp` 欄位為時間索引
-3. 於 Step 3 將填寫完成的 Excel 轉換為 YAML 配置檔
-4. 於 Step 4 上傳相同的 CSV 執行完整 ETL 管線，查看 BatchProcessor 清洗圖表與 E350 違規檢測
+1. **Step 1 - 解析預覽**：指定 Parser 類型（或自動偵測），上傳 CSV 預覽解析結果
+2. **Step 2 - 產生範本**：點擊「從預覽結果產生 Excel 範本」，系統自動使用 Step 1 的解析結果產生 Excel
+3. **Step 3 - 轉換 YAML**：填寫 Excel 標註資訊後上傳，轉換為 YAML 配置檔
+4. **Step 4 - ETL 執行**：上傳 CSV 執行完整 ETL 管線（使用與 Step 1 相同的 Parser），查看清洗結果與 E350 違規檢測
+
+**重要提示**：
+- Step 1 和 Step 4 使用**相同 Parser**，確保欄位名稱一致性
+- Step 2 預設使用 Step 1 的預覽結果，避免重複解析造成的欄位名稱差異
+- Excel `column_name` 欄位顯示的是 Parser 標準化後的 snake_case 名稱（如 `ahwp_3_kwh`），與 Step 4 ETL Pipeline 使用的欄位名稱完全一致
 
 ---
 
@@ -172,6 +206,29 @@ tests/fixtures/
 #### 修復 (Fixed)
 
 - **多檔案處理遺漏**: 修復先前雖然可選取多個檔案，但後端只有針對 `csv_paths[0]` 進行執行的問題。現在會透過 `pl.concat(..., how="diagonal_relaxed")` 自動合併所有上傳的資料。
+
+### [v1.5.0] - 2026-02-25
+
+#### 新增 (Added)
+
+- **Step 1 → Step 2 無縫整合**：
+  - **預設流程**：Step 2 現在預設使用「從 Step 1 預覽結果產生」模式，無需重新上傳 CSV
+  - **新 API 端點**：`POST /api/generate-template-from-preview` - 直接使用 Step 1 的 Parser 輸出產生 Excel
+  - **Wizard 增強**：新增 `run_from_parser_result()` 方法，接收 `columns` 和 `point_mapping` 直接產生 Excel
+  - **UI 提示**：Step 1 預覽成功後顯示「✅ 已就緒！解析了 N 個欄位，建議選擇『從 Step 1 預覽結果產生』」
+
+#### 改善 (Improved)
+
+- **欄位名稱一致性**：
+  - Excel `column_name` 現在顯示 Parser 標準化後的 snake_case 名稱（如 `ahwp_3_kwh`）
+  - 原始監控點名稱（如 `AHWP-3.KWH`）保留在 `description` 欄位，格式：`[Point_X | 原始名稱: AHWP-3.KWH]`
+  - 確保 Step 2 產生的 Excel 與 Step 4 ETL Pipeline 使用的欄位名稱完全一致，避免 E409 錯誤
+
+#### PRD 合規性
+
+- ✅ 符合 PRD_Feature_Annotation_Specification_V1.3 第 7.1.1 節（Wizard 與 Parser V2.2 整合）
+- ✅ 符合 PRD_Interface_Contract_v1.1 第 10 章（Header Standardization）
+- ✅ 未違反 PRD_Wizard_Technical_Blockade_V1.0（Wizard 仍只寫 Excel，不直接寫 YAML）
 
 ### [v1.4.0] - 2026-02-25
 

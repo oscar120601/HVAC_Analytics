@@ -246,6 +246,38 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* ── 下拉選單全域暗色主題修正 ── */
+        select {
+            appearance: none;
+            -webkit-appearance: none;
+            background-color: #0d1d33;
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 8px 32px 8px 10px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2300d4ff' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            cursor: pointer;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--cyan);
+            box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.15);
+        }
+
+        option {
+            background-color: #0d1d33;
+            color: var(--text);
+            padding: 6px 10px;
+        }
+
+        option:hover,
+        option:checked {
+            background-color: #1a3a5c;
+        }
     </style>
 </head>
 
@@ -282,50 +314,106 @@
             <div id="chaosOutput" class="error-box" style="display: none; margin: 0;"></div>
         </div>
 
-        <!-- Step 1 -->
-        <div class="step-card">
-            <div class="step-badge">STEP 1 (Parser v2.2)</div>
-            <h3>選擇 Parser 並預覽解析結果</h3>
-            <p style="font-size: 0.9rem; color: var(--text-dim);">
-                上傳 CSV 並選擇解析策略（Auto / Generic / Siemens Scheduler），先確認欄位與點位映射，再進入 Excel 標註流程。
-            </p>
+        <!-- Step 1 & 2 整合流程 -->
+        <div class="step-card" style="border-color: var(--green); border-width: 2px;">
+            <div class="step-badge" style="background: var(--green);">STEP 1 → 2 (Parser + Excel)</div>
+            <h3>🔍 解析 CSV 並產生 Excel 標註範本</h3>
 
-            <label>案場名稱 (Site ID):</label>
-            <input type="text" id="siteId0" value="demo_site">
-
-            <label>選擇 Parser 類型:</label>
-            <select id="parserTypeSelect"
-                style="display: block; margin-bottom: 10px; color: var(--text-dim); padding: 8px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-radius: 4px; width: 100%; max-width: 400px;">
-                <option value="auto">Auto Detect</option>
-            </select>
-
-            <input type="file" id="previewCsvFile" accept=".csv">
-
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <button onclick="loadParserStrategies()" id="btnLoadStrategies">🔄 載入 Parser 類型</button>
-                <button onclick="previewParser()" id="btnPreviewParser">🔍 預覽解析結果</button>
+            <!-- 流程圖示 -->
+            <div
+                style="margin: 15px 0; padding: 15px; background: rgba(6, 214, 160, 0.05); border-radius: 8px; text-align: center;">
+                <div
+                    style="display: flex; align-items: center; justify-content: center; gap: 15px; flex-wrap: wrap; font-size: 0.9rem;">
+                    <span style="color: var(--text-dim);">📁 上傳 CSV</span>
+                    <span style="color: var(--cyan);">→</span>
+                    <span style="color: var(--text-dim);">🔍 Parser 預覽</span>
+                    <span style="color: var(--cyan);">→</span>
+                    <span style="color: var(--green); font-weight: 500;">📄 產生 Excel</span>
+                </div>
+                <div style="margin-top: 10px; font-size: 0.85rem; color: var(--text-dim);">
+                    確保 Step 1 與 Step 4 使用相同 Parser，欄位名稱完全一致
+                </div>
             </div>
-            <div id="loader0" style="display:none; margin-top:10px; color: var(--yellow);">⏳ 解析預覽中...</div>
-            <div id="parserHint" style="margin-top: 10px; color: var(--text-dim); font-size: 0.9rem;">
-                尚未執行預覽，Step 4 會預設使用 Auto Detect。
+
+            <!-- 共同設定 -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px;">
+                <div>
+                    <label>案場名稱 (Site ID):</label>
+                    <input type="text" id="siteId0" value="demo_site" style="width: 100%;">
+                </div>
+                <div>
+                    <label>Parser 類型:</label>
+                    <select id="parserTypeSelect"
+                        style="display: block; padding: 8px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-radius: 4px; width: 100%; color: var(--text);">
+                        <option value="auto">Auto Detect (自動偵測)</option>
+                    </select>
+                </div>
             </div>
-            <pre id="msg0" class="result-box" style="display:none;"></pre>
-        </div>
 
-        <!-- Step 2 -->
-        <div class="step-card">
-            <div class="step-badge">STEP 2 (Sprint 1)</div>
-            <h3>自動生成 Excel 標註範本</h3>
-            <p style="font-size: 0.9rem; color: var(--text-dim);">上傳一份含有原始資料的 CSV，Wizard 將分析標頭並產生對應案場的空白標註 Excel 供您填寫。
-            </p>
+            <!-- Phase 1: 上傳與預覽 -->
+            <div id="phase1Section"
+                style="padding: 15px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 15px;">
+                <div style="font-weight: 500; margin-bottom: 10px; color: var(--cyan);">Phase 1: 上傳 CSV 並預覽</div>
 
-            <label>案場名稱 (Site ID):</label>
-            <input type="text" id="siteId1" value="demo_site">
-            <input type="file" id="rawCsvFile" accept=".csv">
+                <input type="file" id="previewCsvFile" accept=".csv" style="margin-bottom: 10px;">
 
-            <button onclick="generateTemplate()" id="btnStep1">📄 產生 Excel 範本</button>
-            <div id="loader1" style="display:none; margin-top:10px; color: var(--yellow);">⏳ 產生中... 會自動下載檔案</div>
-            <div id="msg1" style="margin-top:10px; font-size:0.9rem;"></div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button onclick="loadParserStrategies()" id="btnLoadStrategies">🔄 載入 Parser 類型</button>
+                    <button onclick="previewParser()" id="btnPreviewParser">🔍 預覽解析結果</button>
+                </div>
+
+                <div id="loader0" style="display:none; margin-top:10px; color: var(--yellow);">⏳ 解析預覽中...</div>
+
+                <!-- 解析結果顯示區 -->
+                <pre id="msg0" class="result-box" style="display:none; margin-top: 10px;"></pre>
+            </div>
+
+            <!-- Phase 2: 產生 Excel (預設隱藏，預覽成功後顯示) -->
+            <div id="phase2Section"
+                style="display:none; padding: 15px; background: rgba(6, 214, 160, 0.08); border: 1px solid rgba(6, 214, 160, 0.3); border-radius: 8px;">
+                <div style="font-weight: 500; margin-bottom: 10px; color: var(--green);">✅ Phase 2: 產生 Excel 標註範本</div>
+
+                <div id="previewSummary" style="margin-bottom: 15px; font-size: 0.9rem; color: var(--text-dim);">
+                    <!-- 動態顯示預覽結果摘要 -->
+                </div>
+
+                <!-- 產生模式選擇 -->
+                <div style="margin-bottom: 15px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 6px;">
+                    <div style="font-size: 0.85rem; margin-bottom: 8px; color: var(--text-dim);">選擇產生方式：</div>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button onclick="generateTemplateFromPreview()" id="btnGenerateFromPreview"
+                            style="background: rgba(6, 214, 160, 0.2); border-color: var(--green); color: var(--green); flex: 1; min-width: 200px;">
+                            ✅ 從預覽結果產生（推薦）
+                        </button>
+                        <button onclick="showTraditionalMode()" id="btnShowTraditional"
+                            style="background: rgba(255,255,255,0.05); border-color: var(--text-dim); color: var(--text-dim); flex: 0 0 auto;">
+                            ⚙️ 使用傳統模式
+                        </button>
+                    </div>
+                    <div id="loaderGenerateFromPreview" style="display:none; margin-top:10px; color: var(--yellow);">⏳
+                        產生 Excel 中...</div>
+                </div>
+
+                <!-- 傳統模式區塊（預設隱藏） -->
+                <div id="traditionalModeSection"
+                    style="display:none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border);">
+                    <div style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 10px;">
+                        傳統模式：重新上傳 CSV 並解析（與 Step 1 預覽可能產生不同欄位名稱）
+                    </div>
+                    <label>上傳 CSV:</label>
+                    <input type="file" id="rawCsvFile" accept=".csv" style="margin-bottom: 10px;">
+                    <button onclick="generateTemplateTraditional()" id="btnStep1Traditional"
+                        style="background: rgba(255,255,255,0.05);">📄 從 CSV 重新解析並產生</button>
+                    <div id="loader1" style="display:none; margin-top:10px; color: var(--yellow);">⏳ 產生中...</div>
+                    <div id="msg1" style="margin-top:10px; font-size:0.9rem;"></div>
+                </div>
+            </div>
+
+            <!-- 狀態提示 -->
+            <div id="parserHint"
+                style="margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; font-size: 0.85rem; color: var(--text-dim);">
+                💡 <strong>使用提示：</strong>請先上傳 CSV 並執行預覽解析，成功後即可產生 Excel 範本。預覽結果會確保與 Step 4 ETL Pipeline 的欄位名稱一致。
+            </div>
         </div>
 
         <!-- Step 3 -->
@@ -408,7 +496,8 @@
 
                 <div style="margin-bottom: 15px;">
                     <label style="color: var(--text-dim); font-size: 0.85rem;">欲診斷的檔案 (當選取多檔時):</label>
-                    <select id="diagFileSelect" style="display: block; width: 100%; max-width: 400px; padding: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,107,107,0.3); color: var(--text); border-radius: 4px; margin-top: 5px;">
+                    <select id="diagFileSelect"
+                        style="display: block; width: 100%; max-width: 400px; padding: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,107,107,0.3); color: var(--text); border-radius: 4px; margin-top: 5px;">
                     </select>
                 </div>
 
@@ -510,6 +599,10 @@
         let selectedParserType = 'auto';
         let resolvedParserType = 'auto';
 
+        // 儲存 Step 1 的解析結果，供 Step 2 使用
+        let lastPreviewResult = null;
+        let lastPreviewFile = null;
+
         function parserDisplayName(parserType) {
             const names = {
                 auto: 'Auto Detect',
@@ -520,7 +613,7 @@
         }
 
         function syncSiteIds(siteId) {
-            const ids = ['siteId0', 'siteId1', 'siteId2', 'siteId3'];
+            const ids = ['siteId0', 'siteId2', 'siteId3'];  // Step 1&2 合併，不再有 siteId1
             ids.forEach(id => {
                 const element = document.getElementById(id);
                 if (element) {
@@ -711,6 +804,7 @@
             const msg = document.getElementById('msg0');
             const loader = document.getElementById('loader0');
             const button = document.getElementById('btnPreviewParser');
+            const generateSection = document.getElementById('phase2Section');
 
             if (!fileInput.files[0] || !siteId) {
                 alert("請填寫案場 ID 並上傳 CSV 檔案！");
@@ -721,6 +815,7 @@
             button.disabled = true;
             msg.style.display = 'none';
             msg.className = 'result-box';
+            if (generateSection) generateSection.style.display = 'none';
 
             const formData = new FormData();
             formData.append("site_id", siteId);
@@ -751,6 +846,16 @@
                     return `${k}: ${source} -> ${normalized}`;
                 });
 
+                // 儲存解析結果供 Step 2 使用
+                lastPreviewResult = {
+                    columns: data.columns || [],
+                    point_mapping: pointMapping,
+                    sample_rows: data.sample_rows || [],
+                    parser_type: selectedParserType,
+                    resolved_parser_type: resolvedParserType
+                };
+                lastPreviewFile = fileInput.files[0];
+
                 const previewPayload = {
                     parser: {
                         selected: selectedParserType,
@@ -772,27 +877,120 @@
                 msg.style.display = 'block';
                 msg.className = 'result-box success';
                 msg.textContent = JSON.stringify(previewPayload, null, 2);
+
+                // 顯示 Phase 2 區塊
+                const phase2Section = document.getElementById('phase2Section');
+                const previewSummary = document.getElementById('previewSummary');
+                if (phase2Section) {
+                    phase2Section.style.display = 'block';
+                }
+                if (previewSummary) {
+                    const colCount = data.columns?.length || 0;
+                    const pointCount = Object.keys(pointMapping).length;
+                    previewSummary.innerHTML = `
+                        <span style="color: var(--green);">✓</span> 已解析 <strong>${colCount}</strong> 個欄位
+                        ${pointCount > 0 ? `（含 <strong>${pointCount}</strong> 個點位映射）` : ''}<br>
+                        <span style="color: var(--cyan);">→</span> 點擊下方「從預覽結果產生」按鈕即可下載 Excel 範本
+                    `;
+                }
+
+                // 滾動到 Phase 2
+                if (phase2Section) {
+                    phase2Section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+
             } catch (error) {
                 msg.style.display = 'block';
                 msg.className = 'result-box error';
                 msg.textContent = "❌ 解析預覽失敗: " + error.message;
+
+                // 隱藏 Phase 2
+                const phase2Section = document.getElementById('phase2Section');
+                if (phase2Section) phase2Section.style.display = 'none';
             } finally {
                 loader.style.display = 'none';
                 button.disabled = false;
             }
         }
 
-        async function generateTemplate() {
+        // 從預覽結果產生 Excel 範本
+        async function generateTemplateFromPreview() {
+            const siteId = document.getElementById('siteId0').value.trim();
+            const loader = document.getElementById('loaderGenerateFromPreview');
+            const button = document.getElementById('btnGenerateFromPreview');
+
+            if (!lastPreviewResult || !siteId) {
+                alert("請先執行 Step 1 的預覽解析！");
+                return;
+            }
+
+            loader.style.display = 'block';
+            button.disabled = true;
+
+            const formData = new FormData();
+            formData.append("site_id", siteId);
+            formData.append("columns", JSON.stringify(lastPreviewResult.columns));
+            formData.append("point_mapping", JSON.stringify(lastPreviewResult.point_mapping));
+            formData.append("sample_rows", JSON.stringify(lastPreviewResult.sample_rows));
+            formData.append("parser_type", lastPreviewResult.parser_type);
+
+            try {
+                const response = await fetch("http://localhost:8000/api/generate-template-from-preview", {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText);
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${siteId}_features.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+
+                alert(`✅ Excel 範本產生成功！\n\n已從 Parser 結果產生 ${lastPreviewResult.columns.length} 個欄位的標註範本。\nExcel 中的 description 欄位會顯示 Point 對應關係。`);
+
+                // 同步 site_id 到 Step 3
+                syncSiteIds(siteId);
+
+            } catch (error) {
+                alert("❌ 產生 Excel 失敗: " + error.message);
+            } finally {
+                loader.style.display = 'none';
+                button.disabled = false;
+            }
+        }
+
+        // 顯示/隱藏傳統模式區塊
+        function showTraditionalMode() {
+            const section = document.getElementById('traditionalModeSection');
+            if (section) {
+                section.style.display = section.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+
+        // 傳統模式：從 CSV 重新解析產生 Excel
+        async function generateTemplateTraditional() {
             const fileInput = document.getElementById('rawCsvFile');
-            const siteId = document.getElementById('siteId1').value;
+            const siteId = document.getElementById('siteId0').value;
             const msg = document.getElementById('msg1');
 
-            if (!fileInput.files[0] || !siteId) return alert("請填寫案場 ID 並選擇 CSV！");
+            if (!siteId) return alert("請填寫案場 ID！");
+            if (!fileInput.files[0]) return alert("請選擇 CSV 檔案！");
 
             document.getElementById('loader1').style.display = 'block';
-            document.getElementById('btnStep1').disabled = true;
-            msg.textContent = '';
-            msg.className = '';
+            document.getElementById('btnStep1Traditional').disabled = true;
+            if (msg) {
+                msg.textContent = '';
+                msg.className = '';
+            }
 
             const formData = new FormData();
             formData.append("site_id", siteId);
@@ -816,17 +1014,26 @@
                 a.remove();
                 window.URL.revokeObjectURL(url);
 
-                msg.textContent = "✅ Excel 範本產生成功，已自動下載";
-                msg.classList.add("success");
+                if (msg) {
+                    msg.textContent = "✅ Excel 範本產生成功（從 CSV 重新解析）";
+                    msg.classList.add("success");
+                }
 
                 syncSiteIds(siteId);
             } catch (error) {
-                msg.textContent = "❌ 發生錯誤: " + error.message;
-                msg.classList.add("error");
+                if (msg) {
+                    msg.textContent = "❌ 發生錯誤: " + error.message;
+                    msg.classList.add("error");
+                }
             } finally {
                 document.getElementById('loader1').style.display = 'none';
-                document.getElementById('btnStep1').disabled = false;
+                document.getElementById('btnStep1Traditional').disabled = false;
             }
+        }
+
+        // 保留舊函數作為向後相容（已棄用，請使用 generateTemplateFromPreview 或 generateTemplateTraditional）
+        async function generateTemplate() {
+            alert("此函數已棄用。請使用新的流程：\n1. 先執行預覽解析\n2. 然後點擊「從預覽結果產生」按鈕");
         }
 
         async function convertYaml() {
@@ -1082,7 +1289,7 @@
                         opt.textContent = f.name;
                         diagFileSelect.appendChild(opt);
                     });
-                     // 根據 errorMsg 自動選取有問題的檔案
+                    // 根據 errorMsg 自動選取有問題的檔案
                     for (let i = 0; i < selectedFiles.length; i++) {
                         if (errorMsg.includes(selectedFiles[i].name)) {
                             diagFileSelect.value = i;
@@ -1252,7 +1459,7 @@
             formData.append("site_id", siteId);
             formData.append("parser_type", selectedParserType);
             formData.append("resample_interval", document.getElementById('resampleInterval').value);
-            
+
             // 取得使用者從選單選取的檔案
             const fileMenu = document.getElementById("diagFileSelect");
             const fileIndex = fileMenu ? fileMenu.value : 0;

@@ -1,8 +1,9 @@
-# HVAC Analytics - Core Engine (v1.6 Architecture)
+# HVAC Analytics - Core Engine (v1.7 Architecture)
 
-**核心引擎狀態**: ✅ **Sprint 2 已完成 (4/4 完成，含 Parser v2.2 模組化重構)**  
+**核心引擎狀態**: ✅ **Sprint 2 已完成 (4/4 完成，含 Parser v2.2 模組化重構 + Interactive ETL Tester v1.5)**  
 **審查報告**: [Sprint 2 Review Report](docs/專案任務排程/Sprint_2_Review_Report.md) - Parser v2.1 (A級), Cleaner v2.2 (A級), BatchProcessor v1.3 (A-級)；Parser v2.2 模組化驗收完成  
 **Parser V2.2**: ✅ **已完成** - 模組化 Strategy Pattern 架構已上線，支援多格式 CSV + Siemens Scheduler  
+**Interactive ETL Tester V1.5**: ✅ **已完成** - Step 1→2 無縫整合，欄位名稱一致性保證  
 **最後更新**: 2026-02-25
 
 ---
@@ -20,11 +21,12 @@
 | 2 | 2.1.1 Parser v2.2 模組化重構 | ✅ **已完成** | 29/29 通過（含 v2.1 回歸） |
 | 2 | 2.2 Cleaner v2.2 | ✅ **已完成** | 26/26 通過 🟢 A級 |
 | 2 | 2.3 BatchProcessor v1.3 | ✅ **已完成** | 32/32 通過 🟡 A-級 |
+| 2 | 2.4 Interactive ETL Tester v1.5 | ✅ **已完成** | Step 1→2 整合 |
 
 **Sprint 1 總計**: 53 項測試全部通過 ✅  
 **Sprint 2 總計**: 87 項測試全部通過 ✅  
 **累計測試**: 140 項全部通過 ✅  
-**Sprint 2 狀態**: 4/4 完成 (Parser v2.1 🟢 A級, Parser v2.2 ✅ 完成, Cleaner v2.2 🟢 A級, BatchProcessor v1.3 🟡 A-級)
+**Sprint 2 狀態**: 4/4 完成 (Parser v2.1 🟢 A級, Parser v2.2 ✅ 完成, Cleaner v2.2 🟢 A級, BatchProcessor v1.3 🟡 A-級, Interactive ETL Tester v1.5 ✅)
 
 [📋 查看完整任務排程](./docs/專案任務排程/專案任務排程文件.md) | [📈 Sprint 1 執行摘要](./docs/專案任務排程/Sprint_1_執行摘要.md) | [📋 Sprint 1 審查報告](./docs/專案任務排程/Sprint_1_Review_Report.md) | [📈 Sprint 2 執行摘要](./docs/專案任務排程/Sprint_2_執行摘要.md) | [📋 Sprint 2 審查報告](./docs/專案任務排程/Sprint_2_Review_Report.md)
 
@@ -641,7 +643,68 @@ class Manifest:
 
 ---
 
-### ✅ 2.4 Sprint 2 Demo 展示
+### ✅ 2.4 Interactive ETL Tester v1.5
+
+**完成日期**: 2026-02-25  
+**文件**: [Interactive ETL Tester 說明](docs/測試工具說明/Interactive_ETL_Tester.md)
+
+#### Step 1→2 整合流程（核心改進）
+
+```
+Step 1: Parser Preview ───────┐
+    │                         │
+    ▼                         │
+顯示 columns + point_mapping   │
+    │                         │
+    ▼                         ▼
+點擊「從預覽結果產生」  →  Step 2: Excel 標註範本
+    │                         │
+    ▼                         ▼
+欄位名稱完全一致 ←────────────┘
+(確保與 Step 4 ETL Pipeline 相容)
+```
+
+#### 關鍵功能
+
+| 功能 | 說明 | 驗收標準 |
+|:---|:---|:---|
+| **無縫整合** | Step 1 預覽後直接產生 Excel，無需重新上傳 CSV | ✅ 完成 |
+| **欄位一致性** | Excel `column_name` 顯示 Parser 標準化後的 snake_case | ✅ 完成 |
+| **點位映射** | Excel `description` 顯示 `[Point_X \| 原始名稱]` 對照 | ✅ 完成 |
+| **E409 預防** | Step 1→Step 4 欄位名稱完全一致，避免 Header Mismatch | ✅ 完成 |
+
+#### API 端點
+
+- `POST /api/v1/pipeline/parse-preview` - Step 1: Parser 預覽（回傳 columns, point_mapping）
+- `POST /api/generate-template-from-preview` - Step 2: 從預覽結果產生 Excel
+
+#### 程式碼範例
+
+```python
+# Step 1: 預覽解析
+from src.etl.parser import get_parser
+parser = get_parser("auto", file_path="report.csv")
+df = parser.parse_file("report.csv")
+metadata = parser.get_metadata()
+# metadata["columns"] = ["timestamp", "ahwp_3_kwh", ...]
+# metadata["point_mapping"] = {"point_1": {"name": "AHWP-3.KWH", ...}}
+
+# Step 2: 直接從預覽結果產生 Excel（不重新讀取 CSV）
+from tools.features.wizard import FeatureAnnotationWizard
+wizard = FeatureAnnotationWizard(site_id="demo")
+wizard.run_from_parser_result(
+    columns=metadata["columns"],
+    point_mapping=metadata["point_mapping"],
+    sample_data=df.head(10).to_dicts()
+)
+# 輸出: demo_features.xlsx
+# - column_name: "ahwp_3_kwh" (snake_case)
+# - description: "[Point_1 | AHWP-3.KWH]"
+```
+
+---
+
+### ✅ 2.5 Sprint 2 Demo 展示
 
 **完成日期**: 2026-02-24  
 **展示頁面**: `tools/demo/sprint2_etl.html`
@@ -789,18 +852,45 @@ python -m http.server 8080
 
 ### 啟動互動式測試工具 (Sprint 2)
 
-本專案提供了一個完整三步互動式測試工具，涵蓋「產生標註 Excel」、「轉換 YAML」、「執行批次管線」。
-**v1.3 新增功能**: 支援多檔/資料夾上傳、階段性診斷工具 (Parser/Cleaner 獨立測試)、清洗與重採樣間隔設定下拉選單、Chaos Testing 防禦驗證機制、以及 parquet 檔案直連下載功能。
+本專案提供了一個完整四步互動式測試工具，涵蓋「Parser 預覽」、「產生標註 Excel」、「轉換 YAML」、「執行批次管線」。
+
+**v1.5 新增功能 (Step 1→2 整合)**: 
+- Step 1 預覽 Parser 結果後，可直接點擊「從預覽結果產生 Excel」按鈕
+- **無需重新上傳 CSV**，確保欄位名稱從 Step 1 到 Step 4 完全一致
+- Excel `column_name` 顯示 Parser 標準化後的 snake_case 名稱（如 `ahwp_3_kwh`）
+- Excel `description` 顯示 Point 映射資訊（如 `[Point_1 | AHWP-3.KWH]`）
+- **預防 E409 (Header Annotation Mismatch)**：Step 1→Step 4 欄位名稱完全一致
+
+**v1.3 功能**: 支援多檔/資料夾上傳、階段性診斷工具 (Parser/Cleaner 獨立測試)、清洗與重採樣間隔設定下拉選單、Chaos Testing 防禦驗證機制、以及 parquet 檔案直連下載功能。
+
 詳細說明與變更紀錄請參閱：**[Interactive ETL Tester 說明文件](docs/測試工具說明/Interactive_ETL_Tester.md)**
 
-若要啟動互動式測試工具：
+#### 快速開始
 
-1. 啟動後端 API (FastAPI):
 ```bash
+# 1. 啟動後端 API (FastAPI)
 pip install fastapi uvicorn python-multipart
 uvicorn tools.demo.test_server:app --reload --port 8000 --host 0.0.0.0
+
+# 2. 在瀏覽器開啟 tester.html
+tools/demo/tester.html
 ```
-2. 在瀏覽器點擊或雙擊開啟 `tools/demo/tester.html`，即可使用圖形化介面。
+
+#### 推薦工作流程 (v1.5)
+
+```
+Step 1: 上傳 CSV → 選擇 Parser → 預覽解析
+              ↓
+      點擊「從預覽結果產生 Excel」
+              ↓
+Step 2: 自動下載 Excel（欄位名稱已標準化）
+              ↓
+Step 3: 填寫 Excel → 上傳轉換為 YAML
+              ↓
+Step 4: 執行完整 ETL Pipeline
+```
+
+**關鍵優勢**: Step 1 預覽時已將 CSV 欄位名稱標準化為 snake_case，Step 2 產生的 Excel 直接使用這些標準化名稱，確保與 Step 4 ETL Pipeline 輸出完全一致，避免欄位名稱不匹配問題。
 
 ---
 
@@ -965,6 +1055,11 @@ Sprint 2: 核心 ETL ✅ 已完成 (4/4 完成)
     ├── 品質指標雷達圖 (Chart.js)
     ├── 設備邏輯違規案例展示
     └── Manifest 輸出結構展示
+    │
+    └── ✅ Interactive ETL Tester v1.5 (已完成)
+        ├── Step 1→2 無縫整合
+        ├── 欄位名稱一致性保證
+        └── E409 Header Mismatch 預防
 ```
 
 ### 下一步
@@ -1026,5 +1121,5 @@ HVAC_STRICT_MODE=true python main.py pipeline data.csv
 ---
 
 **最後更新**: 2026-02-25  
-**架構版本**: v1.6  
-**文件狀態**: ✅ Sprint 2 已完成 (4/4 完成，Parser v2.1 🟢 A級, Parser v2.2 ✅ 完成, Cleaner 🟢 A級, BatchProcessor 🟡 A-級)
+**架構版本**: v1.7  
+**文件狀態**: ✅ Sprint 2 已完成 (4/4 完成，Parser v2.1 🟢 A級, Parser v2.2 ✅ 完成, Cleaner 🟢 A級, BatchProcessor 🟡 A-級, Interactive ETL Tester v1.5 ✅)

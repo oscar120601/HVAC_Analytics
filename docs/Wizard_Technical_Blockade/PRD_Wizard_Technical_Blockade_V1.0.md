@@ -294,6 +294,43 @@ class SecureFeatureWizard:
         self.write_yaml()
 ```
 
+### 2.2.1 Parser 整合例外說明（新增）
+
+**允許的行為**（不違反阻擋機制）：
+- Wizard **接收** Parser 的輸出（`columns`, `point_mapping`）作為輸入參數
+- 這是「讀取」操作，不違反「僅寫 Excel」原則
+- 實作位置：`FeatureAnnotationWizard.run_from_parser_result()`
+
+**仍然禁止的行為**：
+- Wizard 直接寫入 YAML 檔案
+- Wizard 呼叫 yaml 庫進行序列化
+- Wizard 取得 YAML 檔案路徑並嘗試寫入
+- Wizard 修改 `config/features/sites/*.yaml` 檔案
+
+**設計原則**：
+```
+接收 Parser 輸出 → 產生 Excel → 使用者手動執行 excel_to_yaml.py → 產生 YAML
+         ↑___________________________________________↓
+                      （Wizard 不參與此步驟）
+```
+
+**程式碼驗證**：
+```python
+# ✅ 允許：Wizard 接收 Parser 輸出作為輸入參數
+wizard.run_from_parser_result(
+    columns=parsed_columns,        # Parser 輸出的標準化欄位
+    point_mapping=point_mapping,  # Parser 輸出的點位對應
+    sample_data=sample_rows       # 樣本資料
+)
+
+# ❌ 禁止：Wizard 寫入 YAML（會觸發 E501）
+wizard.write_yaml(data)  # PermissionError: E501
+```
+
+**PRD 合規性**：
+- 符合 PRD_Feature_Annotation_Specification_V1.3 第 7.1.1 節（Wizard 與 Parser V2.2 整合）
+- 未破壞 PRD_System_Integration_v1.2 的單向流程原則（Excel → Wizard → excel_to_yaml → YAML）
+
 ### 2.3 執行期驗證（Runtime Verification）
 
 **檔案**: `src/security/runtime_verifier.py`

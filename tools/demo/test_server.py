@@ -134,7 +134,7 @@ async def test_error(error_code: str = Form(...)):
 
 @app.post("/api/generate-template")
 async def generate_template(site_id: str = Form(...), file: UploadFile = File(...)):
-    """STEP 1: 從原始 CSV 產生 Excel 標註範本"""
+    """STEP 1: 從原始 CSV 產生 Excel 標註範本 (傳統方式，直接讀取 CSV)"""
     csv_path = TEMP_DIR / f"raw_{site_id}_{file.filename}"
     excel_path = TEMP_DIR / f"{site_id}_template.xlsx"
     
@@ -161,6 +161,75 @@ async def generate_template(site_id: str = Form(...), file: UploadFile = File(..
     except Exception as e:
         cleanup_file(csv_path)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/generate-template-from-preview")
+async def generate_template_from_preview(
+    site_id: str = Form(...),
+    columns: str = Form(...),  # JSON string
+    point_mapping: str = Form("{}"),  # JSON string
+    sample_rows: str = Form("[]"),  # JSON string
+    parser_type: str = Form("auto")
+):
+    """
+    STEP 2 (整合版): 從 Step 1 的 Parser 預覽結果產生 Excel 標註範本
+    
+    接收 Step 1 /api/v1/pipeline/parse-preview 的輸出，直接使用 Parser 解析後的結果產生 Excel，
+    確保 column_name 顯示的是 Parser 標準化後的名稱，並保留 Point 對應資訊在 description 中。
+    """
+    import json
+    
+    excel_path = TEMP_DIR / f"{site_id}_template.xlsx"
+    csv_path = TEMP_DIR / f"dummy_{site_id}.csv"  # dummy CSV path for wizard initialization
+    
+    try:
+        # 解析 JSON 參數
+        columns_list = json.loads(columns)
+        point_mapping_dict = json.loads(point_mapping)
+        sample_data = json.loads(sample_rows)
+        
+        if not columns_list:
+            raise HTTPException(status_code=400, detail="欄位列表為空")
+        
+        # 建立 dummy CSV 檔案以滿足 wizard 的初始化需求
+        # (wizard 需要 csv_path 但實際上我們會使用 run_from_parser_result)
+        import csv
+        with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(columns_list)  # 寫入標題列
+        
+        wizard = FeatureAnnotationWizard(
+            site_id=site_id,
+            csv_path=csv_path,
+            excel_path=excel_path
+        )
+        
+        # 使用 Parser 結果產生 Excel
+        success = wizard.run_from_parser_result(
+            columns=columns_list,
+            point_mapping=point_mapping_dict,
+            sample_data=sample_data
+        )
+        
+        if not success or not excel_path.exists():
+            raise HTTPException(status_code=500, detail="Excel 範本產生失敗")
+        
+        # 清理 dummy CSV
+        cleanup_file(csv_path)
+        
+        return FileResponse(
+            path=excel_path, 
+            filename=f"{site_id}_features.xlsx",
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            background=BackgroundTask(cleanup_file, excel_path)
+        )
+        
+    except json.JSONDecodeError as e:
+        cleanup_file(csv_path)
+        raise HTTPException(status_code=400, detail=f"JSON 解析錯誤: {str(e)}")
+    except Exception as e:
+        cleanup_file(csv_path)
+        raise HTTPException(status_code=500, detail=f"產生 Excel 失敗: {str(e)}")
 
 @app.post("/api/convert-yaml")
 async def convert_yaml(site_id: str = Form(...), excel_file: UploadFile = File(...)):

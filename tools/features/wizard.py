@@ -610,6 +610,148 @@ class FeatureAnnotationWizard:
         
         return True
 
+    def run_from_parser_result(
+        self, 
+        columns: List[str], 
+        point_mapping: Optional[Dict[str, Dict[str, Any]]] = None,
+        sample_data: Optional[List[Dict[str, Any]]] = None
+    ) -> bool:
+        """
+        從 Parser 解析結果直接產生 Excel 範本
+        
+        Args:
+            columns: Parser 解析後的標準化欄位名稱列表
+            point_mapping: Parser 輸出的 point_mapping (如 {"Point_1": {"name": "AHWP-3.KWH", "normalized_name": "ahwp_3_kwh"}})
+            sample_data: 樣本資料，用於計算統計資訊
+        
+        Returns:
+            是否成功
+        """
+        print(f"\n{'='*60}")
+        print(f"🔧 Feature Annotation Wizard v{self.template_version} (Parser Result Mode)")
+        print(f"{'='*60}")
+        
+        # 建立備份
+        backup_path = self._create_backup()
+        if backup_path:
+            print(f"💾 已建立備份: {backup_path.name}")
+        
+        # 載入或建立 Workbook
+        if not self._load_or_create_workbook():
+            return False
+        
+        # 使用 Parser 解析後的欄位
+        print(f"\n📁 從 Parser 結果讀取欄位")
+        print(f"   發現 {len(columns)} 個欄位")
+        
+        # 取得已存在的欄位
+        existing = self._get_existing_columns()
+        
+        # 找出新欄位 (排除 timestamp)
+        new_columns = [c for c in columns if c not in existing and c != 'timestamp']
+        
+        if not new_columns:
+            print("\n✅ 無新欄位需要標註")
+            return True
+        
+        print(f"\n🔍 發現 {len(new_columns)} 個新欄位待標註:\n")
+        
+        # 處理每個新欄位
+        for col in new_columns:
+            # 從 point_mapping 取得原始名稱
+            mapped_name = col  # 預設使用標準化名稱
+            original_point_name = None
+            
+            if point_mapping:
+                # 尋找這個欄位對應的 point 資訊
+                for point_key, point_info in point_mapping.items():
+                    if isinstance(point_info, dict):
+                        # 比對 normalized_name
+                        if point_info.get('normalized_name') == col:
+                            original_point_name = point_info.get('name', col)
+                            mapped_name = original_point_name
+                            break
+                        # 或者比對 point_key (如 Point_1)
+                        elif point_info.get('normalized_name') == col:
+                            original_point_name = point_info.get('name', col)
+                            mapped_name = original_point_name
+                            break
+            
+            # 計算統計 (如果沒有 sample_data 就給預設值)
+            stats = None
+            if sample_data and len(sample_data) > 0:
+                # 嘗試從 sample_data 計算簡單統計
+                try:
+                    values = [row.get(col) for row in sample_data if col in row and row.get(col) is not None]
+                    numeric_values = []
+                    for v in values:
+                        try:
+                            numeric_values.append(float(v))
+                        except (ValueError, TypeError):
+                            pass
+                    
+                    if numeric_values:
+                        mean_val = sum(numeric_values) / len(numeric_values)
+                        zero_count = sum(1 for v in numeric_values if v == 0)
+                        zero_ratio = zero_count / len(numeric_values)
+                        stats = {'mean': mean_val, 'zero_ratio': zero_ratio}
+                except Exception:
+                    pass
+            
+            if stats is None:
+                stats = {'mean': 0, 'zero_ratio': 0}
+            
+            # HVAC 推測 (使用原始名稱去推測語意)
+            suggestion = HVACTypeGuesser.guess(mapped_name, stats)
+            
+            # 建立描述：顯示 Point 對應關係
+            description_parts = []
+            if original_point_name and original_point_name != col:
+                description_parts.append(f"原始名稱: {original_point_name}")
+            if point_mapping:
+                # 找到對應的 Point_X 名稱
+                for point_key, point_info in point_mapping.items():
+                    if isinstance(point_info, dict) and point_info.get('normalized_name') == col:
+                        description_parts.insert(0, f"{point_key}")
+                        break
+            
+            if description_parts:
+                suggestion['description'] = f"[{' | '.join(description_parts)}] {suggestion.get('description', '')}"
+
+            print(f"\n{'-'*60}")
+            print(f"欄位: {col}")
+            if original_point_name and original_point_name != col:
+                print(f"  原始監控點名稱: {original_point_name}")
+            print(f"  HVAC推測: {suggestion['equipment_type']} / {suggestion['physical_type']}")
+            print(f"  建議設備 ID: {suggestion['equipment_id']}")
+            
+            # 寫入 Excel
+            self._add_column_to_excel(col, suggestion)
+            print(f"  ✅ 已寫入 Excel（狀態: pending_review）")
+        
+        # 更新 Metadata - 記錄這是從 Parser 結果產生的
+        if "Metadata" in self.workbook.sheetnames:
+            ws = self.workbook["Metadata"]
+            for row in ws.iter_rows(max_col=2):
+                if row[0].value == "last_updated":
+                    row[1].value = datetime.now().isoformat()
+                elif row[0].value == "editor":
+                    row[1].value = "wizard_parser_integration"
+        
+        # 儲存
+        self.excel_path.parent.mkdir(parents=True, exist_ok=True)
+        self.workbook.save(self.excel_path)
+        
+        print(f"\n{'='*60}")
+        print(f"✅ 已產生 Excel: {self.excel_path}")
+        print(f"   (基於 Parser 解析結果，共 {len(new_columns)} 個欄位)")
+        print(f"\n下一步:")
+        print(f"   1. 開啟 Excel 確認設備角色與 Equipment ID")
+        print(f"   2. 執行 Step 3 轉換為 YAML")
+        print(f"{'='*60}\n")
+        
+        return True
+
 
 # =============================================================================
 # 命令列介面

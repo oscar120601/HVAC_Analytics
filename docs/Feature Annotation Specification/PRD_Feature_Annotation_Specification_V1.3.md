@@ -744,6 +744,44 @@ def wizard_update_excel_with_parser(
 - 未指定 `parser_type` 時，預設為 `"auto"`
 - 現有 site_config 可選擇性加入 `parser_type` 欄位
 
+### 7.1.2 Web API 整合規範（新增）
+
+當 Wizard 透過 Web API 與 Parser 整合時，遵循以下規範：
+
+#### API 端點定義
+
+| API 端點 | 用途 | 輸入 | 輸出 |
+|:---|:---|:---|:---|
+| `POST /api/generate-template-from-preview` | 從 Parser 預覽結果直接產生 Excel 標註範本 | `site_id`, `columns`, `point_mapping`, `sample_data` | Excel 檔案下載 |
+
+#### 請求參數規範
+
+```python
+{
+    "site_id": str,           # 案場識別碼
+    "columns": List[str],     # Parser 輸出的標準化欄位名稱列表（已轉為 snake_case）
+    "point_mapping": Dict,    # Parser 的點位對應資訊 {Point_N: {name, normalized_name}}
+    "sample_data": List[Dict] # 樣本資料列（用於統計計算與 HVAC 語意推測）
+}
+```
+
+#### 重要規範
+
+1. **column_name 標準化**：`column_name` 必須使用 Parser 輸出的標準化名稱（已轉為 snake_case），如 `ahwp_3_kwh`
+2. **原始點位追溯**：原始點位資訊（如 `Point_1: AHWP-3.KWH`）應記錄在 `description` 欄位，格式建議為：`[Point_X | 原始名稱: {原始名稱}] 自動推測: {標準化名稱}`
+3. **單向流程原則**：Wizard **仍然禁止**直接寫入 YAML，必須透過 Excel → excel_to_yaml.py → YAML 的標準流程
+4. **不重複解析**：此整合模式避免 Step 2 重新解析 CSV，確保 Step 1 與 Step 2 的欄位名稱完全一致
+
+#### 與傳統模式的差異
+
+| 項目 | 傳統模式 | Web API 整合模式 |
+|:---|:---|:---|
+| 輸入來源 | 重新讀取 CSV 檔案 | 接收 Step 1 Parser 輸出 |
+| 欄位名稱來源 | CSV 標頭（可能與 Step 1 不同） | Parser 標準化後的 `columns` |
+| point_mapping | 重新解析取得 | 直接使用 Step 1 輸出 |
+| 一致性保證 | 可能因重複解析產生差異 | Step 1 與 Step 2 完全一致 |
+| YAML 寫入 | ❌ 禁止（維持不變） | ❌ 禁止（維持不變） |
+
 ### 7.2 同步狀態檢查（防止遺忘生成 YAML）
 
 ```python
