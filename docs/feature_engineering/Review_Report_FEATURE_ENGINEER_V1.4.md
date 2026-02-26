@@ -1,6 +1,6 @@
 # 《PRD_FEATURE_ENGINEER_V1.4.md》第五次極限審查報告 (5th Review)
 
-在此次審查中，我們基於 v1.4.4-Final-SignedOff 版本，進一步進行了**「編譯器級別的深水區邏輯追蹤」**。先前我們已經完美解決了 3D Tensor 的 OOM 以及效能組裝問題，不過在反覆推敲底層 NumPy / Polars 函式庫實作細節後，發現 `_generate_static_feature_matrix` 在編譯與執行期間仍然存在**致命的資料結構維度錯位陷阱**。
+在此次審查中，我們基於 v1.4.5 版本，進一步進行了**「編譯器級別的深水區邏輯追蹤」**。先前我們已經完美解決了 3D Tensor 的 OOM 以及效能組裝問題，不過在反覆推敲底層 NumPy / Polars 函式庫實作細節後，發現 `_generate_static_feature_matrix` 在編譯與執行期間仍然存在**致命的資料結構維度錯位陷阱**。
 
 ## 🔴 潛在風險 (Critical Risks)
 

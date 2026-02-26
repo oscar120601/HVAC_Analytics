@@ -1,15 +1,17 @@
 # PRD v1.4.5: 特徵工程拓樸感知與控制語意實作指南
+
 # (Feature Engineering with Topology Awareness & Control Semantics)
 
 **文件版本:** v1.4.5-Final-SignedOff (Topology Aggregation & Control Deviation Features)  
 **日期:** 2026-02-26  
 **負責人:** Oscar Chang / HVAC 系統工程團隊  
 **目標模組:** `src/etl/feature_engineer.py` (v1.4+)  
-**上游契約:** 
+**上游契約:**
+
 - `src/etl/batch_processor.py` (v1.4+, 檢查點 #3)
 - `src/features/annotation_manager.py` (v1.4+, 提供 topology 與 control_semantics)
 **下游契約:** `src/modeling/training_pipeline.py` (**v1.4+**, 輸入檢查點，含 topology_context 與 GNN 支援)  
-**關鍵相依:** 
+**關鍵相依:**
 - `src/features/topology_manager.py` (v1.4+, 設備連接圖查詢)
 - `src/features/control_semantics_manager.py` (v1.4+, 控制對管理)
 **預估工時:** 6 ~ 8 個工程天（含拓樸感知、控制語意與 GNN 特徵支援）
@@ -863,7 +865,6 @@ def generate_topology_propagation_features(
 
 ---
 
-
 ### Phase 2: 控制偏差特徵生成 (Day 3-4)
 
 #### Step 2.1: 控制偏差特徵計算
@@ -1713,7 +1714,6 @@ def _calculate_control_stability(self, df: pl.DataFrame) -> Dict:
 
 ---
 
-
 ## 4. 錯誤代碼對照表 (Error Codes - v1.4 擴充)
 
 | 錯誤代碼 | 名稱 | 發生階段 | 說明 | 處理建議 |
@@ -2183,9 +2183,34 @@ gnn_export:
 - **文件版本**: v1.4.4-Final-SignedOff (Topology Aggregation & Control Deviation Features)
 - **四次審查日期**: 2026-02-26
 - **修訂者**: Oscar Chang / HVAC 系統工程團隊
-- **狀態**: ✅ **已封卷（Sign-off）**，正式進入生產開發
+- **狀態**: ✅ **已封卷（Sign-off）**
+
+---
+
+### 12.8 五次審查回應 (5th Review - Performance & Robustness)
+
+本文件根據五次審查報告（`Review_Report_FEATURE_ENGINEER_V1.4.md` 5th Review 版）進行了深度邏輯校正與效能優化，確保系統在極端資料情境下的強健性：
+
+#### 12.8.1 潛在風險修正（五次審查）
+
+| 風險 | 章節 | 修正內容 | 狀態 |
+|:---|:---:|:---|:---:|
+| **設備靜態矩陣長度失配 (Jagged Array)** | 3.1 | 🆕 修正 `_generate_static_feature_matrix`：1) 加入 `max_features` 偵測；2) 初始化 `feature_vector` 為固定長度 `max_dim`（自動 Padding）；3) 確保 NumPy 輸出的 Shape 完整一致，避免 `ValueError` 崩潰 | ✅ 已修正 |
+| **數值過濾與 `max()` 計算安全** | 2.3 | 🆕 在 `ControlSemanticsManager` 中強化檢查：結合 `filter` 排除 Null 及非有限值（`is_finite`），確保 `max()` 計算不因極端值或斷線資料而異常 | ✅ 已修正 |
+
+#### 12.8.2 優化建議實作（五次審查）
+
+| 建議 | 章節 | 實作內容 | 狀態 |
+|:---|:---:|:---|:---:|
+| **Polars Selectors 效能優化** | 2.1 | 🆕 在 `_generate_deviation_from_resolved_policies` 的補值階段，改用 `cs.numeric()` 選擇器。此舉避免了對非數值型別（如字串）進行無效運算，同步提升運算效率與記憶體安全性 | ✅ 已實作 |
+
+#### 12.8.3 五次審查後文件版本
+
+- **文件版本**: v1.4.5-Final-SignedOff (Topology Aggregation & Control Deviation Features)
+- **五次審查日期**: 2026-02-26
+- **修訂者**: Oscar Chang / HVAC 系統工程團隊
+- **狀態**: ✅ **二次封卷（Final Sign-off）**，極速生產就緒
 
 ---
 
 **文件結束**
-
