@@ -522,10 +522,13 @@ def validate_feature_alignment(model_artifact, input_features):
 | **E822** | `CL_RESOURCE_ALLOCATION_FAILED` | ResourceScheduler | K8s 無法分配足夠資源 | "資源申請失敗: {resource_request}" | ⚠️ 等待或降級 |
 | **E823** | `CL_ROLLBACK_RECOMMENDED` | UpdateOrchestrator | 新版本性能不如舊版本 | "回滾建議: 新版本 MAPE {new_mape}% > 舊版本 {old_mape}%" | ✅ 自動回滾 |
 | **E824** | `CL_AB_TEST_RECOMMENDED` | UpdateOrchestrator | 建議 A/B 測試 | "A/B 測試建議: 輕微改善但有遺忘風險" | ⚠️ 人工確認 |
+| **E827** | `CL_TOPOLOGY_CHANGED` | UpdateOrchestrator | 拓樸結構變更 | "拓樸結構變更: {change_detail}" | ⚠️ 需重新訓練 |
+| **E828** | `CL_EQUIPMENT_CHANGE_FAILED` | UpdateOrchestrator | 設備異動處理失敗 | "設備異動處理失敗: {detail}" | ❌ 否 |
+| **E815** | `CL_DISTRIBUTED_LOCK_FAILED` | UpdateOrchestrator | 分散式鎖定失敗 | "無法取得分散式鎖定，另一更新流程正在執行中" | ⚠️ 等待後重試 |
 
 ---
 
-### 3.11 Optimization 錯誤 (E830-E899) [v1.2 調整範圍]
+### 3.11 Optimization 錯誤 (E830-E899, E840-E859) [v1.2 調整範圍]
 
 **範圍調整說明**: 原 E800-E899 範圍拆分為 E800-E829 (Continual Learning) 與 E830-E899 (Optimization)
 
@@ -535,10 +538,19 @@ def validate_feature_alignment(model_artifact, input_features):
 | **E831** | `OPT_CONSTRAINT_VIOLATION` | OptimizationEngine | 設備邏輯約束無法滿足 | "約束違反: {constraint_detail}" | ⚠️ 部分 |
 | **E832** | `OPT_OPTIMIZATION_DIVERGENCE` | OptimizationEngine | 求解器無法收斂 | "最佳化發散: {solver_status}" | ⚠️ 部分 |
 | **E833** | `OPT_BOUND_INFEASIBILITY` | OptimizationEngine | 變數邊界設定導致無解 | "邊界不可行: {variable}" | ❌ 否 |
-| **E805** | `FORECAST_HORIZON_MISMATCH` | OptimizationEngine | 預測時程與最佳化時程不匹配 | "預測時程錯誤: 需 {required} 步，得 {actual} 步" | ❌ 否 |
-| **E806** | `SYSTEM_MODEL_DISCREPANCY` | OptimizationEngine | System Model 與 Component Models 加總差異 > 5% | "模型不一致: 系統級與元件級預測差異 {diff}%" | ⚠️ 部分 |
-| **E807** | `EQUIPMENT_STATE_INVALID` | OptimizationEngine | 設備狀態違反物理邏輯（如主機開但水泵關） | "設備狀態無效: {equipment_logic}" | ❌ 否 |
-| **E808** | `WEATHER_DATA_MISSING` | OptimizationEngine | 缺少未來天氣預測資料 | "天氣資料缺失: 無法執行未來 {hours} 小時最佳化" | ❌ 否 |
+| **E840** | `OPT_CONFIG_VALIDATION_ERROR` | OptimizationEngine | Optimization Config YAML 格式錯誤 | "配置驗證錯誤: {detail}" | ❌ 否 |
+| **E841** | `OPT_MODEL_REGISTRY_NOT_FOUND` | OptimizationEngine | 找不到 model_registry_index.json 或模型檔案 | "模型註冊表找不到: {path}" | ❌ 否 |
+| **E842** | `OPT_ANNOTATION_CHECKSUM_MISMATCH` | OptimizationEngine | 模型訓練時的 Annotation checksum 與當前不符 | "Annotation 版本不匹配: 訓練 {train_hash} vs 當前 {current_hash}" | ❌ 否 |
+| **E843** | `OPT_FEATURE_DIMENSION_MISMATCH` | OptimizationEngine | Optimization Config 特徵數與模型預期不符 | "特徵維度不匹配: 配置 {config_dim} 維，模型需 {model_dim} 維" | ❌ 否 |
+| **E844** | `OPT_TARGET_NOT_AVAILABLE` | OptimizationEngine | 請求的 target_id 在 Registry 中不存在 | "目標模型不可用: {target_id}" | ❌ 否 |
+| **E845** | `OPT_HYBRID_INCONSISTENCY` | OptimizationEngine | Component Models 加總與 System Model 預測差異 >5% | "Hybrid 模型不一致: 差異 {diff}%" | ⚠️ 警告 |
+| **E846** | `OPT_SYSTEM_MODEL_DISCREPANCY` | OptimizationEngine | 模型差異過大（Training-Optimization 銜接錯誤） | "系統模型差異過大: {detail}" | ⚠️ 部分 |
+| **E847** | `OPT_RT_NOT_ACHIEVABLE` | OptimizationEngine | 無法達到目標冷凍噸（設備容量不足） | "目標 RT 不可達: 需 {required} RT，最大容量 {capacity} RT" | ⚠️ 部分 |
+| **E848** | `OPT_EFFICIENCY_NOT_ACHIEVABLE` | OptimizationEngine | 無法達到目標 kW/RT（可能過於激進） | "目標效率不可達: 需 {required} kW/RT，理論最小 {min} kW/RT" | ⚠️ 部分 |
+| **E849** | `OPT_OPTIMIZATION_INFEASIBLE` | OptimizationEngine | 所有降級層級均無法產生可行解 | "最佳化不可行: 所有 Fallback 層級均失敗" | ⚠️ 回傳當前配置 |
+| **E850** | `OPT_CRITICAL_MODEL_MISMATCH` | OptimizationEngine | Hybrid 模式差異 >15%，模型嚴重不一致 | "模型嚴重不匹配: 差異 {diff}% > 15%，需重新訓練" | ❌ 否 |
+| **E851** | `OPT_RESOURCE_LIMIT_EXCEEDED` | OptimizationEngine | 記憶體或計算資源超限 | "資源超限: {resource_type} 使用 {used} > 限制 {limit}" | ⚠️ 啟用啟發式 |
+| **E852** | `OPT_CONSTRAINT_VIOLATION_HARD` | OptimizationEngine | 違反硬約束且無法放寬 | "硬約束違反: {constraint}" | ⚠️ 部分 |
 
 ---
 

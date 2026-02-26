@@ -66,8 +66,8 @@ graph LR
 **當 Training 採用 Hybrid 模式（模式 C）時**：
 - Optimization Engine 以 `system_total_kw` 為主要預測依據（必要）
 - Component-Level 模型（`chiller_1_kw` 等）僅用於節能報告中的耗電佔比分析（選用）
-- 若 System Model 與 Component Models 加總差異 >5%，觸發警告 **E806**，但仍以 System Model 為準
-- **新增**：若差異 >15%，觸發 **E810**（模型嚴重不一致錯誤），強制終止並要求重新訓練
+- 若 System Model 與 Component Models 加總差異 >5%，觸發警告 E846，但仍以 System Model 為準
+- **新增**：若差異 >15%，觸發 E850（模型嚴重不一致錯誤），強制終止並要求重新訓練
 
 ---
 
@@ -81,14 +81,14 @@ Optimization Engine 不再直接載入個別 `.joblib` 檔案，而是透過 **M
 
 | 檢查項 | 規格 | 錯誤代碼 | 處理 |
 |:---|:---|:---:|:---|
-| **Registry Index 存在** | `models/{site_id}/model_registry_index.json` 必須存在 | E801 | 拒絕載入 |
-| **目標模型可用** | `system_total_kw` 必須在 `available_models` 中且 `optional: false` | E804 | 拒絕載入 |
-| **Annotation 版本相容** | `annotation_checksum` 比對當前 FeatureAnnotationManager | E802 | 拒絕載入 |
-| **特徵維度對齊** | `feature_count` 與 Optimization Config 特徵數一致 | E803 | 拒絕載入 |
+| **Registry Index 存在** | `models/{site_id}/model_registry_index.json` 必須存在 | E841 | 拒絕載入 |
+| **目標模型可用** | `system_total_kw` 必須在 `available_models` 中且 `optional: false` | E844 | 拒絕載入 |
+| **Annotation 版本相容** | `annotation_checksum` 比對當前 FeatureAnnotationManager | E842 | 拒絕載入 |
+| **特徵維度對齊** | `feature_count` 與 Optimization Config 特徵數一致 | E843 | 拒絕載入 |
 | **特徵順序嚴格比對** | 輸入特徵順序必須與 Training `feature_order_manifest` 完全一致 | **E901** | 拒絕載入（Interface Contract v1.1） |
 | **縮放參數驗證** | `scaler_params` 必須存在且特徵順序與模型一致 | **E903** | 拒絕載入 |
 | **設備限制一致性** | 當前 Optimization Config 的設備限制必須與 Training 時記錄的 `equipment_constraints_applied` 相容 | **E904** | 警告（可覆寫）或拒絕（嚴格模式） |
-| **模型檔案完整性** | Manifest 中引用的 `.joblib` 檔案存在且 checksum 驗證通過 | E801 | 拒絕載入 |
+| **模型檔案完整性** | Manifest 中引用的 `.joblib` 檔案存在且 checksum 驗證通過 | E841 | 拒絕載入 |
 | **時間基準隔離** | Optimization 必須產生新的 `pipeline_origin_timestamp`，不可沿用 Training 的時間戳 | **E000-W** | 警告（若沿用） |
 
 **ModelRegistry 實作規範（v1.2 更新）**：
@@ -113,7 +113,7 @@ class ModelRegistry:
         載入流程：
         1. 讀取 models/{site_id}/model_registry_index.json
         2. 驗證 schema_version >= 1.2
-        3. 驗證 annotation_checksum（E802）
+        3. 驗證 annotation_checksum（E842）
         4. 依 target_id 找到對應 ModelEntry
         5. 若 pinned_timestamp 指定，載入該版本；否則載入最新版本
         6. 載入該 target 的 ensemble_manifest.json
@@ -130,9 +130,9 @@ class ModelRegistry:
             temporal_baseline: Pipeline 時間基準（用於驗證模型新鮮度）
         
         Raises:
-            E801: Model Registry Index 不存在或模型檔案遺失
-            E802: Annotation checksum 不匹配
-            E804: 請求的 target_id 不可用
+            E841: Model Registry Index 不存在或模型檔案遺失
+            E842: Annotation checksum 不匹配
+            E844: 請求的 target_id 不可用
             E901: 特徵順序/名稱與訓練時不一致（Feature Alignment Error）
             E903: 縮放參數缺失或順序錯誤
             E904: 設備限制與訓練時不一致（Equipment Constraint Inconsistency）
@@ -173,7 +173,7 @@ class ModelRegistry:
         
         Returns:
             (is_consistent, discrepancy_percent, severity)
-            severity: "normal" (<=5%), "warning" (5-15%), "critical" (>15%, 觸發 E810)
+            severity: "normal" (<=5%), "warning" (5-15%), "critical" (>15%, 觸發 E850)
         """
 ```
 
@@ -234,7 +234,7 @@ class FeatureVectorizer:
         
     def validate_alignment(self, strict: bool = True) -> Tuple[bool, List[str]]:
         """
-        驗證 E803/E901：確保 Optimization Config 能產生所有 model_features 所需的欄位
+        驗證 E843/E901：確保 Optimization Config 能產生所有 model_features 所需的欄位
         回傳 False 表示缺少必要特徵，無法進行預測
         
         Args:
@@ -362,7 +362,7 @@ class FallbackStatus(BaseModel):
     """降級狀態（v1.2 新增）"""
     fallback_triggered: bool = False      # 是否觸發降級
     fallback_level: int = 0               # 實際使用的降級層級（0=未降級）
-    original_error: Optional[str] = None  # 原始錯誤代碼（如 E806, E809）
+    original_error: Optional[str] = None  # 原始錯誤代碼（如 E846, E849）
     fallback_strategy: Optional[str] = None  # 使用的降級策略說明
     solution_quality: Literal["optimal", "feasible", "heuristic", "current"] = "optimal"
     
@@ -787,7 +787,7 @@ class FallbackHandler:
                 recommendation_text="⚠️ 無法找到最佳化配置，建議維持當前運行參數。請檢查設備狀態或聯繫系統管理員。"
             )
         else:
-            raise OptimizationError("E809: 無法優化且無當前配置可回退")
+            raise OptimizationError("E849: 無法優化且無當前配置可回退")
 
 class GreedyHeuristicOptimizer:
     """
@@ -904,21 +904,21 @@ class FeatureVectorizer:
 ```python
 class OptimizationError(Exception):
     ERROR_CODES = {
-        # 原有錯誤碼（E801-E808）
-        "E801": "MODEL_REGISTRY_ERROR - 無法載入 Model Registry Index 或模型檔案",
-        "E802": "ANNOTATION_VERSION_MISMATCH - 模型訓練時的 Annotation checksum 與當前不符",
-        "E803": "FEATURE_DIMENSION_MISMATCH - 特徵數量或名稱與模型預期不符",
-        "E804": "TARGET_NOT_AVAILABLE - 請求的 target_id（如 system_total_kw）在 Registry 中不存在",
-        "E805": "HYBRID_INCONSISTENCY - Component Models 加總與 System Model 預測差異 >5%",
-        "E806": "SYSTEM_MODEL_DISCREPANCY - 模型差異過大（Training-Optimization 銜接錯誤）",
-        "E807": "RT_NOT_ACHIEVABLE - 無法達到目標冷凍噸（設備容量不足）",
-        "E808": "EFFICIENCY_NOT_ACHIEVABLE - 無法達到目標 kW/RT",
+        # 原有錯誤碼（E841-E848）
+        "E841": "MODEL_REGISTRY_ERROR - 無法載入 Model Registry Index 或模型檔案",
+        "E842": "ANNOTATION_VERSION_MISMATCH - 模型訓練時的 Annotation checksum 與當前不符",
+        "E843": "FEATURE_DIMENSION_MISMATCH - 特徵數量或名稱與模型預期不符",
+        "E844": "TARGET_NOT_AVAILABLE - 請求的 target_id（如 system_total_kw）在 Registry 中不存在",
+        "E845": "HYBRID_INCONSISTENCY - Component Models 加總與 System Model 預測差異 >5%",
+        "E846": "SYSTEM_MODEL_DISCREPANCY - 模型差異過大（Training-Optimization 銜接錯誤）",
+        "E847": "RT_NOT_ACHIEVABLE - 無法達到目標冷凍噸（設備容量不足）",
+        "E848": "EFFICIENCY_NOT_ACHIEVABLE - 無法達到目標 kW/RT",
         
         # v1.2 新增錯誤碼（與 Interface Contract v1.1 對齊）
-        "E809": "OPTIMIZATION_INFEASIBLE - 所有降級層級均無法產生可行解",
-        "E810": "CRITICAL_MODEL_MISMATCH - Hybrid 模式差異 >15%，模型嚴重不一致",
-        "E811": "RESOURCE_LIMIT_EXCEEDED - 記憶體或計算資源超限",
-        "E812": "CONSTRAINT_VIOLATION_HARD - 違反硬約束且無法放寬",
+        "E849": "OPTIMIZATION_INFEASIBLE - 所有降級層級均無法產生可行解",
+        "E850": "CRITICAL_MODEL_MISMATCH - Hybrid 模式差異 >15%，模型嚴重不一致",
+        "E851": "RESOURCE_LIMIT_EXCEEDED - 記憶體或計算資源超限",
+        "E852": "CONSTRAINT_VIOLATION_HARD - 違反硬約束且無法放寬",
         
         # 跨階段錯誤碼（Interface Contract v1.1）
         "E901": "FEATURE_ALIGNMENT_MISMATCH - 推論特徵順序/名稱與訓練時不一致",
@@ -990,7 +990,7 @@ class ObjectiveFunction:
         """
         # 檢查記憶體使用（v1.2 新增）
         if self.resource_monitor and self.resource_monitor.is_memory_critical():
-            raise ResourceLimitError("E811: 記憶體使用超過安全閾值")
+            raise ResourceLimitError("E851: 記憶體使用超過安全閾值")
         
         # 原有評估邏輯（見 v1.1）
         pass
@@ -1294,17 +1294,17 @@ class OptimizationCLI:
 
 | 錯誤代碼 | 名稱 | 發生階段 | 說明 | 處理建議 |
 |:---|:---|:---:|:---|:---|
-| **E800** | `CONFIG_VALIDATION_ERROR` | Phase 0 | Optimization Config YAML 格式錯誤 | 檢查 config/optimization/sites/{site}.yaml |
-| **E801** | `MODEL_REGISTRY_NOT_FOUND` | Phase 0 | 找不到 model_registry_index.json 或模型檔案 | 確認模型訓練已完成（Training v1.2+） |
-| **E802** | `ANNOTATION_CHECKSUM_MISMATCH` | Phase 0 | 模型訓練時的 Annotation checksum 與當前不符 | Feature Annotation 已更新，需重新訓練模型 |
-| **E803** | `FEATURE_DIMENSION_MISMATCH` | Phase 0 | Optimization Config 特徵數與 ModelEntry.feature_count 不符 | 檢查 feature_mapping 設定或重新訓練模型 |
-| **E804** | `TARGET_NOT_AVAILABLE` | Phase 0 | 請求的 target_id（如 system_total_kw）在 Registry 中不存在 | 確認 Training Pipeline 已訓練該 target |
-| **E805** | `HYBRID_INCONSISTENCY` | Phase 2 | Component Models 加總與 System Model 預測差異 >5% | 警告：檢查特徵工程或改用純 System-Level |
-| **E806** | `OPTIMIZATION_TIMEOUT` | Phase 2 | 優化算法超時未收斂 | 啟用 Fallback Level 1-2，或增加 timeout |
-| **E807** | `RT_NOT_ACHIEVABLE` | Phase 2 | 無法達到目標冷凍噸（設備容量不足） | 檢查目標 RT 是否超過總裝置容量，啟用備用機組 |
-| **E808** | `EFFICIENCY_NOT_ACHIEVABLE` | Phase 2 | 無法達到目標 kW/RT（可能過於激進） | 檢查目標效率是否低於理論最小值 |
-| **E809** | `OPTIMIZATION_INFEASIBLE` | Phase 4 | 所有降級層級均無法產生可行解 | 回傳當前配置（Fallback Level 3），產生診斷報告 |
-| **E810** | `CRITICAL_MODEL_MISMATCH` | Phase 0 | Hybrid 模式下 Component 與 System 預測差異 >15% | 強制終止，要求重新訓練模型（資料或特徵工程可能有誤） |
+| E840 | `CONFIG_VALIDATION_ERROR` | Phase 0 | Optimization Config YAML 格式錯誤 | 檢查 config/optimization/sites/{site}.yaml |
+| E841 | `MODEL_REGISTRY_NOT_FOUND` | Phase 0 | 找不到 model_registry_index.json 或模型檔案 | 確認模型訓練已完成（Training v1.2+） |
+| E842 | `ANNOTATION_CHECKSUM_MISMATCH` | Phase 0 | 模型訓練時的 Annotation checksum 與當前不符 | Feature Annotation 已更新，需重新訓練模型 |
+| E843 | `FEATURE_DIMENSION_MISMATCH` | Phase 0 | Optimization Config 特徵數與 ModelEntry.feature_count 不符 | 檢查 feature_mapping 設定或重新訓練模型 |
+| E844 | `TARGET_NOT_AVAILABLE` | Phase 0 | 請求的 target_id（如 system_total_kw）在 Registry 中不存在 | 確認 Training Pipeline 已訓練該 target |
+| E845 | `HYBRID_INCONSISTENCY` | Phase 2 | Component Models 加總與 System Model 預測差異 >5% | 警告：檢查特徵工程或改用純 System-Level |
+| E846 | `OPTIMIZATION_TIMEOUT` | Phase 2 | 優化算法超時未收斂 | 啟用 Fallback Level 1-2，或增加 timeout |
+| E847 | `RT_NOT_ACHIEVABLE` | Phase 2 | 無法達到目標冷凍噸（設備容量不足） | 檢查目標 RT 是否超過總裝置容量，啟用備用機組 |
+| E848 | `EFFICIENCY_NOT_ACHIEVABLE` | Phase 2 | 無法達到目標 kW/RT（可能過於激進） | 檢查目標效率是否低於理論最小值 |
+| E849 | `OPTIMIZATION_INFEASIBLE` | Phase 4 | 所有降級層級均無法產生可行解 | 回傳當前配置（Fallback Level 3），產生診斷報告 |
+| E850 | `CRITICAL_MODEL_MISMATCH` | Phase 0 | Hybrid 模式下 Component 與 System 預測差異 >15% | 強制終止，要求重新訓練模型（資料或特徵工程可能有誤） |
 | **E811** | `RESOURCE_LIMIT_EXCEEDED` | Phase 2 | 記憶體或計算資源超限 | 啟用啟發式算法（Fallback Level 2）或增加資源 |
 | **E812** | `CONSTRAINT_VIOLATION_HARD` | Phase 1 | 違反硬約束且無法放寬 | 檢查設備邏輯設定或啟用 Fallback 放寬軟約束 |
 | **W801** | `SOFT_CONSTRAINT_VIOLATED` | Phase 2 | 違反軟約束（如建議開啟備用機組） | 建議接受，但記錄偏好衝突 |
@@ -1339,7 +1339,7 @@ class OptimizationCLI:
 | OPT-003 | 負載驅動優化 | target_rt=400, ambient=30°C | 選擇效率最佳的設備組合與頻率 |
 | **OPT-011** | **Fallback Level 1** | 存在軟約束衝突 | 放寬軟約束後成功求解，標記 W802 |
 | **OPT-012** | **Fallback Level 2** | 數學規劃超時 | 切換至 Greedy Heuristic，產生可行解 |
-| **OPT-013** | **Fallback Level 3** | 所有方法均失敗 | 回傳當前配置，標記 E809，附診斷報告 |
+| **OPT-013** | **Fallback Level 3** | 所有方法均失敗 | 回傳當前配置，標記 E849，附診斷報告 |
 | **OPT-014** | **資源限制** | 記憶體限制 1GB，設備數 15 | 自動切換啟發式枚舉，無 OOM |
 | **OPT-015** | **暖啟動** | 連續優化 RT=400 → RT=420 | 第二次優化迭代次數減少 >30% |
 | **OPT-016** | **特徵對齊 E901** | 故意打亂特徵順序 | 正確拋出 E901，拒絕執行 |
@@ -1394,8 +1394,8 @@ class OptimizationCLI:
 ## 9. 驗收簽核 (Sign-off Checklist) - v1.2 更新
 
 ### 9.1 基礎功能（與 v1.1 相容）
-- [ ] **Registry 載入**：正確從 `model_registry_index.json` 載入模型，驗證 E801
-- [ ] **版本綁定**：驗證 `annotation_checksum`，正確拋出 E802
+- [ ] **Registry 載入**：正確從 `model_registry_index.json` 載入模型，驗證 E841
+- [ ] **版本綁定**：驗證 `annotation_checksum`，正確拋出 E842
 - [ ] **系統級優化**：預設使用 `system_total_kw` 進行優化（黑盒模式）
 - [ ] **負載驅動模式**：給定 RT=500，輸出最佳設備組合（台數、頻率、轉速）
 - [ ] **效率驅動模式**：給定 kW/RT=0.65，反推設備參數，達成目標效率
@@ -1404,7 +1404,7 @@ class OptimizationCLI:
 ### 9.2 v1.2 新增：Fallback 機制（核心驗收項目）
 - [ ] **Fallback Level 1**：當存在軟約束衝突時，自動放寬並重新求解，標記 W802
 - [ ] **Fallback Level 2**：當數學規劃超時（模擬 10s timeout），自動切換至 Greedy Heuristic 產生可行解
-- [ ] **Fallback Level 3**：當所有方法均失敗，回傳當前配置並標記 E809，附帶詳細診斷報告（說明為何無法優化）
+- [ ] **Fallback Level 3**：當所有方法均失敗，回傳當前配置並標記 E849，附帶詳細診斷報告（說明為何無法優化）
 - [ ] **Infeasibility 診斷**：當目標 RT 超過總容量時，診斷報告明確指出「建議啟用備用機組或降低負載至 X RT」
 - [ ] **超時中斷**：長時間優化（>300s）可透過 signal 中斷，並回傳「目前為止找到的最佳解」（部分解保留）
 
@@ -1434,7 +1434,7 @@ class OptimizationCLI:
     │
     ▼
 ┌─────────────────┐
-│ 載入 Model Registry │◄─── 失敗 ───► E801/E802/E901 終止
+│ 載入 Model Registry │◄─── 失敗 ───► E841/E842/E901 終止
 │ 驗證特徵對齊 E901   │
 └─────────────────┘
     │
@@ -1477,7 +1477,7 @@ class OptimizationCLI:
                                                             │
                                                             ▼
                                                     標記 fallback_level=3
-                                                    錯誤 E809（附診斷報告）
+                                                    錯誤 E849（附診斷報告）
                                                     回傳當前配置
 ```
 
@@ -1525,7 +1525,7 @@ python main.py optimization optimize \
 ```
 ⚠️ Fallback 觸發警告 (W802)
 
-原始錯誤：優化超時 (E806)
+原始錯誤：優化超時 (E846)
 降級層級：Level 2 (Greedy Heuristic)
 解品質：可行但非全域最佳 (Feasible)
 
@@ -1558,7 +1558,7 @@ python main.py optimization optimize \
 
 **預期輸出**：
 ```
-❌ 優化不可行錯誤 (E809)
+❌ 優化不可行錯誤 (E849)
 
 降級層級：Level 3 (回退當前配置)
 回傳策略：維持當前運行參數

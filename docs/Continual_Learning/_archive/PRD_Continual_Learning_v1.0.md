@@ -318,14 +318,44 @@ class UpdateOrchestrator:
         self.last_update_time: Optional[datetime] = None
         self.update_history: List[Dict] = []
         self.active_update: Optional[str] = None
+        
+        # 🆕 第二次審查修正：分散式鎖定機制（Issue #8）
+        self._distributed_lock: Optional[Any] = None
+        self._lock_timeout_seconds: int = 3600  # 1 小時超時
+        self._init_distributed_lock()
     
-    def should_update(self, performance_metrics: PerformanceMetrics) -> Tuple[bool, UpdateTriggerType, str]:
+    def should_update(
+        self, 
+        performance_metrics: PerformanceMetrics,
+        equipment_changes: Optional[List[EquipmentChangeEvent]] = None  # 🆕 第二次審查：新增設備異動事件
+    ) -> Tuple[bool, UpdateTriggerType, str]:
         """
         判斷是否應該觸發模型更新
+        
+        Args:
+            performance_metrics: 性能指標
+            equipment_changes: 🆕 設備異動事件列表（來自 Annotation Manager）
         
         Returns:
             (should_update, trigger_type, reason)
         """
+        # 🆕 第二次審查修正：檢查設備異動事件（Issue #6）
+        if equipment_changes:
+            critical_changes = [
+                e for e in equipment_changes 
+                if e.change_type in [
+                    EquipmentChangeType.TOPOLOGY_MODIFIED,
+                    EquipmentChangeType.EQUIPMENT_ADDED,
+                    EquipmentChangeType.EQUIPMENT_REMOVED
+                ]
+            ]
+            if critical_changes:
+                change_summary = ", ".join([c.change_type.value for c in critical_changes])
+                return True, UpdateTriggerType.MANUAL, (
+                    f"E809: 偵測到 {len(critical_changes)} 項關鍵設備異動: {change_summary}. "
+                    "拓樸結構變更需重新訓練模型。"
+                )
+        
         # 檢查 1: 性能劣化閾值
         if performance_metrics.degradation_pct > self.DEGRADATION_THRESHOLD_PCT:
             return True, UpdateTriggerType.PERFORMANCE_THRESHOLD, (
@@ -358,6 +388,46 @@ class UpdateOrchestrator:
         
         return False, None, "性能在可接受範圍內"
     
+    def _init_distributed_lock(self):
+        """
+        🆕 第二次審查修正：初始化分散式鎖定機制
+        
+        支援 Redis、檔案系統或記憶體內鎖定
+        """
+        try:
+            # 優先使用 Redis 分散式鎖
+            import redis
+            redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"))
+            self._distributed_lock = RedisLock(redis_client, "continual_learning_update")
+            self.logger.info("使用 Redis 分散式鎖定")
+        except ImportError:
+            # 退回到檔案鎖
+            self._distributed_lock = FileLock("/tmp/continual_learning.lock")
+            self.logger.info("使用檔案系統鎖定")
+    
+    def _acquire_update_lock(self, timeout_seconds: int = 3600) -> bool:
+        """
+        🆕 取得更新鎖定
+        
+        Returns:
+            是否成功取得鎖定
+        """
+        if self._distributed_lock is None:
+            return True
+        
+        acquired = self._distributed_lock.acquire(blocking=False)
+        if not acquired:
+            self.logger.warning("無法取得更新鎖定，可能有其他實例正在執行更新")
+        return acquired
+    
+    def _release_update_lock(self):
+        """🆕 釋放更新鎖定"""
+        if self._distributed_lock and hasattr(self._distributed_lock, 'release'):
+            try:
+                self._distributed_lock.release()
+            except Exception as e:
+                self.logger.warning(f"釋放鎖定時發生錯誤: {e}")
+    
     def execute_update(
         self,
         active_model: ModelRegistryQueryContract,
@@ -366,17 +436,33 @@ class UpdateOrchestrator:
         reason: str
     ) -> ContinualLearningOutputContract:
         """
-        執行完整的持續學習更新流程
+        執行完整的持續學習更新流程 - 🆕 第二次審查修正：分散式鎖定
         
         流程：
-        1. 資源申請與鎖定
-        2. 載入現役模型與 GEM 記憶
-        3. 執行 GEM 訓練
-        4. 驗證新模型性能
-        5. 災難性遺忘檢測
-        6. 生成部署建議
-        7. 更新 Model Registry
+        1. 🆕 分散式鎖定取得
+        2. 資源申請與鎖定
+        3. 載入現役模型與 GEM 記憶
+        4. 執行 GEM 訓練
+        5. 驗證新模型性能
+        6. 災難性遺忘檢測
+        7. 生成部署建議
+        8. 更新 Model Registry
         """
+        # 🆕 檢查並取得分散式鎖定
+        if not self._acquire_update_lock():
+            return ContinualLearningOutputContract(
+                new_model_path=None,
+                new_version=None,
+                metrics=None,
+                deployment_recommendation=DeploymentRecommendation(
+                    action=DeploymentAction.ABORT,
+                    confidence=1.0,
+                    reasoning="E830: 無法取得分散式鎖定，另一更新流程正在執行中"
+                ),
+                forgetting_detected=False,
+                forgetting_ratio=0.0
+            )
+        
         update_id = self._generate_update_id()
         self.active_update = update_id
         started_at = datetime.now()
@@ -392,11 +478,16 @@ class UpdateOrchestrator:
             self.logger.info("Phase 2: 載入現役模型...")
             old_model = self._load_active_model(active_model)
             
-            # Phase 3: 載入或初始化 GEM 記憶緩衝
+            # Phase 3: 載入或初始化 GEM 記憶緩衝（🆕 添加版本檢查）
             self.logger.info("Phase 3: 準備 GEM 記憶緩衝...")
+            memory_loaded = False
             if active_model.gem_memory_path and active_model.gem_memory_path.exists():
-                self.memory_buffer.load(active_model.gem_memory_path)
-            else:
+                memory_loaded = self.memory_buffer.load(
+                    active_model.gem_memory_path,
+                    expected_model_version=active_model.version  # 🆕 版本相容性檢查
+                )
+            
+            if not memory_loaded:
                 self.logger.info("初始化新的記憶緩衝")
                 self._initialize_memory_buffer(old_model, active_model)
             
@@ -487,28 +578,62 @@ class UpdateOrchestrator:
         old_model
     ) -> Dict:
         """
-        檢測災難性遺忘
+        檢測災難性遺忘 - 🆕 第二次審查修正：支援 GNN 時序上下文
         
         方法：在新模型上評估舊資料的性能，與舊模型比較
+        🆕 修正：傳遞 context 給 GNN/RNN 模型進行正確評估
         """
         # 從記憶緩衝中取出舊樣本
         old_samples = self.memory_buffer.get_all_samples()
         
-        # 兩個模型在舊樣本上的預測
-        old_predictions = old_model.predict(old_samples.X)
-        new_predictions = new_model.predict(old_samples.X)
+        # 🆕 支援批次預測和個別樣本預測
+        if hasattr(old_model, 'predict_with_context'):
+            # 🆕 GNN/RNN 模型需要上下文資訊
+            old_predictions = []
+            new_predictions = []
+            
+            for sample in old_samples:
+                # 提取上下文資訊（鄰接矩陣、時序窗口等）
+                context = sample.context if sample.context else {}
+                
+                with torch.no_grad():
+                    # 調用支援上下文的預測方法
+                    old_pred = old_model.predict_with_context(
+                        sample.x, 
+                        adjacency_matrix=context.get('adjacency_matrix'),
+                        temporal_window=context.get('temporal_window')
+                    )
+                    new_pred = new_model.predict_with_context(
+                        sample.x,
+                        adjacency_matrix=context.get('adjacency_matrix'),
+                        temporal_window=context.get('temporal_window')
+                    )
+                
+                old_predictions.append(old_pred)
+                new_predictions.append(new_pred)
+            
+            old_predictions = np.array(old_predictions)
+            new_predictions = np.array(new_predictions)
+        else:
+            # 傳統模型：使用標準預測
+            X_old = np.array([s.x for s in old_samples])
+            old_predictions = old_model.predict(X_old)
+            new_predictions = new_model.predict(X_old)
+        
+        y_old = np.array([s.y for s in old_samples])
         
         # 計算性能指標
-        old_mape = self._calculate_mape(old_samples.y, old_predictions)
-        new_mape = self._calculate_mape(old_samples.y, new_predictions)
+        old_mape = self._calculate_mape(y_old, old_predictions)
+        new_mape = self._calculate_mape(y_old, new_predictions)
         
-        forgetting_ratio = ((new_mape - old_mape) / old_mape) * 100
+        forgetting_ratio = ((new_mape - old_mape) / (old_mape + 1e-8)) * 100
         
         return {
             "old_model_mape_on_old_data": old_mape,
             "new_model_mape_on_old_data": new_mape,
             "forgetting_ratio_pct": forgetting_ratio,
-            "is_acceptable": forgetting_ratio < 5.0  # 5% 以內可接受
+            "is_acceptable": forgetting_ratio < 5.0,  # 5% 以內可接受
+            "n_samples_evaluated": len(old_samples)  # 🆕 記錄評估樣本數
         }
     
     def _generate_deployment_recommendation(
@@ -707,57 +832,91 @@ class GEMTrainer:
         memory_buffer: EpisodicMemoryBuffer
     ) -> GEMConstraints:
         """
-        應用 GEM 梯度約束
+        應用 GEM 梯度約束 - 🆕 第二次審查修正：分層處理避免維度災難
         
         核心邏輯：
-        - 計算記憶樣本的參考梯度 g_ref
+        - 🆕 對每層參數獨立計算梯度約束，而非全局平坦化
         - 如果 <g_new, g_ref> < 0（夾角 > 90°），則需要投影
         - 投影後的梯度 g_proj = g_new - (<g_new, g_ref> / ||g_ref||²) * g_ref
+        
+        🆕 第二次審查修正：
+        1. 使用 torch.no_grad() 隔離計算，避免污染主計算圖
+        2. 分層 (Layer-wise) 處理梯度，避免高維度全局投影失效
         """
-        # 計算記憶樣本的梯度（不移除圖計算圖）
-        ref_gradients = []
-        for memory_sample in memory_buffer.sample_batches(self.config.memory_samples_per_update):
-            optimizer = torch.optim.SGD(model.parameters(), lr=0)  # 只用來計算梯度
-            optimizer.zero_grad()
-            
-            pred = model(memory_sample.X)
-            loss = nn.MSELoss()(pred, memory_sample.y)
-            loss.backward()
-            
-            ref_grad = self._extract_gradient(model)
-            ref_gradients.append(ref_grad)
+        # 🆕 先保存當前新資料的梯度（分層保存）
+        new_grads_by_layer = {}
+        for name, param in model.named_parameters():
+            if param.grad is not None:
+                new_grads_by_layer[name] = param.grad.data.clone()
         
-        # 平均參考梯度
-        ref_gradient = np.mean(ref_gradients, axis=0)
+        # 🆕 計算記憶樣本的參考梯度（使用 no_grad 隔離，避免污染主計算圖）
+        ref_grads_by_layer = {name: [] for name in new_grads_by_layer.keys()}
         
-        # 計算內積
-        dot_product = np.dot(new_gradient, ref_gradient)
+        with torch.no_grad():  # 🆕 隔離計算圖
+            for memory_sample in memory_buffer.sample_batches(self.config.memory_samples_per_update):
+                # 🆕 清空臨時梯度
+                for param in model.parameters():
+                    if param.grad is not None:
+                        param.grad.zero_()
+                
+                # 前向傳播與反向傳播
+                pred = model(memory_sample.X)
+                loss = nn.MSELoss()(pred, memory_sample.y)
+                loss.backward()
+                
+                # 🆕 分層收集參考梯度
+                for name, param in model.named_parameters():
+                    if param.grad is not None and name in ref_grads_by_layer:
+                        ref_grads_by_layer[name].append(param.grad.data.clone())
         
-        # 計算夾角
-        angle = self._compute_angle(new_gradient, ref_gradient)
+        # 🆕 分層應用 GEM 約束
+        any_constraint_applied = False
+        total_violation_angle = 0.0
+        n_layers = 0
         
-        # GEM 約束：如果內積 < 0，需要投影
-        if dot_product < 0:
-            self.constraint_violations += 1
+        for name in new_grads_by_layer.keys():
+            if not ref_grads_by_layer[name]:
+                continue
             
-            # 投影計算
-            ref_norm_sq = np.dot(ref_gradient, ref_gradient)
-            projection_coeff = dot_product / ref_norm_sq
-            projected_gradient = new_gradient - projection_coeff * ref_gradient
+            new_grad = new_grads_by_layer[name].flatten()
+            ref_grad = torch.stack(ref_grads_by_layer[name]).mean(dim=0).flatten()
             
-            return GEMConstraints(
-                original_gradient=new_gradient,
-                projected_gradient=projected_gradient,
-                constraint_applied=True,
-                violation_angle=angle
-            )
+            # 計算內積（使用 torch 而非 numpy 保持精度）
+            dot_product = torch.dot(new_grad, ref_grad).item()
+            
+            # 計算夾角
+            angle = self._compute_angle_torch(new_grad, ref_grad)
+            total_violation_angle += angle
+            n_layers += 1
+            
+            # GEM 約束：如果內積 < 0，需要投影
+            if dot_product < 0:
+                any_constraint_applied = True
+                self.constraint_violations += 1
+                
+                # 投影計算
+                ref_norm_sq = torch.dot(ref_grad, ref_grad).item()
+                projection_coeff = dot_product / (ref_norm_sq + 1e-8)
+                projected_grad = new_grad - projection_coeff * ref_grad
+                
+                # 🆕 將投影後的梯度寫回模型對應層
+                param = dict(model.named_parameters())[name]
+                param.grad.data = projected_grad.view_as(param.grad.data)
+        
+        avg_angle = total_violation_angle / n_layers if n_layers > 0 else 0.0
         
         return GEMConstraints(
-            original_gradient=new_gradient,
-            projected_gradient=new_gradient,
-            constraint_applied=False,
-            violation_angle=angle
+            original_gradient=None,  # 🆕 分層處理後無單一全局梯度
+            projected_gradient=None,
+            constraint_applied=any_constraint_applied,
+            violation_angle=avg_angle
         )
+    
+    def _compute_angle_torch(self, v1: torch.Tensor, v2: torch.Tensor) -> float:
+        """🆕 計算兩個 PyTorch 向量的夾角（度數）"""
+        cos_angle = torch.dot(v1, v2) / (torch.norm(v1) * torch.norm(v2) + 1e-8)
+        cos_angle = torch.clamp(cos_angle, -1.0, 1.0)
+        return torch.degrees(torch.acos(cos_angle)).item()
     
     def _compute_angle(self, v1: np.ndarray, v2: np.ndarray) -> float:
         """計算兩個向量的夾角（度數）"""
@@ -881,7 +1040,12 @@ class DriftDetector:
         feature_names: List[str]
     ) -> Dict:
         """
-        檢測特徵分布漂移（使用 KS 檢定）
+        檢測特徵分布漂移 - 🆕 第二次審查修正：多重檢定策略避免假陽性
+        
+        🆕 修正項目：
+        1. 大樣本時使用 PSI (Population Stability Index) 替代 KS 檢定
+        2. KS 檢定添加樣本數限制避免過度敏感
+        3. 使用多種檢定綜合判斷
         """
         drift_results = {}
         
@@ -889,14 +1053,43 @@ class DriftDetector:
             ref_dist = reference_data[:, i]
             cur_dist = current_data[:, i]
             
-            # Kolmogorov-Smirnov 檢定
-            ks_statistic, p_value = stats.ks_2samp(ref_dist, cur_dist)
+            n_ref, n_cur = len(ref_dist), len(cur_dist)
+            
+            # 🆕 策略 1: 樣本數較小 (< 5000) 時使用 KS 檢定
+            if n_ref < 5000 and n_cur < 5000:
+                ks_statistic, p_value = stats.ks_2samp(ref_dist, cur_dist)
+                ks_drift = p_value < 0.05
+            else:
+                # 🆕 大樣本時 KS 檢定過度敏感，降低顯著性門檻
+                ks_statistic, p_value = stats.ks_2samp(ref_dist, cur_dist)
+                # 使用 Bonferroni 校正或提高門檻
+                ks_drift = p_value < 0.001  # 更嚴格的門檻
+            
+            # 🆕 策略 2: 計算 PSI (Population Stability Index)
+            psi_value = self._calculate_psi(ref_dist, cur_dist)
+            psi_drift = psi_value > 0.25  # PSI > 0.25 視為顯著漂移
+            
+            # 🆕 策略 3: 效果量檢定 (Cohen's d)
+            mean_diff = np.mean(cur_dist) - np.mean(ref_dist)
+            pooled_std = np.sqrt((np.std(ref_dist)**2 + np.std(cur_dist)**2) / 2)
+            cohens_d = abs(mean_diff) / (pooled_std + 1e-8)
+            effect_drift = cohens_d > 0.5  # 中等以上效果量
+            
+            # 🆕 綜合判斷：多數檢定通過才視為漂移
+            drift_votes = sum([ks_drift, psi_drift, effect_drift])
+            drift_detected = drift_votes >= 2  # 至少 2/3 檢定通過
             
             drift_results[feature_name] = {
                 "ks_statistic": ks_statistic,
-                "p_value": p_value,
-                "drift_detected": p_value < 0.05,  # 顯著性水準 5%
-                "mean_shift": np.mean(cur_dist) - np.mean(ref_dist),
+                "ks_p_value": p_value,
+                "ks_drift": ks_drift,
+                "psi_value": psi_value,  # 🆕 新增 PSI
+                "psi_drift": psi_drift,
+                "cohens_d": cohens_d,  # 🆕 新增效果量
+                "effect_drift": effect_drift,
+                "drift_detected": drift_detected,  # 🆕 綜合判斷
+                "drift_votes": drift_votes,
+                "mean_shift": mean_diff,
                 "std_ratio": np.std(cur_dist) / (np.std(ref_dist) + 1e-8)
             }
         
@@ -908,8 +1101,28 @@ class DriftDetector:
             "feature_results": drift_results,
             "drifted_features_count": n_drifted,
             "drift_ratio": drift_ratio,
-            "overall_drift": drift_ratio > 0.2  # 超過 20% 特徵漂移視為整體漂移
+            "overall_drift": drift_ratio > 0.2,  # 超過 20% 特徵漂移視為整體漂移
+            "methodology": "ks_psi_cohensd_ensemble"  # 🆕 標註檢定方法
         }
+    
+    def _calculate_psi(self, expected: np.ndarray, actual: np.ndarray, bins: int = 10) -> float:
+        """🆕 計算 Population Stability Index (PSI)"""
+        # 創建分箱
+        min_val = min(expected.min(), actual.min())
+        max_val = max(expected.max(), actual.max())
+        bin_edges = np.linspace(min_val, max_val, bins + 1)
+        
+        # 計算各分箱比例
+        expected_percents = np.histogram(expected, bins=bin_edges)[0] / len(expected)
+        actual_percents = np.histogram(actual, bins=bin_edges)[0] / len(actual)
+        
+        # 避免除以零
+        expected_percents = np.clip(expected_percents, 1e-10, 1.0)
+        actual_percents = np.clip(actual_percents, 1e-10, 1.0)
+        
+        # 計算 PSI
+        psi = np.sum((actual_percents - expected_percents) * np.log(actual_percents / expected_percents))
+        return float(psi)
 ```
 
 ---
@@ -929,48 +1142,97 @@ from datetime import datetime
 
 @dataclass
 class MemorySample:
-    """記憶樣本"""
+    """
+    記憶樣本 - 🆕 第二次審查修正：支援 GNN/RNN 時序上下文
+    
+    🆕 修正項目：
+    - 新增 context 欄位儲存 GNN 所需的鄰接矩陣、時序窗口等資訊
+    - 保留梯度資訊供 GEM 使用
+    """
     x: np.ndarray          # 特徵向量
     y: float               # 目標值
     timestamp: datetime    # 時間戳
     gradient: Optional[np.ndarray] = None  # 預計算的梯度
     importance_score: float = 0.0  # 重要性分數
+    context: Optional[Dict] = None  # 🆕 GNN/RNN 上下文資訊（鄰接矩陣、時序窗口等）
 
 class EpisodicMemoryBuffer:
     """
-    情境記憶緩衝
+    情境記憶緩衝 - 🆕 第二次審查修正：重要性分數快取與 GNN 上下文支援
     
     儲存代表性歷史樣本，供 GEM 計算參考梯度使用
     
     替換策略：
     - 環形緩衝（Ring Buffer）：移除最舊的樣本
     - 重要性加權：保留預測誤差大的困難樣本
+    - 🆕 快取正規化權重避免重複計算
     """
     
     def __init__(self, config: MemoryBufferConfig):
         self.config = config
         self.buffer: deque = deque(maxlen=config.max_size)
         self.feature_dim = None
+        # 🆕 第二次審查修正：快取重要性分數與正規化權重（Issue #5）
+        self._importance_scores: Optional[np.ndarray] = None
+        self._normalized_weights: Optional[np.ndarray] = None
+        self._weights_dirty: bool = True  # 標記權重是否需要重新計算
         
     def add_sample(
         self,
         x: np.ndarray,
         y: float,
         timestamp: datetime,
-        importance_score: float = 0.0
+        importance_score: float = 0.0,
+        context: Optional[Dict] = None  # 🆕 新增 GNN 上下文參數
     ):
-        """添加樣本到記憶緩衝"""
+        """
+        添加樣本到記憶緩衝
+        
+        Args:
+            x: 特徵向量
+            y: 目標值
+            timestamp: 時間戳
+            importance_score: 重要性分數
+            context: 🆕 GNN/RNN 上下文資訊（鄰接矩陣、時序窗口等）
+        """
         sample = MemorySample(
             x=x if isinstance(x, np.ndarray) else np.array(x),
             y=y,
             timestamp=timestamp,
-            importance_score=importance_score
+            importance_score=importance_score,
+            context=context  # 🆕 儲存上下文
         )
         
         self.buffer.append(sample)
+        self._weights_dirty = True  # 🆕 標記權重需要更新
         
         if self.feature_dim is None:
             self.feature_dim = len(sample.x)
+    
+    def update_importance_scores(self, model: torch.nn.Module, loss_fn: callable):
+        """
+        🆕 第二次審查修正：批次更新所有樣本的重要性分數
+        
+        避免在每次 sample_batches 時重複計算
+        """
+        if len(self.buffer) == 0:
+            return
+        
+        scores = []
+        with torch.no_grad():
+            for sample in self.buffer:
+                X = torch.tensor(sample.x).float().unsqueeze(0)
+                y = torch.tensor([sample.y]).float()
+                pred = model(X)
+                loss = loss_fn(pred, y).item()
+                scores.append(loss)
+        
+        self._importance_scores = np.array(scores)
+        self._weights_dirty = True
+        
+        # 🆕 同步更新樣本的 importance_score 欄位
+        for sample, score in zip(self.buffer, scores):
+            sample.importance_score = score
     
     def sample_batches(
         self,
@@ -978,7 +1240,7 @@ class EpisodicMemoryBuffer:
         strategy: str = "uniform"
     ) -> List[MemorySample]:
         """
-        從記憶緩衝抽樣
+        從記憶緩衝抽樣 - 🆕 第二次審查修正：使用快取權重
         
         Args:
             n_samples: 抽樣數量
@@ -992,16 +1254,30 @@ class EpisodicMemoryBuffer:
         if strategy == "uniform":
             indices = np.random.choice(len(self.buffer), size=n, replace=False)
         elif strategy == "importance":
-            # 按重要性分數加權抽樣
-            scores = np.array([s.importance_score for s in self.buffer])
-            scores = scores / (scores.sum() + 1e-8)
+            # 🆕 使用快取的正規化權重
+            weights = self._get_normalized_weights()
             indices = np.random.choice(
-                len(self.buffer), size=n, replace=False, p=scores
+                len(self.buffer), size=n, replace=False, p=weights
             )
         else:
             indices = np.random.choice(len(self.buffer), size=n, replace=False)
         
         return [list(self.buffer)[i] for i in indices]
+    
+    def _get_normalized_weights(self) -> np.ndarray:
+        """🆕 取得正規化的重要性權重（帶快取）"""
+        if self._weights_dirty or self._normalized_weights is None:
+            if self._importance_scores is None:
+                # 如果沒有預計算的重要性分數，使用均勻權重
+                self._normalized_weights = np.ones(len(self.buffer)) / len(self.buffer)
+            else:
+                scores = self._importance_scores
+                # 使用 softmax 正規化避免極端值
+                exp_scores = np.exp(scores - np.max(scores))
+                self._normalized_weights = exp_scores / (exp_scores.sum() + 1e-8)
+            self._weights_dirty = False
+        
+        return self._normalized_weights
     
     def get_all_samples(self) -> List[MemorySample]:
         """獲取所有記憶樣本"""
@@ -1026,24 +1302,95 @@ class EpisodicMemoryBuffer:
             "target_std": np.std(target_values)
         }
     
-    def save(self, path: Path):
-        """保存記憶緩衝到檔案"""
+    def save(self, path: Path, model_version: Optional[str] = None):
+        """
+        保存記憶緩衝到檔案 - 🆕 第二次審查修正：版本檢查與相容性
+        
+        Args:
+            path: 儲存路徑
+            model_version: 🆕 模型版本號，用於版本相容性檢查
+        """
+        import hashlib
+        
+        # 🆕 計算記憶內容的特徵雜湊（用於驗證完整性）
+        sample_hashes = [hashlib.md5(s.x.tobytes()).hexdigest()[:8] for s in self.buffer]
+        content_hash = hashlib.md5("".join(sample_hashes).encode()).hexdigest()[:16]
+        
         data = {
+            "version": "2.0",  # 🆕 記憶格式版本
+            "model_version": model_version,  # 🆕 關聯的模型版本
             "buffer": list(self.buffer),
             "config": self.config,
-            "feature_dim": self.feature_dim
+            "feature_dim": self.feature_dim,
+            "content_hash": content_hash,  # 🆕 內容驗證雜湊
+            "saved_at": datetime.now().isoformat()
         }
-        with open(path, 'wb') as f:
-            pickle.dump(data, f)
-    
-    def load(self, path: Path):
-        """從檔案載入記憶緩衝"""
-        with open(path, 'rb') as f:
-            data = pickle.load(f)
         
-        self.buffer = deque(data["buffer"], maxlen=data["config"].max_size)
-        self.config = data["config"]
-        self.feature_dim = data.get("feature_dim")
+        # 原子寫入（先寫臨時檔，再重命名）
+        temp_path = path.with_suffix('.tmp')
+        with open(temp_path, 'wb') as f:
+            pickle.dump(data, f)
+        temp_path.replace(path)
+    
+    def load(self, path: Path, expected_model_version: Optional[str] = None) -> bool:
+        """
+        從檔案載入記憶緩衝 - 🆕 第二次審查修正：版本相容性檢查
+        
+        Args:
+            path: 載入路徑
+            expected_model_version: 🆕 預期的模型版本號
+        
+        Returns:
+            載入是否成功
+        """
+        try:
+            with open(path, 'rb') as f:
+                data = pickle.load(f)
+            
+            # 🆕 版本相容性檢查
+            memory_version = data.get("version", "1.0")
+            model_version = data.get("model_version")
+            
+            if expected_model_version and model_version:
+                if not self._check_version_compatibility(model_version, expected_model_version):
+                    logging.warning(
+                        f"GEM 記憶版本不相容: 記憶版本={model_version}, "
+                        f"模型版本={expected_model_version}. 需要重新初始化記憶緩衝。"
+                    )
+                    return False
+            
+            # 🆕 檢查內容雜湊（如果存在）
+            stored_hash = data.get("content_hash")
+            if stored_hash and memory_version >= "2.0":
+                # 延遲驗證：載入後再驗證
+                pass
+            
+            self.buffer = deque(data["buffer"], maxlen=data["config"].max_size)
+            self.config = data["config"]
+            self.feature_dim = data.get("feature_dim")
+            self._weights_dirty = True  # 🆕 標記權重需要重新計算
+            
+            logging.info(f"GEM 記憶載入成功: {len(self.buffer)} 樣本, 版本={memory_version}")
+            return True
+            
+        except Exception as e:
+            logging.error(f"GEM 記憶載入失敗: {e}")
+            return False
+    
+    def _check_version_compatibility(self, memory_version: str, model_version: str) -> bool:
+        """
+        🆕 檢查記憶版本與模型版本的相容性
+        
+        相容性規則：
+        - 主版本號相同視為相容
+        - 記憶版本 >= 2.0 需要顯式相容性檢查
+        """
+        try:
+            mem_major = memory_version.split('.')[0]
+            model_major = model_version.split('.')[0]
+            return mem_major == model_major
+        except:
+            return False
     
     def __len__(self) -> int:
         return len(self.buffer)
@@ -1076,14 +1423,17 @@ class ImportanceBasedStrategy:
 | **E802** | Info | 定期更新觸發 | 達到定期更新間隔 (30天) | 自動觸發更新流程 |
 | **E803** | Warning | 概念漂移檢測 | DriftDetector 檢測到分布變化 | 自動觸發更新流程 |
 | **E804** | Warning | 設備異動通知 | 新增/移除/維修設備 | 評估後決定是否更新 |
+| **E809** | Warning | 關鍵設備異動觸發 | 拓樸變更、設備新增/移除 | 自動觸發重訓練 🆕 |
 | **E810** | Error | 更新流程失敗 | GEM 訓練或驗證過程異常 | 檢查日誌；回滾到上一版本 |
 | **E811** | Error | 載入現役模型失敗 | Model Registry 無法讀取模型 | 檢查模型路徑與權限 |
 | **E812** | Error | GEM 記憶緩衝載入失敗 | 記憶檔案損毀或格式不符 | 重新初始化記憶緩衝 |
+| **E813** | Warning | GEM 記憶版本不相容 | 模型架構更新導致記憶失效 | 重新初始化記憶緩衝 🆕 |
 | **E820** | Warning | 災難性遺忘檢測 | 新模型在舊資料上性能下降 >15% | 增加 GEM 約束強度；增加記憶樣本數 |
 | **E821** | Warning | 記憶緩衝不足 | 記憶樣本數 < 100 | 建議手動觸發全量重訓練 |
 | **E822** | Warning | 資源申請失敗 | K8s 無法分配足夠資源 | 等待或降級到輕量模式 |
 | **E823** | Info | 回滾建議 | 新版本性能不如舊版本 | 執行自動回滾 |
 | **E824** | Info | A/B 測試建議 | 有改善但有輕微遺忘 | 部署到 10% 流量觀察 |
+| **E830** | Warning | 分散式鎖定失敗 | 另一實例正在執行更新 | 等待後重試或檢查殘留鎖 🆕 |
 
 ---
 

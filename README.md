@@ -1,25 +1,26 @@
-# HVAC Analytics - Core Engine (v1.8 Architecture with v1.4 Topology Awareness)
+# HVAC Analytics - Core Engine (v2.1 Architecture with Phase 0 Retrofit)
 
-**核心引擎狀態**: ✅ **Sprint 3 準備就緒 - v1.4 拓樸感知與持續學習升級完成**  
+**核心引擎狀態**: 🔄 **Phase 0 Retrofit 進行中 - v1.4 拓樸感知與持續學習準備**  
 **審查報告**: [Sprint 2 Review Report](docs/專案任務排程/Sprint_2_Review_Report.md) - Parser v2.1 (A級), Cleaner v2.2 (A級), BatchProcessor v1.3 (A-級)；Parser v2.2 模組化驗收完成  
 **Parser V2.2**: ✅ **已完成** - 模組化 Strategy Pattern 架構已上線，支援多格式 CSV + Siemens Scheduler  
 **Interactive ETL Tester V1.5**: ✅ **已完成** - Step 1→2 無縫整合，欄位名稱一致性保證  
-**🆕 Feature Annotation v1.4**: ✅ **已完成** - 拓樸感知 (Topology Awareness) + 控制語意 (Control Semantics)  
-**🆕 Feature Engineer v1.4**: ✅ **已完成** - 拓樸聚合特徵 (L2) + 控制偏差特徵 (L3)  
-**🆕 Model Training v1.4**: ✅ **已完成** - GNN 訓練器 + Physics-Informed Hybrid Loss  
-**🆕 Continual Learning v1.0**: ✅ **已完成** - GEM 演算法 + 概念漂移檢測  
-**🆕 Interface Contract v1.2**: ✅ **已完成** - 擴充錯誤代碼分層 (E410-E429, E750-E759, E800-E829)  
+**🆕 Phase 0 Retrofit**: ⏳ **待開始** - 錯誤代碼重分配 (IC-R01~R05) + ETL 管線拓樸貫通 (P-R01, C-R01, BP-R01)  
+**🆕 Feature Annotation v1.4**: ✅ **PRD 已完成** - 拓樸感知 (Topology Awareness) + 控制語意 (Control Semantics)  
+**🆕 Feature Engineer v1.4**: ⏳ **Sprint 3 待開發** - 拓樸聚合特徵 (L2) + GNN 上下文輸出  
+**🆕 Model Training v1.4**: ⏳ **Sprint 3 待開發** - GNN 訓練器 + Physics-Informed Hybrid Loss  
+**🆕 Continual Learning v1.1**: ⏳ **Sprint 4 待開發** - Layer-wise GEM + Drift Detection + RedisLock  
+**🆕 Interface Contract v1.2**: ✅ **PRD 已完成** - 擴充錯誤代碼分層 (E750-E759 GNN, E800-E829 CL, E840-E859 OPT)  
 **最後更新**: 2026-02-26
 
 ---
 
 ## 📊 專案進度總覽
 
-| Sprint | 任務 | 狀態 | 測試/展示 |
+| 階段 | 任務 | 狀態 | 測試/展示 |
 |:---:|:---|:---:|:---:|
-| 1 | 1.1 Interface Contract v1.1 | ✅ 已完成 | 已驗證 |
+| 1 | 1.1 Interface Contract v1.2 | ✅ 已完成 | PRD 已審查 |
 | 1 | 1.2 System Integration v1.2 | ✅ 已完成 | 35/35 通過 |
-| 1 | 1.3 Feature Annotation v1.3 | ✅ 已完成 | 18/18 通過 |
+| 1 | 1.3 Feature Annotation v1.4 | ✅ PRD 完成 | 拓樸感知 + 控制語意 |
 | 1 | 1.4 程式碼審查優化 | ✅ 已完成 | 72/72 通過 |
 | 1 | **1.5 Sprint 1 Demo 展示** | ✅ **已完成** | **[🎨 查看 Demo](tools/demo/index.html)** |
 | 2 | 2.1 Parser v2.1 | ✅ **已完成** | 16/16 通過 🟢 A級 |
@@ -27,17 +28,17 @@
 | 2 | 2.2 Cleaner v2.2 | ✅ **已完成** | 26/26 通過 🟢 A級 |
 | 2 | 2.3 BatchProcessor v1.3 | ✅ **已完成** | 32/32 通過 🟡 A-級 |
 | 2 | 2.4 Interactive ETL Tester v1.5 | ✅ **已完成** | Step 1→2 整合 |
-| **3** | **3.1 Feature Annotation v1.4** | ✅ **已完成** | 拓樸感知 + 控制語意 |
-| **3** | **3.2 Feature Engineer v1.4** | ✅ **已完成** | L2/L3 分層特徵 |
-| **3** | **3.3 Model Training v1.4** | ✅ **已完成** | GNN + Physics Loss |
-| **3** | **3.4 Continual Learning v1.0** | ✅ **已完成** | GEM + 漂移檢測 |
-| **3** | **3.5 Interface Contract v1.2** | ✅ **已完成** | v1.4 相容性 |
+| **0** | **Phase 0: v1.4 Retrofit** | ⏳ **待開始** | 錯誤代碼重分配 + ETL 拓樸貫通 |
+| **3** | **3.1 Feature Engineer v1.4** | ⏳ **Sprint 3 待開發** | L2/L3 分層特徵 + GNN 輸出 |
+| **3** | **3.2 Model Training v1.4** | ⏳ **Sprint 3 待開發** | GNN + Physics Loss |
+| **3** | **3.3 Continual Learning v1.1** | ⏳ **Sprint 4 待開發** | Layer-wise GEM + RedisLock |
+| **3** | **3.4 Optimization v1.2** | ⏳ **Sprint 4 待開發** | Fallback + CL 整合 |
 
 **Sprint 1 總計**: 53 項測試全部通過 ✅  
 **Sprint 2 總計**: 87 項測試全部通過 ✅  
-**Sprint 3 總計**: 5 份 PRD v1.4 升級完成 ✅  
+**Phase 0 預計**: IC-R01~R05, FA-R01~R03, P-R01, C-R01, BP-R01  
 **累計測試**: 140+ 項全部通過 ✅  
-**Sprint 3 狀態**: 5/5 完成 (FA v1.4 🆕, FE v1.4 🆕, MT v1.4 🆕, CL v1.0 🆕, IC v1.2 🆕)
+**狀態**: Sprint 1-2 完成 → **Phase 0 Retrofit** → Sprint 3-5 開發
 
 [📋 查看完整任務排程](./docs/專案任務排程/專案任務排程文件.md) | [📈 Sprint 1 執行摘要](./docs/專案任務排程/Sprint_1_執行摘要.md) | [📋 Sprint 1 審查報告](./docs/專案任務排程/Sprint_1_Review_Report.md) | [📈 Sprint 2 執行摘要](./docs/專案任務排程/Sprint_2_執行摘要.md) | [📋 Sprint 2 審查報告](./docs/專案任務排程/Sprint_2_Review_Report.md)
 
@@ -127,7 +128,7 @@ HVAC_Analytics/
 │   ├── Feature Annotation Specification/  # 🆕 Feature Annotation v1.4 (拓樸感知)
 │   ├── feature_engineering/    # 🆕 Feature Engineer v1.4 (L2/L3 特徵)
 │   ├── Model_Training/         # 🆕 Model Training v1.4 (GNN)
-│   ├── Continual_Learning/     # 🆕 Continual Learning v1.0 (GEM)
+│   ├── Continual_Learning/     # 🆕 Continual Learning v1.1 (GEM)
 │   └── 參考資料/               # v1.4 升級藍圖參考文件
 └── main.py                     # CLI 主程式
 ```
@@ -962,18 +963,20 @@ python3 -m pytest tests/ -v
 
 ### 核心架構規範
 
-- **[Interface Contract v1.1](docs/Interface%20Contract/PRD_Interface_Contract_v1.1.md)** ⭐ 
+- **[Interface Contract v1.2](docs/Interface%20Contract/PRD_Interface_Contract_v1.2.md)** ⭐ **(New!)**
   - 10 個檢查點定義 (E000 時間基準 → E901 特徵對齊)
-  - 100+ 錯誤代碼體系 (E000-E999)
+  - 100+ 錯誤代碼體系 (E000-E999) - **新增 E750-E759 (GNN), E800-E829 (CL), E840-E859 (OPT)**
   - Temporal Baseline 時間基準規範
+  - **v1.4 拓樸感知與持續學習相容性**
 
 - **[System Integration v1.2](docs/System%20Integration/PRD_System_Integration_v1.2.md)** ⭐
   - 系統整合架構與 4 步驟初始化順序
   - Foundation First Policy
   - Container 依賴注入機制
 
-- **[Feature Annotation v1.3](docs/Feature%20Annotation%20Specification/PRD_Feature_Annotation_Specification_V1.3.md)** ⭐ **(New!)**
-  - 特徵標註系統規範
+- **[Feature Annotation v1.4](docs/Feature%20Annotation%20Specification/PRD_Feature_Annotation_Specification_V1.4.md)** ⭐ **(New!)**
+  - **拓樸感知 (Topology Awareness)** - Graph 節點/邊緣定義
+  - **控制語意 (Control Semantics)** - Decay factor 與控制策略
   - HVAC 設備限制條件
   - Excel ↔ YAML 單向同步
 
@@ -995,8 +998,22 @@ python3 -m pytest tests/ -v
 
 ### 機器學習與最佳化
 
-- **[Model Training v1.3](docs/Model_Training/PRD_Model_Training_v1.3.md)** - 三種訓練模式、Resource-Aware Training
-- **[Optimization Engine v1.2](docs/Chiller_Plant_Optimization_Engine/PRD_Chiller_Plant_Optimization_V1.2.md)** - 黑盒優化、Fallback 機制
+- **[Feature Engineer v1.4](docs/feature_engineering/PRD_Feature_Engineer_v1.4.md)** ⭐ **(New!)**
+  - **拓樸聚合特徵 (L2)** - Hop-N 傳播與邊界修正
+  - **控制偏差特徵 (L3)** - Decay factor 與語意對齊
+  - **GNN 資料匯出** - adjacency_matrix 與 node_types
+  
+- **[Model Training v1.4](docs/Model_Training/PRD_Model_Training_v1.4.md)** ⭐ **(New!)**
+  - **GNN 訓練器** - Multi-Task 架構 (System + Component)
+  - **Physics-Informed Loss** - E761-E762 物理守恆驗證
+  - **Resource-Aware Training** - 記憶體預估與 OOM 預防
+  
+- **[Continual Learning v1.1](docs/Continual_Learning/PRD_Continual_Learning_v1.1.md)** ⭐ **(New!)**
+  - **Layer-wise GEM** - 分層梯度投影 (防維度災難)
+  - **Drift Detector** - PSI + KS + Cohen's d 綜合檢測
+  - **RedisLock** - E815 分散式鎖 (TTL 死鎖預防)
+  
+- **[Optimization Engine v1.2](docs/Chiller_Plant_Optimization_Engine/PRD_Chiller_Plant_Optimization_V1.2.md)** - 黑盒優化、Fallback 機制、CL 整合
 
 ### Web 應用層 (Frontend & Backend Interface)
 
@@ -1008,13 +1025,14 @@ python3 -m pytest tests/ -v
 
 ## 🚧 實作路徑 (Implementation Roadmap)
 
-### 當前狀態: Sprint 2 已完成 (4/4 完成)
+### 當前狀態: Phase 0 Retrofit 準備中 → Sprint 3-5 開發
 
 ```
 Sprint 1: Foundation ✅ 完成
-├── ✅ Interface Contract v1.1 (已完成)
+├── ✅ Interface Contract v1.2 (PRD 已完成)
 │   ├── E000-E999 錯誤代碼定義
-│   ├── 7 個檢查點規格
+│   ├── **新增: E750-E759 (GNN 拓樸), E800-E829 (CL), E840-E859 (OPT)**
+│   ├── 7 個檢查點規格 + **#7 CL 整合**
 │   └── Header Standardization 規則
 │
 ├── ✅ System Integration v1.2 (已完成)
@@ -1023,9 +1041,10 @@ Sprint 1: Foundation ✅ 完成
 │   ├── ConfigLoader (E406 同步檢查)
 │   └── ETLContainer (4步驟初始化)
 │
-├── ✅ Feature Annotation v1.3 (已完成)
+├── ✅ Feature Annotation v1.4 (PRD 已完成)
 │   ├── Pydantic 模型 (ColumnAnnotation, EquipmentConstraint)
-│   ├── FeatureAnnotationManager (唯讀介面、HVAC 查詢)
+│   ├── **拓樸感知 (Topology Awareness)** - Graph 節點/邊緣
+│   ├── **控制語意 (Control Semantics)** - Decay factor
 │   ├── Excel 工具鏈 (Wizard、excel_to_yaml)
 │   └── HVAC 設備限制條件
 │
@@ -1034,10 +1053,10 @@ Sprint 1: Foundation ✅ 完成
 │   └── STRICT_MODE 環境變數 (生產安全)
 │
 └── ✅ Sprint 1 Demo 展示 (已完成)
-    ├── 系統架構圖 (Mermaid.js，Sprint 1 邊界高亮)
-    ├── 錯誤代碼體系互動表格 (即時搜尋/過濾/設計動機)
-    ├── Feature Annotation 依賴與前後比較 (Before/After)
-    └── 4步驟初始化流程與測試覆蓋率分析 (Chart.js)
+    ├── 系統架構圖 (Mermaid.js)
+    ├── 錯誤代碼體系互動表格
+    ├── Feature Annotation 依賴與前後比較
+    └── 4步驟初始化流程與測試覆蓋率分析
 
 Sprint 2: 核心 ETL ✅ 已完成 (4/4 完成)
 ├── ✅ Parser v2.1 (已完成，A級)
@@ -1075,7 +1094,88 @@ Sprint 2: 核心 ETL ✅ 已完成 (4/4 完成)
         ├── Step 1→2 無縫整合
         ├── 欄位名稱一致性保證
         └── E409 Header Mismatch 預防
+
+Phase 0: v1.4 Retrofit 🔧 待開始 (Sprint 3 前置，3.5-5 天)
+├── ⏳ Phase 0.1: 錯誤代碼重分配 (IC-R01~R05)
+│   ├── IC-R01: E750-E759 → GNN 拓樸錯誤
+│   ├── IC-R02: E800-E808 → E840-E848 (OPT 遷移)
+│   ├── IC-R03: 新增 E800-E829 (CL 錯誤)
+│   ├── IC-R04: 更新既有代碼引用
+│   └── IC-R05: ERROR_CODES 字典註冊
+│
+├── ⏳ Phase 0.2: 基礎設施補強 (FA-R01~R03)
+│   ├── FA-R01: YAML SSOT 支援 topology 欄位
+│   ├── FA-R02: Excel 範本 v1.4 欄位規則
+│   └── FA-R03: excel_to_yaml.py 升級
+│
+└── ⏳ Phase 0.3: 核心 ETL 管線升級 (P-R01, C-R01, BP-R01)
+    ├── P-R01: Parser 契約對齊 (topology/control_semantics 解析，避免 E103)
+    ├── C-R01: Cleaner 邏輯增強 (對齊 E75x，放行 GNN 特徵，不誤殺)
+    └── BP-R01: BatchProcessor 無損寫入 (節點/邊緣陣列型別不遺失)
+
+Sprint 3: 特徵工程與模型訓練 ⏳ 待開始 (第 6-10 週，21-26 天)
+├── ⏳ Feature Engineer v1.4
+│   ├── FE-001~FE-007: 基礎特徵工程 (延續 v1.3)
+│   ├── FE-008: 拓樸特徵生成與 Hop-N 修正 (E750-E759)
+│   ├── FE-009: control_semantic 欄位輸出
+│   └── FE-010: GNN 資料匯出 (adjacency_matrix, node_types, NaN 防護)
+│       └── 輸出: topology_context → Model Training
+│
+├── ⏳ Model Training v1.4
+│   ├── MT-001~MT-004: Resource-Aware 基礎設施
+│   ├── MT-005: GNN Trainer (Captum GNNWrapper)
+│   ├── MT-006: Physics-Informed Loss (E761-E762)
+│   ├── MT-007: Multi-Task 架構 (System + Component)
+│   ├── MT-009: Model Registry Index
+│   └── MT-012: GNN 拓樸整合測試
+│       └── 輸出: Model Registry → CL / Optimization
+│
+└── ⏳ Hybrid Consistency v1.0
+    └── 系統級 vs 元件級預測一致性驗證
+
+Sprint 4: 最佳化 + 持續學習 ⏳ 待開始 (第 10-13 週，12-15 天)
+├── ⏳ Continual Learning v1.1 (並行開發)
+│   ├── CL-001: UpdateOrchestrator (E800-E804)
+│   ├── CL-002: DriftDetector (PSI + KS + Cohen's d)
+│   ├── CL-003: GEMTrainer (Layer-wise 梯度投影)
+│   ├── CL-004: EpisodicMemoryBuffer (Batch Mode Importance)
+│   ├── CL-006: RedisLock (E815 TTL 死鎖預防)
+│   └── CL-007: 設備異動處理 (E827-E828)
+│       └── 輸出: 模型更新 → Optimization
+│
+├── ⏳ Equipment Validation v1.0
+│   └── Cleaner-OPT 設備限制一致性驗證
+│
+└── ⏳ Optimization v1.2
+    ├── OPT-001: Model Registry 載入 (E841/E842)
+    ├── OPT-002: Feature Alignment 驗證 (E901-E904)
+    ├── OPT-006: Fallback Handler (3層降級)
+    └── OPT-008: CL 整合接口 (性能指標傳遞)
+
+Sprint 5: 整合測試 ⏳ 待開始 (第 13-15 週，10-12 天)
+├── ⏳ Wizard Technical Blockade v1.0
+│   └── Import Guard + 檔案系統保護 + CI/CD Hook
+│
+└── ⏳ 端到端整合測試
+    ├── INT-001: Parser→Cleaner→BP→FE 流程
+    ├── INT-002: FE→Training→OPT 流程
+    ├── INT-002a: Training→CL→Model Update 流程 (檢查點 #7a)
+    ├── INT-005a: GNN 拓樸傳遞測試 (E750-E759)
+    ├── INT-006a: CL 持續學習迴路測試 (E800-E829)
+    └── INT-009: 併發更新測試 (E815 分散式鎖)
 ```
+
+### 關鍵里程碑
+
+| 里程碑 | 時間 | 狀態 |
+|:---|:---:|:---:|
+| M1: 基礎就緒 | 第 2 週末 | ✅ 完成 |
+| M2: ETL 就緒 | 第 5 週末 | ✅ 完成 |
+| M2.1: Parser v2.2 重構 | 第 6 週末 | ✅ 完成 |
+| **M2.5: Phase 0 Retrofit** | **第 7 週初** | ⏳ **待開始** |
+| **M3: ML 就緒** | **第 10 週末** | ⏳ 待開始 |
+| **M4: 最佳化 + CL 就緒** | **第 13 週末** | ⏳ 待開始 |
+| **M5: 系統上線** | **第 17 週末** | ⏳ 待開始 |
 
 ### 下一步
 
@@ -1124,11 +1224,14 @@ HVAC_STRICT_MODE=true python main.py pipeline data.csv
 
 ---
 
-## 🎯 已完成項目 (Sprint 3 - 5/5 完成)
+## 🎯 PRD 已完成項目 (Sprint 3-4 規劃完成)
 
-### ✅ 3.1 Feature Annotation v1.4 (拓樸感知與控制語意)
+> ⚠️ **注意**: 以下項目為 **PRD (產品需求文件) 已完成**，實際程式碼開發將在 Sprint 3-4 進行
 
-**完成日期**: 2026-02-26
+### ✅ 3.1 Feature Annotation v1.4 (拓樸感知與控制語意) - PRD 完成
+
+**PRD 完成日期**: 2026-02-26  
+**程式碼開發**: ⏳ Sprint 3 待開發
 
 **核心擴充**:
 
@@ -1145,9 +1248,10 @@ HVAC_STRICT_MODE=true python main.py pipeline data.csv
 
 ---
 
-### ✅ 3.2 Feature Engineer v1.4 (拓樸聚合與控制偏差)
+### ✅ 3.2 Feature Engineer v1.4 (拓樸聚合與控制偏差) - PRD 完成
 
-**完成日期**: 2026-02-26
+**PRD 完成日期**: 2026-02-26  
+**程式碼開發**: ⏳ Sprint 3 待開發 (FE-008~FE-010)
 
 **分層特徵生成**:
 
@@ -1171,9 +1275,10 @@ L3: 🆕 控制偏差特徵 (ΔT = Sensor - Setpoint) - e.g., chiller_01_chwst_d
 
 ---
 
-### ✅ 3.3 Model Training v1.4 (GNN 與物理守恆損失)
+### ✅ 3.3 Model Training v1.4 (GNN 與物理守恆損失) - PRD 完成
 
-**完成日期**: 2026-02-26
+**PRD 完成日期**: 2026-02-26  
+**程式碼開發**: ⏳ Sprint 3 待開發 (MT-005~MT-007, MT-012)
 
 **新增訓練器**:
 
@@ -1195,9 +1300,10 @@ L3: 🆕 控制偏差特徵 (ΔT = Sensor - Setpoint) - e.g., chiller_01_chwst_d
 
 ---
 
-### ✅ 3.4 Continual Learning v1.0 (GEM 與概念漂移)
+### ✅ 3.4 Continual Learning v1.1 (GEM 與概念漂移) - PRD 完成
 
-**完成日期**: 2026-02-26
+**PRD 完成日期**: 2026-02-26 (升級至 v1.1 含 Layer-wise GEM)  
+**程式碼開發**: ⏳ Sprint 4 待開發 (CL-001~CL-008)
 
 **核心模組**:
 
@@ -1217,13 +1323,14 @@ L3: 🆕 控制偏差特徵 (ΔT = Sensor - Setpoint) - e.g., chiller_01_chwst_d
 
 **錯誤代碼實作**: E800-E829 (持續學習專用)
 
-**文件**: [PRD_Continual_Learning_v1.0.md](./docs/Continual_Learning/PRD_Continual_Learning_v1.0.md)
+**文件**: [PRD_Continual_Learning_v1.1.md](./docs/Continual_Learning/PRD_Continual_Learning_v1.1.md)
 
 ---
 
-### ✅ 3.5 Interface Contract v1.2 (v1.4 相容性)
+### ✅ 3.5 Interface Contract v1.2 (v1.4 相容性) - PRD 完成
 
-**完成日期**: 2026-02-26
+**PRD 完成日期**: 2026-02-26  
+**程式碼實作**: ⏳ Phase 0 Retrofit 待完成 (IC-R01~R05)
 
 **錯誤代碼分層擴充**:
 
@@ -1253,11 +1360,11 @@ L3: 🆕 控制偏差特徵 (ΔT = Sensor - Setpoint) - e.g., chiller_01_chwst_d
 - **🆕 [Feature Annotation v1.4](docs/Feature%20Annotation%20Specification/PRD_Feature_Annotation_Specification_V1.4.md)** - 拓樸感知與控制語意規範
 - **🆕 [Feature Engineer v1.4](docs/feature_engineering/PRD_FEATURE_ENGINEER_V1.4.md)** - 拓樸聚合與控制偏差特徵
 - **🆕 [Model Training v1.4](docs/Model_Training/PRD_Model_Training_v1.4.md)** - GNN 訓練器與物理守恆損失
-- **🆕 [Continual Learning v1.0](docs/Continual_Learning/PRD_Continual_Learning_v1.0.md)** - GEM 演算法與概念漂移檢測
+- **🆕 [Continual Learning v1.1](docs/Continual_Learning/PRD_Continual_Learning_v1.1.md)** - GEM 演算法與概念漂移檢測
 - **🆕 [Interface Contract v1.2](docs/Interface%20Contract/PRD_Interface_Contract_v1.2.md)** - v1.4 相容性與錯誤代碼分層
 
 ---
 
 **最後更新**: 2026-02-26  
-**架構版本**: v1.8 (v1.4 Topology Awareness)  
-**文件狀態**: ✅ Sprint 3 已完成 (5/5 完成，Feature Annotation v1.4 🆕, Feature Engineer v1.4 🆕, Model Training v1.4 🆕, Continual Learning v1.0 🆕, Interface Contract v1.2 🆕)
+**架構版本**: v2.1-執行版  
+**文件狀態**: 🟢 Sprint 1-2 完成｜Phase 0 Retrofit 就緒｜Sprint 3-5 任務確立
