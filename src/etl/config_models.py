@@ -567,120 +567,291 @@ E706_MODEL_ARTIFACT_CORRUPTED = ErrorCode(
     recoverable=False
 )
 
-# E750-E799: Hybrid Model Consistency
-E750_GOLDEN_DATASET_UNAVAILABLE = ErrorCode(
+# E750-E759: GNN Topology Errors (v1.2 重分配)
+E750_TOPOLOGY_CONTEXT_MISSING = ErrorCode(
     code="E750",
-    name="GOLDEN_DATASET_UNAVAILABLE",
-    module="ConsistentValidator",
-    description="無可用的測試集或驗證集",
+    name="TOPOLOGY_CONTEXT_MISSING",
+    module="GNNTrainer",
+    description="缺少拓樸上下文 (topology_context)",
     severity=ErrorSeverity.CRITICAL,
-    user_message_template="黃金資料集不可用",
+    user_message_template="GNN 訓練失敗: 缺少拓樸上下文",
     recoverable=False
 )
 
-E751_DYNAMIC_TOLERANCE_EXCEEDED = ErrorCode(
+E751_ADJACENCY_MATRIX_INVALID = ErrorCode(
     code="E751",
-    name="DYNAMIC_TOLERANCE_EXCEEDED",
-    module="ConsistentValidator",
-    description="預測誤差超過動態容許值",
+    name="ADJACENCY_MATRIX_INVALID",
+    module="GNNTrainer",
+    description="鄰接矩陣維度與節點數不匹配",
     severity=ErrorSeverity.CRITICAL,
-    user_message_template="動態容差超過",
+    user_message_template="GNN 鄰接矩陣無效: 維度不匹配",
     recoverable=False
 )
 
-E752_SYSTEMATIC_BIAS_DETECTED = ErrorCode(
+E752_NODE_TYPE_MISMATCH = ErrorCode(
     code="E752",
-    name="SYSTEMATIC_BIAS_DETECTED",
-    module="ConsistentValidator",
-    description="偵測到系統性偏差 (Bias > 5%)",
+    name="NODE_TYPE_MISMATCH",
+    module="GNNTrainer",
+    description="節點類型與特徵維度不匹配",
     severity=ErrorSeverity.CRITICAL,
-    user_message_template="系統性偏差偵測",
+    user_message_template="GNN 節點類型不匹配",
     recoverable=False
 )
 
-E753_TREND_MISMATCH = ErrorCode(
+E753_EDGE_INDEX_OUT_OF_RANGE = ErrorCode(
     code="E753",
-    name="TREND_MISMATCH",
-    module="ConsistentValidator",
-    description="趨勢方向與物理邏輯不符 (Corr < 0.95)",
+    name="EDGE_INDEX_OUT_OF_RANGE",
+    module="GNNTrainer",
+    description="邊索引超出節點範圍",
     severity=ErrorSeverity.CRITICAL,
-    user_message_template="趨勢不匹配",
+    user_message_template="GNN 邊索引超出範圍",
     recoverable=False
 )
 
-E754_OUTLIER_VIOLATION = ErrorCode(
+E754_TOPOLOGY_PROPAGATION_ERROR = ErrorCode(
     code="E754",
-    name="OUTLIER_VIOLATION",
-    module="ConsistentValidator",
-    description="存在極端異常值 (> 50kW)",
+    name="TOPOLOGY_PROPAGATION_ERROR",
+    module="FeatureEngineer",
+    description="Hop-N 拓樸傳播計算錯誤",
     severity=ErrorSeverity.CRITICAL,
-    user_message_template="異常值違反",
+    user_message_template="拓樸傳播錯誤: Hop-N 計算失敗",
     recoverable=False
 )
 
-E755_INSUFFICIENT_COMPONENTS = ErrorCode(
+E755_GRAPH_FEATURES_MISSING = ErrorCode(
     code="E755",
-    name="INSUFFICIENT_COMPONENTS",
-    module="ConsistentValidator",
-    description="L1等級（僅單一Component）無法驗證",
+    name="GRAPH_FEATURES_MISSING",
+    module="GNNTrainer",
+    description="缺少必要的圖特徵 (node_types/control_semantics)",
     severity=ErrorSeverity.CRITICAL,
-    user_message_template="元件不足 L1",
+    user_message_template="GNN 特徵缺失: 缺少圖結構特徵",
     recoverable=False
 )
 
-E756_PARTIAL_COMPONENTS_L2 = ErrorCode(
+E756_PHYSICS_LOSS_EXCEEDED = ErrorCode(
     code="E756",
-    name="PARTIAL_COMPONENTS_L2",
-    module="ConsistentValidator",
-    description="僅使用L2等級（部分Components）驗證",
+    name="PHYSICS_LOSS_EXCEEDED",
+    module="GNNTrainer",
+    description="物理守恆損失超過 20% 閾值",
     severity=ErrorSeverity.HIGH,
-    user_message_template="部分元件驗證 L2",
+    user_message_template="物理損失過高: {loss}% > 20%",
     recoverable=True
 )
 
-E757_LIGHT_LOAD_HIGH_VARIANCE = ErrorCode(
+E757_HOP_N_AGGREGATION_DUPLICATE = ErrorCode(
     code="E757",
-    name="LIGHT_LOAD_HIGH_VARIANCE",
-    module="ConsistentValidator",
-    description="輕載區間誤差較高（正常現象）",
+    name="HOP_N_AGGREGATION_DUPLICATE",
+    module="FeatureEngineer",
+    description="Hop-N 特徵重複聚合偵測",
     severity=ErrorSeverity.WARNING,
-    user_message_template="輕載高變異（正常）",
+    user_message_template="Hop-N 特徵重複聚合警告",
     recoverable=True
 )
 
-E758_COPULA_EFFECT_DETECTED = ErrorCode(
+E758_GNN_WRAPPER_ERROR = ErrorCode(
     code="E758",
-    name="COPULA_EFFECT_DETECTED",
-    module="ConsistentValidator",
-    description="偵測到顯著耦合效應",
-    severity=ErrorSeverity.WARNING,
-    user_message_template="耦合效應偵測",
-    recoverable=True
-)
-
-E759_DATASET_QUALITY_WARNING = ErrorCode(
-    code="E759",
-    name="DATASET_QUALITY_WARNING",
-    module="ConsistentValidator",
-    description="使用驗證集或合併資料集",
+    name="GNN_WRAPPER_ERROR",
+    module="GNNTrainer",
+    description="Captum GNNWrapper 包裝器錯誤",
     severity=ErrorSeverity.HIGH,
-    user_message_template="資料集品質警告",
+    user_message_template="GNN 解釋器包裝錯誤",
     recoverable=True
 )
 
-# E800-E899: Optimization 錯誤
-E801_MODEL_LOAD_FAILED = ErrorCode(
+E759_MULTI_TASK_DIMENSION_MISMATCH = ErrorCode(
+    code="E759",
+    name="MULTI_TASK_DIMENSION_MISMATCH",
+    module="GNNTrainer",
+    description="多任務輸出維度與目標數量不匹配",
+    severity=ErrorSeverity.CRITICAL,
+    user_message_template="多任務維度錯誤: 輸出維度不匹配",
+    recoverable=False
+)
+
+# E800-E829: Continual Learning 錯誤 (v1.2 新增)
+E800_CL_UPDATE_TRIGGERED = ErrorCode(
+    code="E800",
+    name="CL_UPDATE_TRIGGERED",
+    module="UpdateOrchestrator",
+    description="CL 更新觸發條件滿足 (綜合評分)",
+    severity=ErrorSeverity.INFO,
+    user_message_template="CL 更新觸發: {trigger_reason}",
+    recoverable=True
+)
+
+E801_CL_ABSOLUTE_MAPE_EXCEEDED = ErrorCode(
     code="E801",
-    name="MODEL_LOAD_FAILED",
+    name="CL_ABSOLUTE_MAPE_EXCEEDED",
+    module="UpdateOrchestrator",
+    description="7天 MAPE 超過 8% 閾值",
+    severity=ErrorSeverity.WARNING,
+    user_message_template="CL 絕對 MAPE 超標: {mape}% > 8%",
+    recoverable=True
+)
+
+E802_CL_SCHEDULED_UPDATE = ErrorCode(
+    code="E802",
+    name="CL_SCHEDULED_UPDATE",
+    module="UpdateOrchestrator",
+    description="達到定期更新間隔 (30天)",
+    severity=ErrorSeverity.INFO,
+    user_message_template="CL 定期更新: 距上次更新 {days} 天",
+    recoverable=True
+)
+
+E803_CL_DRIFT_DETECTED = ErrorCode(
+    code="E803",
+    name="CL_DRIFT_DETECTED",
+    module="DriftDetector",
+    description="檢測到概念漂移 (PSI/KS 檢定)",
+    severity=ErrorSeverity.WARNING,
+    user_message_template="CL 概念漂移檢測: {drift_info}",
+    recoverable=True
+)
+
+E804_CL_TOPOLOGY_CHANGE = ErrorCode(
+    code="E804",
+    name="CL_TOPOLOGY_CHANGE",
+    module="UpdateOrchestrator",
+    description="偵測到拓樸結構變更",
+    severity=ErrorSeverity.WARNING,
+    user_message_template="CL 拓樸變更: {equipment_id}",
+    recoverable=True
+)
+
+E805_CL_FALLBACK_PERFORMANCE = ErrorCode(
+    code="E805",
+    name="CL_FALLBACK_PERFORMANCE",
+    module="UpdateOrchestrator",
+    description="Fallback 機制啟動，性能下降",
+    severity=ErrorSeverity.WARNING,
+    user_message_template="CL Fallback 性能: 啟用降級模式",
+    recoverable=True
+)
+
+E810_CL_GEM_PROJECTION_FAILED = ErrorCode(
+    code="E810",
+    name="CL_GEM_PROJECTION_FAILED",
+    module="GEMTrainer",
+    description="梯度投影記憶體 (GEM) 投影失敗",
+    severity=ErrorSeverity.CRITICAL,
+    user_message_template="CL GEM 投影失敗: {detail}",
+    recoverable=False
+)
+
+E811_CL_MEMORY_BUFFER_FULL = ErrorCode(
+    code="E811",
+    name="CL_MEMORY_BUFFER_FULL",
+    module="EpisodicMemoryBuffer",
+    description="記憶緩衝區已滿，需要修剪",
+    severity=ErrorSeverity.HIGH,
+    user_message_template="CL 記憶緩衝區已滿",
+    recoverable=True
+)
+
+E812_CL_IMPORTANCE_SCORE_ERROR = ErrorCode(
+    code="E812",
+    name="CL_IMPORTANCE_SCORE_ERROR",
+    module="EpisodicMemoryBuffer",
+    description="重要性評分計算錯誤",
+    severity=ErrorSeverity.HIGH,
+    user_message_template="CL 重要性評分錯誤",
+    recoverable=True
+)
+
+E813_CL_MEMORY_VERSION_INCOMPATIBLE = ErrorCode(
+    code="E813",
+    name="CL_MEMORY_VERSION_INCOMPATIBLE",
+    module="GEMTrainer",
+    description="記憶緩衝區版本與當前模型不相容",
+    severity=ErrorSeverity.CRITICAL,
+    user_message_template="CL 記憶版本不相容: 預期 {expected}，實際 {actual}",
+    recoverable=False
+)
+
+E814_CL_CHECKPOINT_CORRUPTED = ErrorCode(
+    code="E814",
+    name="CL_CHECKPOINT_CORRUPTED",
+    module="GEMTrainer",
+    description="CL 檢查點檔案損毀",
+    severity=ErrorSeverity.CRITICAL,
+    user_message_template="CL 檢查點損毀: {filepath}",
+    recoverable=False
+)
+
+E815_CL_DISTRIBUTED_LOCK_FAILED = ErrorCode(
+    code="E815",
+    name="CL_DISTRIBUTED_LOCK_FAILED",
+    module="UpdateOrchestrator",
+    description="分散式鎖定獲取失敗 (RedisLock 逾時)",
+    severity=ErrorSeverity.CRITICAL,
+    user_message_template="CL 分散式鎖失敗: 併發更新競爭",
+    recoverable=False
+)
+
+E820_CL_ONLINE_FINETUNE_TIMEOUT = ErrorCode(
+    code="E820",
+    name="CL_ONLINE_FINETUNE_TIMEOUT",
+    module="GEMTrainer",
+    description="線上微調超過 15 分鐘限制",
+    severity=ErrorSeverity.HIGH,
+    user_message_template="CL 線上微調逾時: {elapsed} > 15min",
+    recoverable=True
+)
+
+E821_CL_CATASTROPHIC_FORGETTING_DETECTED = ErrorCode(
+    code="E821",
+    name="CL_CATASTROPHIC_FORGETTING_DETECTED",
+    module="GEMTrainer",
+    description="偵測到災難性遺忘",
+    severity=ErrorSeverity.CRITICAL,
+    user_message_template="CL 災難性遺忘偵測: 舊任務性能下降 {drop}%",
+    recoverable=False
+)
+
+E827_CL_EQUIPMENT_ADDED = ErrorCode(
+    code="E827",
+    name="CL_EQUIPMENT_ADDED",
+    module="UpdateOrchestrator",
+    description="偵測到新設備加入",
+    severity=ErrorSeverity.INFO,
+    user_message_template="CL 新設備加入: {equipment_id}",
+    recoverable=True
+)
+
+E828_CL_EQUIPMENT_REMOVED = ErrorCode(
+    code="E828",
+    name="CL_EQUIPMENT_REMOVED",
+    module="UpdateOrchestrator",
+    description="偵測到設備移除",
+    severity=ErrorSeverity.WARNING,
+    user_message_template="CL 設備移除: {equipment_id}",
+    recoverable=True
+)
+
+E829_CL_EQUIPMENT_MAINTENANCE = ErrorCode(
+    code="E829",
+    name="CL_EQUIPMENT_MAINTENANCE",
+    module="UpdateOrchestrator",
+    description="設備維護模式觸發",
+    severity=ErrorSeverity.INFO,
+    user_message_template="CL 設備維護: {equipment_id}",
+    recoverable=True
+)
+
+# E840-E859: Optimization 錯誤 (v1.2 遷移自 E800-E808)
+E841_MODEL_REGISTRY_MISSING = ErrorCode(
+    code="E841",
+    name="MODEL_REGISTRY_MISSING",
     module="OptimizationEngine",
-    description="無法載入模型檔案",
+    description="Model Registry Index 不存在或模型檔案遺失",
     severity=ErrorSeverity.CRITICAL,
     user_message_template="模型載入失敗: {model_path}",
     recoverable=False
 )
 
-E802_CONSTRAINT_VIOLATION = ErrorCode(
-    code="E802",
+E842_CONSTRAINT_VIOLATION = ErrorCode(
+    code="E842",
     name="CONSTRAINT_VIOLATION",
     module="OptimizationEngine",
     description="設備邏輯約束無法滿足",
@@ -689,8 +860,8 @@ E802_CONSTRAINT_VIOLATION = ErrorCode(
     recoverable=True
 )
 
-E803_OPTIMIZATION_DIVERGENCE = ErrorCode(
-    code="E803",
+E843_OPTIMIZATION_DIVERGENCE = ErrorCode(
+    code="E843",
     name="OPTIMIZATION_DIVERGENCE",
     module="OptimizationEngine",
     description="求解器無法收斂",
@@ -699,8 +870,8 @@ E803_OPTIMIZATION_DIVERGENCE = ErrorCode(
     recoverable=True
 )
 
-E804_BOUND_INFEASIBILITY = ErrorCode(
-    code="E804",
+E844_BOUND_INFEASIBILITY = ErrorCode(
+    code="E844",
     name="BOUND_INFEASIBILITY",
     module="OptimizationEngine",
     description="變數邊界設定導致無解",
@@ -709,8 +880,8 @@ E804_BOUND_INFEASIBILITY = ErrorCode(
     recoverable=False
 )
 
-E805_FORECAST_HORIZON_MISMATCH = ErrorCode(
-    code="E805",
+E845_FORECAST_HORIZON_MISMATCH = ErrorCode(
+    code="E845",
     name="FORECAST_HORIZON_MISMATCH",
     module="OptimizationEngine",
     description="預測時程與最佳化時程不匹配",
@@ -719,8 +890,8 @@ E805_FORECAST_HORIZON_MISMATCH = ErrorCode(
     recoverable=False
 )
 
-E806_SYSTEM_MODEL_DISCREPANCY = ErrorCode(
-    code="E806",
+E846_SYSTEM_MODEL_DISCREPANCY = ErrorCode(
+    code="E846",
     name="SYSTEM_MODEL_DISCREPANCY",
     module="OptimizationEngine",
     description="System Model 與 Component Models 加總差異 > 5%",
@@ -729,8 +900,8 @@ E806_SYSTEM_MODEL_DISCREPANCY = ErrorCode(
     recoverable=True
 )
 
-E807_EQUIPMENT_STATE_INVALID = ErrorCode(
-    code="E807",
+E847_EQUIPMENT_STATE_INVALID = ErrorCode(
+    code="E847",
     name="EQUIPMENT_STATE_INVALID",
     module="OptimizationEngine",
     description="設備狀態違反物理邏輯（如主機開但水泵關）",
@@ -739,14 +910,45 @@ E807_EQUIPMENT_STATE_INVALID = ErrorCode(
     recoverable=False
 )
 
-E808_WEATHER_DATA_MISSING = ErrorCode(
-    code="E808",
+E848_WEATHER_DATA_MISSING = ErrorCode(
+    code="E848",
     name="WEATHER_DATA_MISSING",
     module="OptimizationEngine",
     description="缺少未來天氣預測資料",
     severity=ErrorSeverity.CRITICAL,
     user_message_template="天氣資料缺失: 無法執行未來 {hours} 小時最佳化",
     recoverable=False
+)
+
+# E850-E859: Optimization 擴展錯誤 (v1.2 新增)
+E850_CRITICAL_MODEL_MISMATCH = ErrorCode(
+    code="E850",
+    name="CRITICAL_MODEL_MISMATCH",
+    module="OptimizationEngine",
+    description="System vs Component 差異 > 15% (嚴重不匹配)",
+    severity=ErrorSeverity.CRITICAL,
+    user_message_template="模型嚴重不匹配: 差異 {diff}% > 15%",
+    recoverable=False
+)
+
+E851_FALLBACK_LEVEL_TRIGGERED = ErrorCode(
+    code="E851",
+    name="FALLBACK_LEVEL_TRIGGERED",
+    module="FallbackHandler",
+    description="Fallback 降級機制已觸發",
+    severity=ErrorSeverity.WARNING,
+    user_message_template="Fallback 降級: 當前層級 {level}",
+    recoverable=True
+)
+
+E852_WARM_START_UNAVAILABLE = ErrorCode(
+    code="E852",
+    name="WARM_START_UNAVAILABLE",
+    module="OptimizationEngine",
+    description="暖啟動資料不可用",
+    severity=ErrorSeverity.HIGH,
+    user_message_template="暖啟動不可用: 使用冷啟動",
+    recoverable=True
 )
 
 # E900-E999: 跨階段整合錯誤
@@ -873,26 +1075,47 @@ ERROR_CODES: Dict[str, ErrorCode] = {
     "E704": E704_CHECKPOINT_SAVE_FAILED,
     "E705": E705_CROSS_VALIDATION_ERROR,
     "E706": E706_MODEL_ARTIFACT_CORRUPTED,
-    # E750-E799
-    "E750": E750_GOLDEN_DATASET_UNAVAILABLE,
-    "E751": E751_DYNAMIC_TOLERANCE_EXCEEDED,
-    "E752": E752_SYSTEMATIC_BIAS_DETECTED,
-    "E753": E753_TREND_MISMATCH,
-    "E754": E754_OUTLIER_VIOLATION,
-    "E755": E755_INSUFFICIENT_COMPONENTS,
-    "E756": E756_PARTIAL_COMPONENTS_L2,
-    "E757": E757_LIGHT_LOAD_HIGH_VARIANCE,
-    "E758": E758_COPULA_EFFECT_DETECTED,
-    "E759": E759_DATASET_QUALITY_WARNING,
-    # E800-E899
-    "E801": E801_MODEL_LOAD_FAILED,
-    "E802": E802_CONSTRAINT_VIOLATION,
-    "E803": E803_OPTIMIZATION_DIVERGENCE,
-    "E804": E804_BOUND_INFEASIBILITY,
-    "E805": E805_FORECAST_HORIZON_MISMATCH,
-    "E806": E806_SYSTEM_MODEL_DISCREPANCY,
-    "E807": E807_EQUIPMENT_STATE_INVALID,
-    "E808": E808_WEATHER_DATA_MISSING,
+    # E750-E759: GNN Topology Errors
+    "E750": E750_TOPOLOGY_CONTEXT_MISSING,
+    "E751": E751_ADJACENCY_MATRIX_INVALID,
+    "E752": E752_NODE_TYPE_MISMATCH,
+    "E753": E753_EDGE_INDEX_OUT_OF_RANGE,
+    "E754": E754_TOPOLOGY_PROPAGATION_ERROR,
+    "E755": E755_GRAPH_FEATURES_MISSING,
+    "E756": E756_PHYSICS_LOSS_EXCEEDED,
+    "E757": E757_HOP_N_AGGREGATION_DUPLICATE,
+    "E758": E758_GNN_WRAPPER_ERROR,
+    "E759": E759_MULTI_TASK_DIMENSION_MISMATCH,
+    # E800-E829: Continual Learning Errors
+    "E800": E800_CL_UPDATE_TRIGGERED,
+    "E801": E801_CL_ABSOLUTE_MAPE_EXCEEDED,
+    "E802": E802_CL_SCHEDULED_UPDATE,
+    "E803": E803_CL_DRIFT_DETECTED,
+    "E804": E804_CL_TOPOLOGY_CHANGE,
+    "E805": E805_CL_FALLBACK_PERFORMANCE,
+    "E810": E810_CL_GEM_PROJECTION_FAILED,
+    "E811": E811_CL_MEMORY_BUFFER_FULL,
+    "E812": E812_CL_IMPORTANCE_SCORE_ERROR,
+    "E813": E813_CL_MEMORY_VERSION_INCOMPATIBLE,
+    "E814": E814_CL_CHECKPOINT_CORRUPTED,
+    "E815": E815_CL_DISTRIBUTED_LOCK_FAILED,
+    "E820": E820_CL_ONLINE_FINETUNE_TIMEOUT,
+    "E821": E821_CL_CATASTROPHIC_FORGETTING_DETECTED,
+    "E827": E827_CL_EQUIPMENT_ADDED,
+    "E828": E828_CL_EQUIPMENT_REMOVED,
+    "E829": E829_CL_EQUIPMENT_MAINTENANCE,
+    # E840-E859: Optimization Errors (migrated from E800-E808)
+    "E841": E841_MODEL_REGISTRY_MISSING,
+    "E842": E842_CONSTRAINT_VIOLATION,
+    "E843": E843_OPTIMIZATION_DIVERGENCE,
+    "E844": E844_BOUND_INFEASIBILITY,
+    "E845": E845_FORECAST_HORIZON_MISMATCH,
+    "E846": E846_SYSTEM_MODEL_DISCREPANCY,
+    "E847": E847_EQUIPMENT_STATE_INVALID,
+    "E848": E848_WEATHER_DATA_MISSING,
+    "E850": E850_CRITICAL_MODEL_MISMATCH,
+    "E851": E851_FALLBACK_LEVEL_TRIGGERED,
+    "E852": E852_WARM_START_UNAVAILABLE,
     # E900-E999
     "E901": E901_FEATURE_ALIGNMENT_MISMATCH,
     "E902": E902_FEATURE_DIMENSION_MISMATCH,

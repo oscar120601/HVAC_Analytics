@@ -4,10 +4,10 @@ metadata:
   site_id: demo_site
   inherit: base
   editor: wizard_parser_integration
-  last_updated: '2026-02-25T17:40:08.613394'
+  last_updated: '2026-03-02T07:48:56.909124'
   equipment_schema: hvac_v1.3
   temporal_baseline_version: '1.0'
-  yaml_checksum: sha256:d9a9d1376895151f291f573f38ebbf2b6e4e4c2f721e85865cb6916df4e27229
+  yaml_checksum: sha256:9f4e14045a1286aeb807a2e481571826f9334bee1d3b4c3f68790722ff791506
 columns:
   Date:
     column_name: Date

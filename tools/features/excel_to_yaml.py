@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Excel to YAML 轉換器 v1.3
+Excel to YAML 轉換器 v1.4
 
 將 Feature Annotation Excel 範本轉換為 YAML SSOT 格式
 
 功能:
-- 讀取 Excel v1.3 格式
+- 讀取 Excel v1.4 格式（支援 topology 與 control_semantics）
 - 驗證 HVAC 邏輯
 - 計算 Checksum 供 E406 同步檢查
 - 生成符合 schema.json 的 YAML
@@ -15,6 +15,12 @@ Excel to YAML 轉換器 v1.3
 - E403: 單位與物理類型不匹配
 - E404: Lag 格式錯誤
 - E405: 目標變數啟用 Lag
+
+v1.4 新增:
+- 支援 control_semantic 欄位
+- 支援 topology_node_id 欄位
+- 支援 decay_factor 欄位
+- 新增 Topology Sheet 解析
 """
 
 import argparse
@@ -74,12 +80,14 @@ HVAC_UNITS = {
 VALID_DEVICE_ROLES = ["primary", "backup", "seasonal"]
 VALID_STATUSES = ["pending_review", "confirmed", "deprecated"]
 VALID_WARNINGS = ["W401", "W402", "W403", "W406", "W407"]
+VALID_CONTROL_SEMANTICS = ["on_off", "variable_speed", "valve_position", "setpoint", "feedback", "none"]
 
 # Excel Sheet 名稱
 SHEET_COLUMNS = "Columns"
 SHEET_GROUP_POLICIES = "Group Policies"
 SHEET_METADATA = "Metadata"
 SHEET_SYSTEM = "System"
+SHEET_TOPOLOGY = "Topology"  # v1.4 新增
 
 
 # =============================================================================
@@ -145,7 +153,7 @@ class ExcelToYamlConverter:
             return False
     
     def validate_template_version(self) -> bool:
-        """驗證 Excel 範本版本 (E400)"""
+        """驗證 Excel 範本版本 (E400) - v1.4 支援"""
         if SHEET_SYSTEM not in self.workbook.sheetnames:
             logger.warning("找不到 System Sheet，無法驗證版本")
             return True
@@ -153,10 +161,11 @@ class ExcelToYamlConverter:
         system_sheet = self.workbook[SHEET_SYSTEM]
         template_version = system_sheet['B1'].value
         
-        if template_version != "1.3":
+        # v1.4: 支援 1.3 和 1.4
+        if template_version not in ["1.3", "1.4"]:
             self.errors.append(
-                f"E400: Excel 範本版本不符: {template_version}，預期: 1.3\n"
-                f"請執行: python migrate_excel.py --from {template_version} --to 1.3"
+                f"E400: Excel 範本版本不符: {template_version}，預期: 1.3 或 1.4\n"
+                f"請執行: python migrate_excel.py --from {template_version} --to 1.4"
             )
             return False
         
@@ -177,7 +186,7 @@ class ExcelToYamlConverter:
         
         logger.debug(f"Columns headers: {headers}")
         
-        # 欄位名稱對應
+        # 欄位名稱對應（v1.4 新增 control_semantic, topology_node_id, decay_factor）
         header_map = {
             'column_name': ['column_name', '欄位名稱', 'Column Name', 'A'],
             'physical_type': ['physical_type', '物理類型', 'Physical Type', 'B'],
@@ -189,7 +198,11 @@ class ExcelToYamlConverter:
             'ignore_warnings': ['ignore_warnings', '忽略警告', 'Ignore Warnings', 'H'],
             'equipment_id': ['equipment_id', '設備 ID', 'Equipment ID', 'I'],
             'description': ['description', '描述', 'Description', 'J'],
-            'status': ['status', '狀態', 'Status', 'K']
+            'status': ['status', '狀態', 'Status', 'K'],
+            # v1.4 新增欄位
+            'control_semantic': ['control_semantic', '控制語意', 'Control Semantic', 'L'],
+            'topology_node_id': ['topology_node_id', '拓樸節點 ID', 'Topology Node ID', 'M'],
+            'decay_factor': ['decay_factor', '衰減係數', 'Decay Factor', 'N']
         }
         
         # 建立欄位索引對應
@@ -296,7 +309,31 @@ class ExcelToYamlConverter:
         if status:
             status = str(status).strip().lower()
         
-        return {
+        # v1.4: 解析控制語意
+        control_semantic = get_cell_value('control_semantic', 'none')
+        if control_semantic:
+            control_semantic = str(control_semantic).strip().lower()
+        else:
+            control_semantic = 'none'
+        
+        # v1.4: 解析拓樸節點 ID
+        topology_node_id = get_cell_value('topology_node_id')
+        if topology_node_id:
+            topology_node_id = str(topology_node_id).strip()
+        
+        # v1.4: 解析衰減係數
+        decay_factor = get_cell_value('decay_factor')
+        if decay_factor is not None:
+            try:
+                decay_factor = float(decay_factor)
+                if not (0 <= decay_factor <= 1):
+                    self.warnings.append(f"欄位 '{col_name}' 的 decay_factor {decay_factor} 超出 [0,1] 範圍")
+                    decay_factor = None
+            except (ValueError, TypeError):
+                self.warnings.append(f"欄位 '{col_name}' 的 decay_factor '{decay_factor}' 格式無效")
+                decay_factor = None
+        
+        result = {
             'column_name': col_name,
             'physical_type': physical_type,
             'unit': unit,
@@ -307,8 +344,14 @@ class ExcelToYamlConverter:
             'ignore_warnings': ignore_warnings,
             'equipment_id': equipment_id,
             'description': description,
-            'status': status
+            'status': status,
+            'control_semantic': control_semantic,
+            'topology_node_id': topology_node_id,
+            'decay_factor': decay_factor
         }
+        
+        # 移除 None 值以保持 YAML 簡潔
+        return {k: v for k, v in result.items() if v is not None}
     
     def _parse_lag_intervals(self, lag_str: str) -> List[int]:
         """解析 Lag 間隔字串"""
@@ -390,8 +433,8 @@ class ExcelToYamlConverter:
                 metadata[key] = value
         
         # 設定預設值
-        metadata.setdefault('schema_version', '1.3')
-        metadata.setdefault('template_version', '1.3')
+        metadata.setdefault('schema_version', '1.4')
+        metadata.setdefault('template_version', '1.4')
         metadata.setdefault('equipment_schema', 'hvac_v1.3')
         metadata.setdefault('temporal_baseline_version', '1.0')
         metadata.setdefault('last_updated', datetime.now().isoformat())
@@ -428,8 +471,8 @@ class ExcelToYamlConverter:
         """建立預設元資料"""
         site_id = self._extract_site_id_from_filename()
         return {
-            'schema_version': '1.3',
-            'template_version': '1.3',
+            'schema_version': '1.4',
+            'template_version': '1.4',
             'site_id': site_id,
             'inherit': 'base',
             'description': f'{site_id} 案場特徵標註',
@@ -438,6 +481,98 @@ class ExcelToYamlConverter:
             'equipment_schema': 'hvac_v1.3',
             'temporal_baseline_version': '1.0'
         }
+    
+    def parse_topology(self) -> Optional[Dict[str, Any]]:
+        """
+        解析 Topology Sheet（v1.4 新增）
+        
+        Returns:
+            Topology 配置字典，如果沒有 Topology Sheet 則返回 None
+        """
+        if SHEET_TOPOLOGY not in self.workbook.sheetnames:
+            logger.debug("找不到 Topology Sheet，跳過拓樸解析")
+            return None
+        
+        sheet = self.workbook[SHEET_TOPOLOGY]
+        
+        # 解析節點（從第2行開始，A欄不為空）
+        nodes = []
+        edges = []
+        decay_factors = {}
+        
+        parsing_nodes = True
+        
+        for row in sheet.iter_rows(min_row=2):
+            # 檢查是否為分隔行（Edges 部分）
+            first_cell = row[0].value
+            if first_cell and str(first_cell).strip().lower() in ['edges', 'edge', '邊']:
+                parsing_nodes = False
+                continue
+            
+            # 檢查是否為 decay_factors 設定
+            if first_cell and str(first_cell).strip().lower() in ['decay', 'decay_factors', '衰減']:
+                # 解析 decay_factors（格式: hop_n, value）
+                hop_n = row[1].value if len(row) > 1 else None
+                value = row[2].value if len(row) > 2 else None
+                if hop_n is not None and value is not None:
+                    try:
+                        decay_factors[str(hop_n)] = float(value)
+                    except (ValueError, TypeError):
+                        pass
+                continue
+            
+            if parsing_nodes:
+                # 解析節點: node_id, node_type, equipment_id, features, control_semantic
+                if not first_cell:
+                    continue
+                
+                node_id = str(first_cell).strip()
+                node_type = str(row[1].value).strip().lower() if len(row) > 1 and row[1].value else None
+                equipment_id = str(row[2].value).strip().upper() if len(row) > 2 and row[2].value else None
+                features_str = str(row[3].value).strip() if len(row) > 3 and row[3].value else ""
+                control_semantic = str(row[4].value).strip().lower() if len(row) > 4 and row[4].value else "none"
+                
+                if node_id and node_type:
+                    nodes.append({
+                        'node_id': node_id,
+                        'node_type': node_type,
+                        'equipment_id': equipment_id or node_id,
+                        'features': [f.strip() for f in features_str.split(',') if f.strip()],
+                        'control_semantic': control_semantic
+                    })
+            else:
+                # 解析邊: source, target, edge_type, weight
+                if not first_cell:
+                    continue
+                
+                source = str(first_cell).strip()
+                target = str(row[1].value).strip() if len(row) > 1 and row[1].value else None
+                edge_type = str(row[2].value).strip().lower() if len(row) > 2 and row[2].value else "fluid_flow"
+                weight = row[3].value if len(row) > 3 and row[3].value is not None else 1.0
+                
+                if source and target:
+                    try:
+                        weight = float(weight)
+                    except (ValueError, TypeError):
+                        weight = 1.0
+                    
+                    edges.append({
+                        'source': source,
+                        'target': target,
+                        'edge_type': edge_type,
+                        'weight': weight
+                    })
+        
+        if not nodes:
+            logger.warning("Topology Sheet 存在但沒有定義節點")
+            return None
+        
+        result = {'nodes': nodes, 'edges': edges}
+        if decay_factors:
+            result['decay_factors'] = decay_factors
+        
+        logger.info(f"解析了 {len(nodes)} 個節點, {len(edges)} 條邊")
+        return result
     
     def compute_checksum(self, data: Dict[str, Any]) -> str:
         """計算 YAML 資料雜湊（SHA256）"""
@@ -463,6 +598,7 @@ class ExcelToYamlConverter:
         try:
             columns = self.parse_columns()
             metadata = self.parse_metadata()
+            topology = self.parse_topology()  # v1.4: 解析拓樸
         except ExcelValidationError as e:
             logger.error(f"解析 Excel 失敗: {e}")
             return False, None
@@ -491,6 +627,10 @@ class ExcelToYamlConverter:
             'metadata': metadata,
             'columns': columns
         }
+        
+        # v1.4: 加入拓樸定義（如果存在）
+        if topology:
+            output_data['topology'] = topology
         
         # 計算並更新 checksum
         checksum = self.compute_checksum(output_data)
@@ -526,13 +666,19 @@ class ExcelToYamlConverter:
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Excel to YAML 轉換器 v1.3',
+        description='Excel to YAML 轉換器 v1.4',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 範例:
-  python excel_to_yaml.py --input Feature_cgmh_ty_v1.3.xlsx
+  python excel_to_yaml.py --input Feature_cgmh_ty_v1.4.xlsx
   python excel_to_yaml.py --input features.xlsx --output ../config/features/sites/cgmh_ty.yaml
   python excel_to_yaml.py --input features.xlsx --verbose
+  
+v1.4 新增功能:
+  - 支援 control_semantic 欄位（控制語意）
+  - 支援 topology_node_id 欄位（拓樸節點對應）
+  - 支援 decay_factor 欄位（Hop-N 衰減係數）
+  - 支援 Topology Sheet（定義 GNN 節點與邊）
         """
     )
     

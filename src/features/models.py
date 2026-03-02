@@ -53,9 +53,39 @@ class ColumnStatus(str, Enum):
     DEPRECATED = "deprecated"
 
 
+class ControlSemantic(str, Enum):
+    """控制語意類型（v1.4 新增）"""
+    ON_OFF = "on_off"
+    VARIABLE_SPEED = "variable_speed"
+    VALVE_POSITION = "valve_position"
+    SETPOINT = "setpoint"
+    FEEDBACK = "feedback"
+    NONE = "none"
+
+
+class NodeType(str, Enum):
+    """拓樸節點類型（v1.4 新增）"""
+    CHILLER = "chiller"
+    PUMP = "pump"
+    COOLING_TOWER = "cooling_tower"
+    AHU = "ahu"
+    FCU = "fcu"
+    SENSOR = "sensor"
+    VALVE = "valve"
+
+
+class EdgeType(str, Enum):
+    """拓樸邊類型（v1.4 新增）"""
+    FLUID_FLOW = "fluid_flow"
+    AIR_FLOW = "air_flow"
+    CONTROL_SIGNAL = "control_signal"
+    HEAT_TRANSFER = "heat_transfer"
+    POWER = "power"
+
+
 class ColumnAnnotation(BaseModel):
     """
-    欄位標註資料模型（對齊 YAML Schema v1.3）
+    欄位標註資料模型（對齊 YAML Schema v1.4）
     
     Attributes:
         column_name: 欄位名稱（snake_case，必須與 CSV 標頭匹配）
@@ -69,6 +99,9 @@ class ColumnAnnotation(BaseModel):
         lag_intervals: Lag 間隔列表（時間點間隔）
         ignore_warnings: 忽略的警告代碼列表
         status: 欄位狀態
+        control_semantic: 控制語意類型（v1.4 新增）
+        topology_node_id: 對應拓樸節點 ID（v1.4 新增）
+        decay_factor: Hop-N 衰減係數（v1.4 新增）
     """
     
     column_name: str = Field(..., description="欄位名稱（snake_case）")
@@ -82,6 +115,9 @@ class ColumnAnnotation(BaseModel):
     lag_intervals: List[int] = Field(default_factory=list, description="Lag 間隔列表")
     ignore_warnings: List[str] = Field(default_factory=list, description="忽略的警告代碼")
     status: ColumnStatus = Field(default=ColumnStatus.PENDING_REVIEW, description="欄位狀態")
+    control_semantic: ControlSemantic = Field(default=ControlSemantic.NONE, description="控制語意類型（v1.4）")
+    topology_node_id: Optional[str] = Field(None, description="拓樸節點 ID（v1.4）")
+    decay_factor: Optional[float] = Field(None, description="衰減係數（v1.4）", ge=0, le=1)
     
     @field_validator('column_name')
     @classmethod
@@ -219,9 +255,60 @@ class FeatureMetadata(BaseModel):
     ssot_flags_version: Optional[str] = Field(None, description="SSOT Quality Flags 版本")
 
 
+class TopologyNode(BaseModel):
+    """
+    拓樸節點定義（v1.4 新增）
+    
+    Attributes:
+        node_id: 節點唯一識別碼
+        node_type: 節點類型
+        equipment_id: 對應設備 ID
+        features: 節點特徵欄位列表
+        control_semantic: 控制語意類型
+    """
+    node_id: str = Field(..., description="節點 ID")
+    node_type: NodeType = Field(..., description="節點類型")
+    equipment_id: str = Field(..., description="設備 ID")
+    features: List[str] = Field(default_factory=list, description="節點特徵欄位")
+    control_semantic: ControlSemantic = Field(default=ControlSemantic.NONE, description="控制語意")
+
+
+class TopologyEdge(BaseModel):
+    """
+    拓樸邊定義（v1.4 新增）
+    
+    Attributes:
+        source: 源節點 ID
+        target: 目標節點 ID
+        edge_type: 邊類型
+        weight: 邊權重
+    """
+    source: str = Field(..., description="源節點 ID")
+    target: str = Field(..., description="目標節點 ID")
+    edge_type: EdgeType = Field(..., description="邊類型")
+    weight: float = Field(default=1.0, description="邊權重")
+
+
+class TopologyConfig(BaseModel):
+    """
+    GNN 拓樸配置（v1.4 新增）
+    
+    Attributes:
+        nodes: 設備節點列表
+        edges: 連接邊列表
+        decay_factors: Hop-N 衰減係數設定
+    """
+    nodes: List[TopologyNode] = Field(default_factory=list, description="節點列表")
+    edges: List[TopologyEdge] = Field(default_factory=list, description="邊列表")
+    decay_factors: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Hop-N 衰減係數"
+    )
+
+
 class SiteFeatureConfig(BaseModel):
     """
-    案場特徵配置（完整 YAML 結構）
+    案場特徵配置（完整 YAML 結構 v1.4）
     
     對應 YAML 檔案格式
     """
@@ -230,6 +317,10 @@ class SiteFeatureConfig(BaseModel):
     equipment_constraints: Optional[Dict[str, EquipmentConstraint]] = Field(
         default_factory=dict,
         description="設備限制條件"
+    )
+    topology: Optional[TopologyConfig] = Field(
+        default=None,
+        description="GNN 拓樸定義（v1.4）"
     )
     
     @model_validator(mode='after')

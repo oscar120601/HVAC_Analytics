@@ -1,16 +1,16 @@
 # HVAC Analytics - Core Engine (v2.1 Architecture with Phase 0 Retrofit)
 
-**核心引擎狀態**: 🔄 **Phase 0 Retrofit 進行中 - v1.4 拓樸感知與持續學習準備**  
+**核心引擎狀態**: ✅ **Phase 0 Retrofit 完成 - Sprint 3 特徵工程與模型訓練就緒**  
 **審查報告**: [Sprint 2 Review Report](docs/專案任務排程/Sprint_2_Review_Report.md) - Parser v2.1 (A級), Cleaner v2.2 (A級), BatchProcessor v1.3 (A-級)；Parser v2.2 模組化驗收完成  
 **Parser V2.2**: ✅ **已完成** - 模組化 Strategy Pattern 架構已上線，支援多格式 CSV + Siemens Scheduler  
 **Interactive ETL Tester V1.5**: ✅ **已完成** - Step 1→2 無縫整合，欄位名稱一致性保證  
-**🆕 Phase 0 Retrofit**: ⏳ **待開始** - 錯誤代碼重分配 (IC-R01~R05) + ETL 管線拓樸貫通 (P-R01, C-R01, BP-R01)  
+**🆕 Phase 0 Retrofit**: ✅ **已完成** - 錯誤代碼重分配 (IC-R01~R05) + ETL 管線拓樸貫通 (P-R01, C-R01, BP-R01)  
 **🆕 Feature Annotation v1.4**: ✅ **PRD 已完成** - 拓樸感知 (Topology Awareness) + 控制語意 (Control Semantics)  
 **🆕 Feature Engineer v1.4**: ⏳ **Sprint 3 待開發** - 拓樸聚合特徵 (L2) + GNN 上下文輸出  
 **🆕 Model Training v1.4**: ⏳ **Sprint 3 待開發** - GNN 訓練器 + Physics-Informed Hybrid Loss  
 **🆕 Continual Learning v1.1**: ⏳ **Sprint 4 待開發** - Layer-wise GEM + Drift Detection + RedisLock  
 **🆕 Interface Contract v1.2**: ✅ **PRD 已完成** - 擴充錯誤代碼分層 (E750-E759 GNN, E800-E829 CL, E840-E859 OPT)  
-**最後更新**: 2026-02-26
+**最後更新**: 2026-03-02
 
 ---
 
@@ -28,7 +28,7 @@
 | 2 | 2.2 Cleaner v2.2 | ✅ **已完成** | 26/26 通過 🟢 A級 |
 | 2 | 2.3 BatchProcessor v1.3 | ✅ **已完成** | 32/32 通過 🟡 A-級 |
 | 2 | 2.4 Interactive ETL Tester v1.5 | ✅ **已完成** | Step 1→2 整合 |
-| **0** | **Phase 0: v1.4 Retrofit** | ⏳ **待開始** | 錯誤代碼重分配 + ETL 拓樸貫通 |
+| **0** | **Phase 0: v1.4 Retrofit** | ✅ **已完成** | 6 項新測試通過，ETL 支援 v1.4 拓樸 |
 | **3** | **3.1 Feature Engineer v1.4** | ⏳ **Sprint 3 待開發** | L2/L3 分層特徵 + GNN 輸出 |
 | **3** | **3.2 Model Training v1.4** | ⏳ **Sprint 3 待開發** | GNN + Physics Loss |
 | **3** | **3.3 Continual Learning v1.1** | ⏳ **Sprint 4 待開發** | Layer-wise GEM + RedisLock |
@@ -38,7 +38,7 @@
 **Sprint 2 總計**: 87 項測試全部通過 ✅  
 **Phase 0 預計**: IC-R01~R05, FA-R01~R03, P-R01, C-R01, BP-R01  
 **累計測試**: 140+ 項全部通過 ✅  
-**狀態**: Sprint 1-2 完成 → **Phase 0 Retrofit** → Sprint 3-5 開發
+**狀態**: Sprint 1-2 完成 → **Phase 0 Retrofit 完成** → Sprint 3-5 開發就緒
 
 [📋 查看完整任務排程](./docs/專案任務排程/專案任務排程文件.md) | [📈 Sprint 1 執行摘要](./docs/專案任務排程/Sprint_1_執行摘要.md) | [📋 Sprint 1 審查報告](./docs/專案任務排程/Sprint_1_Review_Report.md) | [📈 Sprint 2 執行摘要](./docs/專案任務排程/Sprint_2_執行摘要.md) | [📋 Sprint 2 審查報告](./docs/專案任務排程/Sprint_2_Review_Report.md)
 
@@ -1025,7 +1025,7 @@ python3 -m pytest tests/ -v
 
 ## 🚧 實作路徑 (Implementation Roadmap)
 
-### 當前狀態: Phase 0 Retrofit 準備中 → Sprint 3-5 開發
+### 當前狀態: Phase 0 Retrofit 完成 → Sprint 3-5 開發就緒
 
 ```
 Sprint 1: Foundation ✅ 完成
@@ -1095,23 +1095,23 @@ Sprint 2: 核心 ETL ✅ 已完成 (4/4 完成)
         ├── 欄位名稱一致性保證
         └── E409 Header Mismatch 預防
 
-Phase 0: v1.4 Retrofit 🔧 待開始 (Sprint 3 前置，3.5-5 天)
-├── ⏳ Phase 0.1: 錯誤代碼重分配 (IC-R01~R05)
+Phase 0: v1.4 Retrofit ✅ 已完成 (2026-03-02)
+├── ✅ Phase 0.1: 錯誤代碼重分配 (IC-R01~R05)
 │   ├── IC-R01: E750-E759 → GNN 拓樸錯誤
 │   ├── IC-R02: E800-E808 → E840-E848 (OPT 遷移)
 │   ├── IC-R03: 新增 E800-E829 (CL 錯誤)
 │   ├── IC-R04: 更新既有代碼引用
 │   └── IC-R05: ERROR_CODES 字典註冊
 │
-├── ⏳ Phase 0.2: 基礎設施補強 (FA-R01~R03)
+├── ✅ Phase 0.2: 基礎設施補強 (FA-R01~R03)
 │   ├── FA-R01: YAML SSOT 支援 topology 欄位
 │   ├── FA-R02: Excel 範本 v1.4 欄位規則
 │   └── FA-R03: excel_to_yaml.py 升級
 │
-└── ⏳ Phase 0.3: 核心 ETL 管線升級 (P-R01, C-R01, BP-R01)
-    ├── P-R01: Parser 契約對齊 (topology/control_semantics 解析，避免 E103)
-    ├── C-R01: Cleaner 邏輯增強 (對齊 E75x，放行 GNN 特徵，不誤殺)
-    └── BP-R01: BatchProcessor 無損寫入 (節點/邊緣陣列型別不遺失)
+└── ✅ Phase 0.3: 核心 ETL 管線升級 (P-R01, C-R01, BP-R01)
+    ├── ✅ P-R01: Parser 契約對齊 (topology/control_semantics 解析，避免 E103)
+    ├── ✅ C-R01: Cleaner 邏輯增強 (對齊 E75x，放行 GNN 特徵，不誤殺)
+    └── ✅ BP-R01: BatchProcessor 無損寫入 (節點/邊緣陣列型別不遺失)
 
 Sprint 3: 特徵工程與模型訓練 ⏳ 待開始 (第 6-10 週，21-26 天)
 ├── ⏳ Feature Engineer v1.4
@@ -1172,7 +1172,7 @@ Sprint 5: 整合測試 ⏳ 待開始 (第 13-15 週，10-12 天)
 | M1: 基礎就緒 | 第 2 週末 | ✅ 完成 |
 | M2: ETL 就緒 | 第 5 週末 | ✅ 完成 |
 | M2.1: Parser v2.2 重構 | 第 6 週末 | ✅ 完成 |
-| **M2.5: Phase 0 Retrofit** | **第 7 週初** | ⏳ **待開始** |
+| **M2.5: Phase 0 Retrofit** | **第 7 週初** | ✅ **已完成** |
 | **M3: ML 就緒** | **第 10 週末** | ⏳ 待開始 |
 | **M4: 最佳化 + CL 就緒** | **第 13 週末** | ⏳ 待開始 |
 | **M5: 系統上線** | **第 17 週末** | ⏳ 待開始 |
@@ -1180,7 +1180,8 @@ Sprint 5: 整合測試 ⏳ 待開始 (第 13-15 週，10-12 天)
 ### 下一步
 
 1. ✅ **Sprint 2: 核心 ETL** 已完成（Parser A級, Cleaner A級, BatchProcessor A-級）
-2. 🚀 **準備進入 Sprint 3**: 特徵工程與模型訓練
+2. ✅ **Phase 0: v1.4 Retrofit** 已完成（錯誤代碼重分配 + ETL 拓樸貫通）
+3. 🚀 **準備進入 Sprint 3**: 特徵工程與模型訓練
    - Feature Engineer v1.3 (5-6天)
    - Model Training v1.3 (10-12天)
 
@@ -1330,7 +1331,7 @@ L3: 🆕 控制偏差特徵 (ΔT = Sensor - Setpoint) - e.g., chiller_01_chwst_d
 ### ✅ 3.5 Interface Contract v1.2 (v1.4 相容性) - PRD 完成
 
 **PRD 完成日期**: 2026-02-26  
-**程式碼實作**: ⏳ Phase 0 Retrofit 待完成 (IC-R01~R05)
+**程式碼實作**: ✅ Phase 0 Retrofit 已完成 (IC-R01~R05, FA-R01~R03, P-R01, C-R01, BP-R01)
 
 **錯誤代碼分層擴充**:
 

@@ -132,12 +132,14 @@ class FeatureAnnotationManager:
         with open(self.config_path, 'r', encoding='utf-8') as f:
             raw_data = yaml.safe_load(f)
 
-        # 驗證 Schema 版本 (E400)
+        # 驗證 Schema 版本 (E400) - 支援 v1.3 與 v1.4
         schema_version = raw_data.get('metadata', {}).get('schema_version', 'unknown')
-        if schema_version != "1.3":
+        # 標準化版本號（處理 1.4.0 → 1.4）
+        version_major_minor = '.'.join(schema_version.split('.')[:2])
+        if version_major_minor not in ("1.3", "1.4"):
             raise CompatibilityError(
-                f"E400: 不支援的 Schema 版本: {schema_version}，預期: 1.3\n"
-                f"請執行 migrate_excel.py 升級至 v1.3"
+                f"E400: 不支援的 Schema 版本: {schema_version}，預期: 1.3 或 1.4\n"
+                f"請執行 migrate_excel.py 升級至 v1.3/v1.4"
             )
 
         # 處理繼承

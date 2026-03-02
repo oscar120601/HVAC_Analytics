@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "HVAC Feature Annotation Schema v1.3",
-  "description": "特徵標註系統 JSON Schema v1.3 - 支援 HVAC 設備限制與時間基準",
-  "version": "1.3.0",
+  "title": "HVAC Feature Annotation Schema v1.4",
+  "description": "特徵標註系統 JSON Schema v1.4 - 支援 GNN 拓樸與控制語意",
+  "version": "1.4.0",
   "type": "object",
   "required": ["metadata", "columns"],
   "properties": {
@@ -14,14 +14,14 @@
         "schema_version": {
           "type": "string",
           "description": "Schema 版本",
-          "enum": ["1.3"],
-          "default": "1.3"
+          "enum": ["1.3", "1.4"],
+          "default": "1.4"
         },
         "template_version": {
           "type": "string",
           "description": "Excel 範本版本",
-          "enum": ["1.3"],
-          "default": "1.3"
+          "enum": ["1.3", "1.4"],
+          "default": "1.4"
         },
         "site_id": {
           "type": "string",
@@ -85,6 +85,35 @@
       "patternProperties": {
         "^[a-z][a-z0-9_]*$": {
           "$ref": "#/definitions/equipmentConstraint"
+        }
+      }
+    },
+    "topology": {
+      "type": "object",
+      "description": "GNN 拓樸定義（v1.4 新增）",
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "description": "設備節點列表",
+          "items": {
+            "$ref": "#/definitions/topologyNode"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "description": "連接邊列表",
+          "items": {
+            "$ref": "#/definitions/topologyEdge"
+          }
+        },
+        "decay_factors": {
+          "type": "object",
+          "description": "Hop-N 衰減係數設定",
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
         }
       }
     }
@@ -161,6 +190,22 @@
           "description": "欄位狀態",
           "enum": ["pending_review", "confirmed", "deprecated"],
           "default": "pending_review"
+        },
+        "control_semantic": {
+          "type": "string",
+          "description": "控制語意類型（v1.4 新增）",
+          "enum": ["on_off", "variable_speed", "valve_position", "setpoint", "feedback", "none"],
+          "default": "none"
+        },
+        "topology_node_id": {
+          "type": ["string", "null"],
+          "description": "對應拓樸節點 ID（v1.4 新增）"
+        },
+        "decay_factor": {
+          "type": ["number", "null"],
+          "description": "Hop-N 衰減係數（v1.4 新增）",
+          "minimum": 0,
+          "maximum": 1
         }
       }
     },
@@ -233,6 +278,61 @@
           "type": ["string", "null"],
           "description": "錯誤代碼",
           "enum": ["E350", "E351", "E352", "E353", "E354", "E355", "E356", "E357"]
+        }
+      }
+    },
+    "topologyNode": {
+      "type": "object",
+      "description": "拓樸節點定義",
+      "required": ["node_id", "node_type", "equipment_id"],
+      "properties": {
+        "node_id": {
+          "type": "string",
+          "description": "節點唯一識別碼"
+        },
+        "node_type": {
+          "type": "string",
+          "description": "節點類型",
+          "enum": ["chiller", "pump", "cooling_tower", "ahu", "fcu", "sensor", "valve"]
+        },
+        "equipment_id": {
+          "type": "string",
+          "description": "對應設備 ID"
+        },
+        "features": {
+          "type": "array",
+          "description": "節點特徵欄位列表",
+          "items": { "type": "string" }
+        },
+        "control_semantic": {
+          "type": "string",
+          "description": "控制語意類型",
+          "enum": ["on_off", "variable_speed", "valve_position", "setpoint", "none"]
+        }
+      }
+    },
+    "topologyEdge": {
+      "type": "object",
+      "description": "拓樸邊定義",
+      "required": ["source", "target", "edge_type"],
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "源節點 ID"
+        },
+        "target": {
+          "type": "string",
+          "description": "目標節點 ID"
+        },
+        "edge_type": {
+          "type": "string",
+          "description": "邊類型",
+          "enum": ["fluid_flow", "air_flow", "control_signal", "heat_transfer", "power"]
+        },
+        "weight": {
+          "type": "number",
+          "description": "邊權重（可選）",
+          "default": 1.0
         }
       }
     }
