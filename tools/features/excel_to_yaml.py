@@ -186,23 +186,29 @@ class ExcelToYamlConverter:
         
         logger.debug(f"Columns headers: {headers}")
         
-        # 欄位名稱對應（v1.4 新增 control_semantic, topology_node_id, decay_factor）
+        # PRD v1.4 欄位名稱對應（17 欄 A-Q）
         header_map = {
-            'column_name': ['column_name', '欄位名稱', 'Column Name', 'A'],
-            'physical_type': ['physical_type', '物理類型', 'Physical Type', 'B'],
-            'unit': ['unit', '單位', 'Unit', 'C'],
-            'device_role': ['device_role', '設備角色', 'Device Role', 'D'],
-            'is_target': ['is_target', '是否目標', 'Is Target', 'E'],
-            'enable_lag': ['enable_lag', '啟用 Lag', 'Enable Lag', 'F'],
-            'lag_intervals': ['lag_intervals', 'Lag 間隔', 'Lag Intervals', 'G'],
-            'ignore_warnings': ['ignore_warnings', '忽略警告', 'Ignore Warnings', 'H'],
-            'equipment_id': ['equipment_id', '設備 ID', 'Equipment ID', 'I'],
-            'description': ['description', '描述', 'Description', 'J'],
-            'status': ['status', '狀態', 'Status', 'K'],
-            # v1.4 新增欄位
-            'control_semantic': ['control_semantic', '控制語意', 'Control Semantic', 'L'],
-            'topology_node_id': ['topology_node_id', '拓樸節點 ID', 'Topology Node ID', 'M'],
-            'decay_factor': ['decay_factor', '衰減係數', 'Decay Factor', 'N']
+            # 第一層：核心欄位 (A-I)
+            'column_name': ['column_name', '欄位名稱', 'Column Name', 'A', 'column_name\n(欄位名稱)'],
+            'physical_type': ['physical_type', '物理類型', 'Physical Type', 'B', 'physical_type\n(物理類型)'],
+            'unit': ['unit', '單位', 'Unit', 'C', 'unit\n(單位)'],
+            'device_role': ['device_role', '設備角色', 'Device Role', 'D', 'device_role\n(設備角色)'],
+            'is_target': ['is_target', '是否目標', 'Is Target', 'E', 'is_target\n(是否目標)'],
+            'enable_lag': ['enable_lag', '啟用 Lag', 'Enable Lag', 'F', 'enable_lag\n(啟用落後特徵)'],
+            'lag_intervals': ['lag_intervals', 'Lag 間隔', 'Lag Intervals', 'G', 'lag_intervals\n(落後時間間隔)'],
+            'ignore_warnings': ['ignore_warnings', '忽略警告', 'Ignore Warnings', 'H', 'ignore_warnings\n(忽略警告代碼)'],
+            'equipment_id': ['equipment_id', '設備 ID', 'Equipment ID', 'I', 'equipment_id\n(設備代碼)'],
+            # 第二層：v1.4 拓樸與控制語意 (J-M)
+            'upstream_equipment_id': ['upstream_equipment_id', '上游設備ID', 'Upstream Equipment ID', 'J', 'upstream_equipment_id\n(上游設備ID)'],
+            'point_class': ['point_class', '點位型態', 'Point Class', 'K', 'point_class\n(點位型態)'],
+            'control_domain': ['control_domain', '控制域', 'Control Domain', 'L', 'control_domain\n(控制域)'],
+            'setpoint_pair_id': ['setpoint_pair_id', '配對設定值ID', 'Setpoint Pair ID', 'M', 'setpoint_pair_id\n(配對設定值ID)'],
+            # 第三層：國際標準標籤 (N-O)
+            'brick_schema_tag': ['brick_schema_tag', 'Brick Schema', 'Brick Schema Tag', 'N', 'brick_schema_tag\n(Brick Schema)'],
+            'haystack_tag': ['haystack_tag', 'Haystack標籤', 'Haystack Tag', 'O', 'haystack_tag\n(Haystack標籤)'],
+            # 第四層：人工註記 (P-Q)
+            'description': ['description', '描述', 'Description', 'P', 'description\n(中文描述)'],
+            'status': ['status', '狀態', 'Status', 'Q', 'status\n(狀態)']
         }
         
         # 建立欄位索引對應
@@ -309,29 +315,39 @@ class ExcelToYamlConverter:
         if status:
             status = str(status).strip().lower()
         
-        # v1.4: 解析控制語意
-        control_semantic = get_cell_value('control_semantic', 'none')
-        if control_semantic:
-            control_semantic = str(control_semantic).strip().lower()
+        # PRD v1.4: 解析上游設備 ID
+        upstream_equipment_id = get_cell_value('upstream_equipment_id')
+        if upstream_equipment_id:
+            upstream_equipment_id = str(upstream_equipment_id).strip().upper()
+        
+        # PRD v1.4: 解析點位型態 (原 control_semantic 改名)
+        point_class = get_cell_value('point_class', 'Sensor')
+        if point_class:
+            point_class = str(point_class).strip()
         else:
-            control_semantic = 'none'
+            point_class = 'Sensor'
         
-        # v1.4: 解析拓樸節點 ID
-        topology_node_id = get_cell_value('topology_node_id')
-        if topology_node_id:
-            topology_node_id = str(topology_node_id).strip()
+        # PRD v1.4: 解析控制域
+        control_domain = get_cell_value('control_domain', 'Other')
+        if control_domain:
+            control_domain = str(control_domain).strip()
+        else:
+            control_domain = 'Other'
         
-        # v1.4: 解析衰減係數
-        decay_factor = get_cell_value('decay_factor')
-        if decay_factor is not None:
-            try:
-                decay_factor = float(decay_factor)
-                if not (0 <= decay_factor <= 1):
-                    self.warnings.append(f"欄位 '{col_name}' 的 decay_factor {decay_factor} 超出 [0,1] 範圍")
-                    decay_factor = None
-            except (ValueError, TypeError):
-                self.warnings.append(f"欄位 '{col_name}' 的 decay_factor '{decay_factor}' 格式無效")
-                decay_factor = None
+        # PRD v1.4: 解析配對設定值 ID (取代 decay_factor)
+        setpoint_pair_id = get_cell_value('setpoint_pair_id')
+        if setpoint_pair_id:
+            setpoint_pair_id = str(setpoint_pair_id).strip()
+        
+        # PRD v1.4: 解析 Brick Schema 標籤
+        brick_schema_tag = get_cell_value('brick_schema_tag')
+        if brick_schema_tag:
+            brick_schema_tag = str(brick_schema_tag).strip()
+        
+        # PRD v1.4: 解析 Haystack 標籤
+        haystack_tag = get_cell_value('haystack_tag')
+        if haystack_tag:
+            haystack_tag = str(haystack_tag).strip()
         
         result = {
             'column_name': col_name,
@@ -343,11 +359,14 @@ class ExcelToYamlConverter:
             'lag_intervals': lag_intervals,
             'ignore_warnings': ignore_warnings,
             'equipment_id': equipment_id,
+            'upstream_equipment_id': upstream_equipment_id,
+            'point_class': point_class,
+            'control_domain': control_domain,
+            'setpoint_pair_id': setpoint_pair_id,
+            'brick_schema_tag': brick_schema_tag,
+            'haystack_tag': haystack_tag,
             'description': description,
-            'status': status,
-            'control_semantic': control_semantic,
-            'topology_node_id': topology_node_id,
-            'decay_factor': decay_factor
+            'status': status
         }
         
         # 移除 None 值以保持 YAML 簡潔

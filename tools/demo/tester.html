@@ -376,19 +376,25 @@
                 <div id="previewSummary" style="margin-bottom: 15px; font-size: 0.9rem; color: var(--text-dim);">
                     <!-- 動態顯示預覽結果摘要 -->
                 </div>
+                
+                <!-- 缺口四：Pipeline 初始化順序狀態指示器容器 -->
+                <div id="initStatusContainer" style="display:none;">
+                    <!-- 動態顯示初始化狀態 -->
+                </div>
 
-                <!-- v1.4 拓樸欄位提示 -->
+                <!-- PRD v1.4 Excel 欄位結構提示 -->
                 <div style="margin-bottom: 15px; padding: 12px; background: rgba(167, 139, 250, 0.1); border: 1px solid rgba(167, 139, 250, 0.3); border-radius: 6px; font-size: 0.85rem;">
                     <div style="color: var(--purple); font-weight: 500; margin-bottom: 8px;">
-                        📋 v1.4 Excel 範本包含以下拓樸欄位（供 GNN 使用）：
+                        📋 PRD v1.4 Excel 範本結構（共 17 欄 A-Q）
                     </div>
-                    <div style="color: var(--text-dim); margin-left: 8px;">
-                        <div style="margin: 4px 0;">• <code>topology_node_id</code> - 設備拓樸節點 ID（用於 GNN 圖結構）</div>
-                        <div style="margin: 4px 0;">• <code>control_semantic</code> - 控制語義類型（valve/damper/setpoint）</div>
-                        <div style="margin: 4px 0;">• <code>decay_factor</code> - 熱慣性衰減係數（0.0-1.0）</div>
+                    <div style="color: var(--text-dim); margin-left: 8px; font-size: 0.8rem;">
+                        <div style="margin: 4px 0;"><strong>第一層（核心 A-I）：</strong>column_name, physical_type, unit, device_role, is_target, enable_lag, lag_intervals, ignore_warnings, equipment_id</div>
+                        <div style="margin: 4px 0;"><strong>第二層（v1.4 拓樸 J-M）：</strong>upstream_equipment_id, point_class, control_domain, setpoint_pair_id</div>
+                        <div style="margin: 4px 0;"><strong>第三層（標準 N-O）：</strong>brick_schema_tag, haystack_tag</div>
+                        <div style="margin: 4px 0;"><strong>第四層（註記 P-Q）：</strong>description, status</div>
                     </div>
                     <div style="color: var(--text-dim); margin-top: 8px; font-size: 0.8rem; border-top: 1px solid rgba(167, 139, 250, 0.2); padding-top: 8px;">
-                        💡 <strong>提示：</strong>Excel 的 description 欄位會顯示 Point 對應關係，column_name 顯示標準化後的 snake_case 名稱
+                        💡 <strong>提示：</strong>point_class（點位型態）選項：Sensor, Setpoint, Command, Alarm, Status｜control_domain（控制域）選項：Chilled Water, Condenser Water, Air Handling, Electrical, Control, Refrigerant, Heat Recovery, Other
                     </div>
                 </div>
 
@@ -407,6 +413,20 @@
                     </div>
                     <div id="loaderGenerateFromPreview" style="display:none; margin-top:10px; color: var(--yellow);">⏳
                         產生 Excel 中...</div>
+                </div>
+
+                <!-- Wizard 即時執行日誌區塊 -->
+                <div id="wizardLiveSection" style="display:none; margin-top: 15px;">
+                    <div style="display: grid; grid-template-columns: 1.3fr 0.7fr; gap: 16px;">
+                        <div>
+                            <h4 style="color: var(--green); margin: 0 0 8px 0; font-size: 0.95rem;">🖥️ Wizard 執行日誌 (Live)</h4>
+                            <div id="wizardLiveLog" class="terminal-box" style="max-height: 320px;">[尚未開始執行]</div>
+                        </div>
+                        <div>
+                            <h4 style="color: var(--cyan); margin: 0 0 8px 0; font-size: 0.95rem;">📌 即時狀態</h4>
+                            <div id="wizardLiveMeta" class="result-box job-meta" style="max-height: 320px;">等待任務啟動...</div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 傳統模式區塊（預設隱藏） -->
@@ -438,9 +458,9 @@
             <p style="font-size: 0.9rem; color: var(--text-dim);">將您剛才填寫好（或我們預先準備好的）Excel 標註檔上傳，系統會驗證邏輯並轉換成 `.yaml` 放入
                 config/ 中。</p>
 
-            <!-- v1.4 提示 -->
+            <!-- PRD v1.4 提示 -->
             <div style="margin-bottom: 15px; padding: 10px 12px; background: rgba(0, 212, 255, 0.05); border-left: 3px solid var(--cyan); border-radius: 4px; font-size: 0.85rem; color: var(--text-dim);">
-                <strong style="color: var(--cyan);">v1.4 支援：</strong>YAML 將包含拓樸設定（topology_node_id, control_semantic, decay_factor），供 GNN 模型訓練使用
+                <strong style="color: var(--cyan);">PRD v1.4 支援：</strong>YAML 將包含完整的 17 欄位結構（含拓樸關係 upstream_equipment_id、點位型態 point_class、控制域 control_domain、配對設定值 setpoint_pair_id、Brick/Haystack 標準標籤），供 GNN 模型訓練使用
             </div>
 
             <label>案場名稱 (Site ID):</label>
@@ -928,6 +948,9 @@
                     `;
                 }
 
+                // 缺口四：檢查 Pipeline 初始化狀態
+                await checkPipelineInitStatus(siteId);
+                
                 // 滾動到 Phase 2
                 if (phase2Section) {
                     phase2Section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -947,7 +970,51 @@
             }
         }
 
-        // 從預覽結果產生 Excel 範本
+        // 重置 Wizard 即時顯示面板
+        function resetWizardLivePanel() {
+            const liveSection = document.getElementById('wizardLiveSection');
+            const liveLog = document.getElementById('wizardLiveLog');
+            const liveMeta = document.getElementById('wizardLiveMeta');
+            liveSection.style.display = 'block';
+            liveLog.textContent = '[等待後端回傳任務進度]';
+            liveMeta.textContent = '狀態: waiting\n階段: -\n進度: 0/0';
+        }
+
+        // 渲染 Wizard 即時狀態
+        function renderWizardLive(job) {
+            if (!job) return;
+
+            const liveSection = document.getElementById('wizardLiveSection');
+            const liveLog = document.getElementById('wizardLiveLog');
+            const liveMeta = document.getElementById('wizardLiveMeta');
+
+            liveSection.style.display = 'block';
+
+            // 渲染日誌
+            const logs = Array.isArray(job.progress_log) ? job.progress_log : [];
+            const logLines = logs.map(entry => {
+                const stageTag = entry.stage ? ` [${entry.stage}]` : '';
+                return `${entry.timestamp || ''} ${entry.level || 'INFO'}${stageTag} - ${entry.message || ''}`;
+            });
+            liveLog.textContent = logLines.length > 0 ? logLines.join('\n') : '[暫無日誌]';
+            liveLog.scrollTop = liveLog.scrollHeight;
+
+            // 渲染狀態
+            const currentColumn = job.current_column || '-';
+            const processedCols = Number.isFinite(job.processed_columns) ? job.processed_columns : 0;
+            const totalCols = Number.isFinite(job.total_columns) ? job.total_columns : 0;
+            const stage = job.stage || '-';
+            const progress = job.progress || '-';
+
+            liveMeta.textContent =
+                `狀態: ${job.status || '-'}\n` +
+                `階段: ${stage}\n` +
+                `欄位進度: ${processedCols}/${totalCols}\n` +
+                `目前欄位: ${currentColumn}\n` +
+                `訊息: ${progress}`;
+        }
+
+        // 從預覽結果產生 Excel 範本 (非同步版)
         async function generateTemplateFromPreview() {
             const siteId = document.getElementById('siteId0').value.trim();
             const loader = document.getElementById('loaderGenerateFromPreview');
@@ -960,6 +1027,7 @@
 
             loader.style.display = 'block';
             button.disabled = true;
+            resetWizardLivePanel();
 
             const formData = new FormData();
             formData.append("site_id", siteId);
@@ -969,6 +1037,7 @@
             formData.append("parser_type", lastPreviewResult.parser_type);
 
             try {
+                // 啟動 Wizard 背景任務
                 const response = await fetch("http://localhost:8000/api/generate-template-from-preview", {
                     method: "POST",
                     body: formData
@@ -979,20 +1048,72 @@
                     throw new Error(errorText);
                 }
 
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${siteId}_features.xlsx`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                window.URL.revokeObjectURL(url);
+                const initData = await response.json();
 
-                alert(`✅ Excel 範本產生成功！\n\n已從 Parser 結果產生 ${lastPreviewResult.columns.length} 個欄位的標註範本。\nExcel 中的 description 欄位會顯示 Point 對應關係。`);
+                if (initData.status === "started") {
+                    const jobId = initData.job_id;
+                    let isDone = false;
+                    let wizardResult = null;
+                    let latestJob = null;
 
-                // 同步 site_id 到 Step 3
-                syncSiteIds(siteId);
+                    // 輪詢任務狀態
+                    while (!isDone) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+
+                        const statusRes = await fetch(`http://localhost:8000/api/wizard-job-status/${jobId}`);
+                        if (!statusRes.ok) throw new Error("取得任務進度失敗");
+
+                        const job = await statusRes.json();
+                        latestJob = job;
+                        renderWizardLive(job);
+
+                        if (job.status === "running") {
+                            loader.innerHTML = `⏳ 產生 Excel 中... <br><span style="color: var(--cyan); font-size: 0.9em; margin-top: 5px; display: inline-block;">${job.progress}</span>`;
+                        } else if (job.status === "success") {
+                            isDone = true;
+                            wizardResult = job.result;
+                        } else {
+                            isDone = true;
+                            throw new Error(job.message || "處理失敗");
+                        }
+                    }
+
+                    renderWizardLive(latestJob);
+
+                    // 下載 Excel 檔案
+                    const downloadRes = await fetch(`http://localhost:8000/api/download-wizard-excel/${jobId}`);
+                    if (!downloadRes.ok) {
+                        throw new Error("下載 Excel 失敗");
+                    }
+
+                    const blob = await downloadRes.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${siteId}_features.xlsx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+
+                    // 顯示成功訊息
+                    const successMsg = document.createElement('div');
+                    successMsg.style.cssText = 'margin-top: 15px; padding: 12px; background: rgba(6, 214, 160, 0.1); border: 1px solid var(--green); border-radius: 6px; color: var(--green);';
+                    successMsg.innerHTML = `✅ <strong>Excel 範本產生成功！</strong><br><span style="color: var(--text-dim); font-size: 0.9rem;">已處理 ${wizardResult.new_columns} 個欄位，共 ${wizardResult.total_columns} 個欄位</span>`;
+                    
+                    const phase2Section = document.getElementById('phase2Section');
+                    phase2Section.appendChild(successMsg);
+
+                    // 3 秒後移除成功訊息
+                    setTimeout(() => {
+                        if (successMsg.parentNode) {
+                            successMsg.parentNode.removeChild(successMsg);
+                        }
+                    }, 5000);
+
+                    // 同步 site_id 到 Step 3
+                    syncSiteIds(siteId);
+                }
 
             } catch (error) {
                 alert("❌ 產生 Excel 失敗: " + error.message);
@@ -1565,6 +1686,346 @@
         }
 
         // ====================================================================
+        // 缺口二：Manifest 契約元資料面板 (UI-006)
+        // ====================================================================
+        function renderManifestContractPanel(manifestContract) {
+            if (!manifestContract) return '';
+            
+            const timestamp = manifestContract.pipeline_origin_timestamp || 'N/A';
+            const checksum = manifestContract.annotation_checksum ? 
+                manifestContract.annotation_checksum.substring(0, 16) + '...' : 'N/A';
+            const rowsIn = manifestContract.rows_in || 0;
+            const rowsOut = manifestContract.rows_out || 0;
+            const cleaningRate = manifestContract.cleaning_rate || 0;
+            const e350Count = manifestContract.e350_violations_count || 0;
+            
+            return `
+            <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); 
+                        border-radius: 8px; padding: 15px; margin-top: 15px;">
+                <div style="color: var(--success); font-weight: 600; margin-bottom: 12px; 
+                            display: flex; align-items: center; gap: 8px;">
+                    📋 Manifest 契約元資料摘要
+                </div>
+                
+                <!-- 時間基準與 Checksum -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+                    <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 0.75rem; color: var(--text-dim);">⏱️ 時間基準</div>
+                        <div style="font-family: monospace; font-size: 0.8rem; margin-top: 4px; word-break: break-all;">
+                            ${timestamp}
+                        </div>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px;">
+                        <div style="font-size: 0.75rem; color: var(--text-dim);">🔢 Annotation Checksum</div>
+                        <div style="font-family: monospace; font-size: 0.8rem; margin-top: 4px;">
+                            ${checksum}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 資料行數 -->
+                <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; margin-bottom: 12px;">
+                    <div style="font-size: 0.75rem; color: var(--text-dim);">📊 資料行數</div>
+                    <div style="display: flex; align-items: center; gap: 15px; margin-top: 6px; flex-wrap: wrap;">
+                        <span>輸入: <strong>${rowsIn.toLocaleString()}</strong></span>
+                        <span style="color: var(--text-dim);">→</span>
+                        <span>輸出: <strong>${rowsOut.toLocaleString()}</strong></span>
+                        <span style="color: var(--text-dim);">(清洗率: ${cleaningRate.toFixed(1)}%)</span>
+                    </div>
+                </div>
+                
+                <!-- E350 違規統計 -->
+                <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px;">
+                    <div style="font-size: 0.75rem; color: var(--text-dim);">⚠️ E350 設備邏輯違規</div>
+                    <div style="margin-top: 6px;">
+                        ${e350Count > 0 
+                            ? `<span style="color: var(--warning);">⚠️ ${e350Count} 筆違規</span>`
+                            : '<span style="color: var(--success);">✅ 無違規</span>'
+                        }
+                    </div>
+                </div>
+            </div>
+            `;
+        }
+
+        // ====================================================================
+        // 缺口二：device_role 隔離檢查面板 (UI-005)
+        // ====================================================================
+        function renderDeviceRoleIsolation(deviceRoleCheck) {
+            if (!deviceRoleCheck) return '';
+            
+            const isCompliant = deviceRoleCheck.isolation_passed;
+            const status = deviceRoleCheck.status || (isCompliant ? '✅ 合規' : '❌ 違規');
+            const violationColumns = deviceRoleCheck.violation_columns || [];
+            
+            return `
+            <div style="background: ${isCompliant ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)'}; 
+                        border: 1px solid ${isCompliant ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}; 
+                        border-radius: 8px; padding: 15px; margin-top: 15px;">
+                <div style="color: ${isCompliant ? 'var(--success)' : 'var(--danger)'}; font-weight: 600; margin-bottom: 12px;">
+                    🔒 device_role 隔離檢查 (Cleaner v2.2 契約)
+                </div>
+                
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <span style="font-size: 1.5rem;">${isCompliant ? '✅' : '❌'}</span>
+                    <span style="font-weight: 500;">${status}</span>
+                </div>
+                
+                ${!isCompliant && violationColumns.length > 0 ? `
+                <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; margin-top: 10px;">
+                    <div style="font-size: 0.8rem; color: var(--danger); margin-bottom: 6px;">
+                        違規欄位：
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        ${violationColumns.map(col => `
+                            <span style="background: rgba(239, 68, 68, 0.2); color: var(--danger); 
+                                        padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">${col}</span>
+                        `).join('')}
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 8px;">
+                        ⚠️ device_role 不得存在於 Parquet 輸出（違反 Cleaner v2.2 契約）
+                    </div>
+                </div>
+                ` : ''}
+            </div>
+            `;
+        }
+
+        // ====================================================================
+        // 缺口三：鄰接矩陣視覺化 (UI-007)
+        // ====================================================================
+        function renderAdjacencyMatrixPreview(topologyContext) {
+            if (!topologyContext || !topologyContext.nodes) {
+                return '<div style="color: var(--text-dim);">無拓樸資料</div>';
+            }
+            
+            const nodes = topologyContext.nodes;
+            const edges = topologyContext.edges || [];
+            
+            // 節點 > 10 時只顯示維度說明
+            if (nodes.length > 10) {
+                return `
+                <div style="padding: 15px; background: rgba(0,0,0,0.2); border-radius: 6px;">
+                    <div style="color: var(--text-dim);">
+                        矩陣維度: ${nodes.length}×${nodes.length}
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">
+                        （節點數超過 10，省略完整矩陣顯示）
+                    </div>
+                </div>`;
+            }
+            
+            // 建構鄰接矩陣
+            const n = nodes.length;
+            const matrix = Array(n).fill(null).map(() => Array(n).fill(0));
+            edges.forEach(edge => {
+                const srcIdx = nodes.findIndex(n => n.id === edge.source);
+                const tgtIdx = nodes.findIndex(n => n.id === edge.target);
+                if (srcIdx >= 0 && tgtIdx >= 0) matrix[srcIdx][tgtIdx] = 1;
+            });
+            
+            // 渲染 HTML Table
+            let tableHtml = '<table style="border-collapse: collapse; font-size: 0.7rem; margin-top: 10px;">';
+            
+            // 表頭
+            tableHtml += '<tr><th style="padding: 3px; border: 1px solid var(--border);"></th>';
+            nodes.forEach(node => {
+                const shortId = node.id.substring(0, 6);
+                tableHtml += `<th style="padding: 3px; border: 1px solid var(--border); 
+                               background: rgba(99, 102, 241, 0.2); font-size: 0.65rem;">${shortId}..</th>`;
+            });
+            tableHtml += '</tr>';
+            
+            // 資料行
+            matrix.forEach((row, i) => {
+                const shortId = nodes[i].id.substring(0, 6);
+                tableHtml += `<tr><th style="padding: 3px; border: 1px solid var(--border); 
+                               background: rgba(99, 102, 241, 0.2); font-size: 0.65rem;">${shortId}..</th>`;
+                row.forEach((val, j) => {
+                    const bgColor = val === 1 ? 'rgba(34, 197, 94, 0.4)' : 'transparent';
+                    const textColor = val === 1 ? '#22c55e' : 'var(--text-dim)';
+                    tableHtml += `<td style="padding: 3px; border: 1px solid var(--border); 
+                                   text-align: center; background: ${bgColor}; color: ${textColor}; 
+                                   font-weight: ${val === 1 ? 'bold' : 'normal'};">${val}</td>`;
+                });
+                tableHtml += '</tr>';
+            });
+            tableHtml += '</table>';
+            
+            return tableHtml;
+        }
+
+        // ====================================================================
+        // 缺口三：GNN 多任務指標面板 (UI-007)
+        // ====================================================================
+        function renderGNNMetricsPanel(modelMetrics) {
+            if (!modelMetrics) return '';
+            
+            const { traditional = {}, physics = {}, multi_task = {} } = modelMetrics;
+            
+            return `
+            <div style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); 
+                        border-radius: 8px; padding: 15px; margin-top: 15px;">
+                <div style="color: var(--purple); font-weight: 600; margin-bottom: 12px;">
+                    🧠 GNN 多任務模型指標
+                </div>
+                
+                <!-- 傳統迴歸指標 -->
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px;">
+                    <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; text-align: center;">
+                        <div style="font-size: 0.75rem; color: var(--text-dim);">RMSE</div>
+                        <div style="font-size: 1.1rem; font-weight: 600; color: var(--accent);">
+                            ${traditional.rmse?.toFixed(4) || 'N/A'}
+                        </div>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; text-align: center;">
+                        <div style="font-size: 0.75rem; color: var(--text-dim);">MAE</div>
+                        <div style="font-size: 1.1rem; font-weight: 600; color: var(--accent);">
+                            ${traditional.mae?.toFixed(4) || 'N/A'}
+                        </div>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; text-align: center;">
+                        <div style="font-size: 0.75rem; color: var(--text-dim);">R²</div>
+                        <div style="font-size: 1.1rem; font-weight: 600; color: var(--accent);">
+                            ${traditional.r2?.toFixed(4) || 'N/A'}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 物理守恆指標 -->
+                <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; margin-bottom: 12px;">
+                    <div style="font-size: 0.75rem; color: var(--text-dim);">⚛️ 物理守恆損失</div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+                        <span>Physics Discrepancy:</span>
+                        <span style="font-family: monospace; 
+                                     color: ${(physics.physics_discrepancy || 0) < 0.02 ? 'var(--success)' : 'var(--warning)'};">
+                            ${physics.physics_discrepancy?.toFixed(6) || 'N/A'}
+                            ${(physics.physics_discrepancy || 0) < 0.02 ? '✓' : '⚠️'}
+                        </span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                        <span>Hybrid 模式:</span>
+                        <span style="color: var(--accent);">${physics.hybrid_mode || 'N/A'}</span>
+                    </div>
+                </div>
+                
+                <!-- E846/E850 警告 -->
+                ${(physics.e846_triggered || physics.e850_triggered) ? `
+                <div style="background: rgba(239, 68, 68, 0.2); padding: 10px; border-radius: 6px; margin-bottom: 12px;">
+                    <div style="font-size: 0.8rem; color: var(--danger); font-weight: 500;">⚠️ Hybrid 警告</div>
+                    <div style="margin-top: 6px; font-size: 0.85rem;">
+                        ${physics.e846_triggered ? '<div>• E846: Physics Loss 異常</div>' : ''}
+                        ${physics.e850_triggered ? '<div>• E850: 模型嚴重不匹配</div>' : ''}
+                    </div>
+                </div>
+                ` : ''}
+                
+                <!-- 多任務精度 -->
+                <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px;">
+                    <div style="font-size: 0.75rem; color: var(--text-dim);">📊 多任務預測精度</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px;">
+                        <div>
+                            <div style="font-size: 0.7rem; color: var(--text-secondary);">系統層 R²</div>
+                            <div style="font-size: 1rem; font-weight: 500;">${multi_task.system_level_r2?.toFixed(4) || 'N/A'}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.7rem; color: var(--text-secondary);">元件層 R²</div>
+                            <div style="font-size: 1rem; font-weight: 500;">${multi_task.component_level_r2?.toFixed(4) || 'N/A'}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            `;
+        }
+
+        // ====================================================================
+        // 缺口四：Pipeline 初始化順序狀態指示器 (UI-008)
+        // ====================================================================
+        async function checkPipelineInitStatus(siteId) {
+            try {
+                const response = await fetch(`/api/pipeline/init-status?site_id=${siteId}`);
+                if (!response.ok) throw new Error('Failed to fetch init status');
+                
+                const data = await response.json();
+                renderInitStatusPanel(data);
+                
+                // 控制 Step 2 按鈕啟用狀態
+                const step2Button = document.getElementById('btnGenerateFromPreview');
+                if (step2Button) {
+                    step2Button.disabled = !data.pipeline_ready;
+                    step2Button.style.opacity = data.pipeline_ready ? '1' : '0.5';
+                }
+                
+                return data.pipeline_ready;
+            } catch (error) {
+                console.error('檢查初始化狀態失敗:', error);
+                return false;
+            }
+        }
+
+        function renderInitStatusPanel(data) {
+            const container = document.getElementById('initStatusContainer');
+            if (!container) return;
+            
+            const stages = data.stages || {};
+            const pipelineReady = data.pipeline_ready;
+            
+            const statusColors = {
+                'passed': { color: '#22c55e', icon: '✅', bg: 'rgba(34, 197, 94, 0.2)' },
+                'failed': { color: '#ef4444', icon: '❌', bg: 'rgba(239, 68, 68, 0.2)' },
+                'locked': { color: '#22c55e', icon: '🔒', bg: 'rgba(34, 197, 94, 0.2)' },
+                'unlocked': { color: '#f59e0b', icon: '🔓', bg: 'rgba(245, 158, 11, 0.2)' },
+                'loaded': { color: '#22c55e', icon: '✅', bg: 'rgba(34, 197, 94, 0.2)' },
+                'not_loaded': { color: '#f59e0b', icon: '⏳', bg: 'rgba(245, 158, 11, 0.2)' },
+                'ready': { color: '#22c55e', icon: '✅', bg: 'rgba(34, 197, 94, 0.2)' },
+                'not_ready': { color: '#f59e0b', icon: '⏳', bg: 'rgba(245, 158, 11, 0.2)' }
+            };
+            
+            function renderStageBadge(stageKey, stageData) {
+                if (!stageData) return '';
+                const style = statusColors[stageData.status] || statusColors['not_ready'];
+                return `
+                <div style="background: ${style.bg}; color: ${style.color}; padding: 6px 12px; 
+                            border-radius: 20px; font-size: 0.8rem; font-weight: 500;
+                            display: flex; align-items: center; gap: 4px; border: 1px solid ${style.color};">
+                    ${style.icon} ${stageData.label}
+                </div>
+                `;
+            }
+            
+            container.innerHTML = `
+            <div style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); 
+                        border-radius: 8px; padding: 15px; margin: 15px 0;">
+                <div style="color: var(--accent); font-weight: 600; margin-bottom: 12px; 
+                            display: flex; align-items: center; gap: 8px;">
+                    🔐 Pipeline 初始化順序狀態
+                </div>
+                
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+                    ${renderStageBadge('e406', stages.e406)}
+                    ${renderStageBadge('yaml_lock', stages.yaml_lock)}
+                    ${renderStageBadge('manager', stages.manager)}
+                    ${renderStageBadge('validator', stages.validator)}
+                </div>
+                
+                ${!pipelineReady ? `
+                <div style="padding: 10px; background: rgba(239, 68, 68, 0.1); 
+                            border-radius: 6px; color: var(--danger); font-size: 0.85rem;">
+                    ⚠️ 初始化未完成，Step 2 暫時鎖定。請先解決標示為 ❌ 的項目。
+                </div>
+                ` : `
+                <div style="padding: 10px; background: rgba(34, 197, 94, 0.1); 
+                            border-radius: 6px; color: var(--success); font-size: 0.85rem;">
+                    ✅ 初始化完成！Step 2 已解鎖，可以產生 Excel 範本。
+                </div>
+                `}
+            </div>
+            `;
+            
+            container.style.display = 'block';
+        }
+
+        // ====================================================================
         // 階段性診斷功能 (整合至 Step 4)
         // ====================================================================
         async function runDiagnosticFromStep3(stage) {
@@ -1656,10 +2117,37 @@
                     } else {
                         html += `<span style="color: var(--yellow);">⚠️ 未檢測到拓樸資料</span>`;
                         html += `<div style="margin-top: 6px; font-size: 0.8rem; color: var(--text-dim);">`;
-                        html += `DataFrame 中未找到 topology_node_id、control_semantic 或 decay_factor 欄位`;
+                        html += `DataFrame 中未找到 point_class、upstream_equipment_id 或 control_domain 等 PRD v1.4 欄位`;
                         html += `</div>`;
                     }
                     html += '</div>';
+                }
+                
+                // 缺口二：device_role 隔離檢查面板 (batch-processor 診斷)
+                if (data.device_role_isolation && stage === 'batch-processor') {
+                    html += renderDeviceRoleIsolation(data.device_role_isolation);
+                }
+                
+                // 缺口二：Manifest 契約元資料面板 (batch-processor 診斷)
+                if (data.manifest_contract && stage === 'batch-processor') {
+                    html += renderManifestContractPanel(data.manifest_contract);
+                }
+                
+                // 缺口三：鄰接矩陣視覺化 (batch-processor 診斷且節點 <= 10)
+                if (data.topology_summary && stage === 'batch-processor') {
+                    const ts = data.topology_summary;
+                    if (ts.nodes && ts.nodes.length > 0 && ts.nodes.length <= 10) {
+                        html += `<div style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); 
+                                    border-radius: 8px; padding: 15px; margin-top: 15px;">`;
+                        html += `<div style="color: var(--accent); font-weight: 600; margin-bottom: 10px;">📐 鄰接矩陣預覽</div>`;
+                        html += renderAdjacencyMatrixPreview(ts);
+                        html += `</div>`;
+                    }
+                }
+                
+                // 缺口三：GNN 多任務指標面板
+                if (data.model_metrics && stage === 'batch-processor') {
+                    html += renderGNNMetricsPanel(data.model_metrics);
                 }
 
                 // 顯示錯誤詳情

@@ -1,13 +1,13 @@
 metadata:
-  schema_version: '1.3'
-  template_version: '1.3'
+  schema_version: '1.4'
+  template_version: '1.4'
   site_id: demo_site
   inherit: base
   editor: wizard_parser_integration
-  last_updated: '2026-03-02T10:59:17.189533'
-  equipment_schema: hvac_v1.3
+  last_updated: '2026-03-02T08:40:44.093813+00:00'
+  equipment_schema: hvac_v1.4
   temporal_baseline_version: '1.0'
-  yaml_checksum: sha256:64e99c09db2dcc12804e948b55d2cd028371954af86be9b790d2618e909fba2d
+  yaml_checksum: sha256:92af4f86c940993eb60adca924baf9e1b076e91d811d947bd5e77a4ec5a18790
 columns:
   Date:
     column_name: Date
@@ -19,9 +19,10 @@ columns:
     - 1
     - 4
     ignore_warnings: []
+    point_class: Sensor
+    control_domain: Other
     description: '自動推測: Date'
     status: pending_review
-    control_semantic: none
   Time:
     column_name: Time
     physical_type: gauge
@@ -32,204 +33,220 @@ columns:
     - 1
     - 4
     ignore_warnings: []
+    point_class: Sensor
+    control_domain: Other
     description: '自動推測: Time'
     status: pending_review
-    control_semantic: none
   ahwp_3_kwh:
     column_name: ahwp_3_kwh
-    physical_type: power
-    unit: kW
+    physical_type: energy
+    unit: kWh
     device_role: primary
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-03
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_1 | 原始名稱: AHWP-3.KWH] 自動推測: AHWP-3.KWH'
     status: pending_review
-    control_semantic: none
   ahwp_4_kwh:
     column_name: ahwp_4_kwh
-    physical_type: power
-    unit: kW
+    physical_type: energy
+    unit: kWh
     device_role: primary
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-04
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_2 | 原始名稱: AHWP-4.KWH] 自動推測: AHWP-4.KWH'
     status: pending_review
-    control_semantic: none
   cb_9_kwh:
     column_name: cb_9_kwh
-    physical_type: power
-    unit: kW
+    physical_type: energy
+    unit: kWh
     device_role: primary
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-09
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_3 | 原始名稱: CB-9.KWH] 自動推測: CB-9.KWH'
     status: pending_review
-    control_semantic: none
   ct_01_kwh:
     column_name: ct_01_kwh
-    physical_type: power
-    unit: kW
+    physical_type: energy
+    unit: kWh
     device_role: primary
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_4 | 原始名稱: CT-01.KWH] 自動推測: CT-01.KWH'
     status: pending_review
-    control_semantic: none
   ct_02_kwh:
     column_name: ct_02_kwh
-    physical_type: power
-    unit: kW
+    physical_type: energy
+    unit: kWh
     device_role: primary
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-02
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_5 | 原始名稱: CT-02.KWH] 自動推測: CT-02.KWH'
     status: pending_review
-    control_semantic: none
   ct_03_kwh:
     column_name: ct_03_kwh
-    physical_type: power
-    unit: kW
+    physical_type: energy
+    unit: kWh
     device_role: primary
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-03
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_6 | 原始名稱: CT-03.KWH] 自動推測: CT-03.KWH'
     status: pending_review
-    control_semantic: none
   ct_04_kwh:
     column_name: ct_04_kwh
-    physical_type: power
-    unit: kW
+    physical_type: energy
+    unit: kWh
     device_role: primary
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-04
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_7 | 原始名稱: CT-04.KWH] 自動推測: CT-04.KWH'
     status: pending_review
-    control_semantic: none
   gcba_4_kwh:
     column_name: gcba_4_kwh
-    physical_type: power
-    unit: kW
+    physical_type: energy
+    unit: kWh
     device_role: primary
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-04
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_8 | 原始名稱: GCBA-4.KWH] 自動推測: GCBA-4.KWH'
     status: pending_review
-    control_semantic: none
   gcba_6_kwh:
     column_name: gcba_6_kwh
-    physical_type: power
-    unit: kW
+    physical_type: energy
+    unit: kWh
     device_role: primary
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-06
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_9 | 原始名稱: GCBA-6.KWH] 自動推測: GCBA-6.KWH'
     status: pending_review
-    control_semantic: none
   mcc_4_kwh:
     column_name: mcc_4_kwh
-    physical_type: power
-    unit: kW
+    physical_type: energy
+    unit: kWh
     device_role: primary
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-04
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_10 | 原始名稱: MCC-4.KWH] 自動推測: MCC-4.KWH'
     status: pending_review
-    control_semantic: none
   mcc_5_kwh:
     column_name: mcc_5_kwh
-    physical_type: power
-    unit: kW
+    physical_type: energy
+    unit: kWh
     device_role: primary
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-05
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_11 | 原始名稱: MCC-5.KWH] 自動推測: MCC-5.KWH'
     status: pending_review
-    control_semantic: none
   mcc_6_kwh:
     column_name: mcc_6_kwh
-    physical_type: power
-    unit: kW
+    physical_type: energy
+    unit: kWh
     device_role: primary
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-06
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_12 | 原始名稱: MCC-6.KWH] 自動推測: MCC-6.KWH'
     status: pending_review
-    control_semantic: none
   mcc_8_kwh:
     column_name: mcc_8_kwh
-    physical_type: power
-    unit: kW
+    physical_type: energy
+    unit: kWh
     device_role: primary
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-08
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_13 | 原始名稱: MCC-8.KWH] 自動推測: MCC-8.KWH'
     status: pending_review
-    control_semantic: none
   scp_10_kwh:
     column_name: scp_10_kwh
-    physical_type: power
-    unit: kW
+    physical_type: energy
+    unit: kWh
     device_role: primary
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-10
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_14 | 原始名稱: SCP-10.KWH] 自動推測: SCP-10.KWH'
     status: pending_review
-    control_semantic: none
   scp_12_kwh:
     column_name: scp_12_kwh
-    physical_type: power
-    unit: kW
+    physical_type: energy
+    unit: kWh
     device_role: backup
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-12
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_15 | 原始名稱: SCP-12.KWH] 自動推測: SCP-12.KWH (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   bchu_01_base_offset:
     column_name: bchu_01_base_offset
     physical_type: gauge
@@ -241,9 +258,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_16 | 原始名稱: BCHU-01:BASE OFFSET] 自動推測: BCHU-01:BASE OFFSET'
     status: pending_review
-    control_semantic: none
   ch_0_cop_base:
     column_name: ch_0_cop_base
     physical_type: efficiency
@@ -254,11 +272,13 @@ columns:
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-00
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_17 | 原始名稱: CH-0.COP.BASE] 自動推測: CH-0.COP.BASE (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   ch_0_enger_base:
     column_name: ch_0_enger_base
     physical_type: gauge
@@ -270,9 +290,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-00
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_18 | 原始名稱: CH-0.ENGER.BASE] 自動推測: CH-0.ENGER.BASE (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   chu_03_base_offset:
     column_name: chu_03_base_offset
     physical_type: gauge
@@ -284,9 +305,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-03
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_19 | 原始名稱: CHU-03:BASE OFFSET] 自動推測: CHU-03:BASE OFFSET'
     status: pending_review
-    control_semantic: none
   b_tk_00_avg:
     column_name: b_tk_00_avg
     physical_type: gauge
@@ -298,9 +320,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-00
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_20 | 原始名稱: B-TK-00.AVG] 自動推測: B-TK-00.AVG'
     status: pending_review
-    control_semantic: none
   b_tk_00_pos_avg:
     column_name: b_tk_00_pos_avg
     physical_type: gauge
@@ -312,9 +335,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-00
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_21 | 原始名稱: B-TK-00.POS.AVG] 自動推測: B-TK-00.POS.AVG (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   ch_0_cop_avg:
     column_name: ch_0_cop_avg
     physical_type: efficiency
@@ -325,11 +349,13 @@ columns:
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-00
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_22 | 原始名稱: CH-0.COP.AVG] 自動推測: CH-0.COP.AVG (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   ch_0_enger_avg:
     column_name: ch_0_enger_avg
     physical_type: gauge
@@ -341,9 +367,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-00
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_23 | 原始名稱: CH-0.ENGER.AVG] 自動推測: CH-0.ENGER.AVG'
     status: pending_review
-    control_semantic: none
   ch_0_rt_avg:
     column_name: ch_0_rt_avg
     physical_type: cooling_capacity
@@ -354,11 +381,13 @@ columns:
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-00
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_24 | 原始名稱: CH-0.RT.AVG] 自動推測: CH-0.RT.AVG (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   ch_1_ch_wdp_avg:
     column_name: ch_1_ch_wdp_avg
     physical_type: pressure_differential
@@ -368,12 +397,13 @@ columns:
     enable_lag: true
     lag_intervals:
     - 1
-    - 4
+    - 2
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_25 | 原始名稱: CH-1-CH.WDP.AVG] 自動推測: CH-1-CH.WDP.AVG (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   ch_1_cw_wdp_avg:
     column_name: ch_1_cw_wdp_avg
     physical_type: pressure_differential
@@ -383,12 +413,13 @@ columns:
     enable_lag: true
     lag_intervals:
     - 1
-    - 4
+    - 2
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Condenser Water
     description: '[Point_26 | 原始名稱: CH-1-CW.WDP.AVG] 自動推測: CH-1-CW.WDP.AVG'
     status: pending_review
-    control_semantic: none
   ch_2_ch_wdp_avg:
     column_name: ch_2_ch_wdp_avg
     physical_type: pressure_differential
@@ -398,12 +429,13 @@ columns:
     enable_lag: true
     lag_intervals:
     - 1
-    - 4
+    - 2
     ignore_warnings: []
     equipment_id: UNK-02
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_27 | 原始名稱: CH-2-CH.WDP.AVG] 自動推測: CH-2-CH.WDP.AVG'
     status: pending_review
-    control_semantic: none
   ch_2_cw_wdp_avg:
     column_name: ch_2_cw_wdp_avg
     physical_type: pressure_differential
@@ -413,12 +445,13 @@ columns:
     enable_lag: true
     lag_intervals:
     - 1
-    - 4
+    - 2
     ignore_warnings: []
     equipment_id: UNK-02
+    point_class: Sensor
+    control_domain: Condenser Water
     description: '[Point_28 | 原始名稱: CH-2-CW.WDP.AVG] 自動推測: CH-2-CW.WDP.AVG'
     status: pending_review
-    control_semantic: none
   ch_3_ch_wdp_avg:
     column_name: ch_3_ch_wdp_avg
     physical_type: pressure_differential
@@ -428,12 +461,13 @@ columns:
     enable_lag: true
     lag_intervals:
     - 1
-    - 4
+    - 2
     ignore_warnings: []
     equipment_id: UNK-03
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_29 | 原始名稱: CH-3-CH.WDP.AVG] 自動推測: CH-3-CH.WDP.AVG'
     status: pending_review
-    control_semantic: none
   ch_3_cw_wdp_avg:
     column_name: ch_3_cw_wdp_avg
     physical_type: pressure_differential
@@ -443,12 +477,13 @@ columns:
     enable_lag: true
     lag_intervals:
     - 1
-    - 4
+    - 2
     ignore_warnings: []
     equipment_id: UNK-03
+    point_class: Sensor
+    control_domain: Condenser Water
     description: '[Point_30 | 原始名稱: CH-3-CW.WDP.AVG] 自動推測: CH-3-CW.WDP.AVG'
     status: pending_review
-    control_semantic: none
   ch_sys_total_kw_avg:
     column_name: ch_sys_total_kw_avg
     physical_type: power
@@ -458,9 +493,10 @@ columns:
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_31 | 原始名稱: CH-SYS.TOTAL.KW.AVG] 自動推測: CH-SYS.TOTAL.KW.AVG'
     status: pending_review
-    control_semantic: none
   ch1_ch_wdp_avg:
     column_name: ch1_ch_wdp_avg
     physical_type: pressure_differential
@@ -470,12 +506,13 @@ columns:
     enable_lag: true
     lag_intervals:
     - 1
-    - 4
+    - 2
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_32 | 原始名稱: CH1-CH.WDP.AVG] 自動推測: CH1-CH.WDP.AVG'
     status: pending_review
-    control_semantic: none
   cb_9_kw:
     column_name: cb_9_kw
     physical_type: power
@@ -486,9 +523,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-09
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_33 | 原始名稱: CB-9.KW] 自動推測: CB-9.KW'
     status: pending_review
-    control_semantic: none
   ch_0_pm_kw:
     column_name: ch_0_pm_kw
     physical_type: power
@@ -499,9 +537,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-00
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_34 | 原始名稱: CH-0-PM.KW] 自動推測: CH-0-PM.KW'
     status: pending_review
-    control_semantic: none
   ch_0_kw:
     column_name: ch_0_kw
     physical_type: power
@@ -512,9 +551,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-00
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_35 | 原始名稱: CH-0.KW] 自動推測: CH-0.KW'
     status: pending_review
-    control_semantic: none
   ch_01_ekw:
     column_name: ch_01_ekw
     physical_type: power
@@ -525,9 +565,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_36 | 原始名稱: CH-01.EKW] 自動推測: CH-01.EKW'
     status: pending_review
-    control_semantic: none
   ch_02_ekw:
     column_name: ch_02_ekw
     physical_type: power
@@ -538,9 +579,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-02
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_37 | 原始名稱: CH-02.EKW] 自動推測: CH-02.EKW'
     status: pending_review
-    control_semantic: none
   ch_03_ekw:
     column_name: ch_03_ekw
     physical_type: power
@@ -551,9 +593,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-03
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_38 | 原始名稱: CH-03.EKW] 自動推測: CH-03.EKW'
     status: pending_review
-    control_semantic: none
   ch_1_pm_kw:
     column_name: ch_1_pm_kw
     physical_type: power
@@ -564,9 +607,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_39 | 原始名稱: CH-1-PM:KW] 自動推測: CH-1-PM:KW (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   ch_2_pm_kw:
     column_name: ch_2_pm_kw
     physical_type: power
@@ -577,9 +621,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-02
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_40 | 原始名稱: CH-2-PM:KW] 自動推測: CH-2-PM:KW (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   ch_3_pm_kw:
     column_name: ch_3_pm_kw
     physical_type: power
@@ -590,9 +635,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-03
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_41 | 原始名稱: CH-3-PM:KW] 自動推測: CH-3-PM:KW (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   ch_sys_kw:
     column_name: ch_sys_kw
     physical_type: power
@@ -602,9 +648,10 @@ columns:
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_42 | 原始名稱: CH-SYS.KW] 自動推測: CH-SYS.KW'
     status: pending_review
-    control_semantic: none
   ch_sys_total_kw:
     column_name: ch_sys_total_kw
     physical_type: power
@@ -614,9 +661,10 @@ columns:
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_43 | 原始名稱: CH-SYS.TOTAL.KW] 自動推測: CH-SYS.TOTAL.KW'
     status: pending_review
-    control_semantic: none
   chp_01_vfd_power_kw:
     column_name: chp_01_vfd_power_kw
     physical_type: power
@@ -627,10 +675,11 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_44 | 原始名稱: CHP-01-VFD:POWER KW] 自動推測: CHP-01-VFD:POWER KW
       (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   chp_02_vfd_power_kw:
     column_name: chp_02_vfd_power_kw
     physical_type: power
@@ -641,10 +690,11 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-02
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_45 | 原始名稱: CHP-02-VFD:POWER KW] 自動推測: CHP-02-VFD:POWER KW
       (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   chp_03_vfd_power_kw:
     column_name: chp_03_vfd_power_kw
     physical_type: power
@@ -655,9 +705,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-03
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_46 | 原始名稱: CHP-03-VFD:POWER KW] 自動推測: CHP-03-VFD:POWER KW'
     status: pending_review
-    control_semantic: none
   chp_04_vfd_power_kw:
     column_name: chp_04_vfd_power_kw
     physical_type: power
@@ -668,10 +719,11 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-04
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_47 | 原始名稱: CHP-04-VFD:POWER KW] 自動推測: CHP-04-VFD:POWER KW
       (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   chp_05_vfd_power_kw:
     column_name: chp_05_vfd_power_kw
     physical_type: power
@@ -682,10 +734,11 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-05
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_48 | 原始名稱: CHP-05-VFD:POWER KW] 自動推測: CHP-05-VFD:POWER KW
       (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   ct_0_kw:
     column_name: ct_0_kw
     physical_type: power
@@ -696,9 +749,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-00
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_49 | 原始名稱: CT-0.KW] 自動推測: CT-0.KW'
     status: pending_review
-    control_semantic: none
   ct_01_kw:
     column_name: ct_01_kw
     physical_type: power
@@ -709,9 +763,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_50 | 原始名稱: CT-01.KW] 自動推測: CT-01.KW (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   ct_02_kw:
     column_name: ct_02_kw
     physical_type: power
@@ -722,9 +777,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-02
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_51 | 原始名稱: CT-02.KW] 自動推測: CT-02.KW'
     status: pending_review
-    control_semantic: none
   ct_03_kw:
     column_name: ct_03_kw
     physical_type: power
@@ -735,9 +791,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-03
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_52 | 原始名稱: CT-03.KW] 自動推測: CT-03.KW'
     status: pending_review
-    control_semantic: none
   ct_04_kw:
     column_name: ct_04_kw
     physical_type: power
@@ -748,9 +805,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-04
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_53 | 原始名稱: CT-04.KW] 自動推測: CT-04.KW (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   ct_05_kw:
     column_name: ct_05_kw
     physical_type: power
@@ -761,9 +819,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-05
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_54 | 原始名稱: CT-05.KW] 自動推測: CT-05.KW'
     status: pending_review
-    control_semantic: none
   cw_sys_kw:
     column_name: cw_sys_kw
     physical_type: power
@@ -773,9 +832,10 @@ columns:
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
+    point_class: Sensor
+    control_domain: Condenser Water
     description: '[Point_55 | 原始名稱: CW-SYS.KW] 自動推測: CW-SYS.KW'
     status: pending_review
-    control_semantic: none
   cwp_01_vfd_power_kw:
     column_name: cwp_01_vfd_power_kw
     physical_type: power
@@ -786,10 +846,11 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: CWP-01
+    point_class: Sensor
+    control_domain: Condenser Water
     description: '[Point_56 | 原始名稱: CWP-01-VFD:POWER KW] 自動推測: CWP-01-VFD:POWER KW
       (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   cwp_02_vfd_power_kw:
     column_name: cwp_02_vfd_power_kw
     physical_type: power
@@ -800,10 +861,11 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: CWP-02
+    point_class: Sensor
+    control_domain: Condenser Water
     description: '[Point_57 | 原始名稱: CWP-02-VFD:POWER KW] 自動推測: CWP-02-VFD:POWER KW
       (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   cwp_03_vfd_power_kw:
     column_name: cwp_03_vfd_power_kw
     physical_type: power
@@ -814,9 +876,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: CWP-03
+    point_class: Sensor
+    control_domain: Condenser Water
     description: '[Point_58 | 原始名稱: CWP-03-VFD:POWER KW] 自動推測: CWP-03-VFD:POWER KW'
     status: pending_review
-    control_semantic: none
   cwp_04_vfd_power_kw:
     column_name: cwp_04_vfd_power_kw
     physical_type: power
@@ -827,10 +890,11 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: CWP-04
+    point_class: Sensor
+    control_domain: Condenser Water
     description: '[Point_59 | 原始名稱: CWP-04-VFD:POWER KW] 自動推測: CWP-04-VFD:POWER KW
       (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   cwp_05_vfd_power_kw:
     column_name: cwp_05_vfd_power_kw
     physical_type: power
@@ -841,10 +905,11 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: CWP-05
+    point_class: Sensor
+    control_domain: Condenser Water
     description: '[Point_60 | 原始名稱: CWP-05-VFD:POWER KW] 自動推測: CWP-05-VFD:POWER KW
       (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   gcba_4_kw:
     column_name: gcba_4_kw
     physical_type: power
@@ -855,9 +920,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-04
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_61 | 原始名稱: GCBA-4.KW] 自動推測: GCBA-4.KW'
     status: pending_review
-    control_semantic: none
   gcba_6_kw:
     column_name: gcba_6_kw
     physical_type: power
@@ -868,9 +934,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-06
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_62 | 原始名稱: GCBA-6.KW] 自動推測: GCBA-6.KW'
     status: pending_review
-    control_semantic: none
   scp0_pm_kw:
     column_name: scp0_pm_kw
     physical_type: power
@@ -881,9 +948,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-00
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_63 | 原始名稱: SCP0-PM.KW] 自動推測: SCP0-PM.KW'
     status: pending_review
-    control_semantic: none
   scp1_pm_kw:
     column_name: scp1_pm_kw
     physical_type: power
@@ -894,9 +962,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_64 | 原始名稱: SCP1-PM.KW] 自動推測: SCP1-PM.KW (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   scp10_pm_kw:
     column_name: scp10_pm_kw
     physical_type: power
@@ -907,9 +976,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-10
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_65 | 原始名稱: SCP10-PM.KW] 自動推測: SCP10-PM.KW (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   scp11_pm_kw:
     column_name: scp11_pm_kw
     physical_type: power
@@ -920,9 +990,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-11
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_66 | 原始名稱: SCP11-PM.KW] 自動推測: SCP11-PM.KW'
     status: pending_review
-    control_semantic: none
   scp12_pm_kw:
     column_name: scp12_pm_kw
     physical_type: power
@@ -933,9 +1004,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-12
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_67 | 原始名稱: SCP12-PM.KW] 自動推測: SCP12-PM.KW (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   scp2_pm_kw:
     column_name: scp2_pm_kw
     physical_type: power
@@ -946,9 +1018,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-02
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_68 | 原始名稱: SCP2-PM.KW] 自動推測: SCP2-PM.KW'
     status: pending_review
-    control_semantic: none
   scp3_pm_kw:
     column_name: scp3_pm_kw
     physical_type: power
@@ -959,9 +1032,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-03
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_69 | 原始名稱: SCP3-PM.KW] 自動推測: SCP3-PM.KW (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   scp4_pm_kw:
     column_name: scp4_pm_kw
     physical_type: power
@@ -972,9 +1046,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-04
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_70 | 原始名稱: SCP4-PM.KW] 自動推測: SCP4-PM.KW (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   scp5_pm_kw:
     column_name: scp5_pm_kw
     physical_type: power
@@ -985,9 +1060,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-05
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_71 | 原始名稱: SCP5-PM.KW] 自動推測: SCP5-PM.KW'
     status: pending_review
-    control_semantic: none
   scp6_pm_kw:
     column_name: scp6_pm_kw
     physical_type: power
@@ -998,9 +1074,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-06
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_72 | 原始名稱: SCP6-PM.KW] 自動推測: SCP6-PM.KW'
     status: pending_review
-    control_semantic: none
   scp7_pm_kw:
     column_name: scp7_pm_kw
     physical_type: power
@@ -1011,9 +1088,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-07
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_73 | 原始名稱: SCP7-PM.KW] 自動推測: SCP7-PM.KW (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   scp8_pm_kw:
     column_name: scp8_pm_kw
     physical_type: power
@@ -1024,9 +1102,10 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-08
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_74 | 原始名稱: SCP8-PM.KW] 自動推測: SCP8-PM.KW (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   scp9_pm_kw:
     column_name: scp9_pm_kw
     physical_type: power
@@ -1037,12 +1116,14 @@ columns:
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-09
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_75 | 原始名稱: SCP9-PM.KW] 自動推測: SCP9-PM.KW'
     status: pending_review
-    control_semantic: none
   bchu_01_current:
     column_name: bchu_01_current
-    physical_type: gauge
+    physical_type: current
+    unit: A
     device_role: backup
     is_target: false
     enable_lag: true
@@ -1051,12 +1132,14 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_76 | 原始名稱: BCHU-01:CURRENT] 自動推測: BCHU-01:CURRENT (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   chu_01_current:
     column_name: chu_01_current
-    physical_type: gauge
+    physical_type: current
+    unit: A
     device_role: backup
     is_target: false
     enable_lag: true
@@ -1065,12 +1148,14 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_77 | 原始名稱: CHU-01:CURRENT] 自動推測: CHU-01:CURRENT (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   chu_02_current:
     column_name: chu_02_current
-    physical_type: gauge
+    physical_type: current
+    unit: A
     device_role: backup
     is_target: false
     enable_lag: true
@@ -1079,12 +1164,14 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-02
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_78 | 原始名稱: CHU-02:CURRENT] 自動推測: CHU-02:CURRENT (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   chu_03_current:
     column_name: chu_03_current
-    physical_type: gauge
+    physical_type: current
+    unit: A
     device_role: backup
     is_target: false
     enable_lag: true
@@ -1093,287 +1180,348 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-03
+    point_class: Sensor
+    control_domain: Electrical
     description: '[Point_79 | 原始名稱: CHU-03:CURRENT] 自動推測: CHU-03:CURRENT (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   bch_1_ch_rwt:
     column_name: bch_1_ch_rwt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_80 | 原始名稱: BCH-1-CH.RWT] 自動推測: BCH-1-CH.RWT'
     status: pending_review
-    control_semantic: none
   bch_1_ch_swt:
     column_name: bch_1_ch_swt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_81 | 原始名稱: BCH-1-CH.SWT] 自動推測: BCH-1-CH.SWT'
     status: pending_review
-    control_semantic: none
   ch_0_rwt:
     column_name: ch_0_rwt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: backup
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-00
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_82 | 原始名稱: CH-0.RWT] 自動推測: CH-0.RWT (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   ch_0_swt:
     column_name: ch_0_swt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: backup
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-00
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_83 | 原始名稱: CH-0.SWT] 自動推測: CH-0.SWT (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   ch_1_ch_rwt:
     column_name: ch_1_ch_rwt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_84 | 原始名稱: CH-1-CH.RWT] 自動推測: CH-1-CH.RWT'
     status: pending_review
-    control_semantic: none
   ch_1_ch_swt:
     column_name: ch_1_ch_swt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_85 | 原始名稱: CH-1-CH.SWT] 自動推測: CH-1-CH.SWT'
     status: pending_review
-    control_semantic: none
   ch_1_cw_rwt:
     column_name: ch_1_cw_rwt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Condenser Water
     description: '[Point_86 | 原始名稱: CH-1-CW.RWT] 自動推測: CH-1-CW.RWT'
     status: pending_review
-    control_semantic: none
   ch_1_cw_swt:
     column_name: ch_1_cw_swt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Condenser Water
     description: '[Point_87 | 原始名稱: CH-1-CW.SWT] 自動推測: CH-1-CW.SWT'
     status: pending_review
-    control_semantic: none
   ch_2_ch_rwt:
     column_name: ch_2_ch_rwt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-02
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_88 | 原始名稱: CH-2-CH.RWT] 自動推測: CH-2-CH.RWT'
     status: pending_review
-    control_semantic: none
   ch_2_ch_swt:
     column_name: ch_2_ch_swt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-02
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_89 | 原始名稱: CH-2-CH.SWT] 自動推測: CH-2-CH.SWT'
     status: pending_review
-    control_semantic: none
   ch_2_cw_rwt:
     column_name: ch_2_cw_rwt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-02
+    point_class: Sensor
+    control_domain: Condenser Water
     description: '[Point_90 | 原始名稱: CH-2-CW.RWT] 自動推測: CH-2-CW.RWT'
     status: pending_review
-    control_semantic: none
   ch_2_cw_swt:
     column_name: ch_2_cw_swt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-02
+    point_class: Sensor
+    control_domain: Condenser Water
     description: '[Point_91 | 原始名稱: CH-2-CW.SWT] 自動推測: CH-2-CW.SWT'
     status: pending_review
-    control_semantic: none
   ch_3_ch_rwt:
     column_name: ch_3_ch_rwt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-03
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_92 | 原始名稱: CH-3-CH.RWT] 自動推測: CH-3-CH.RWT'
     status: pending_review
-    control_semantic: none
   ch_3_ch_swt:
     column_name: ch_3_ch_swt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-03
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_93 | 原始名稱: CH-3-CH.SWT] 自動推測: CH-3-CH.SWT'
     status: pending_review
-    control_semantic: none
   ch_3_cw_rwt:
     column_name: ch_3_cw_rwt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-03
+    point_class: Sensor
+    control_domain: Condenser Water
     description: '[Point_94 | 原始名稱: CH-3-CW.RWT] 自動推測: CH-3-CW.RWT'
     status: pending_review
-    control_semantic: none
   ch_3_cw_swt:
     column_name: ch_3_cw_swt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-03
+    point_class: Sensor
+    control_domain: Condenser Water
     description: '[Point_95 | 原始名稱: CH-3-CW.SWT] 自動推測: CH-3-CW.SWT'
     status: pending_review
-    control_semantic: none
   cw_sys_rwt:
     column_name: cw_sys_rwt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
+    point_class: Sensor
+    control_domain: Condenser Water
     description: '[Point_96 | 原始名稱: CW-SYS.RWT] 自動推測: CW-SYS.RWT'
     status: pending_review
-    control_semantic: none
   cw_sys_swt:
     column_name: cw_sys_swt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
+    point_class: Sensor
+    control_domain: Condenser Water
     description: '[Point_97 | 原始名稱: CW-SYS.SWT] 自動推測: CW-SYS.SWT'
     status: pending_review
-    control_semantic: none
   sploop0_rwt:
     column_name: sploop0_rwt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-00
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_98 | 原始名稱: SPLOOP0.RWT] 自動推測: SPLOOP0.RWT'
     status: pending_review
-    control_semantic: none
   sploop0_swt:
     column_name: sploop0_swt
-    physical_type: gauge
+    physical_type: temperature
+    unit: °C
     device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-00
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_99 | 原始名稱: SPLOOP0.SWT] 自動推測: SPLOOP0.SWT'
     status: pending_review
-    control_semantic: none
   b_tk_t24:
     column_name: b_tk_t24
     physical_type: gauge
@@ -1385,9 +1533,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-24
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_100 | 原始名稱: B-TK.T24] 自動推測: B-TK.T24'
     status: pending_review
-    control_semantic: none
   bhx_t20:
     column_name: bhx_t20
     physical_type: gauge
@@ -1399,9 +1548,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-20
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_101 | 原始名稱: BHX.T20] 自動推測: BHX.T20'
     status: pending_review
-    control_semantic: none
   bhx_t21:
     column_name: bhx_t21
     physical_type: gauge
@@ -1413,9 +1563,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-21
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_102 | 原始名稱: BHX.T21] 自動推測: BHX.T21'
     status: pending_review
-    control_semantic: none
   bhx_t22:
     column_name: bhx_t22
     physical_type: gauge
@@ -1427,9 +1578,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-22
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_103 | 原始名稱: BHX.T22] 自動推測: BHX.T22'
     status: pending_review
-    control_semantic: none
   bhx_t23:
     column_name: bhx_t23
     physical_type: gauge
@@ -1441,9 +1593,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-23
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_104 | 原始名稱: BHX.T23] 自動推測: BHX.T23'
     status: pending_review
-    control_semantic: none
   ch_sys_t08:
     column_name: ch_sys_t08
     physical_type: gauge
@@ -1455,9 +1608,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-08
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_105 | 原始名稱: CH-SYS.T08] 自動推測: CH-SYS.T08'
     status: pending_review
-    control_semantic: none
   ch_sys_t09:
     column_name: ch_sys_t09
     physical_type: gauge
@@ -1469,9 +1623,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-09
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_106 | 原始名稱: CH-SYS.T09] 自動推測: CH-SYS.T09'
     status: pending_review
-    control_semantic: none
   ch_sys_t10:
     column_name: ch_sys_t10
     physical_type: gauge
@@ -1483,9 +1638,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-10
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_107 | 原始名稱: CH-SYS.T10] 自動推測: CH-SYS.T10'
     status: pending_review
-    control_semantic: none
   ch_sys_t11:
     column_name: ch_sys_t11
     physical_type: gauge
@@ -1497,9 +1653,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-11
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_108 | 原始名稱: CH-SYS.T11] 自動推測: CH-SYS.T11'
     status: pending_review
-    control_semantic: none
   ch_sys_t12:
     column_name: ch_sys_t12
     physical_type: gauge
@@ -1511,9 +1668,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-12
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_109 | 原始名稱: CH-SYS.T12] 自動推測: CH-SYS.T12'
     status: pending_review
-    control_semantic: none
   ch_sys_t13:
     column_name: ch_sys_t13
     physical_type: gauge
@@ -1525,9 +1683,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-13
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_110 | 原始名稱: CH-SYS.T13] 自動推測: CH-SYS.T13'
     status: pending_review
-    control_semantic: none
   ch_sys_t14:
     column_name: ch_sys_t14
     physical_type: gauge
@@ -1539,9 +1698,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-14
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_111 | 原始名稱: CH-SYS.T14] 自動推測: CH-SYS.T14'
     status: pending_review
-    control_semantic: none
   hhx_t16:
     column_name: hhx_t16
     physical_type: gauge
@@ -1553,9 +1713,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-16
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_112 | 原始名稱: HHX.T16] 自動推測: HHX.T16'
     status: pending_review
-    control_semantic: none
   hhx_t17:
     column_name: hhx_t17
     physical_type: gauge
@@ -1567,9 +1728,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-17
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_113 | 原始名稱: HHX.T17] 自動推測: HHX.T17'
     status: pending_review
-    control_semantic: none
   hhx_t18:
     column_name: hhx_t18
     physical_type: gauge
@@ -1581,9 +1743,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-18
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_114 | 原始名稱: HHX.T18] 自動推測: HHX.T18'
     status: pending_review
-    control_semantic: none
   hhx_t19:
     column_name: hhx_t19
     physical_type: gauge
@@ -1595,9 +1758,10 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-19
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_115 | 原始名稱: HHX.T19] 自動推測: HHX.T19'
     status: pending_review
-    control_semantic: none
   ch_0_rt:
     column_name: ch_0_rt
     physical_type: cooling_capacity
@@ -1608,11 +1772,13 @@ columns:
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-00
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_116 | 原始名稱: CH-0.RT] 自動推測: CH-0.RT (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   ch_1_rt:
     column_name: ch_1_rt
     physical_type: cooling_capacity
@@ -1623,11 +1789,13 @@ columns:
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_117 | 原始名稱: CH-1.RT] 自動推測: CH-1.RT (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   ch_2_rt:
     column_name: ch_2_rt
     physical_type: cooling_capacity
@@ -1638,11 +1806,13 @@ columns:
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-02
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_118 | 原始名稱: CH-2.RT] 自動推測: CH-2.RT (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   ch_3_rt:
     column_name: ch_3_rt
     physical_type: cooling_capacity
@@ -1653,11 +1823,13 @@ columns:
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-03
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_119 | 原始名稱: CH-3.RT] 自動推測: CH-3.RT (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   bch_1_rt:
     column_name: bch_1_rt
     physical_type: cooling_capacity
@@ -1668,11 +1840,13 @@ columns:
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-01
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_120 | 原始名稱: BCH-1.RT] 自動推測: BCH-1.RT (推測為備用設備)'
     status: pending_review
-    control_semantic: none
   ch_0_rt_tot:
     column_name: ch_0_rt_tot
     physical_type: cooling_capacity
@@ -1683,11 +1857,13 @@ columns:
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-00
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_121 | 原始名稱: CH-0.RT.TOT] 自動推測: CH-0.RT.TOT'
     status: pending_review
-    control_semantic: none
   ch_4_rt_tot:
     column_name: ch_4_rt_tot
     physical_type: cooling_capacity
@@ -1698,8 +1874,10 @@ columns:
     lag_intervals:
     - 1
     - 4
+    - 12
     ignore_warnings: []
     equipment_id: UNK-04
+    point_class: Sensor
+    control_domain: Other
     description: '[Point_122 | 原始名稱: CH-4.RT.TOT] 自動推測: CH-4.RT.TOT'
     status: pending_review
-    control_semantic: none

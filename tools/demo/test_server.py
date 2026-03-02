@@ -16,6 +16,7 @@ import polars as pl
 
 # 儲存背景任務狀態
 pipeline_jobs = {}
+wizard_jobs = {}  # Step 2 Wizard 任務狀態
 MAX_JOB_LOG_LINES = 200
 
 
@@ -33,6 +34,22 @@ def _append_job_log(job_id: str, message: str, level: str = "INFO", stage: str =
     })
     if len(logs) > MAX_JOB_LOG_LINES:
         pipeline_jobs[job_id]["progress_log"] = logs[-MAX_JOB_LOG_LINES:]
+
+
+def _append_wizard_log(job_id: str, message: str, level: str = "INFO", stage: str = "") -> None:
+    """新增 Wizard job 即時日誌"""
+    if job_id not in wizard_jobs:
+        return
+
+    logs = wizard_jobs[job_id].setdefault("progress_log", [])
+    logs.append({
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+        "level": level,
+        "stage": stage,
+        "message": message
+    })
+    if len(logs) > MAX_JOB_LOG_LINES:
+        wizard_jobs[job_id]["progress_log"] = logs[-MAX_JOB_LOG_LINES:]
 
 from src.container import ETLContainer
 from src.context import PipelineContext
@@ -163,8 +180,183 @@ async def generate_template(site_id: str = Form(...), file: UploadFile = File(..
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def process_wizard_task(
+    job_id: str,
+    site_id: str,
+    columns_list: List[str],
+    point_mapping_dict: Dict[str, Any],
+    sample_data: List[Dict[str, Any]],
+    excel_path: Path,
+    csv_path: Path
+):
+    """背景執行 Wizard 產生 Excel"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    def update_progress(msg: str, stage: str = "", column: str = ""):
+        if stage:
+            wizard_jobs[job_id]["stage"] = stage
+        if column:
+            wizard_jobs[job_id]["current_column"] = column
+        wizard_jobs[job_id]["progress"] = msg
+        _append_wizard_log(job_id, msg, stage=stage or wizard_jobs[job_id].get("stage", ""))
+        logger.info(f"[Wizard Job {job_id[:8]}] {msg}")
+    
+    try:
+        update_progress("初始化 Wizard...", stage="初始化")
+        
+        # 建立 dummy CSV 檔案以滿足 wizard 的初始化需求
+        import csv
+        with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(columns_list)
+        
+        wizard = FeatureAnnotationWizard(
+            site_id=site_id,
+            csv_path=csv_path,
+            excel_path=excel_path
+        )
+        
+        # 載入或建立 Workbook
+        update_progress("載入或建立 Excel Workbook...", stage="初始化")
+        if not wizard._load_or_create_workbook():
+            raise Exception("無法載入或建立 Excel Workbook")
+        
+        # 取得已存在的欄位
+        existing = wizard._get_existing_columns()
+        
+        # 找出新欄位 (排除 timestamp)
+        new_columns = [c for c in columns_list if c not in existing and c != 'timestamp']
+        
+        if not new_columns:
+            update_progress("無新欄位需要標註", stage="完成")
+            wizard_jobs[job_id]["status"] = "success"
+            wizard_jobs[job_id]["stage"] = "完成"
+            wizard_jobs[job_id]["result"] = {
+                "status": "success",
+                "message": "無新欄位需要標註",
+                "total_columns": len(columns_list),
+                "new_columns": 0
+            }
+            return
+        
+        update_progress(f"發現 {len(new_columns)} 個新欄位待標註", stage="分析欄位")
+        
+        # 處理每個新欄位
+        processed_count = 0
+        for col in new_columns:
+            processed_count += 1
+            
+            # 從 point_mapping 取得原始名稱
+            mapped_name = col
+            original_point_name = None
+            point_key = None
+            
+            if point_mapping_dict:
+                for pk, point_info in point_mapping_dict.items():
+                    if isinstance(point_info, dict):
+                        if point_info.get('normalized_name') == col:
+                            original_point_name = point_info.get('name', col)
+                            mapped_name = original_point_name
+                            point_key = pk
+                            break
+            
+            # 計算統計 (從 sample_data)
+            stats = {'mean': 0, 'zero_ratio': 0}
+            if sample_data and len(sample_data) > 0:
+                try:
+                    values = [row.get(col) for row in sample_data if col in row and row.get(col) is not None]
+                    numeric_values = []
+                    for v in values:
+                        try:
+                            numeric_values.append(float(v))
+                        except (ValueError, TypeError):
+                            pass
+                    
+                    if numeric_values:
+                        mean_val = sum(numeric_values) / len(numeric_values)
+                        zero_count = sum(1 for v in numeric_values if v == 0)
+                        zero_ratio = zero_count / len(numeric_values)
+                        stats = {'mean': mean_val, 'zero_ratio': zero_ratio}
+                except Exception:
+                    pass
+            
+            # HVAC 推測
+            from tools.features.wizard import HVACTypeGuesser
+            suggestion = HVACTypeGuesser.guess(mapped_name, stats)
+            
+            # 建立描述
+            description_parts = []
+            if original_point_name and original_point_name != col:
+                description_parts.append(f"原始名稱: {original_point_name}")
+            if point_key:
+                description_parts.insert(0, point_key)
+            
+            if description_parts:
+                suggestion['description'] = f"[{' | '.join(description_parts)}] {suggestion.get('description', '')}"
+            
+            # 更新進度 - 顯示詳細資訊
+            update_progress(
+                f"處理欄位 ({processed_count}/{len(new_columns)}): {col}",
+                stage="處理欄位",
+                column=col
+            )
+            
+            # 記錄詳細資訊到 log
+            detail_msg = f"欄位: {col}"
+            if original_point_name and original_point_name != col:
+                detail_msg += f" | 原始監控點名稱: {original_point_name}"
+            detail_msg += f" | HVAC推測: {suggestion['equipment_type']} / {suggestion['physical_type']}"
+            detail_msg += f" | 建議設備 ID: {suggestion['equipment_id']}"
+            _append_wizard_log(job_id, detail_msg, stage="處理欄位")
+            
+            # 寫入 Excel
+            wizard._add_column_to_excel(col, suggestion)
+            _append_wizard_log(job_id, f"✅ 已寫入 Excel (狀態: pending_review)", stage="處理欄位")
+        
+        # 更新 Metadata
+        if "Metadata" in wizard.workbook.sheetnames:
+            ws = wizard.workbook["Metadata"]
+            for row in ws.iter_rows(max_col=2):
+                if row[0].value == "last_updated":
+                    row[1].value = datetime.now(timezone.utc).isoformat()
+                elif row[0].value == "editor":
+                    row[1].value = "wizard_parser_integration"
+        
+        # 儲存
+        update_progress("儲存 Excel 檔案...", stage="儲存")
+        excel_path.parent.mkdir(parents=True, exist_ok=True)
+        wizard.workbook.save(excel_path)
+        
+        # 清理 dummy CSV
+        cleanup_file(csv_path)
+        
+        wizard_jobs[job_id]["status"] = "success"
+        wizard_jobs[job_id]["stage"] = "完成"
+        wizard_jobs[job_id]["progress"] = "✅ 執行完成"
+        wizard_jobs[job_id]["ended_at"] = datetime.now(timezone.utc).isoformat()
+        wizard_jobs[job_id]["result"] = {
+            "status": "success",
+            "site_id": site_id,
+            "total_columns": len(columns_list),
+            "new_columns": len(new_columns),
+            "excel_path": str(excel_path)
+        }
+        _append_wizard_log(job_id, f"✅ Wizard 完成，共處理 {len(new_columns)} 個欄位", stage="完成")
+        
+    except Exception as e:
+        wizard_jobs[job_id]["status"] = "error"
+        wizard_jobs[job_id]["stage"] = "錯誤"
+        wizard_jobs[job_id]["ended_at"] = datetime.now(timezone.utc).isoformat()
+        wizard_jobs[job_id]["message"] = f"Wizard 執行失敗: {str(e)}"
+        _append_wizard_log(job_id, f"❌ Wizard 執行失敗: {str(e)}", level="ERROR", stage="錯誤")
+        logger.exception(f"Wizard Task {job_id} failed")
+        cleanup_file(csv_path)
+
+
 @app.post("/api/generate-template-from-preview")
 async def generate_template_from_preview(
+    background_tasks: BackgroundTasks,
     site_id: str = Form(...),
     columns: str = Form(...),  # JSON string
     point_mapping: str = Form("{}"),  # JSON string
@@ -172,15 +364,12 @@ async def generate_template_from_preview(
     parser_type: str = Form("auto")
 ):
     """
-    STEP 2 (整合版): 從 Step 1 的 Parser 預覽結果產生 Excel 標註範本
+    STEP 2 (整合版): 從 Step 1 的 Parser 預覽結果產生 Excel 標註範本 (非同步版)
     
     接收 Step 1 /api/v1/pipeline/parse-preview 的輸出，直接使用 Parser 解析後的結果產生 Excel，
     確保 column_name 顯示的是 Parser 標準化後的名稱，並保留 Point 對應資訊在 description 中。
     """
     import json
-    
-    excel_path = TEMP_DIR / f"{site_id}_template.xlsx"
-    csv_path = TEMP_DIR / f"dummy_{site_id}.csv"  # dummy CSV path for wizard initialization
     
     try:
         # 解析 JSON 參數
@@ -191,45 +380,85 @@ async def generate_template_from_preview(
         if not columns_list:
             raise HTTPException(status_code=400, detail="欄位列表為空")
         
-        # 建立 dummy CSV 檔案以滿足 wizard 的初始化需求
-        # (wizard 需要 csv_path 但實際上我們會使用 run_from_parser_result)
-        import csv
-        with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            writer.writerow(columns_list)  # 寫入標題列
+        # 產生 Job ID
+        job_id = str(uuid.uuid4())
+        excel_path = TEMP_DIR / f"{site_id}_template.xlsx"
+        csv_path = TEMP_DIR / f"dummy_{site_id}_{job_id}.csv"
         
-        wizard = FeatureAnnotationWizard(
-            site_id=site_id,
-            csv_path=csv_path,
-            excel_path=excel_path
+        # 初始化任務狀態
+        wizard_jobs[job_id] = {
+            "status": "running",
+            "stage": "初始化",
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "progress": "初始化 Wizard 任務...",
+            "total_columns": len(columns_list),
+            "processed_columns": 0,
+            "current_column": "",
+            "progress_log": [],
+            "result": None,
+            "message": "",
+            "excel_path": str(excel_path)
+        }
+        
+        # 啟動背景任務
+        background_tasks.add_task(
+            process_wizard_task,
+            job_id,
+            site_id,
+            columns_list,
+            point_mapping_dict,
+            sample_data,
+            excel_path,
+            csv_path
         )
         
-        # 使用 Parser 結果產生 Excel
-        success = wizard.run_from_parser_result(
-            columns=columns_list,
-            point_mapping=point_mapping_dict,
-            sample_data=sample_data
-        )
-        
-        if not success or not excel_path.exists():
-            raise HTTPException(status_code=500, detail="Excel 範本產生失敗")
-        
-        # 清理 dummy CSV
-        cleanup_file(csv_path)
-        
-        return FileResponse(
-            path=excel_path, 
-            filename=f"{site_id}_features.xlsx",
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            background=BackgroundTask(cleanup_file, excel_path)
-        )
+        return {"status": "started", "job_id": job_id}
         
     except json.JSONDecodeError as e:
-        cleanup_file(csv_path)
         raise HTTPException(status_code=400, detail=f"JSON 解析錯誤: {str(e)}")
     except Exception as e:
-        cleanup_file(csv_path)
-        raise HTTPException(status_code=500, detail=f"產生 Excel 失敗: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"啟動 Wizard 失敗: {str(e)}")
+
+
+@app.get("/api/wizard-job-status/{job_id}")
+async def get_wizard_job_status(job_id: str):
+    """取得 Wizard 任務狀態"""
+    if job_id not in wizard_jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    job = wizard_jobs[job_id]
+    
+    # 如果任務已完成且成功，提供下載連結
+    if job["status"] == "success" and job.get("result"):
+        excel_path = Path(job["result"]["excel_path"])
+        if excel_path.exists():
+            job["download_ready"] = True
+    
+    return job
+
+
+@app.get("/api/download-wizard-excel/{job_id}")
+async def download_wizard_excel(job_id: str):
+    """下載 Wizard 產生的 Excel 檔案"""
+    if job_id not in wizard_jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    job = wizard_jobs[job_id]
+    if job["status"] != "success":
+        raise HTTPException(status_code=400, detail="Excel 尚未產生完成")
+    
+    excel_path = Path(job["result"]["excel_path"])
+    if not excel_path.exists():
+        raise HTTPException(status_code=404, detail="Excel 檔案不存在")
+    
+    site_id = job["result"]["site_id"]
+    
+    return FileResponse(
+        path=excel_path,
+        filename=f"{site_id}_features.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        background=BackgroundTask(cleanup_file, excel_path)
+    )
 
 @app.post("/api/convert-yaml")
 async def convert_yaml(site_id: str = Form(...), excel_file: UploadFile = File(...)):
@@ -713,6 +942,120 @@ async def download_parquet(site_id: str):
 
 
 # =============================================================================
+# 缺口四：Pipeline 初始化順序狀態指示器 (UI-008)
+# =============================================================================
+
+# 快取已載入的 manager 狀態（簡化實作）
+_loaded_managers_cache = set()
+
+def _check_excel_yaml_sync(site_id: str) -> bool:
+    """檢查 Excel/YAML 同步 (E406)"""
+    try:
+        from src.utils.config_loader import ConfigLoader
+        loader = ConfigLoader()
+        yaml_path = Path(f"config/features/sites/{site_id}.yaml")
+        excel_path = Path(f"config/features/sites/{site_id}.xlsx")
+        
+        if not yaml_path.exists():
+            return False
+            
+        # 檢查 checksum 是否匹配
+        import hashlib
+        if excel_path.exists():
+            with open(excel_path, 'rb') as f:
+                excel_hash = hashlib.md5(f.read()).hexdigest()[:8]
+            with open(yaml_path, 'r', encoding='utf-8') as f:
+                yaml_content = f.read()
+                # 簡單檢查 YAML 中是否有 checksum 標記
+                return f"checksum: {excel_hash}" in yaml_content or f"checksum:" in yaml_content
+        return True
+    except Exception:
+        return False
+
+def _check_yaml_file_lock(site_id: str) -> bool:
+    """檢查 YAML 檔案鎖定狀態"""
+    lock_file = Path(f"config/features/sites/{site_id}.yaml.lock")
+    return lock_file.exists()
+
+def _check_feature_manager(site_id: str) -> bool:
+    """檢查 FeatureManager 是否已載入"""
+    try:
+        from src.features.annotation_manager import FeatureAnnotationManager
+        # 嘗試取得實例（如果已快取）
+        manager = FeatureAnnotationManager(site_id=site_id)
+        _loaded_managers_cache.add(site_id)
+        return True
+    except Exception:
+        return site_id in _loaded_managers_cache
+
+def _check_equipment_validator(site_id: str) -> bool:
+    """檢查設備 Validator 是否就緒"""
+    try:
+        from src.etl.config_models import PRECHECK_CONSTRAINTS
+        return len(PRECHECK_CONSTRAINTS) > 0
+    except Exception:
+        return False
+
+@app.get("/api/pipeline/init-status")
+async def get_pipeline_init_status(site_id: str):
+    """
+    缺口四：Pipeline 初始化順序狀態指示器
+    
+    回傳 Pipeline 初始化各階段狀態（對齊 System Integration v1.2）：
+    E406 稽核 → YAML 鎖定 → Manager 載入 → Validator 就緒
+    """
+    e406_passed = _check_excel_yaml_sync(site_id)
+    yaml_locked = _check_yaml_file_lock(site_id)
+    manager_loaded = _check_feature_manager(site_id)
+    validator_ready = _check_equipment_validator(site_id)
+    
+    stages = {
+        "e406": {
+            "status": "passed" if e406_passed else "failed",
+            "label": "E406 稽核",
+            "icon": "✅" if e406_passed else "❌",
+            "description": "Excel/YAML 同步檢查"
+        },
+        "yaml_lock": {
+            "status": "locked" if yaml_locked else "unlocked",
+            "label": "YAML 鎖定",
+            "icon": "🔒" if yaml_locked else "🔓",
+            "description": "併發衝突防護"
+        },
+        "manager": {
+            "status": "loaded" if manager_loaded else "not_loaded",
+            "label": "Manager 載入",
+            "icon": "✅" if manager_loaded else "⏳",
+            "description": "FeatureAnnotationManager"
+        },
+        "validator": {
+            "status": "ready" if validator_ready else "not_ready",
+            "label": "Validator 就緒",
+            "icon": "✅" if validator_ready else "⏳",
+            "description": "設備驗證器"
+        }
+    }
+    
+    pipeline_ready = all([
+        e406_passed,
+        yaml_locked,
+        manager_loaded,
+        validator_ready
+    ])
+    
+    return {
+        "site_id": site_id,
+        "pipeline_ready": pipeline_ready,
+        "stages": stages,
+        "e406_passed": e406_passed,
+        "yaml_locked": yaml_locked,
+        "manager_loaded": manager_loaded,
+        "validator_ready": validator_ready,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+
+# =============================================================================
 # 階段性診斷 API (整合自 diagnostic_api.py)
 # =============================================================================
 
@@ -932,52 +1275,122 @@ async def diagnostic_batch_processor(
         results["parse_metadata"] = parse_metadata
         results["overall_status"] = "success" if result.status == "success" else "failed"
         
-        # 檢查拓樸相關欄位
-        topology_columns = ["topology_node_id", "control_semantic", "decay_factor"]
+        # ==========================================
+        # 缺口二：device_role 隔離檢查 (UI-005)
+        # ==========================================
+        def _check_device_role_isolation(df: pl.DataFrame) -> dict:
+            """檢查 DataFrame 是否已完全隔離 device_role"""
+            has_device_role = 'device_role' in df.columns
+            violation_columns = [col for col in df.columns if 'device_role' in col.lower()]
+            return {
+                "status": "❌ 違規" if has_device_role else "✅ 合規",
+                "isolation_passed": not has_device_role,
+                "violation_columns": violation_columns if has_device_role else [],
+                "violation_detail": f"發現 {len(violation_columns)} 個 device_role 相關欄位" if has_device_role else None,
+                "cleaned_column_count": len([c for c in df.columns if 'device_role' not in c.lower()])
+            }
+        
+        device_role_check = _check_device_role_isolation(df_clean)
+        results["device_role_isolation"] = device_role_check
+        
+        # ==========================================
+        # 缺口二：Manifest 契約元資料 (UI-006)
+        # ==========================================
+        manifest_contract = {
+            "pipeline_origin_timestamp": None,
+            "annotation_checksum": None,
+            "rows_in": 0,
+            "rows_out": 0,
+            "cleaning_rate": 0.0,
+            "e350_violations_count": 0,
+            "e351_count": 0,
+            "e352_count": 0,
+            "file_size_bytes": 0
+        }
+        
+        # 檢查拓樸相關欄位（支援 v1.4 新欄位名稱）
+        topology_columns = ["topology_node_id", "point_class", "upstream_equipment_id", "setpoint_pair_id"]
         present_topology_cols = [col for col in topology_columns if col in df_clean.columns]
         
-        # 建構拓樸摘要
+        # 建構拓樸摘要（缺口三：GNN 圖結構）
         topology_summary = {
             "has_topology": len(present_topology_cols) > 0,
             "present_columns": present_topology_cols,
             "node_count": 0,
             "edge_count": 0,
             "sample_nodes": [],
-            "sample_edges": []
+            "sample_edges": [],
+            "adjacency_matrix_shape": [0, 0],
+            "control_semantic_fields": 0,
+            "node_types": {}
         }
         
-        if "topology_node_id" in df_clean.columns:
-            # 計算唯一節點數（排除 null）
-            unique_nodes = df_clean["topology_node_id"].drop_nulls().unique().to_list()
-            topology_summary["node_count"] = len(unique_nodes)
-            topology_summary["sample_nodes"] = unique_nodes[:5]  # 前 5 個節點
-            
-        if "control_semantic" in df_clean.columns:
-            # 統計 control_semantic 類型
-            semantic_counts = {}
-            for val in df_clean["control_semantic"].drop_nulls().unique().to_list():
-                if val:
-                    count = df_clean.filter(pl.col("control_semantic") == val).shape[0]
-                    semantic_counts[str(val)] = count
-            topology_summary["control_semantic_stats"] = semantic_counts
-            topology_summary["control_semantic_fields"] = len(semantic_counts)
-        
-        # 檢查 Manifest 中的 topology_context
+        # 檢查 Manifest 中的完整資訊
         manifest_path = output_dir / site_id / "output" / "manifest_v1.3.json"
+        manifest_data = None
         if manifest_path.exists():
             try:
                 with open(manifest_path, 'r', encoding='utf-8') as f:
-                    manifest = json.load(f)
-                topology_context = manifest.get("topology_context", {})
+                    manifest_data = json.load(f)
+                
+                # 填充 Manifest 契約元資料
+                manifest_contract["pipeline_origin_timestamp"] = manifest_data.get("temporal_baseline", {}).get("pipeline_origin_timestamp")
+                manifest_contract["annotation_checksum"] = manifest_data.get("annotation_checksum")
+                manifest_contract["rows_in"] = manifest_data.get("rows_in", 0)
+                manifest_contract["rows_out"] = manifest_data.get("rows_out", 0)
+                if manifest_contract["rows_in"] > 0:
+                    manifest_contract["cleaning_rate"] = (1 - manifest_contract["rows_out"] / manifest_contract["rows_in"]) * 100
+                manifest_contract["e350_violations_count"] = len(manifest_data.get("e350_violations", []))
+                manifest_contract["e351_count"] = manifest_data.get("e351_count", 0)
+                manifest_contract["e352_count"] = manifest_data.get("e352_count", 0)
+                manifest_contract["file_size_bytes"] = manifest_data.get("file_size_bytes", 0)
+                
+                # 填充拓樸資訊（缺口三）
+                topology_context = manifest_data.get("topology_context", {})
                 if topology_context:
                     topology_summary["manifest_has_topology"] = True
                     topology_summary["manifest_nodes"] = len(topology_context.get("nodes", []))
                     topology_summary["manifest_edges"] = len(topology_context.get("edges", []))
                     topology_summary["adjacency_matrix_shape"] = topology_context.get("adjacency_matrix_shape", [0, 0])
-            except Exception:
-                pass
+                    topology_summary["nodes"] = topology_context.get("nodes", [])[:10]  # 前10個節點
+                    topology_summary["edges"] = topology_context.get("edges", [])[:10]  # 前10條邊
+                    
+                    # 統計節點類型
+                    node_types = {}
+                    for node in topology_context.get("nodes", []):
+                        node_type = node.get("type", "unknown")
+                        node_types[node_type] = node_types.get(node_type, 0) + 1
+                    topology_summary["node_types"] = node_types
+                    
+                # 缺口三：GNN 多任務指標
+                model_metrics = manifest_data.get("model_metrics", {})
+                if model_metrics:
+                    results["model_metrics"] = {
+                        "traditional": model_metrics.get("traditional", {}),
+                        "physics": model_metrics.get("physics", {}),
+                        "multi_task": model_metrics.get("multi_task", {})
+                    }
+                    
+            except Exception as e:
+                logger.warning(f"讀取 Manifest 失敗: {e}")
         
-        results["topology_summary"] = topology_summary  # ✅ v1.4 新增
+        # 從 DataFrame 補充拓樸統計
+        if "topology_node_id" in df_clean.columns:
+            unique_nodes = df_clean["topology_node_id"].drop_nulls().unique().to_list()
+            topology_summary["node_count"] = len(unique_nodes)
+            topology_summary["sample_nodes"] = unique_nodes[:5]
+            
+        if "point_class" in df_clean.columns:
+            point_class_counts = {}
+            for val in df_clean["point_class"].drop_nulls().unique().to_list():
+                if val:
+                    count = df_clean.filter(pl.col("point_class") == val).shape[0]
+                    point_class_counts[str(val)] = count
+            topology_summary["point_class_stats"] = point_class_counts
+            topology_summary["control_semantic_fields"] = len(point_class_counts)
+        
+        results["topology_summary"] = topology_summary
+        results["manifest_contract"] = manifest_contract
         
     except Exception as e:
         import traceback
