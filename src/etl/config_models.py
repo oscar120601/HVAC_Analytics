@@ -262,6 +262,67 @@ E213_INSUFFICIENT_DATA_GAP = ErrorCode(
     recoverable=True
 )
 
+# E300-E349: Feature Engineer 輸入錯誤
+E301_MANIFEST_INTEGRITY_FAILED = ErrorCode(
+    code="E301",
+    name="MANIFEST_INTEGRITY_FAILED",
+    module="FeatureEngineer",
+    description="Manifest 損毀或 checksum 驗證失敗",
+    severity=ErrorSeverity.CRITICAL,
+    user_message_template="Manifest 完整性驗證失敗: {filepath}",
+    recoverable=False
+)
+
+E302_SCHEMA_MISMATCH = ErrorCode(
+    code="E302",
+    name="SCHEMA_MISMATCH",
+    module="FeatureEngineer",
+    description="timestamp 格式不符 (INT64/nanoseconds/UTC)",
+    severity=ErrorSeverity.CRITICAL,
+    user_message_template="Schema 不符: timestamp 必須為 INT64/nanoseconds/UTC",
+    recoverable=False
+)
+
+E303_UNKNOWN_QUALITY_FLAG = ErrorCode(
+    code="E303",
+    name="UNKNOWN_QUALITY_FLAG",
+    module="FeatureEngineer",
+    description="輸入包含未定義的 quality_flags",
+    severity=ErrorSeverity.HIGH,
+    user_message_template="未知的品質標記: {flags}",
+    recoverable=True
+)
+
+E304_METADATA_MISSING = ErrorCode(
+    code="E304",
+    name="METADATA_MISSING",
+    module="FeatureEngineer",
+    description="缺少 feature_metadata",
+    severity=ErrorSeverity.WARNING,
+    user_message_template="缺少欄位元資料，使用保守預設",
+    recoverable=True
+)
+
+E305_DATA_LEAKAGE_DETECTED = ErrorCode(
+    code="E305",
+    name="DATA_LEAKAGE_DETECTED",
+    module="FeatureEngineer",
+    description="偵測到 Data Leakage (目標變數資訊洩漏至特徵)",
+    severity=ErrorSeverity.CRITICAL,
+    user_message_template="Data Leakage 偵測: {detail}",
+    recoverable=False
+)
+
+E306_DYNAMIC_GLOBAL_MEAN_RISK = ErrorCode(
+    code="E306",
+    name="DYNAMIC_GLOBAL_MEAN_RISK",
+    module="FeatureEngineer",
+    description="嚴格模式下禁止動態計算全域平均值 (Data Leakage 風險)",
+    severity=ErrorSeverity.HIGH,
+    user_message_template="Data Leakage 風險: 必須提供 Model Artifact 中的 scaling_stats",
+    recoverable=False
+)
+
 # E350-E399: Equipment Validation 錯誤
 E350_EQUIPMENT_LOGIC_PRECHECK_FAILED = ErrorCode(
     code="E350",
@@ -1040,6 +1101,13 @@ ERROR_CODES: Dict[str, ErrorCode] = {
     "E211": E211_FROZEN_DATA_DETECTED,
     "E212": E212_ZERO_RATIO_EXCEEDED,
     "E213": E213_INSUFFICIENT_DATA_GAP,
+    # E300-E349
+    "E301": E301_MANIFEST_INTEGRITY_FAILED,
+    "E302": E302_SCHEMA_MISMATCH,
+    "E303": E303_UNKNOWN_QUALITY_FLAG,
+    "E304": E304_METADATA_MISSING,
+    "E305": E305_DATA_LEAKAGE_DETECTED,
+    "E306": E306_DYNAMIC_GLOBAL_MEAN_RISK,
     # E350-E399
     "E350": E350_EQUIPMENT_LOGIC_PRECHECK_FAILED,
     "E351": E351_EQUIPMENT_VALIDATION_AUDIT_MISSING,
@@ -1916,6 +1984,104 @@ class ETLConfig(BaseModel):
         return True, []
 
 
+class TopologyAggregationConfig(BaseModel):
+    """
+    拓樸聚合配置
+    
+    定義如何從上游設備聚合特徵。
+    """
+    enabled: bool = Field(True, description="是否啟用拓樸聚合")
+    target_physical_types: List[str] = Field(
+        default_factory=lambda: ["temperature", "pressure", "flow_rate"],
+        description="要聚合的物理類型"
+    )
+    aggregation_functions: List[str] = Field(
+        default_factory=lambda: ["mean", "max", "min"],
+        description="聚合函數列表"
+    )
+    missing_strategy: str = Field("skip", description="上游缺失處理策略")
+    min_valid_sources: int = Field(1, description="最小有效來源數量")
+
+
+class ControlDeviationConfig(BaseModel):
+    """
+    控制偏差配置
+    
+    定義如何生成控制偏差特徵。
+    """
+    enabled: bool = Field(True, description="是否啟用控制偏差")
+    deviation_types: List[str] = Field(
+        default_factory=lambda: ["basic", "absolute", "integral"],
+        description="偏差類型列表"
+    )
+    integral_window: int = Field(96, description="積分窗口大小")
+    decay_alpha: float = Field(0.3, description="指數加權平均 alpha")
+
+
+class FeatureEngineeringConfig(BaseModel):
+    """
+    特徵工程配置模型 v1.4
+    
+    定義特徵工程的各項配置，包括：
+    - Lag/Rolling 特徵生成
+    - 拓樸聚合特徵
+    - 控制偏差特徵
+    - 特徵縮放
+    """
+    
+    # 基本設定
+    version: str = Field("1.4.0", description="配置版本")
+    site_id: str = Field(..., description="案場 ID")
+    
+    # Lag 特徵設定
+    lag_enabled: bool = Field(True, description="是否啟用 Lag 特徵")
+    lag_intervals: List[int] = Field(
+        default_factory=lambda: [1, 2, 4, 8, 16, 32],
+        description="Lag 間隔列表"
+    )
+    
+    # Rolling 特徵設定
+    rolling_enabled: bool = Field(True, description="是否啟用 Rolling 特徵")
+    rolling_windows: List[int] = Field(
+        default_factory=lambda: [4, 16, 32, 96],
+        description="Rolling 窗口列表"
+    )
+    rolling_functions: List[str] = Field(
+        default_factory=lambda: ["mean", "std", "min", "max"],
+        description="Rolling 函數列表"
+    )
+    
+    # 差分特徵設定
+    diff_enabled: bool = Field(True, description="是否啟用差分特徵")
+    diff_orders: List[int] = Field(default_factory=lambda: [1], description="差分階數")
+    
+    # 拓樸聚合設定
+    topology_aggregation: TopologyAggregationConfig = Field(
+        default_factory=TopologyAggregationConfig,
+        description="拓樸聚合配置"
+    )
+    
+    # 控制偏差設定
+    control_deviation: ControlDeviationConfig = Field(
+        default_factory=ControlDeviationConfig,
+        description="控制偏差配置"
+    )
+    
+    # 特徵縮放設定
+    scaling_enabled: bool = Field(True, description="是否啟用特徵縮放")
+    scaling_method: str = Field("standard", description="縮放方法 (standard/minmax/robust)")
+    
+    # GNN 設定
+    gnn_enabled: bool = Field(True, description="是否輸出 GNN 資料")
+    gnn_output_format: str = Field("both", description="GNN 輸出格式 (static/timeline/both)")
+    
+    # 防 Data Leakage 設定
+    strict_mode: bool = Field(True, description="嚴格模式（禁止動態計算統計值）")
+    
+    # 記憶體優化
+    memory_optimization: bool = Field(True, description="啟用記憶體優化 (Float32)")
+
+
 # =============================================================================
 # 13. 模組匯出清單
 # =============================================================================
@@ -1967,4 +2133,7 @@ __all__ = [
     "AnnotationConfig",
     "SiteFeatureConfig",
     "ETLConfig",
+    "TopologyAggregationConfig",
+    "ControlDeviationConfig",
+    "FeatureEngineeringConfig",
 ]

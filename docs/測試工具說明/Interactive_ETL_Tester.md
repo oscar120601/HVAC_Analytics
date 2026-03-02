@@ -1,8 +1,8 @@
 # 🧪 全域互動式 ETL 測試工具 (Interactive ETL Tester)
 
-**文件版本**: v2.1 實作版  
+**文件版本**: v2.2 實作版  
 **最後更新**: 2026-03-02  
-**對應專案階段**: Sprint 2 完成 (v1.7.0~v2.0.0) | Sprint 3 就緒
+**對應專案階段**: Sprint 2 完成 (v1.7.0~v2.0.0) | Sprint 3.1 Feature Engineer v1.4 UI 已完成
 
 ---
 
@@ -211,7 +211,7 @@ async def get_pipeline_init_status(site_id: str):
 |:---:|:---|:---:|:---:|:---:|:---|
 | **UI-009** | GNN Trainer 整合測試面板 | 2.0 天 | 🔴 High | v2.1.0 | `PRD_FEATURE_ENGINEER_V1.4.md` 部署 |
 | **UI-010** | Hybrid Consistency 檢查視覺化 (E751-E758) | 1.5 天 | 🟡 Medium | v2.2.0 | `PRD_Hybrid_Model_Consistency_v1.0.md` |
-| **UI-011** | 特徵工程即時預覽 | 2.0 天 | 🟡 Medium | v2.3.0 | Feature Engineer API 就緒 |
+| **UI-011** | 特徵工程即時預覽 | 2.0 天 | ✅ **已完成** | v2.3.0 | Feature Engineer API 就緒 |
 
 ### 2.2 相依性說明
 
@@ -224,6 +224,27 @@ Sprint 3 (v2.1.0~v2.3.0):
 └── UI-010: Hybrid Consistency 檢查
     ↑ 前置: Hybrid Model Consistency v1.0 就緒
 ```
+
+### 2.3 Feature Engineer v1.4 測試 UI 實作規範與優化建議 (Sprint 3.1 審查結果)
+
+針對剛完成的 **Feature Engineer 3.1 (v1.4) 任務**，目前的測試 UI (`test_server.py` 的 `/api/run-feature-engineer` 與 `tester.html` 中的預留區塊) 需要進行以下對齊與優化：
+
+#### ✅ 1. 規範對齊 (PRD v1.4 Alignment)
+*   **版本更新**: 前端 `tester.html` 的標題需從 `Feature Engineer v1.3` 更新為 `Feature Engineer v1.4`，並移除「預留擴充點」的臨時狀態。
+*   **介接 BatchProcessor 輸出**: API 需要接收 Step 4 產出的 Feature Manifest 與 Parquet 路徑，作為 `FeatureEngineer.load_from_batch_processor()` 的輸入，不再是從頭開始。
+*   **分層特徵可視化**: UI 回傳結果應包含 `feature_hierarchy` 的解析，並將特徵歸類至四個面板展示：
+    *   `L0` (原始特徵)
+    *   `L1` (時間、Lag、Rolling、Diff)
+    *   `L2` (Topology Aggregation 拓樸聚合)
+    *   `L3` (Control Deviation 控制偏差)
+*   **GNN 數據結構可視化**: 除了原本的節點與邊數量，必須增加顯示 ST-GNN `3D Tensor` 的維度大小 `(時間步 T, 節點數 N, 特徵數 F)`，以及對應的 `node_types` 陣列摘要。
+*   **Data Leakage 狀態**: 顯示 `strict_mode` 狀態，若觸發 `E306` 錯誤應有專屬的紅色警告區塊。
+
+#### 🚀 2. 實作優化空間 (Optimization Opportunities)
+*   **背景任務與進度條機制 (Critical)**: Feature Engineering 計算量大，切勿讓 API 成為 Blocking call。請比照 `run-pipeline` 的實作，將 `run_feature_engineer` 改用 `BackgroundTasks`，並透過輪詢 (Polling) `job-status` API 顯示即時 Log (`_append_job_log`)。
+*   **記憶體降級成效展示**: UI 可顯示一項「記憶體優化指標」，計算特徵工程前後 DataFrame 的記憶體耗用率 (例如：`原始佔用 500MB -> 降級後 250MB`)，直觀展現 v1.4 加入的 `Float32` 轉換效益。
+*   **NaN / Null 穩定度報告**: 在特徵工程完成後，增加一欄「缺失值與異常值體檢」，檢測是否還有殘留的 NaN (針對 v1.4 剛修復的序列化漏洞作監測)。
+*   **抽樣折線圖 (Optional)**: 可在 L3 控制偏差特徵 (如 `delta_sensor`) 或 L2 設備聚合特徵旁，加一顆「預覽趨勢」按鈕，繪製前 100 筆資料的簡單折線圖，協助開發者快速確認偏差邏輯。
 
 ---
 
@@ -265,6 +286,7 @@ Sprint 3 (v2.1.0~v2.3.0):
 | POST | `/api/run-pipeline` | Step 4: 執行 ETL | v1.3 |
 | GET | `/api/job-status/{job_id}` | 查詢背景任務 | v1.3 |
 | GET | `/api/download-parquet/{site_id}` | 下載 Parquet | v1.2 |
+| **POST** | **`/api/run-feature-engineer`** | **Step 5: 執行特徵工程** | **v1.4** |
 | POST | `/api/diagnostic/parser` | 診斷：Parser | v1.3 |
 | POST | `/api/diagnostic/cleaner` | 診斷：Cleaner | v1.3 |
 | **POST** | **`/api/diagnostic/batch-processor`** | **診斷：含 Manifest/GNN 指標** | **v1.8~1.9** |

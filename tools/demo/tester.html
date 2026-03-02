@@ -146,6 +146,37 @@
             padding: 10px;
         }
 
+        /* UI-011: Feature Engineer v1.4 動畫效果 */
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .terminal-box {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text);
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .job-meta {
+            font-size: 0.8rem;
+            line-height: 1.6;
+        }
+
+        .pipeline-live-grid {
+            display: grid;
+            grid-template-columns: 1.3fr 0.7fr;
+            gap: 16px;
+        }
+
         .health-banner {
             padding: 12px 20px;
             border-radius: 8px;
@@ -630,15 +661,209 @@
             </div>
         </div>
 
-        <!-- Step 5 (Sprint 3 預留) -->
+        <!-- Step 5: Feature Engineer v1.4 (UI-011) -->
         <div class="step-card" id="step4Card" style="display: none; border-color: var(--purple);">
             <div class="step-badge" style="background: var(--purple);">STEP 5 (Sprint 3)</div>
-            <h3>執行特徵工程 (Feature Engineer v1.3)</h3>
-            <p style="font-size: 0.9rem; color: var(--text-dim);">此為 Sprint 3 的預留擴充點。將讀取 BatchProcessor 輸出的資料進行
-                Lag/Rolling 回溯與特徵轉換。</p>
-            <button onclick="runFeatureEngineer()" id="btnStep4">🔮 開始特徵工程</button>
-            <div id="loader4" style="display:none; margin-top:10px; color: var(--yellow);">⏳ 執行中...</div>
-            <pre id="msg4" class="result-box" style="display:none;"></pre>
+            <h3>執行特徵工程 (Feature Engineer v1.4) - 拓樸感知與控制語意</h3>
+            
+            <!-- PRD v1.4 功能說明 -->
+            <div style="margin-bottom: 15px; padding: 12px; background: rgba(167, 139, 250, 0.05); border-left: 3px solid var(--purple); border-radius: 4px; font-size: 0.85rem; color: var(--text-dim);">
+                <strong style="color: var(--purple);">PRD v1.4 功能：</strong>
+                支援 L0-L3 分層特徵生成、拓樸聚合 (L2)、控制偏差 (L3)、GNN 3D Tensor 輸出、Float32 記憶體優化、Data Leakage 防護
+            </div>
+
+            <!-- 輸入區 -->
+            <div style="margin-bottom: 15px;">
+                <label>案場名稱 (Site ID):</label>
+                <input type="text" id="siteId4" value="demo_site" style="margin-bottom: 10px;">
+                
+                <!-- Data Leakage 模式選擇 -->
+                <div style="margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="strictModeCheck" checked style="margin: 0;">
+                        <span style="font-size: 0.9rem;">啟用 strict_mode (Data Leakage 防護)</span>
+                    </label>
+                    <div style="margin-top: 5px; font-size: 0.8rem; color: var(--text-dim);">
+                        啟用後若缺少 Model Artifact 將觸發 E306 警告
+                    </div>
+                </div>
+            </div>
+
+            <!-- 執行按鈕 -->
+            <button onclick="runFeatureEngineerV14()" id="btnStep4" style="border-color: var(--purple); color: var(--purple); background: rgba(167, 139, 250, 0.1);">
+                🔮 開始特徵工程 v1.4
+            </button>
+            <div id="loader4" style="display:none; margin-top:10px; color: var(--yellow);">⏳ 初始化中...</div>
+
+            <!-- 背景任務輪詢狀態 -->
+            <div id="feJobStatus" style="display:none; margin-top: 15px; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <div id="feStatusIndicator" style="width: 10px; height: 10px; border-radius: 50%; background: var(--yellow); animation: pulse 1s infinite;"></div>
+                    <span id="feStatusText" style="font-weight: 500;">等待任務啟動...</span>
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 10px;">
+                    Job ID: <span id="feJobId" style="font-family: monospace;">-</span>
+                </div>
+                
+                <!-- 即時日誌 -->
+                <div class="pipeline-live-grid" style="display: grid; grid-template-columns: 1.3fr 0.7fr; gap: 16px;">
+                    <div>
+                        <h4 style="color: var(--purple); margin: 0 0 8px 0; font-size: 0.95rem;">🖥️ 執行日誌 (Live)</h4>
+                        <div id="feLiveLog" class="terminal-box" style="max-height: 320px; font-size: 0.8rem;">[尚未開始執行]</div>
+                    </div>
+                    <div>
+                        <h4 style="color: var(--cyan); margin: 0 0 8px 0; font-size: 0.95rem;">📌 即時狀態</h4>
+                        <div id="feLiveMeta" class="result-box job-meta" style="max-height: 320px; font-size: 0.8rem;">等待任務啟動...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 結果展示區 -->
+            <div id="feResultSection" style="display:none; margin-top: 20px;">
+                
+                <!-- 記憶體優化成效 -->
+                <div style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, rgba(6, 214, 160, 0.1), rgba(6, 214, 160, 0.05)); border: 1px solid var(--green); border-radius: 8px;">
+                    <h4 style="color: var(--green); margin: 0 0 10px 0;">💾 記憶體優化成效 (Float32)</h4>
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; text-align: center;">
+                        <div>
+                            <div style="font-size: 0.8rem; color: var(--text-dim);">原始佔用</div>
+                            <div id="feMemOriginal" style="font-size: 1.3rem; font-weight: bold; color: var(--text);">-</div>
+                            <div style="font-size: 0.75rem; color: var(--text-dim);">MB</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.8rem; color: var(--text-dim);">優化後</div>
+                            <div id="feMemFinal" style="font-size: 1.3rem; font-weight: bold; color: var(--green);">-</div>
+                            <div style="font-size: 0.75rem; color: var(--text-dim);">MB</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.8rem; color: var(--text-dim);">節省</div>
+                            <div id="feMemSaved" style="font-size: 1.3rem; font-weight: bold; color: var(--cyan);">-</div>
+                            <div style="font-size: 0.75rem; color: var(--text-dim);">MB</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.8rem; color: var(--text-dim);">節省比例</div>
+                            <div id="feMemSavedPct" style="font-size: 1.3rem; font-weight: bold; color: var(--yellow);">-</div>
+                            <div style="font-size: 0.75rem; color: var(--text-dim);">%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- L0-L3 分層特徵統計 -->
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: var(--cyan); margin-bottom: 10px;">📊 L0-L3 分層特徵統計</h4>
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                        <!-- L0 -->
+                        <div style="padding: 15px; background: rgba(122, 146, 184, 0.15); border: 1px solid var(--text-dim); border-radius: 8px; text-align: center;">
+                            <div style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 5px;">L0 原始特徵</div>
+                            <div id="feL0Count" style="font-size: 2rem; font-weight: bold; color: var(--text);">-</div>
+                            <div style="font-size: 0.75rem; color: var(--text-dim);">Raw Sensor</div>
+                        </div>
+                        <!-- L1 -->
+                        <div style="padding: 15px; background: rgba(0, 212, 255, 0.1); border: 1px solid var(--cyan); border-radius: 8px; text-align: center;">
+                            <div style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 5px;">L1 時間特徵</div>
+                            <div id="feL1Count" style="font-size: 2rem; font-weight: bold; color: var(--cyan);">-</div>
+                            <div style="font-size: 0.75rem; color: var(--text-dim);">Lag/Rolling/Diff</div>
+                        </div>
+                        <!-- L2 -->
+                        <div style="padding: 15px; background: rgba(167, 139, 250, 0.1); border: 1px solid var(--purple); border-radius: 8px; text-align: center;">
+                            <div style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 5px;">L2 拓樸聚合</div>
+                            <div id="feL2Count" style="font-size: 2rem; font-weight: bold; color: var(--purple);">-</div>
+                            <div style="font-size: 0.75rem; color: var(--text-dim);">Topology</div>
+                        </div>
+                        <!-- L3 -->
+                        <div style="padding: 15px; background: rgba(255, 209, 102, 0.1); border: 1px solid var(--yellow); border-radius: 8px; text-align: center;">
+                            <div style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 5px;">L3 控制偏差</div>
+                            <div id="feL3Count" style="font-size: 2rem; font-weight: bold; color: var(--yellow);">-</div>
+                            <div style="font-size: 0.75rem; color: var(--text-dim);">Control Δ</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Leakage 狀態 -->
+                <div id="feDataLeakagePanel" style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid var(--border);">
+                    <h4 style="color: var(--text); margin: 0 0 10px 0;">🛡️ Data Leakage 防護狀態</h4>
+                    <div style="display: flex; gap: 20px; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span id="feStrictModeBadge" style="padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 500;">-</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span>Model Artifact:</span>
+                            <span id="feModelArtifactStatus" style="font-weight: 500;">-</span>
+                        </div>
+                    </div>
+                    <div id="feE306Warning" style="display:none; margin-top: 10px; padding: 10px; background: rgba(239, 71, 111, 0.15); border: 1px solid #ef476f; border-radius: 6px;">
+                        <div style="color: #ef476f; font-weight: bold;">⚠️ E306: DYNAMIC_GLOBAL_MEAN_RISK</div>
+                        <div style="font-size: 0.85rem; color: #ff8fa3; margin-top: 5px;">
+                            strict_mode 啟用但缺少 Model Artifact，存在 Data Leakage 風險
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GNN 資料結構 -->
+                <div style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                    <h4 style="color: var(--purple); margin: 0 0 10px 0;">🕸️ GNN 資料結構 (ST-GNN Ready)</h4>
+                    
+                    <!-- 3D Tensor 維度 -->
+                    <div style="margin-bottom: 15px; padding: 12px; background: rgba(167, 139, 250, 0.1); border-radius: 6px;">
+                        <div style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 8px;">3D Tensor 維度 (T, N, F)</div>
+                        <div style="display: flex; gap: 20px; align-items: center;">
+                            <div style="text-align: center; padding: 10px 20px; background: rgba(0,0,0,0.3); border-radius: 6px;">
+                                <div style="font-size: 0.75rem; color: var(--text-dim);">時間步 T</div>
+                                <div id="feTensorT" style="font-size: 1.5rem; font-weight: bold; color: var(--purple);">-</div>
+                            </div>
+                            <div style="color: var(--text-dim);">×</div>
+                            <div style="text-align: center; padding: 10px 20px; background: rgba(0,0,0,0.3); border-radius: 6px;">
+                                <div style="font-size: 0.75rem; color: var(--text-dim);">節點數 N</div>
+                                <div id="feTensorN" style="font-size: 1.5rem; font-weight: bold; color: var(--purple);">-</div>
+                            </div>
+                            <div style="color: var(--text-dim);">×</div>
+                            <div style="text-align: center; padding: 10px 20px; background: rgba(0,0,0,0.3); border-radius: 6px;">
+                                <div style="font-size: 0.75rem; color: var(--text-dim);">特徵數 F</div>
+                                <div id="feTensorF" style="font-size: 1.5rem; font-weight: bold; color: var(--purple);">-</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 拓樸摘要 -->
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                        <div style="text-align: center; padding: 10px;">
+                            <div style="font-size: 0.8rem; color: var(--text-dim);">節點數</div>
+                            <div id="feNumNodes" style="font-size: 1.3rem; font-weight: bold; color: var(--text);">-</div>
+                        </div>
+                        <div style="text-align: center; padding: 10px;">
+                            <div style="font-size: 0.8rem; color: var(--text-dim);">邊數</div>
+                            <div id="feNumEdges" style="font-size: 1.3rem; font-weight: bold; color: var(--text);">-</div>
+                        </div>
+                        <div style="text-align: center; padding: 10px;">
+                            <div style="font-size: 0.8rem; color: var(--text-dim);">設備類型</div>
+                            <div id="feNodeTypes" style="font-size: 1rem; font-weight: bold; color: var(--cyan);">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NaN/Null 穩定度報告 -->
+                <div id="feNanPanel" style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid var(--border);">
+                    <h4 style="color: var(--text); margin: 0 0 10px 0;">🔍 NaN/Null 穩定度報告</h4>
+                    <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span>狀態:</span>
+                            <span id="feNanStatus" style="font-weight: 500;">-</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span>殘留 NaN:</span>
+                            <span id="feNanCount" style="font-weight: 500;">-</span>
+                        </div>
+                    </div>
+                    <div id="feNanFeatures" style="font-size: 0.85rem; color: var(--text-dim);"></div>
+                </div>
+
+                <!-- 詳細 JSON 輸出 -->
+                <div class="result-box-wrapper">
+                    <button class="copy-btn" onclick="copyToClipboard('feJsonOutput', this)">複製 JSON</button>
+                    <h4 style="color: var(--cyan); margin-bottom: 10px;">📄 完整輸出 (Feature Manifest)</h4>
+                    <div id="feJsonOutput" class="result-box" style="max-height: 400px; font-size: 0.75rem;">[等待執行...]</div>
+                </div>
+            </div>
         </div>
 
         <!-- Step 6 (Sprint 4 預留) -->
@@ -1422,9 +1647,12 @@
                     document.getElementById('errorOutput').style.display = 'none';
                     document.getElementById('diagnosticSection').style.display = 'none';
 
-                    // 檢查是否可以開啟 Step 5
+                    // 檢查是否可以開啟 Step 5 (UI-011: Feature Engineer v1.4)
                     if (pipelineData.feature_engineer_input_ready) {
                         document.getElementById('step4Card').style.display = 'block';
+                        // 同步 site_id 到 Step 5
+                        document.getElementById('siteId4').value = siteId;
+                        console.log(`[UI-011] Step 5 (Feature Engineer v1.4) 已解鎖，Site ID: ${siteId}`);
                     }
 
                     // Update UI - 優化版渲染
@@ -1480,36 +1708,238 @@
             }
         }
 
-        async function runFeatureEngineer() {
-            const siteId = document.getElementById('siteId3').value;
-            const msg = document.getElementById('msg4');
+        // ============================================================
+        // UI-011: Feature Engineer v1.4 即時預覽功能
+        // ============================================================
+        
+        let feJobPollingInterval = null;
+        let currentFeJobId = null;
 
+        async function runFeatureEngineerV14() {
+            const siteId = document.getElementById('siteId4').value;
+            const strictMode = document.getElementById('strictModeCheck').checked;
+            
+            if (!siteId) {
+                alert("請填寫案場 ID！");
+                return;
+            }
+
+            // UI 狀態重置
             document.getElementById('loader4').style.display = 'block';
             document.getElementById('btnStep4').disabled = true;
-            msg.style.display = 'none';
+            document.getElementById('feJobStatus').style.display = 'block';
+            document.getElementById('feResultSection').style.display = 'none';
+            document.getElementById('feJsonOutput').textContent = '[等待執行...]';
+            
+            // 重置狀態顯示
+            document.getElementById('feStatusIndicator').style.background = 'var(--yellow)';
+            document.getElementById('feStatusIndicator').style.animation = 'pulse 1s infinite';
+            document.getElementById('feStatusText').textContent = '提交任務中...';
+            document.getElementById('feLiveLog').textContent = '[等待任務啟動]';
+            document.getElementById('feLiveMeta').textContent = '狀態: pending\n階段: initializing';
 
             const formData = new FormData();
             formData.append("site_id", siteId);
+            formData.append("strict_mode", strictMode);
 
             try {
                 const response = await fetch("http://localhost:8000/api/run-feature-engineer", {
-                    method: "POST", body: formData
+                    method: "POST",
+                    body: formData
                 });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+
                 const data = await response.json();
 
-                msg.textContent = JSON.stringify(data, null, 2);
-                msg.style.display = 'block';
-
-                if (data.optimization_input_ready) {
-                    document.getElementById('step5Card').style.display = 'block';
+                if (data.status === "accepted" && data.job_id) {
+                    currentFeJobId = data.job_id;
+                    document.getElementById('feJobId').textContent = data.job_id.substring(0, 8) + '...';
+                    document.getElementById('feStatusText').textContent = '任務已接受，輪詢中...';
+                    
+                    // 開始輪詢任務狀態
+                    startFeJobPolling(data.job_id);
+                } else {
+                    throw new Error(data.message || "未知錯誤");
                 }
             } catch (error) {
-                msg.textContent = "❌ API 請求失敗: " + error.message;
-                msg.style.display = 'block';
-            } finally {
+                document.getElementById('feStatusText').textContent = '任務提交失敗';
+                document.getElementById('feStatusIndicator').style.background = '#ef476f';
+                document.getElementById('feStatusIndicator').style.animation = 'none';
+                document.getElementById('feLiveLog').textContent = `❌ 錯誤: ${error.message}`;
                 document.getElementById('loader4').style.display = 'none';
                 document.getElementById('btnStep4').disabled = false;
             }
+        }
+
+        function startFeJobPolling(jobId) {
+            // 清除舊的輪詢
+            if (feJobPollingInterval) {
+                clearInterval(feJobPollingInterval);
+            }
+
+            let pollCount = 0;
+            const maxPolls = 300; // 最多輪詢 300 次 (約 5 分鐘)
+
+            feJobPollingInterval = setInterval(async () => {
+                pollCount++;
+                
+                if (pollCount > maxPolls) {
+                    clearInterval(feJobPollingInterval);
+                    document.getElementById('feStatusText').textContent = '輪詢超時';
+                    document.getElementById('feLiveLog').textContent += '\n[輪詢超時，請手動檢查結果]';
+                    document.getElementById('loader4').style.display = 'none';
+                    document.getElementById('btnStep4').disabled = false;
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`http://localhost:8000/api/job-status/${jobId}`);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    
+                    const job = await response.json();
+                    updateFeJobStatus(job);
+
+                    // 任務完成或失敗
+                    if (job.status === 'completed' || job.status === 'failed') {
+                        clearInterval(feJobPollingInterval);
+                        feJobPollingInterval = null;
+                        
+                        if (job.status === 'completed' && job.result) {
+                            renderFeResults(job.result);
+                            // 啟用 Step 6
+                            document.getElementById('step5Card').style.display = 'block';
+                        }
+                        
+                        document.getElementById('loader4').style.display = 'none';
+                        document.getElementById('btnStep4').disabled = false;
+                    }
+                } catch (error) {
+                    console.error('輪詢錯誤:', error);
+                    // 繼續輪詢，不中斷
+                }
+            }, 1000); // 每秒輪詢一次
+        }
+
+        function updateFeJobStatus(job) {
+            if (!job) return;
+
+            // 更新狀態指示器
+            const indicator = document.getElementById('feStatusIndicator');
+            const statusText = document.getElementById('feStatusText');
+            
+            if (job.status === 'completed') {
+                indicator.style.background = 'var(--green)';
+                indicator.style.animation = 'none';
+                statusText.textContent = '✅ 執行完成';
+            } else if (job.status === 'failed') {
+                indicator.style.background = '#ef476f';
+                indicator.style.animation = 'none';
+                statusText.textContent = '❌ 執行失敗';
+            } else if (job.status === 'running') {
+                indicator.style.background = 'var(--cyan)';
+                indicator.style.animation = 'pulse 1s infinite';
+                statusText.textContent = '🔄 執行中...';
+            }
+
+            // 更新日誌
+            const logs = Array.isArray(job.progress_log) ? job.progress_log : [];
+            const logLines = logs.map(entry => {
+                const stageTag = entry.stage ? ` [${entry.stage}]` : '';
+                return `${entry.timestamp || ''} ${entry.level || 'INFO'}${stageTag} - ${entry.message || ''}`;
+            });
+            document.getElementById('feLiveLog').textContent = logLines.length > 0 
+                ? logLines.join('\n') 
+                : '[暫無日誌]';
+            document.getElementById('feLiveLog').scrollTop = document.getElementById('feLiveLog').scrollHeight;
+
+            // 更新元數據
+            document.getElementById('feLiveMeta').textContent = 
+                `狀態: ${job.status || '-'}\n` +
+                `階段: ${job.stage || '-'}\n` +
+                `Site: ${job.site_id || '-'}\n` +
+                `輪詢次數: ${document.getElementById('feLiveMeta').textContent.split('輪詢次數:')[1] || 0}`;
+        }
+
+        function renderFeResults(result) {
+            document.getElementById('feResultSection').style.display = 'block';
+            
+            // 1. 記憶體優化成效
+            const mem = result.memory_optimization || {};
+            document.getElementById('feMemOriginal').textContent = mem.original_mb || '-';
+            document.getElementById('feMemFinal').textContent = mem.final_mb || '-';
+            document.getElementById('feMemSaved').textContent = mem.saved_mb || '-';
+            document.getElementById('feMemSavedPct').textContent = mem.saved_percent || '-';
+            
+            // 2. L0-L3 分層統計
+            const stats = result.feature_hierarchy_stats || {};
+            document.getElementById('feL0Count').textContent = stats.L0_original || 0;
+            document.getElementById('feL1Count').textContent = stats.L1_temporal || 0;
+            document.getElementById('feL2Count').textContent = stats.L2_topology || 0;
+            document.getElementById('feL3Count').textContent = stats.L3_control || 0;
+            
+            // 3. Data Leakage 狀態
+            const dlStatus = result.data_leakage_status || {};
+            const strictBadge = document.getElementById('feStrictModeBadge');
+            strictBadge.textContent = dlStatus.strict_mode ? 'Strict Mode ON' : 'Strict Mode OFF';
+            strictBadge.style.background = dlStatus.strict_mode ? 'rgba(239, 71, 111, 0.2)' : 'rgba(122, 146, 184, 0.2)';
+            strictBadge.style.color = dlStatus.strict_mode ? '#ef476f' : 'var(--text-dim)';
+            strictBadge.style.border = `1px solid ${dlStatus.strict_mode ? '#ef476f' : 'var(--text-dim)'}`;
+            
+            document.getElementById('feModelArtifactStatus').textContent = 
+                dlStatus.model_artifact_available ? '✅ 已載入' : '❌ 未找到';
+            document.getElementById('feModelArtifactStatus').style.color = 
+                dlStatus.model_artifact_available ? 'var(--green)' : '#ef476f';
+            
+            // E306 警告
+            const e306Warning = document.getElementById('feE306Warning');
+            if (dlStatus.violations && dlStatus.violations.length > 0) {
+                e306Warning.style.display = 'block';
+            } else {
+                e306Warning.style.display = 'none';
+            }
+            
+            // 4. GNN 資料結構
+            const gnn = result.gnn_summary || {};
+            const tensorShape = gnn.tensor_shape || [0, 0, 0];
+            document.getElementById('feTensorT').textContent = tensorShape[0] || 0;
+            document.getElementById('feTensorN').textContent = tensorShape[1] || 0;
+            document.getElementById('feTensorF').textContent = tensorShape[2] || 0;
+            document.getElementById('feNumNodes').textContent = gnn.num_nodes || 0;
+            document.getElementById('feNumEdges').textContent = gnn.num_edges || 0;
+            
+            // 設備類型摘要
+            const nodeTypes = gnn.node_types || [];
+            const uniqueTypes = [...new Set(nodeTypes)];
+            document.getElementById('feNodeTypes').textContent = uniqueTypes.join(', ') || 'N/A';
+            
+            // 5. NaN/Null 穩定度
+            const nanInfo = result.nan_stability || {};
+            document.getElementById('feNanStatus').textContent = nanInfo.is_stable ? '✅ 穩定' : '⚠️ 有殘留';
+            document.getElementById('feNanStatus').style.color = nanInfo.is_stable ? 'var(--green)' : '#ef476f';
+            document.getElementById('feNanCount').textContent = nanInfo.total_nan_count || 0;
+            document.getElementById('feNanCount').style.color = nanInfo.total_nan_count > 0 ? '#ef476f' : 'var(--green)';
+            
+            const nanFeatures = nanInfo.nan_features || [];
+            if (nanFeatures.length > 0) {
+                document.getElementById('feNanFeatures').textContent = 
+                    `有 NaN 的特徵: ${nanFeatures.join(', ')}${nanInfo.nan_feature_count > nanFeatures.length ? ` 等共 ${nanInfo.nan_feature_count} 個` : ''}`;
+            } else {
+                document.getElementById('feNanFeatures').textContent = '所有特徵均已填補完成';
+            }
+            
+            // 6. JSON 輸出
+            document.getElementById('feJsonOutput').textContent = JSON.stringify(result, null, 2);
+        }
+
+        // 保留舊函數名稱以相容現有呼叫 (會被重新導向到新函數)
+        async function runFeatureEngineer() {
+            // 同步 site_id 並呼叫新函數
+            const siteId3 = document.getElementById('siteId3').value;
+            document.getElementById('siteId4').value = siteId3;
+            await runFeatureEngineerV14();
         }
 
         async function runOptimization() {

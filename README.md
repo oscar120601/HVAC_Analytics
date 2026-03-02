@@ -2,7 +2,7 @@
 
 > 空調節能系統核心引擎 - 資料清洗與能源最佳化建議
 
-**專案狀態**: ✅ Phase 0 Retrofit 完成 | Sprint 3-5 開發就緒  
+**專案狀態**: ✅ Sprint 3.1 Feature Engineer v1.4 完成 | Sprint 3.2 Model Training v1.4 待開始  
 **最後更新**: 2026-03-02
 
 ---
@@ -42,7 +42,7 @@ Raw Data → Parser → Cleaner → BatchProcessor → FeatureEngineer → Model
 | Sprint 2 | Cleaner v2.2 | ✅ 已完成 | 26/26 通過 🟢 A級 |
 | Sprint 2 | BatchProcessor v1.3 | ✅ 已完成 | 32/32 通過 |
 | **Phase 0** | **v1.4 Retrofit** | ✅ **已完成** | ETL 拓樸貫通 |
-| Sprint 3 | Feature Engineer v1.4 | ⏳ 待開發 | GNN 輸出 |
+| Sprint 3 | **Feature Engineer v1.4** | ✅ **已完成** | **拓樸感知 + GNN 輸出** |
 | Sprint 3 | Model Training v1.4 | ⏳ 待開發 | Physics Loss |
 | Sprint 4 | Continual Learning v1.1 | ⏳ 待開發 | GEM + Drift |
 | Sprint 4 | Optimization v1.2 | ⏳ 待開發 | CL 整合 |
@@ -98,7 +98,12 @@ HVAC-1/
 │   │   ├── parser/             # Parser V2.2 模組化
 │   │   ├── cleaner.py          # DataCleaner v2.2
 │   │   ├── batch_processor.py  # BatchProcessor v1.3
+│   │   ├── feature_engineer.py # Feature Engineer v1.4 🆕
 │   │   └── config_models.py    # SSOT 配置模型
+│   ├── training/               # 模型訓練 🆕
+│   │   ├── gnn_trainer.py      # Multi-Task GNN Trainer
+│   │   ├── physics_loss.py     # 物理守恆損失
+│   │   └── base_trainer.py     # 訓練器基礎
 │   └── utils/                  # 工具函式
 ├── config/                     # 配置檔案
 │   ├── features/               # Feature Annotation YAML
@@ -163,6 +168,48 @@ parser = ParserFactory.create_parser("siemens_scheduler")
 - **設備邏輯預檢**: E350 設備違規檢測
 - **Schema 淨化**: E500 防護確保敏感欄位不外洩
 
+### Feature Engineer v1.4 - 拓樸感知特徵工程
+
+支援 L0-L3 分層特徵生成與 GNN 資料匯出：
+
+```python
+from src.etl.feature_engineer import FeatureEngineer, run_feature_engineering
+from src.etl.config_models import FeatureEngineeringConfig
+
+# 配置
+config = FeatureEngineeringConfig(
+    site_id="demo_site",
+    lag_intervals=[1, 2, 4, 8],
+    rolling_windows=[4, 16, 32],
+    gnn_enabled=True
+)
+
+# 執行特徵工程
+result = run_feature_engineering(
+    manifest_path="output/manifest.json",
+    site_id="demo_site",
+    output_dir="output/features/",
+    config=config
+)
+
+# 取得 GNN 資料
+gnn_data = result["gnn_data"]
+print(f"鄰接矩陣形狀: {gnn_data['adjacency_matrix'].shape}")
+print(f"3D Tensor 形狀: {gnn_data['tensor_3d'].shape}")  # (T, N, F)
+```
+
+**特徵分層**:
+- **L0**: 原始特徵 (直接從資料讀取)
+- **L1**: 統計特徵 (Lag, Rolling, Diff, 時間特徵)
+- **L2**: 拓樸特徵 (上游設備聚合: mean/max/min/std)
+- **L3**: 控制特徵 (Sensor-Setpoint 偏差)
+
+**GNN 輸出**:
+- 鄰接矩陣 (NxN)
+- 3D Tensor (Time, Nodes, Features)
+- 設備節點特徵
+- Node Types 列表
+
 ### Feature Annotation v1.4
 
 Excel → YAML 單向轉換，支援拓樸註記：
@@ -187,6 +234,7 @@ pytest tests/ -v
 pytest tests/test_parser_v21.py -v
 pytest tests/test_cleaner_v22.py -v
 pytest tests/test_batch_processor_v13.py -v
+pytest tests/test_feature_engineer_v14.py -v  # 🆕 Feature Engineer v1.4
 ```
 
 ---
@@ -198,7 +246,7 @@ pytest tests/test_batch_processor_v13.py -v
 | E000-E099 | 系統級錯誤 (時間基準、上下文) |
 | E100-E199 | Parser 錯誤 (編碼、時區、標頭) |
 | E200-E299 | 資料品質錯誤 (缺漏、異常、未來資料) |
-| E300-E399 | Feature Annotation 錯誤 |
+| E300-E349 | Feature Engineer 輸入錯誤 (E301-E306) 🆕 v1.4 |
 | E350-E399 | 設備驗證錯誤 (E350 設備邏輯違規) |
 | E400-E499 | 配置錯誤 (SSOT、同步檢查) |
 | E500-E599 | 安全錯誤 (device_role 外洩) |
@@ -212,6 +260,15 @@ pytest tests/test_batch_processor_v13.py -v
 ---
 
 ## 📅 近期更新
+
+### [v1.7.0] - 2026-03-02
+- ✅ **Feature Engineer v1.4 完成** - 拓樸感知與控制語意特徵工程
+  - L0-L3 分層特徵生成 (原始 → Lag/Rolling → 拓樸聚合 → 控制偏差)
+  - GNN 資料匯出 (鄰接矩陣、3D Tensor、設備特徵)
+  - Data Leakage 防護與記憶體優化
+  - 單元測試: `tests/test_feature_engineer_v14.py`
+- ✅ 新增 Managers: `TopologyManager`, `ControlSemanticsManager`
+- ✅ 新增錯誤代碼: E301-E306 (Feature Engineer)
 
 ### [v1.6.0] - 2026-03-02
 - ✅ Phase 0 Retrofit 完成 - ETL 管線拓樸貫通

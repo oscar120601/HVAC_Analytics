@@ -56,6 +56,8 @@ from src.context import PipelineContext
 from src.etl.batch_processor import BatchProcessor
 from src.etl.parser import ParserFactory
 from src.etl.parser.utils import load_site_config
+from src.etl.feature_engineer import FeatureEngineer
+from src.etl.config_models import FeatureEngineeringConfig
 from tools.features.wizard import FeatureAnnotationWizard
 from tools.features.excel_to_yaml import ExcelToYamlConverter
 
@@ -955,15 +957,270 @@ def process_pipeline_task(
 
 
 @app.post("/api/run-feature-engineer")
-async def run_feature_engineer(site_id: str = Form(...)):
-    """STEP 5: 執行 Sprint 3 特徵工程 (預留擴充點)"""
-    # TODO: 在 Sprint 3 實作 FeatureEngineer 時完善此路由
-    return {
-        "status": "success",
-        "message": "Sprint 3 Feature Engineer 尚未實作，此為預留擴充點！",
+async def run_feature_engineer(
+    site_id: str = Form(...),
+    background_tasks: BackgroundTasks = None
+):
+    """
+    STEP 5: 執行 Feature Engineer v1.4 (拓樸感知與控制語意)
+    
+    UI-011: 特徵工程即時預覽 - 背景任務模式
+    """
+    job_id = str(uuid.uuid4())
+    
+    # 初始化 job 狀態
+    pipeline_jobs[job_id] = {
+        "job_id": job_id,
         "site_id": site_id,
-        "optimization_input_ready": True
+        "status": "pending",
+        "stage": "initializing",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "progress_log": [],
+        "result": None,
+        "error": None
     }
+    
+    # 啟動背景任務
+    background_tasks.add_task(_run_feature_engineer_task, job_id, site_id)
+    
+    return {
+        "status": "accepted",
+        "job_id": job_id,
+        "message": "Feature Engineer v1.4 任務已啟動 (背景模式)",
+        "site_id": site_id,
+        "poll_endpoint": f"/api/job-status/{job_id}"
+    }
+
+
+def _run_feature_engineer_task(job_id: str, site_id: str):
+    """
+    Feature Engineer v1.4 背景任務執行器
+    
+    PRD v1.4 對齊項目：
+    - L0-L3 分層特徵生成
+    - 拓樸聚合 (L2) 與控制偏差 (L3)
+    - GNN 3D Tensor 輸出 (T, N, F)
+    - Float32 記憶體優化
+    - Data Leakage 防護 (E306)
+    """
+    import numpy as np
+    from src.etl.feature_engineer import FeatureEngineer
+    from src.etl.config_models import FeatureEngineeringConfig
+    
+    job = pipeline_jobs[job_id]
+    
+    def log(msg: str, level: str = "INFO", stage: str = ""):
+        _append_job_log(job_id, msg, level, stage)
+    
+    try:
+        # Stage 1: 初始化
+        job["status"] = "running"
+        job["stage"] = "initialization"
+        log(f"🚀 初始化 Feature Engineer v1.4 (Site: {site_id})", "INFO", "initialization")
+        
+        # 尋找 BatchProcessor 輸出的 manifest
+        # BatchProcessor 輸出結構: data/processed/{batch_id}/manifest.json
+        bp_output_dir = Path("data/processed")
+        
+        # 方法1: 尋找所有 manifest.json，並過濾符合 site_id 的
+        all_manifests = list(bp_output_dir.rglob("manifest.json"))
+        manifest_files = []
+        
+        for mf in all_manifests:
+            try:
+                with open(mf, 'r', encoding='utf-8') as f:
+                    mf_data = json.load(f)
+                if mf_data.get('site_id') == site_id:
+                    manifest_files.append(mf)
+            except:
+                continue  # 無法讀取的檔案跳過
+        
+        # 方法2: 如果找不到，嘗試尋找 latest/manifest_v1.3.json (舊版相容)
+        if not manifest_files:
+            v3_manifests = list(bp_output_dir.rglob("manifest_v1.3.json"))
+            for mf in v3_manifests:
+                try:
+                    with open(mf, 'r', encoding='utf-8') as f:
+                        mf_data = json.load(f)
+                    if mf_data.get('site_id') == site_id:
+                        manifest_files.append(mf)
+                except:
+                    continue
+        
+        if not manifest_files:
+            # 列出所有找到的 manifests (用於除錯)
+            debug_info = f"找到的 manifest 檔案: {[str(m.relative_to(bp_output_dir)) for m in all_manifests][:5]}"
+            raise FileNotFoundError(
+                f"找不到 Site '{site_id}' 的 BatchProcessor Manifest。請先執行 Step 4。\n"
+                f"{debug_info}"
+            )
+        
+        # 使用最新的 manifest
+        latest_manifest = max(manifest_files, key=lambda p: p.stat().st_mtime)
+        log(f"📄 載入 Manifest: {latest_manifest.name}", "INFO", "initialization")
+        
+        # Stage 2: 載入配置
+        job["stage"] = "loading"
+        log("⚙️ 載入 Feature Engineering Config...", "INFO", "loading")
+        
+        config = FeatureEngineeringConfig(
+            version="1.4",
+            enable_lag_features=True,
+            enable_rolling_features=True,
+            enable_topology_features=True,
+            enable_control_deviation=True,
+            lag_intervals=[1, 2, 3, 6, 12, 24],  # 5min 間隔的假設
+            rolling_windows=[12, 24, 48, 96],    # 1hr, 2hr, 4hr, 8hr
+            strict_mode=True,  # Data Leakage 防護
+            float32_optimization=True  # 記憶體優化
+        )
+        
+        # Stage 3: 初始化 FeatureEngineer
+        log("🔧 初始化 TopologyManager & ControlSemanticsManager...", "INFO", "loading")
+        engineer = FeatureEngineer(
+            config=config,
+            site_id=site_id,
+            is_training=False  # Demo 模式使用 inference 設定
+        )
+        
+        # Stage 4: 載入 BatchProcessor 輸出
+        job["stage"] = "data_loading"
+        log("📥 載入 BatchProcessor 輸出資料...", "INFO", "data_loading")
+        
+        df, metadata, audit = engineer.load_from_batch_processor(latest_manifest)
+        original_memory_mb = df.estimated_size("mb")
+        log(f"📊 原始資料載入完成: {df.shape[0]} 列 × {df.shape[1]} 欄 ({original_memory_mb:.1f} MB)", "INFO", "data_loading")
+        
+        # Stage 5: 執行特徵工程
+        job["stage"] = "feature_engineering"
+        log("🎯 開始 L0-L3 分層特徵生成...", "INFO", "feature_engineering")
+        
+        result = engineer.process(df, fit_scaler=True)
+        
+        # 計算記憶體優化成效
+        final_memory_mb = result["dataframe"].estimated_size("mb")
+        memory_saved_mb = original_memory_mb - final_memory_mb
+        memory_saved_pct = (memory_saved_mb / original_memory_mb * 100) if original_memory_mb > 0 else 0
+        
+        # Stage 6: 統計特徵分布
+        job["stage"] = "analysis"
+        log("📈 分析特徵分布與品質...", "INFO", "analysis")
+        
+        hierarchy = result["feature_hierarchy"]
+        l0_count = sum(1 for v in hierarchy.values() if v == "L0")
+        l1_count = sum(1 for v in hierarchy.values() if v == "L1")
+        l2_count = sum(1 for v in hierarchy.values() if v == "L2")
+        l3_count = sum(1 for v in hierarchy.values() if v == "L3")
+        
+        log(f"✅ 特徵生成完成 - L0: {l0_count}, L1: {l1_count}, L2: {l2_count}, L3: {l3_count}", "INFO", "analysis")
+        
+        # Stage 7: GNN 資料準備
+        job["stage"] = "gnn_export"
+        log("🕸️ 準備 GNN 資料結構...", "INFO", "gnn_export")
+        
+        topology_context = result.get("topology_context", {})
+        gnn_data = result.get("gnn_data", {})
+        
+        # 計算 3D Tensor 維度
+        tensor_shape = gnn_data.get("temporal_tensor_shape", [0, 0, 0])
+        log(f"🧮 GNN 3D Tensor 維度: (T={tensor_shape[0]}, N={tensor_shape[1]}, F={tensor_shape[2]})", "INFO", "gnn_export")
+        
+        # Stage 8: 檢查 Data Leakage
+        strict_mode_violations = []
+        if config.strict_mode and not result.get("model_artifact_available", False):
+            log("⚠️ E306: DYNAMIC_GLOBAL_MEAN_RISK - strict_mode 啟用但缺少 Model Artifact", "WARNING", "validation")
+            strict_mode_violations.append("E306: 缺少 Model Artifact，存在 Data Leakage 風險")
+        
+        # Stage 9: NaN/Null 檢查
+        job["stage"] = "validation"
+        log("🔍 執行 NaN/Null 穩定度檢查...", "INFO", "validation")
+        
+        df_result = result["dataframe"]
+        nan_counts = df_result.null_count().to_dict()
+        total_nan = sum(nan_counts.values())
+        nan_features = [k for k, v in nan_counts.items() if v > 0]
+        
+        if total_nan > 0:
+            log(f"⚠️ 發現 {total_nan} 個 NaN 值 (分布於 {len(nan_features)} 個特徵)", "WARNING", "validation")
+        else:
+            log("✅ NaN/Null 檢查通過 - 無殘留缺失值", "INFO", "validation")
+        
+        # Stage 10: 儲存 Feature Manifest
+        job["stage"] = "saving"
+        output_dir = Path(f"data/processed/{site_id}/features")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        manifest_path = output_dir / f"feature_manifest_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        engineer.save_feature_manifest(result, manifest_path)
+        log(f"💾 Feature Manifest 已儲存: {manifest_path.name}", "INFO", "saving")
+        
+        # 完成
+        job["status"] = "completed"
+        job["stage"] = "completed"
+        log("🎉 Feature Engineer v1.4 執行完成！", "SUCCESS", "completed")
+        
+        # 儲存結果供前端查詢
+        job["result"] = {
+            # 基本資訊
+            "site_id": site_id,
+            "manifest_path": str(manifest_path),
+            "input_shape": {"rows": df.shape[0], "cols": df.shape[1]},
+            "output_shape": {"rows": result["dataframe"].shape[0], "cols": result["dataframe"].shape[1]},
+            
+            # L0-L3 分層統計
+            "feature_hierarchy_stats": {
+                "L0_original": l0_count,
+                "L1_temporal": l1_count,
+                "L2_topology": l2_count,
+                "L3_control": l3_count,
+                "total": len(hierarchy)
+            },
+            "feature_hierarchy": hierarchy,
+            
+            # 記憶體優化成效
+            "memory_optimization": {
+                "original_mb": round(original_memory_mb, 2),
+                "final_mb": round(final_memory_mb, 2),
+                "saved_mb": round(memory_saved_mb, 2),
+                "saved_percent": round(memory_saved_pct, 1)
+            },
+            
+            # GNN 資料結構
+            "gnn_summary": {
+                "num_nodes": topology_context.get("num_nodes", 0),
+                "num_edges": topology_context.get("num_edges", 0),
+                "tensor_shape": tensor_shape,
+                "node_types": topology_context.get("node_types", []),
+                "equipment_list": topology_context.get("equipment_list", [])
+            },
+            
+            # Data Leakage 狀態
+            "data_leakage_status": {
+                "strict_mode": config.strict_mode,
+                "model_artifact_available": result.get("model_artifact_available", False),
+                "violations": strict_mode_violations,
+                "is_safe": len(strict_mode_violations) == 0
+            },
+            
+            # NaN/Null 穩定度
+            "nan_stability": {
+                "total_nan_count": total_nan,
+                "nan_feature_count": len(nan_features),
+                "nan_features": nan_features[:10] if nan_features else [],  # 最多顯示 10 個
+                "is_stable": total_nan == 0
+            },
+            
+            # 時間戳記
+            "completed_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        job["status"] = "failed"
+        job["stage"] = "error"
+        job["error"] = str(e)
+        log(f"❌ Feature Engineer 執行失敗: {str(e)}", "ERROR", "error")
+        import traceback
+        log(traceback.format_exc(), "ERROR", "error")
 
 @app.post("/api/run-optimization")
 async def run_optimization(site_id: str = Form(...)):
