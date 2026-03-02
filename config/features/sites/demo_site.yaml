@@ -266,7 +266,7 @@ columns:
     column_name: ch_0_cop_base
     physical_type: efficiency
     unit: COP
-    device_role: backup
+    device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
@@ -343,7 +343,7 @@ columns:
     column_name: ch_0_cop_avg
     physical_type: efficiency
     unit: COP
-    device_role: backup
+    device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
@@ -375,7 +375,7 @@ columns:
     column_name: ch_0_rt_avg
     physical_type: cooling_capacity
     unit: RT
-    device_role: backup
+    device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
@@ -629,7 +629,7 @@ columns:
     column_name: ch_3_pm_kw
     physical_type: power
     unit: kW
-    device_role: backup
+    device_role: primary
     is_target: true
     enable_lag: false
     lag_intervals: []
@@ -699,7 +699,7 @@ columns:
     column_name: chp_03_vfd_power_kw
     physical_type: power
     unit: kW
-    device_role: primary
+    device_role: backup
     is_target: true
     enable_lag: false
     lag_intervals: []
@@ -707,7 +707,7 @@ columns:
     equipment_id: UNK-03
     point_class: Sensor
     control_domain: Electrical
-    description: '[Point_46 | 原始名稱: CHP-03-VFD:POWER KW] 自動推測: CHP-03-VFD:POWER KW'
+    description: '[Point_46 | 原始名稱: CHP-03-VFD:POWER KW] 自動推測: CHP-03-VFD:POWER KW (推測為備用設備)'
     status: pending_review
   chp_04_vfd_power_kw:
     column_name: chp_04_vfd_power_kw
@@ -728,7 +728,7 @@ columns:
     column_name: chp_05_vfd_power_kw
     physical_type: power
     unit: kW
-    device_role: backup
+    device_role: primary
     is_target: true
     enable_lag: false
     lag_intervals: []
@@ -736,8 +736,7 @@ columns:
     equipment_id: UNK-05
     point_class: Sensor
     control_domain: Electrical
-    description: '[Point_48 | 原始名稱: CHP-05-VFD:POWER KW] 自動推測: CHP-05-VFD:POWER KW
-      (推測為備用設備)'
+    description: '[Point_48 | 原始名稱: CHP-05-VFD:POWER KW] 自動推測: CHP-05-VFD:POWER KW (推測為備用設備)'
     status: pending_review
   ct_0_kw:
     column_name: ct_0_kw
@@ -757,7 +756,7 @@ columns:
     column_name: ct_01_kw
     physical_type: power
     unit: kW
-    device_role: backup
+    device_role: primary
     is_target: true
     enable_lag: false
     lag_intervals: []
@@ -765,7 +764,7 @@ columns:
     equipment_id: UNK-01
     point_class: Sensor
     control_domain: Electrical
-    description: '[Point_50 | 原始名稱: CT-01.KW] 自動推測: CT-01.KW (推測為備用設備)'
+    description: '[Point_50 | 原始名稱: CT-01.KW] 自動推測: CT-01.KW'
     status: pending_review
   ct_02_kw:
     column_name: ct_02_kw
@@ -870,6 +869,7 @@ columns:
     column_name: cwp_03_vfd_power_kw
     physical_type: power
     unit: kW
+<<<<<<< Updated upstream
     device_role: primary
     is_target: true
     enable_lag: false
@@ -884,16 +884,35 @@ columns:
     column_name: cwp_04_vfd_power_kw
     physical_type: power
     unit: kW
+=======
+>>>>>>> Stashed changes
     device_role: backup
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
+<<<<<<< Updated upstream
     equipment_id: CWP-04
     point_class: Sensor
     control_domain: Condenser Water
     description: '[Point_59 | 原始名稱: CWP-04-VFD:POWER KW] 自動推測: CWP-04-VFD:POWER KW
+=======
+    equipment_id: CWP-03
+    description: '[Point_58 | 原始名稱: CWP-03-VFD:POWER KW] 自動推測: CWP-03-VFD:POWER KW
+>>>>>>> Stashed changes
       (推測為備用設備)'
+    status: pending_review
+  cwp_04_vfd_power_kw:
+    column_name: cwp_04_vfd_power_kw
+    physical_type: power
+    unit: kW
+    device_role: primary
+    is_target: true
+    enable_lag: false
+    lag_intervals: []
+    ignore_warnings: []
+    equipment_id: CWP-04
+    description: '[Point_59 | 原始名稱: CWP-04-VFD:POWER KW] 自動推測: CWP-04-VFD:POWER KW'
     status: pending_review
   cwp_05_vfd_power_kw:
     column_name: cwp_05_vfd_power_kw
@@ -984,15 +1003,19 @@ columns:
     column_name: scp11_pm_kw
     physical_type: power
     unit: kW
-    device_role: primary
+    device_role: backup
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-11
+<<<<<<< Updated upstream
     point_class: Sensor
     control_domain: Electrical
     description: '[Point_66 | 原始名稱: SCP11-PM.KW] 自動推測: SCP11-PM.KW'
+=======
+    description: '[Point_66 | 原始名稱: SCP11-PM.KW] 自動推測: SCP11-PM.KW (推測為備用設備)'
+>>>>>>> Stashed changes
     status: pending_review
   scp12_pm_kw:
     column_name: scp12_pm_kw
@@ -1026,15 +1049,19 @@ columns:
     column_name: scp3_pm_kw
     physical_type: power
     unit: kW
-    device_role: backup
+    device_role: primary
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-03
+<<<<<<< Updated upstream
     point_class: Sensor
     control_domain: Electrical
     description: '[Point_69 | 原始名稱: SCP3-PM.KW] 自動推測: SCP3-PM.KW (推測為備用設備)'
+=======
+    description: '[Point_69 | 原始名稱: SCP3-PM.KW] 自動推測: SCP3-PM.KW'
+>>>>>>> Stashed changes
     status: pending_review
   scp4_pm_kw:
     column_name: scp4_pm_kw
@@ -1054,15 +1081,19 @@ columns:
     column_name: scp5_pm_kw
     physical_type: power
     unit: kW
-    device_role: primary
+    device_role: backup
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-05
+<<<<<<< Updated upstream
     point_class: Sensor
     control_domain: Electrical
     description: '[Point_71 | 原始名稱: SCP5-PM.KW] 自動推測: SCP5-PM.KW'
+=======
+    description: '[Point_71 | 原始名稱: SCP5-PM.KW] 自動推測: SCP5-PM.KW (推測為備用設備)'
+>>>>>>> Stashed changes
     status: pending_review
   scp6_pm_kw:
     column_name: scp6_pm_kw
@@ -1110,12 +1141,13 @@ columns:
     column_name: scp9_pm_kw
     physical_type: power
     unit: kW
-    device_role: primary
+    device_role: backup
     is_target: true
     enable_lag: false
     lag_intervals: []
     ignore_warnings: []
     equipment_id: UNK-09
+<<<<<<< Updated upstream
     point_class: Sensor
     control_domain: Electrical
     description: '[Point_75 | 原始名稱: SCP9-PM.KW] 自動推測: SCP9-PM.KW'
@@ -1125,6 +1157,15 @@ columns:
     physical_type: current
     unit: A
     device_role: backup
+=======
+    description: '[Point_75 | 原始名稱: SCP9-PM.KW] 自動推測: SCP9-PM.KW (推測為備用設備)'
+    status: pending_review
+  bchu_01_current:
+    column_name: bchu_01_current
+    physical_type: gauge
+    unit: null
+    device_role: primary
+>>>>>>> Stashed changes
     is_target: false
     enable_lag: true
     lag_intervals:
@@ -1132,9 +1173,13 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-01
+<<<<<<< Updated upstream
     point_class: Sensor
     control_domain: Electrical
     description: '[Point_76 | 原始名稱: BCHU-01:CURRENT] 自動推測: BCHU-01:CURRENT (推測為備用設備)'
+=======
+    description: '[Point_76 | 原始名稱: BCHU-01:CURRENT] 自動推測: BCHU-01:CURRENT'
+>>>>>>> Stashed changes
     status: pending_review
   chu_01_current:
     column_name: chu_01_current
@@ -1170,9 +1215,15 @@ columns:
     status: pending_review
   chu_03_current:
     column_name: chu_03_current
+<<<<<<< Updated upstream
     physical_type: current
     unit: A
     device_role: backup
+=======
+    physical_type: gauge
+    unit: null
+    device_role: primary
+>>>>>>> Stashed changes
     is_target: false
     enable_lag: true
     lag_intervals:
@@ -1180,9 +1231,13 @@ columns:
     - 4
     ignore_warnings: []
     equipment_id: UNK-03
+<<<<<<< Updated upstream
     point_class: Sensor
     control_domain: Electrical
     description: '[Point_79 | 原始名稱: CHU-03:CURRENT] 自動推測: CHU-03:CURRENT (推測為備用設備)'
+=======
+    description: '[Point_79 | 原始名稱: CHU-03:CURRENT] 自動推測: CHU-03:CURRENT'
+>>>>>>> Stashed changes
     status: pending_review
   bch_1_ch_rwt:
     column_name: bch_1_ch_rwt
@@ -1220,9 +1275,15 @@ columns:
     status: pending_review
   ch_0_rwt:
     column_name: ch_0_rwt
+<<<<<<< Updated upstream
     physical_type: temperature
     unit: °C
     device_role: backup
+=======
+    physical_type: gauge
+    unit: null
+    device_role: primary
+>>>>>>> Stashed changes
     is_target: false
     enable_lag: true
     lag_intervals:
@@ -1231,6 +1292,7 @@ columns:
     - 12
     ignore_warnings: []
     equipment_id: UNK-00
+<<<<<<< Updated upstream
     point_class: Sensor
     control_domain: Other
     description: '[Point_82 | 原始名稱: CH-0.RWT] 自動推測: CH-0.RWT (推測為備用設備)'
@@ -1240,6 +1302,15 @@ columns:
     physical_type: temperature
     unit: °C
     device_role: backup
+=======
+    description: '[Point_82 | 原始名稱: CH-0.RWT] 自動推測: CH-0.RWT'
+    status: pending_review
+  ch_0_swt:
+    column_name: ch_0_swt
+    physical_type: gauge
+    unit: null
+    device_role: primary
+>>>>>>> Stashed changes
     is_target: false
     enable_lag: true
     lag_intervals:
@@ -1248,9 +1319,13 @@ columns:
     - 12
     ignore_warnings: []
     equipment_id: UNK-00
+<<<<<<< Updated upstream
     point_class: Sensor
     control_domain: Other
     description: '[Point_83 | 原始名稱: CH-0.SWT] 自動推測: CH-0.SWT (推測為備用設備)'
+=======
+    description: '[Point_83 | 原始名稱: CH-0.SWT] 自動推測: CH-0.SWT'
+>>>>>>> Stashed changes
     status: pending_review
   ch_1_ch_rwt:
     column_name: ch_1_ch_rwt
@@ -1766,7 +1841,7 @@ columns:
     column_name: ch_0_rt
     physical_type: cooling_capacity
     unit: RT
-    device_role: backup
+    device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
@@ -1775,9 +1850,13 @@ columns:
     - 12
     ignore_warnings: []
     equipment_id: UNK-00
+<<<<<<< Updated upstream
     point_class: Sensor
     control_domain: Other
     description: '[Point_116 | 原始名稱: CH-0.RT] 自動推測: CH-0.RT (推測為備用設備)'
+=======
+    description: '[Point_116 | 原始名稱: CH-0.RT] 自動推測: CH-0.RT'
+>>>>>>> Stashed changes
     status: pending_review
   ch_1_rt:
     column_name: ch_1_rt
@@ -1817,7 +1896,7 @@ columns:
     column_name: ch_3_rt
     physical_type: cooling_capacity
     unit: RT
-    device_role: backup
+    device_role: primary
     is_target: false
     enable_lag: true
     lag_intervals:
@@ -1826,9 +1905,13 @@ columns:
     - 12
     ignore_warnings: []
     equipment_id: UNK-03
+<<<<<<< Updated upstream
     point_class: Sensor
     control_domain: Other
     description: '[Point_119 | 原始名稱: CH-3.RT] 自動推測: CH-3.RT (推測為備用設備)'
+=======
+    description: '[Point_119 | 原始名稱: CH-3.RT] 自動推測: CH-3.RT'
+>>>>>>> Stashed changes
     status: pending_review
   bch_1_rt:
     column_name: bch_1_rt
@@ -1880,4 +1963,1390 @@ columns:
     point_class: Sensor
     control_domain: Other
     description: '[Point_122 | 原始名稱: CH-4.RT.TOT] 自動推測: CH-4.RT.TOT'
+    status: pending_review
+  bhpi_0_vfd_out:
+    column_name: bhpi_0_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-00
+    description: '[Point_123 | 原始名稱: BHPI-0-VFD.OUT] 自動推測: BHPI-0-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  bhpi_1_vfd_out:
+    column_name: bhpi_1_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_124 | 原始名稱: BHPI-1-VFD.OUT] 自動推測: BHPI-1-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  bhpi_2_vfd_out:
+    column_name: bhpi_2_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-02
+    description: '[Point_125 | 原始名稱: BHPI-2-VFD.OUT] 自動推測: BHPI-2-VFD.OUT'
+    status: pending_review
+  bhpi_3_vfd_out:
+    column_name: bhpi_3_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-03
+    description: '[Point_126 | 原始名稱: BHPI-3-VFD.OUT] 自動推測: BHPI-3-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  chp_01_vfd_out:
+    column_name: chp_01_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_127 | 原始名稱: CHP-01-VFD.OUT] 自動推測: CHP-01-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  chp_02_vfd_out:
+    column_name: chp_02_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-02
+    description: '[Point_128 | 原始名稱: CHP-02-VFD.OUT] 自動推測: CHP-02-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  chp_03_vfd_out:
+    column_name: chp_03_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-03
+    description: '[Point_129 | 原始名稱: CHP-03-VFD.OUT] 自動推測: CHP-03-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  chp_04_vfd_out:
+    column_name: chp_04_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-04
+    description: '[Point_130 | 原始名稱: CHP-04-VFD.OUT] 自動推測: CHP-04-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  chp_05_vfd_out:
+    column_name: chp_05_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-05
+    description: '[Point_131 | 原始名稱: CHP-05-VFD.OUT] 自動推測: CHP-05-VFD.OUT'
+    status: pending_review
+  ct_01_vfd_out:
+    column_name: ct_01_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_132 | 原始名稱: CT-01-VFD.OUT] 自動推測: CT-01-VFD.OUT'
+    status: pending_review
+  ct_02_vfd_out:
+    column_name: ct_02_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-02
+    description: '[Point_133 | 原始名稱: CT-02-VFD.OUT] 自動推測: CT-02-VFD.OUT'
+    status: pending_review
+  ct_03_vfd_out:
+    column_name: ct_03_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-03
+    description: '[Point_134 | 原始名稱: CT-03-VFD.OUT] 自動推測: CT-03-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  ct_04_vfd_out:
+    column_name: ct_04_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-04
+    description: '[Point_135 | 原始名稱: CT-04-VFD.OUT] 自動推測: CT-04-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  ct_05_vfd_out:
+    column_name: ct_05_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-05
+    description: '[Point_136 | 原始名稱: CT-05-VFD.OUT] 自動推測: CT-05-VFD.OUT'
+    status: pending_review
+  cwp_01_vfd_out:
+    column_name: cwp_01_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: CWP-01
+    description: '[Point_137 | 原始名稱: CWP-01-VFD.OUT] 自動推測: CWP-01-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  cwp_02_vfd_out:
+    column_name: cwp_02_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: CWP-02
+    description: '[Point_138 | 原始名稱: CWP-02-VFD.OUT] 自動推測: CWP-02-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  cwp_03_vfd_out:
+    column_name: cwp_03_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: CWP-03
+    description: '[Point_139 | 原始名稱: CWP-03-VFD.OUT] 自動推測: CWP-03-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  cwp_04_vfd_out:
+    column_name: cwp_04_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: CWP-04
+    description: '[Point_140 | 原始名稱: CWP-04-VFD.OUT] 自動推測: CWP-04-VFD.OUT'
+    status: pending_review
+  cwp_05_vfd_out:
+    column_name: cwp_05_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: CWP-05
+    description: '[Point_141 | 原始名稱: CWP-05-VFD.OUT] 自動推測: CWP-05-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  ip_01_vfd_out:
+    column_name: ip_01_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_142 | 原始名稱: IP-01-VFD.OUT] 自動推測: IP-01-VFD.OUT'
+    status: pending_review
+  ip_02_vfd_out:
+    column_name: ip_02_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-02
+    description: '[Point_143 | 原始名稱: IP-02-VFD.OUT] 自動推測: IP-02-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  ip_03_vfd_out:
+    column_name: ip_03_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-03
+    description: '[Point_144 | 原始名稱: IP-03-VFD.OUT] 自動推測: IP-03-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  scp_01_vfd_out:
+    column_name: scp_01_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_145 | 原始名稱: SCP-01-VFD.OUT] 自動推測: SCP-01-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  scp_02_vfd_out:
+    column_name: scp_02_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-02
+    description: '[Point_146 | 原始名稱: SCP-02-VFD.OUT] 自動推測: SCP-02-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  scp_03_vfd_out:
+    column_name: scp_03_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-03
+    description: '[Point_147 | 原始名稱: SCP-03-VFD.OUT] 自動推測: SCP-03-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  scp_04_vfd_out:
+    column_name: scp_04_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-04
+    description: '[Point_148 | 原始名稱: SCP-04-VFD.OUT] 自動推測: SCP-04-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  scp_05_vfd_out:
+    column_name: scp_05_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-05
+    description: '[Point_149 | 原始名稱: SCP-05-VFD.OUT] 自動推測: SCP-05-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  scp_06_vfd_out:
+    column_name: scp_06_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-06
+    description: '[Point_150 | 原始名稱: SCP-06-VFD.OUT] 自動推測: SCP-06-VFD.OUT'
+    status: pending_review
+  scp_07_vfd_out:
+    column_name: scp_07_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-07
+    description: '[Point_151 | 原始名稱: SCP-07-VFD.OUT] 自動推測: SCP-07-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  scp_08_vfd_out:
+    column_name: scp_08_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-08
+    description: '[Point_152 | 原始名稱: SCP-08-VFD.OUT] 自動推測: SCP-08-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  scp_09_vfd_out:
+    column_name: scp_09_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-09
+    description: '[Point_153 | 原始名稱: SCP-09-VFD.OUT] 自動推測: SCP-09-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  scp_10_vfd_out:
+    column_name: scp_10_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-10
+    description: '[Point_154 | 原始名稱: SCP-10-VFD.OUT] 自動推測: SCP-10-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  scp_11_vfd_out:
+    column_name: scp_11_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-11
+    description: '[Point_155 | 原始名稱: SCP-11-VFD.OUT] 自動推測: SCP-11-VFD.OUT (推測為備用設備)'
+    status: pending_review
+  scp_12_vfd_out:
+    column_name: scp_12_vfd_out
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-12
+    description: '[Point_156 | 原始名稱: SCP-12-VFD.OUT] 自動推測: SCP-12-VFD.OUT'
+    status: pending_review
+  ch_0_btu:
+    column_name: ch_0_btu
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-00
+    description: '[Point_157 | 原始名稱: CH-0.BTU] 自動推測: CH-0.BTU (推測為備用設備)'
+    status: pending_review
+  ch_0_r_btu:
+    column_name: ch_0_r_btu
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-00
+    description: '[Point_158 | 原始名稱: CH-0.R.BTU] 自動推測: CH-0.R.BTU'
+    status: pending_review
+  ch_0_s_btu:
+    column_name: ch_0_s_btu
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-00
+    description: '[Point_159 | 原始名稱: CH-0.S.BTU] 自動推測: CH-0.S.BTU'
+    status: pending_review
+  ch_3_btu:
+    column_name: ch_3_btu
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-03
+    description: '[Point_160 | 原始名稱: CH-3.BTU] 自動推測: CH-3.BTU (推測為備用設備)'
+    status: pending_review
+  sploop0_btu:
+    column_name: sploop0_btu
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-00
+    description: '[Point_161 | 原始名稱: SPLOOP0.BTU] 自動推測: SPLOOP0.BTU'
+    status: pending_review
+  sploop1_btu:
+    column_name: sploop1_btu
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_162 | 原始名稱: SPLOOP1.BTU] 自動推測: SPLOOP1.BTU (推測為備用設備)'
+    status: pending_review
+  sploop2_btu:
+    column_name: sploop2_btu
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-02
+    description: '[Point_163 | 原始名稱: SPLOOP2.BTU] 自動推測: SPLOOP2.BTU'
+    status: pending_review
+  sploop3_btu:
+    column_name: sploop3_btu
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-03
+    description: '[Point_164 | 原始名稱: SPLOOP3.BTU] 自動推測: SPLOOP3.BTU'
+    status: pending_review
+  ct_sys_oah:
+    column_name: ct_sys_oah
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: null
+    description: '[Point_165 | 原始名稱: CT-SYS.OAH] 自動推測: CT-SYS.OAH'
+    status: pending_review
+  ct_sys_oat:
+    column_name: ct_sys_oat
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: null
+    description: '[Point_166 | 原始名稱: CT-SYS.OAT] 自動推測: CT-SYS.OAT'
+    status: pending_review
+  ct_sys_wbt:
+    column_name: ct_sys_wbt
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: null
+    description: '[Point_167 | 原始名稱: CT-SYS.WBT] 自動推測: CT-SYS.WBT'
+    status: pending_review
+  bch_1_w_wfm:
+    column_name: bch_1_w_wfm
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_168 | 原始名稱: BCH-1-W.WFM] 自動推測: BCH-1-W.WFM (推測為備用設備)'
+    status: pending_review
+  bhpi_00_wfm:
+    column_name: bhpi_00_wfm
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-00
+    description: '[Point_169 | 原始名稱: BHPI-00.WFM] 自動推測: BHPI-00.WFM (推測為備用設備)'
+    status: pending_review
+  ch_0_w_wfm:
+    column_name: ch_0_w_wfm
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-00
+    description: '[Point_170 | 原始名稱: CH-0-W.WFM] 自動推測: CH-0-W.WFM'
+    status: pending_review
+  ch_0_r_wfm:
+    column_name: ch_0_r_wfm
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-00
+    description: '[Point_171 | 原始名稱: CH-0.R.WFM] 自動推測: CH-0.R.WFM'
+    status: pending_review
+  ch_0_wfm:
+    column_name: ch_0_wfm
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-00
+    description: '[Point_172 | 原始名稱: CH-0.WFM] 自動推測: CH-0.WFM'
+    status: pending_review
+  ch_1_w_wfm:
+    column_name: ch_1_w_wfm
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_173 | 原始名稱: CH-1-W.WFM] 自動推測: CH-1-W.WFM (推測為備用設備)'
+    status: pending_review
+  ch_1_wfm:
+    column_name: ch_1_wfm
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_174 | 原始名稱: CH-1.WFM] 自動推測: CH-1.WFM'
+    status: pending_review
+  ch_2_w_wfm:
+    column_name: ch_2_w_wfm
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-02
+    description: '[Point_175 | 原始名稱: CH-2-W.WFM] 自動推測: CH-2-W.WFM (推測為備用設備)'
+    status: pending_review
+  ch_2_wfm:
+    column_name: ch_2_wfm
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-02
+    description: '[Point_176 | 原始名稱: CH-2.WFM] 自動推測: CH-2.WFM'
+    status: pending_review
+  ch_3_w_wfm:
+    column_name: ch_3_w_wfm
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-03
+    description: '[Point_177 | 原始名稱: CH-3-W.WFM] 自動推測: CH-3-W.WFM'
+    status: pending_review
+  ch_3_wfm:
+    column_name: ch_3_wfm
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-03
+    description: '[Point_178 | 原始名稱: CH-3.WFM] 自動推測: CH-3.WFM'
+    status: pending_review
+  chp_00_wfm:
+    column_name: chp_00_wfm
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-00
+    description: '[Point_179 | 原始名稱: CHP-00.WFM] 自動推測: CHP-00.WFM (推測為備用設備)'
+    status: pending_review
+  chp_01_wfm:
+    column_name: chp_01_wfm
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_180 | 原始名稱: CHP-01.WFM] 自動推測: CHP-01.WFM (推測為備用設備)'
+    status: pending_review
+  chp_02_wfm:
+    column_name: chp_02_wfm
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-02
+    description: '[Point_181 | 原始名稱: CHP-02.WFM] 自動推測: CHP-02.WFM (推測為備用設備)'
+    status: pending_review
+  chp_03_wfm:
+    column_name: chp_03_wfm
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-03
+    description: '[Point_182 | 原始名稱: CHP-03.WFM] 自動推測: CHP-03.WFM (推測為備用設備)'
+    status: pending_review
+  chp_04_wfm:
+    column_name: chp_04_wfm
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-04
+    description: '[Point_183 | 原始名稱: CHP-04.WFM] 自動推測: CHP-04.WFM (推測為備用設備)'
+    status: pending_review
+  chp_05_wfm:
+    column_name: chp_05_wfm
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-05
+    description: '[Point_184 | 原始名稱: CHP-05.WFM] 自動推測: CHP-05.WFM'
+    status: pending_review
+  sploop0_wfm:
+    column_name: sploop0_wfm
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-00
+    description: '[Point_185 | 原始名稱: SPLOOP0.WFM] 自動推測: SPLOOP0.WFM'
+    status: pending_review
+  sploop1_wfm:
+    column_name: sploop1_wfm
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_186 | 原始名稱: SPLOOP1.WFM] 自動推測: SPLOOP1.WFM (推測為備用設備)'
+    status: pending_review
+  sploop2_wfm:
+    column_name: sploop2_wfm
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-02
+    description: '[Point_187 | 原始名稱: SPLOOP2.WFM] 自動推測: SPLOOP2.WFM'
+    status: pending_review
+  sploop3_wfm:
+    column_name: sploop3_wfm
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-03
+    description: '[Point_188 | 原始名稱: SPLOOP3.WFM] 自動推測: SPLOOP3.WFM'
+    status: pending_review
+  bch_1_ch_diff:
+    column_name: bch_1_ch_diff
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_189 | 原始名稱: BCH-1-CH.DIFF] 自動推測: BCH-1-CH.DIFF'
+    status: pending_review
+  bch_1_cw_diff:
+    column_name: bch_1_cw_diff
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_190 | 原始名稱: BCH-1-CW.DIFF] 自動推測: BCH-1-CW.DIFF'
+    status: pending_review
+  ch_0_ch_diff:
+    column_name: ch_0_ch_diff
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-00
+    description: '[Point_191 | 原始名稱: CH-0-CH.DIFF] 自動推測: CH-0-CH.DIFF'
+    status: pending_review
+  ch_0_cw_diff:
+    column_name: ch_0_cw_diff
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-00
+    description: '[Point_192 | 原始名稱: CH-0-CW.DIFF] 自動推測: CH-0-CW.DIFF'
+    status: pending_review
+  ch_1_ch_diff:
+    column_name: ch_1_ch_diff
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_193 | 原始名稱: CH-1-CH.DIFF] 自動推測: CH-1-CH.DIFF (推測為備用設備)'
+    status: pending_review
+  ch_1_cw_diff:
+    column_name: ch_1_cw_diff
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_194 | 原始名稱: CH-1-CW.DIFF] 自動推測: CH-1-CW.DIFF (推測為備用設備)'
+    status: pending_review
+  ch_2_ch_diff:
+    column_name: ch_2_ch_diff
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-02
+    description: '[Point_195 | 原始名稱: CH-2-CH.DIFF] 自動推測: CH-2-CH.DIFF (推測為備用設備)'
+    status: pending_review
+  ch_2_cw_diff:
+    column_name: ch_2_cw_diff
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-02
+    description: '[Point_196 | 原始名稱: CH-2-CW.DIFF] 自動推測: CH-2-CW.DIFF (推測為備用設備)'
+    status: pending_review
+  ch_3_ch_diff:
+    column_name: ch_3_ch_diff
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-03
+    description: '[Point_197 | 原始名稱: CH-3-CH.DIFF] 自動推測: CH-3-CH.DIFF'
+    status: pending_review
+  ch_3_cw_diff:
+    column_name: ch_3_cw_diff
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-03
+    description: '[Point_198 | 原始名稱: CH-3-CW.DIFF] 自動推測: CH-3-CW.DIFF'
+    status: pending_review
+  b_tk_00_pos_sta:
+    column_name: b_tk_00_pos_sta
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-00
+    description: '[Point_199 | 原始名稱: B-TK-00.POS.STA] 自動推測: B-TK-00.POS.STA'
+    status: pending_review
+  b_tk_00_pos_stp:
+    column_name: b_tk_00_pos_stp
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-00
+    description: '[Point_200 | 原始名稱: B-TK-00.POS.STP] 自動推測: B-TK-00.POS.STP'
+    status: pending_review
+  ch_0_tst1:
+    column_name: ch_0_tst1
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-00
+    description: '[Point_201 | 原始名稱: CH-0.TST1] 自動推測: CH-0.TST1'
+    status: pending_review
+  ch_0_tst2:
+    column_name: ch_0_tst2
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-00
+    description: '[Point_202 | 原始名稱: CH-0.TST2] 自動推測: CH-0.TST2'
+    status: pending_review
+  ch_0_enger:
+    column_name: ch_0_enger
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-00
+    description: '[Point_203 | 原始名稱: CH-0.ENGER] 自動推測: CH-0.ENGER'
+    status: pending_review
+  ch_1_enger:
+    column_name: ch_1_enger
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_204 | 原始名稱: CH-1.ENGER] 自動推測: CH-1.ENGER (推測為備用設備)'
+    status: pending_review
+  ch_2_enger:
+    column_name: ch_2_enger
+    physical_type: gauge
+    unit: null
+    device_role: backup
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-02
+    description: '[Point_205 | 原始名稱: CH-2.ENGER] 自動推測: CH-2.ENGER (推測為備用設備)'
+    status: pending_review
+  ch_3_enger:
+    column_name: ch_3_enger
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-03
+    description: '[Point_206 | 原始名稱: CH-3.ENGER] 自動推測: CH-3.ENGER'
+    status: pending_review
+  bch1_rt_tot:
+    column_name: bch1_rt_tot
+    physical_type: cooling_capacity
+    unit: RT
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_207 | 原始名稱: BCH1.RT.TOT] 自動推測: BCH1.RT.TOT'
+    status: pending_review
+  ch_1_rt_tot:
+    column_name: ch_1_rt_tot
+    physical_type: cooling_capacity
+    unit: RT
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_208 | 原始名稱: CH-1.RT.TOT] 自動推測: CH-1.RT.TOT'
+    status: pending_review
+  ch_2_rt_tot:
+    column_name: ch_2_rt_tot
+    physical_type: cooling_capacity
+    unit: RT
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-02
+    description: '[Point_209 | 原始名稱: CH-2.RT.TOT] 自動推測: CH-2.RT.TOT'
+    status: pending_review
+  ch_3_rt_tot:
+    column_name: ch_3_rt_tot
+    physical_type: cooling_capacity
+    unit: RT
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-03
+    description: '[Point_210 | 原始名稱: CH-3.RT.TOT] 自動推測: CH-3.RT.TOT'
+    status: pending_review
+  ice_rt_tot:
+    column_name: ice_rt_tot
+    physical_type: cooling_capacity
+    unit: RT
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: null
+    description: '[Point_211 | 原始名稱: ICE.RT.TOT] 自動推測: ICE.RT.TOT'
+    status: pending_review
+  bch_1_s:
+    column_name: bch_1_s
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_212 | 原始名稱: BCH-1.S] 自動推測: BCH-1.S'
+    status: pending_review
+  ch_1_s:
+    column_name: ch_1_s
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_213 | 原始名稱: CH-1.S] 自動推測: CH-1.S'
+    status: pending_review
+  ch_2_s:
+    column_name: ch_2_s
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-02
+    description: '[Point_214 | 原始名稱: CH-2.S] 自動推測: CH-2.S'
+    status: pending_review
+  ch_3_s:
+    column_name: ch_3_s
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-03
+    description: '[Point_215 | 原始名稱: CH-3.S] 自動推測: CH-3.S'
+    status: pending_review
+  chu_01_ch_rwt:
+    column_name: chu_01_ch_rwt
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_216 | 原始名稱: CHU-01:CH RWT] 自動推測: CHU-01:CH RWT'
+    status: pending_review
+  chu_01_ch_swt:
+    column_name: chu_01_ch_swt
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-01
+    description: '[Point_217 | 原始名稱: CHU-01:CH SWT] 自動推測: CHU-01:CH SWT'
+    status: pending_review
+  chu_02_ch_rwt:
+    column_name: chu_02_ch_rwt
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-02
+    description: '[Point_218 | 原始名稱: CHU-02:CH RWT] 自動推測: CHU-02:CH RWT'
+    status: pending_review
+  chu_02_ch_swt:
+    column_name: chu_02_ch_swt
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-02
+    description: '[Point_219 | 原始名稱: CHU-02:CH SWT] 自動推測: CHU-02:CH SWT'
+    status: pending_review
+  chu_03_ch_rwt:
+    column_name: chu_03_ch_rwt
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-03
+    description: '[Point_220 | 原始名稱: CHU-03:CH RWT] 自動推測: CHU-03:CH RWT'
+    status: pending_review
+  chu_03_ch_swt:
+    column_name: chu_03_ch_swt
+    physical_type: gauge
+    unit: null
+    device_role: primary
+    is_target: false
+    enable_lag: true
+    lag_intervals:
+    - 1
+    - 4
+    ignore_warnings: []
+    equipment_id: UNK-03
+    description: '[Point_221 | 原始名稱: CHU-03:CH SWT] 自動推測: CHU-03:CH SWT'
     status: pending_review
