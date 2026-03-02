@@ -261,19 +261,20 @@ pytest tests/test_feature_engineer_v14.py -v  # 🆕 Feature Engineer v1.4
 
 ## 📅 近期更新
 
-### [v1.7.0] - 2026-03-02
-- ✅ **Feature Engineer v1.4 完成** - 拓樸感知與控制語意特徵工程
-  - L0-L3 分層特徵生成 (原始 → Lag/Rolling → 拓樸聚合 → 控制偏差)
-  - GNN 資料匯出 (鄰接矩陣、3D Tensor、設備特徵)
-  - Data Leakage 防護與記憶體優化
-  - 單元測試: `tests/test_feature_engineer_v14.py`
-- ✅ 新增 Managers: `TopologyManager`, `ControlSemanticsManager`
-- ✅ 新增錯誤代碼: E301-E306 (Feature Engineer)
+### [v1.7.0] - 2026-03-02 (Sprint 3.1 完工與交付)
+- ✅ **Feature Engineer v1.4 完成** - 實作拓樸感知與控制語意特徵工程
+  - 核心架構：L0-L3 分層特徵生成 (時間序列 → Lag/Rolling → 拓樸聚合 → 控制偏差)
+  - 基礎設施：新增 `TopologyManager`, `ControlSemanticsManager`
+  - 模型支援：GNN 專用資料匯出，包括鄰接矩陣 (Adjacency Matrix)、3D Tensor `(T, N, F)`，及相關設備特徵 (Node Types)
+  - 安全與效能：實作 Data Leakage (資料洩露) 嚴格預防，並整合 Polars LazyFrame 記憶體優化與 Float32 降級
+  - 品質保證：完成 `tests/test_feature_engineer_v14.py` 單元與端到端測試，邊界防護落實 
 
-### [v1.6.0] - 2026-03-02
-- ✅ Phase 0 Retrofit 完成 - ETL 管線拓樸貫通
-- ✅ Interactive ETL Tester v1.6 - 新增 GNN 拓樸摘要面板
-- ✅ 錯誤代碼重分配 - E750-E759 (GNN), E800-E829 (CL), E840-E859 (OPT)
+### [v1.6.0] - 2026-03-02 (Phase 0 Retrofit)
+- ✅ **Phase 0 ETL 管線全線貫通** - 順利吞吐 GNN 資料
+  - 錯誤重定義：實現 Interface Contract v1.2，釋放並重配 E750-E759 (GNN)、E800-E829 (CL)、E840-E859 (OPT) 保留位
+  - 相容性修復：解決舊版 Parser, Cleaner, BatchProcessor 丟失 `topology` 與 `control_semantics` 型別及誤殺問題
+  - 測試修正：6 項新整合測試 `test_v14_topology_pipeline.py` 通過，確保 Parquet 無損存放拓樸陣列
+- ✅ Interactive ETL Tester v1.6 - 新增 GNN 拓樸摘要顯示面板
 
 ### [v1.5.0] - 2026-02-25
 - ✅ Parser V2.2 模組化重構完成
