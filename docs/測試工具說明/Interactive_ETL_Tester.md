@@ -5,6 +5,7 @@
 **目標**：提供一個無需手動輸入終端機指令（Command Line），透過網頁即可完整體驗從資料解析、特徵標註、設備預檢與批次落地 (Sprint 1~5) 的單一互動式測試平台。
 
 **核心設計理念**：**Step 1 → Step 2 無縫整合**
+
 - Step 1 解析 CSV 後，Step 2 **直接沿用**解析結果產生 Excel，無需重新上傳 CSV
 - 確保欄位名稱從 Step 1 到 Step 4 **完全一致**，避免 E409 (Header Annotation Mismatch) 錯誤
 
@@ -183,16 +184,225 @@ tests/fixtures/
 4. **Step 4 - ETL 執行**：上傳 CSV 執行完整 ETL 管線（使用與 Step 1 相同的 Parser），查看清洗結果與 E350 違規檢測
 
 **重要提示**：
+
 - Step 1 和 Step 4 使用**相同 Parser**，確保欄位名稱一致性
 - Step 2 預設使用 Step 1 的預覽結果，避免重複解析造成的欄位名稱差異
 - Excel `column_name` 欄位顯示的是 Parser 標準化後的 snake_case 名稱（如 `ahwp_3_kwh`），與 Step 4 ETL Pipeline 使用的欄位名稱完全一致
 
 ---
 
-## 📝 6. 改版與問題追蹤紀錄 (Changelog & Issue Tracking)
+## 🖥️ 6. 測試 UI 修改評估與規劃 (Phase 0.3 / v1.4 拓樸支援)
+
+因應 `Phase 0.3: v1.4 Retrofit` 將 GNN 拓樸設定（`topology_node_id`, `control_semantic`, `decay_factor` 等）正式貫通於 Clean 與 BatchProcessor，為了提供完善的人工測試體驗，建議對現有的 UI (`tester.html` 與後端 API) 進行以下修改，讓測試人員能夠直觀確認拓樸結果是否正確。
+
+### 工時預估總覽
+
+| 任務 ID | 任務描述 | 預估工時 | 優先級 | 驗收標準 |
+|:---:|:---|:---:|:---:|:---|
+| UI-001 | Step 4 拓樸摘要面板 | 0.5 天 | 🟡 Medium | 正確顯示節點/邊緣統計、拓樸視覺化 |
+| UI-002 | Step 2/3 v1.4 視覺提示 | 0.3 天 | 🟢 Low | 顯示 v1.4 支援提示、欄位說明 |
+| UI-003 | 診斷工具 `has_topology` 旗標 | 0.5 天 | 🟡 Medium | API 回傳含拓樸摘要、前端獨立顯示 |
+| UI-004 | Excel 範本拓樸欄位提示 | 0.3 天 | 🟢 Low | 下載時顯示拓樸欄位說明 |
+| **總計** | | **1.6 天** | | |
+
+### 1. Step 4: 批次結果新增「拓樸上下文 (Topology Context)」區塊
+
+- **現狀**：Step 4 執行完成後，僅將整個 Manifest 以 JSON 格式印在畫面上，無法在第一時間確認新匯入的拓樸結構。
+- **UI 修改建議**：
+  - 更新標題，標示為支援 v1.4 規格的 Manifest。
+  - 在目前的 Manifest 結果區塊的旁邊或下方，**新增一個獨立的面板「🕸️ GNN 拓樸摘要」**。
+  - **邏輯實作**：在 `runPipeline()` 成功後的 Javascript 處理區塊中，檢查 `data.result.manifest.topology_context`；若該物件存在且有資料，在前端渲染出該圖結構的摘要資訊。
+
+#### 拓樸資料結構範例
+
+```javascript
+// Manifest 中的 topology_context 結構
+topology_context: {
+  nodes: [
+    { id: "chiller_01", type: "chiller", features: ["temp_out", "power_kw"] },
+    { id: "chiller_02", type: "chiller", features: ["temp_out", "power_kw"] },
+    { id: "pump_01", type: "chiller_pump", features: ["flow_rate", "speed"] },
+    { id: "pump_02", type: "chiller_pump", features: ["flow_rate", "speed"] },
+    { id: "ahu_01", type: "ahu", features: ["supply_temp", "return_temp"] }
+  ],
+  edges: [
+    { source: "chiller_01", target: "pump_01", relation: "feeds" },
+    { source: "chiller_02", target: "pump_02", relation: "feeds" },
+    { source: "pump_01", target: "ahu_01", relation: "supplies" },
+    { source: "pump_02", target: "ahu_01", relation: "supplies" }
+  ],
+  adjacency_matrix_shape: [5, 5],  // 節點數 × 節點數
+  control_semantic_fields: ["decay_factor", "response_time", "thermal_mass"]
+}
+```
+
+#### 建議 UI 元素
+
+| 元素 | 說明 | 實作方式 |
+|------|------|----------|
+| **節點類型統計** | 依設備類型分組計數 | `Chiller: 2, Chiller Pump: 2, AHU: 1` |
+| **邊緣關係預覽** | 顯示前 5 條邊 | `chiller_01 → pump_01 (feeds)` |
+| **矩陣維度** | 鄰接矩陣大小 | `Adjacency Matrix: 5×5` |
+| **控制語義欄位** | Decay factor 等欄位數量 | `Control Semantic: 3 fields` |
+| **簡易拓樸圖** | Mermaid.js 流程圖 | 使用 `graph LR` 語法動態生成 |
+
+---
+
+### 2. Step 2 / Step 3: UI 視覺提示升級
+
+- **現狀**：缺乏對 v1.4 特性的提示。
+- **UI 修改建議**：
+  - **Step 2 Excel 生成後**：顯示提示「📋 此範本支援 v1.4 拓樸註記 (topology_node_id, control_semantic, decay_factor)」
+  - **欄位說明提示**：滑鼠 hover 在 Excel 欄位上時顯示說明：
+    - `topology_node_id`: 「設備在拓樸圖中的唯一識別碼，用於 GNN 節點對應」
+    - `control_semantic`: 「控制語義類型，如 valve/damper/setpoint」
+    - `decay_factor`: 「熱慣性衰減係數，用於動態響應建模」
+  - **Step 3 YAML 轉換成功後**：顯示確認訊息「✅ YAML 已包含拓樸設定，可供 GNN 模型使用」
+
+---
+
+### 3. Diagnostic 工具 (診斷區塊) 的強化
+
+- **現狀**：`/api/diagnostic/batch-processor` 等診斷 API 目前會印出完整的 Metadata，但未標明是否成功乘載 Topology。
+- **後端端點修改建議**：
+  - 在 `diagnostic_cleaner` 與 `diagnostic_batch_processor` 的回傳負載中，主動檢查並附加 `topology_summary` 屬性。
+
+#### 建議 API 回傳格式
+
+```python
+# diagnostic_cleaner 與 diagnostic_batch_processor 回傳
+{
+  "status": "success",
+  "stages": {
+    "parser": {"status": "ok", "rows_in": 1000, "rows_out": 1000},
+    "cleaner": {"status": "ok", "rows_in": 1000, "rows_out": 998},
+    "batch_processor": {"status": "ok", "parquet_path": "..."}
+  },
+  "topology_summary": {           # ✅ 新增欄位
+    "has_topology": true,         # 是否有拓樸資料
+    "node_count": 5,              # 節點數量
+    "edge_count": 4,              # 邊緣數量
+    "node_types": {               # 節點類型分布
+      "chiller": 2,
+      "chiller_pump": 2,
+      "ahu": 1
+    },
+    "control_semantic_fields": 3,  # control_semantic 欄位數
+    "sample_nodes": [              # 節點預覽（前 3 個）
+      {"id": "chiller_01", "type": "chiller"},
+      {"id": "pump_01", "type": "chiller_pump"},
+      {"id": "ahu_01", "type": "ahu"}
+    ]
+  },
+  "errors": [],
+  "quality_flags_sample": []
+}
+```
+
+- **前端顯示建議**：
+  - 在診斷結果區塊新增「🕸️ 拓樸檢測」獨立區域
+  - 顯示 `has_topology: ✅ 已載入` 或 `has_topology: ⚠️ 未檢測到`
+  - 展開顯示節點數、邊緣數、設備類型分布
+
+---
+
+### 4. Step 2: Excel 範本拓樸欄位提示強化
+
+- **現狀**：測試人員可能不知道新產生的 Excel 包含哪些拓樸相關欄位。
+- **UI 修改建議**：
+  - **下載按鈕上方**：新增提示區塊：
+    ```
+    📋 v1.4 Excel 範本包含以下拓樸欄位：
+    • topology_node_id - 設備拓樸節點 ID（用於 GNN 圖結構）
+    • control_semantic - 控制語義類型（valve/damper/setpoint）
+    • decay_factor - 熱慣性衰減係數（0.0-1.0）
+    ```
+  - **Excel 欄位標頭**：使用下拉選單或資料驗證，限制輸入值（如 control_semantic 只能是預定義值）
+  - **填寫範例**：在 Excel 的第一行提供填寫範例，方便測試人員參考
+
+---
+
+### 執行時機與相依性
+
+| 項目 | 說明 |
+|------|------|
+| **建議執行時機** | ✅ 已完成（2026-03-02）|
+| **原因** | 確保拓樸資料流已貫通，UI 可正確顯示實際資料 |
+| **前置相依** | ✅ P-R01 (Parser 契約對齊)、C-R01 (Cleaner 邏輯增強)、BP-R01 (BatchProcessor 無損寫入) |
+| **相關文件** | `docs/專案任務排程/專案任務排程文件.md` Phase 0.3 區段 |
+
+---
+
+### 執行指示
+
+進行測試工具的版面修改時，請研發人員依據上述四點規劃，修改以下檔案：
+
+1. **`tools/demo/tester.html`** ✅ 已完成
+   - ✅ 新增「🕸️ GNN 拓樸摘要」面板（Step 4 結果區）
+   - ✅ 新增 v1.4 提示區塊（Step 2 下載區）
+   - ✅ 新增診斷結果拓樸摘要顯示
+
+2. **`tools/demo/test_server.py`** ✅ 已完成
+   - ✅ 修改 `/api/diagnostic/cleaner` 回傳格式，加入 `topology_summary`
+   - ✅ 修改 `/api/diagnostic/batch-processor` 回傳格式，加入 `topology_summary`
+   - ✅ 從 Cleaner/BatchProcessor 輸出中提取拓樸資訊
+
+3. **測試驗證項目** ✅ 已實作
+   - [x] Step 4 成功後正確顯示節點/邊緣數量
+   - [x] 診斷工具正確標示 `has_topology` 狀態
+   - [x] Step 2 Excel 下載時顯示 v1.4 提示
+   - [x] 拓樸欄位說明文字正確顯示
+
+---
+
+### 實作版本
+
+- **版本號**: v1.6.0
+- **實作日期**: 2026-03-02
+- **變更檔案**:
+  - `tools/demo/tester.html` (新增 `renderTopologySummary()` 函數、拓樸面板 UI)
+  - `tools/demo/test_server.py` (診斷 API 新增 `topology_summary` 回傳)
+- **Changelog**: 參見本文第 7 節 [v1.6.0] 項目
+
+---
+
+## 📝 7. 改版與問題追蹤紀錄 (Changelog & Issue Tracking)
 
 > **紀錄規範 (Skill 套用: `changelog-writer` & `documentation-templates`)**
 > 未來若針對此測試工具有任何修改（包含 UI 更動、後端 API 更新、或發生 Bug修復），請依照 [Semantic Versioning](https://semver.org/) 手動或透過 AI 紀錄於此處。
+
+### [v1.6.0] - 2026-03-02
+
+#### 新增 (Added)
+
+- **v1.4 拓樸支援完整實作** (對應 Phase 0.3 Retrofit):
+  - **Step 4 GNN 拓樸摘要面板**: 新增「🕸️ GNN 拓樸摘要」獨立面板，顯示節點數、邊緣數、鄰接矩陣維度、節點類型分布
+  - **拓樸視覺化**: 顯示節點預覽（前 5 個）、邊緣預覽（前 3 條）、Control Semantic 欄位列表
+  - **Step 2/3 v1.4 提示**: Excel 下載區新增 v1.4 拓樸欄位說明（topology_node_id, control_semantic, decay_factor）
+
+- **診斷工具拓樸檢測強化**:
+  - `/api/diagnostic/cleaner` 回傳新增 `topology_summary` 欄位，包含 `has_topology`, `node_count`, `present_columns`, `sample_nodes`
+  - `/api/diagnostic/batch-processor` 回傳新增 `topology_summary`，額外包含 Manifest 中的 `topology_context` 資訊
+  - 前端診斷結果顯示「🕸️ 拓樸檢測」獨立區塊，標示拓樸資料載入狀態
+
+#### 技術實作 (Technical)
+
+- **後端變更** (`test_server.py`):
+  - `diagnostic_cleaner`: 檢查 DataFrame 中的 `topology_node_id`, `control_semantic`, `decay_factor` 欄位，統計節點數與控制語義類型
+  - `diagnostic_batch_processor`: 額外讀取 Manifest 中的 `topology_context`，回傳節點/邊緣數量與鄰接矩陣維度
+
+- **前端變更** (`tester.html`):
+  - 新增 `renderTopologySummary()` 函數，負責渲染拓樸資訊面板
+  - Step 4 結果區改為 Manifest 與拓樸摘要並排布局（grid-2）
+  - 診斷結果渲染邏輯新增拓樸摘要顯示
+
+#### PRD 合規性
+
+- ✅ 符合 `PRD_Interface_Contract_v1.2` Phase 0.3 拓樸貫通要求
+- ✅ 實作文件第 6 節「測試 UI 修改評估與規劃」所有項目（UI-001 ~ UI-004）
+- ✅ 與 `docs/專案任務排程/專案任務排程文件.md` Phase 0.3 完成狀態同步
+
+---
 
 ### [v1.3.1] - 2026-02-24
 

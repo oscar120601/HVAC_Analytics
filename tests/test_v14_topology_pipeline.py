@@ -293,6 +293,204 @@ class TestV14TopologyFields:
 
 
 # =============================================================================
+# Phase 0.3: ETL Pipeline 測試 (Cleaner & BatchProcessor)
+# =============================================================================
+
+class TestCleanerGNNMetadata:
+    """測試 Cleaner 放行 GNN 拓樸欄位 (C-R01)"""
+    
+    def test_allowed_metadata_keys_includes_topology(self):
+        """C-R01-01: ALLOWED_METADATA_KEYS 應包含 GNN 拓樸欄位"""
+        from src.etl.cleaner import ALLOWED_METADATA_KEYS
+        
+        assert 'topology_node_id' in ALLOWED_METADATA_KEYS
+        assert 'control_semantic' in ALLOWED_METADATA_KEYS
+        assert 'decay_factor' in ALLOWED_METADATA_KEYS
+    
+    def test_extract_raw_metadata_includes_topology(self, temp_dir: Path, v14_yaml_content: Dict[str, Any]):
+        """C-R01-02: _extract_raw_metadata 應提取拓樸欄位"""
+        # 建立測試配置
+        config_dir = temp_dir / "config" / "features" / "sites"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        yaml_path = config_dir / "test_site_v14.yaml"
+        
+        with open(yaml_path, 'w', encoding='utf-8') as f:
+            yaml.dump(v14_yaml_content, f, allow_unicode=True)
+        
+        # 建立 AnnotationManager
+        from src.features.annotation_manager import FeatureAnnotationManager
+        from src.etl.cleaner import DataCleaner, CleanerConfig
+        from src.context import PipelineContext
+        
+        annotation_manager = FeatureAnnotationManager(
+            "test_site_v14",
+            config_root=config_dir.parent
+        )
+        
+        # 建立 PipelineContext (E000 檢查需要)
+        PipelineContext._instance = None  # 重置單例
+        pipeline_context = PipelineContext()
+        from datetime import datetime, timezone
+        pipeline_context.initialize(timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc))
+        
+        cleaner = DataCleaner(
+            site_id="test_site_v14",
+            config=CleanerConfig(),
+            annotation_manager=annotation_manager,
+            pipeline_context=pipeline_context
+        )
+        
+        # 測試 _extract_raw_metadata
+        raw_meta = cleaner._extract_raw_metadata("ch1_temp")
+        
+        assert raw_meta['topology_node_id'] == "chiller_01"
+        assert raw_meta['control_semantic'] is not None  # Enum 對象
+        assert raw_meta['decay_factor'] == 0.95
+    
+    def test_build_column_metadata_passes_topology(self, temp_dir: Path, v14_yaml_content: Dict[str, Any]):
+        """C-R01-03: _build_column_metadata 應傳遞拓樸欄位"""
+        import polars as pl
+        from src.etl.cleaner import DataCleaner, CleanerConfig
+        from src.features.annotation_manager import FeatureAnnotationManager
+        from src.context import PipelineContext
+        
+        # 建立測試配置
+        config_dir = temp_dir / "config" / "features" / "sites"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        yaml_path = config_dir / "test_site_v14.yaml"
+        
+        with open(yaml_path, 'w', encoding='utf-8') as f:
+            yaml.dump(v14_yaml_content, f, allow_unicode=True)
+        
+        # 建立 AnnotationManager
+        annotation_manager = FeatureAnnotationManager(
+            "test_site_v14",
+            config_root=config_dir.parent
+        )
+        
+        # 建立 PipelineContext (E000 檢查需要)
+        PipelineContext._instance = None  # 重置單例
+        pipeline_context = PipelineContext()
+        from datetime import datetime, timezone
+        pipeline_context.initialize(timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc))
+        
+        # 建立 Cleaner 實例
+        cleaner = DataCleaner(
+            site_id="test_site_v14",
+            config=CleanerConfig(),
+            annotation_manager=annotation_manager,
+            pipeline_context=pipeline_context
+        )
+        
+        # 建立測試 DataFrame
+        df = pl.DataFrame({
+            "timestamp": ["2024-01-01 00:00:00"],
+            "ch1_temp": [25.0],
+            "ch1_flow": [100.0],
+            "pump1_speed": [50.0]
+        })
+        
+        # 測試 _build_column_metadata
+        metadata = cleaner._build_column_metadata(df)
+        
+        # 驗證拓樸欄位存在
+        assert 'ch1_temp' in metadata
+        assert metadata['ch1_temp'].get('topology_node_id') == "chiller_01"
+        assert metadata['ch1_temp'].get('decay_factor') == 0.95
+        
+        assert metadata['pump1_speed'].get('topology_node_id') == "pump_01"
+        assert metadata['pump1_speed'].get('control_semantic') is not None
+
+
+class TestBatchProcessorTopologyManifest:
+    """測試 BatchProcessor 將拓樸寫入 Manifest (BP-R01)"""
+    
+    def test_feature_metadata_accepts_topology(self, temp_dir: Path):
+        """BP-R01-01: FeatureMetadata 應接受拓樸欄位"""
+        from src.etl.manifest import FeatureMetadata
+        
+        meta = FeatureMetadata(
+            physical_type="temperature",
+            unit="celsius",
+            topology_node_id="chiller_01",
+            control_semantic="feedback",
+            decay_factor=0.95
+        )
+        
+        assert meta.topology_node_id == "chiller_01"
+        assert meta.control_semantic == "feedback"
+        assert meta.decay_factor == 0.95
+    
+    def test_manifest_includes_topology_context(self, temp_dir: Path):
+        """BP-R01-02: Manifest 應包含 topology_context"""
+        from src.etl.manifest import Manifest, TopologyContext, TopologyNode, TopologyEdge
+        from datetime import datetime, timezone
+        
+        topology = TopologyContext(
+            nodes=[
+                TopologyNode(node_id="chiller_01", node_type="equipment", equipment_id="CH-01"),
+                TopologyNode(node_id="pump_01", node_type="equipment", equipment_id="P-01")
+            ],
+            edges=[
+                TopologyEdge(source="chiller_01", target="pump_01", edge_type="fluid")
+            ],
+            decay_factors={"chiller_01": 0.95, "pump_01": 0.85}
+        )
+        
+        manifest = Manifest(
+            batch_id="test-batch-001",
+            site_id="test_site",
+            created_at=datetime.now(timezone.utc),
+            temporal_baseline={
+                "pipeline_origin_timestamp": "2024-01-01T00:00:00+00:00",
+                "timezone": "UTC",
+                "baseline_version": "1.0"
+            },
+            topology_context=topology  # 🆕 v1.4
+        )
+        
+        assert manifest.topology_context is not None
+        assert len(manifest.topology_context.nodes) == 2
+        assert len(manifest.topology_context.edges) == 1
+        assert manifest.topology_context.decay_factors.get("chiller_01") == 0.95
+    
+    def test_manifest_serialization_with_topology(self, temp_dir: Path):
+        """BP-R01-03: Manifest 應正確序列化拓樸資訊"""
+        from src.etl.manifest import Manifest, TopologyContext, TopologyNode, TopologyEdge
+        from datetime import datetime, timezone
+        
+        topology = TopologyContext(
+            nodes=[
+                TopologyNode(node_id="chiller_01", node_type="equipment", equipment_id="CH-01")
+            ],
+            edges=[],
+            decay_factors={"chiller_01": 0.95}
+        )
+        
+        manifest = Manifest(
+            batch_id="test-batch-002",
+            site_id="test_site",
+            created_at=datetime.now(timezone.utc),
+            temporal_baseline={
+                "pipeline_origin_timestamp": "2024-01-01T00:00:00+00:00",
+                "timezone": "UTC",
+                "baseline_version": "1.0"
+            },
+            topology_context=topology
+        )
+        
+        # 寫入並讀回
+        manifest_path = temp_dir / "manifest.json"
+        manifest.write_to_file(manifest_path)
+        
+        restored = Manifest.read_from_file(manifest_path)
+        
+        assert restored.topology_context is not None
+        assert restored.topology_context.nodes[0].node_id == "chiller_01"
+        assert restored.topology_context.decay_factors["chiller_01"] == 0.95
+
+
+# =============================================================================
 # 執行測試
 # =============================================================================
 

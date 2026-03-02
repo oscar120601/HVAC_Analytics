@@ -800,6 +800,33 @@ async def diagnostic_cleaner(
             cleaner.config.resample_interval = resample_interval
         df_clean, metadata, audit = cleaner.clean(df_parsed)
         
+        # 檢查拓樸相關欄位
+        topology_columns = ["topology_node_id", "control_semantic", "decay_factor"]
+        present_topology_cols = [col for col in topology_columns if col in df_clean.columns]
+        
+        # 建構拓樸摘要
+        topology_summary = {
+            "has_topology": len(present_topology_cols) > 0,
+            "present_columns": present_topology_cols,
+            "node_count": 0,
+            "sample_nodes": []
+        }
+        
+        if "topology_node_id" in df_clean.columns:
+            # 計算唯一節點數（排除 null）
+            unique_nodes = df_clean["topology_node_id"].drop_nulls().unique().to_list()
+            topology_summary["node_count"] = len(unique_nodes)
+            topology_summary["sample_nodes"] = unique_nodes[:5]  # 前 5 個節點
+            
+        if "control_semantic" in df_clean.columns:
+            # 統計 control_semantic 類型
+            semantic_counts = {}
+            for val in df_clean["control_semantic"].drop_nulls().unique().to_list():
+                if val:
+                    count = df_clean.filter(pl.col("control_semantic") == val).shape[0]
+                    semantic_counts[str(val)] = count
+            topology_summary["control_semantic_stats"] = semantic_counts
+        
         return {
             "stage": "cleaner",
             "status": "success",
@@ -811,7 +838,8 @@ async def diagnostic_cleaner(
             "metadata_keys": list(metadata.keys())[:10],
             "audit_keys": list(audit.keys()),
             "quality_flags_present": "quality_flags" in df_clean.columns,
-            "sample_flags": df_clean["quality_flags"].head(5).to_list() if "quality_flags" in df_clean.columns else []
+            "sample_flags": df_clean["quality_flags"].head(5).to_list() if "quality_flags" in df_clean.columns else [],
+            "topology_summary": topology_summary  # ✅ v1.4 新增
         }
     except Exception as e:
         import traceback
@@ -903,6 +931,53 @@ async def diagnostic_batch_processor(
         results["parser_type_resolved"] = resolved_parser_type
         results["parse_metadata"] = parse_metadata
         results["overall_status"] = "success" if result.status == "success" else "failed"
+        
+        # 檢查拓樸相關欄位
+        topology_columns = ["topology_node_id", "control_semantic", "decay_factor"]
+        present_topology_cols = [col for col in topology_columns if col in df_clean.columns]
+        
+        # 建構拓樸摘要
+        topology_summary = {
+            "has_topology": len(present_topology_cols) > 0,
+            "present_columns": present_topology_cols,
+            "node_count": 0,
+            "edge_count": 0,
+            "sample_nodes": [],
+            "sample_edges": []
+        }
+        
+        if "topology_node_id" in df_clean.columns:
+            # 計算唯一節點數（排除 null）
+            unique_nodes = df_clean["topology_node_id"].drop_nulls().unique().to_list()
+            topology_summary["node_count"] = len(unique_nodes)
+            topology_summary["sample_nodes"] = unique_nodes[:5]  # 前 5 個節點
+            
+        if "control_semantic" in df_clean.columns:
+            # 統計 control_semantic 類型
+            semantic_counts = {}
+            for val in df_clean["control_semantic"].drop_nulls().unique().to_list():
+                if val:
+                    count = df_clean.filter(pl.col("control_semantic") == val).shape[0]
+                    semantic_counts[str(val)] = count
+            topology_summary["control_semantic_stats"] = semantic_counts
+            topology_summary["control_semantic_fields"] = len(semantic_counts)
+        
+        # 檢查 Manifest 中的 topology_context
+        manifest_path = output_dir / site_id / "output" / "manifest_v1.3.json"
+        if manifest_path.exists():
+            try:
+                with open(manifest_path, 'r', encoding='utf-8') as f:
+                    manifest = json.load(f)
+                topology_context = manifest.get("topology_context", {})
+                if topology_context:
+                    topology_summary["manifest_has_topology"] = True
+                    topology_summary["manifest_nodes"] = len(topology_context.get("nodes", []))
+                    topology_summary["manifest_edges"] = len(topology_context.get("edges", []))
+                    topology_summary["adjacency_matrix_shape"] = topology_context.get("adjacency_matrix_shape", [0, 0])
+            except Exception:
+                pass
+        
+        results["topology_summary"] = topology_summary  # ✅ v1.4 新增
         
     except Exception as e:
         import traceback

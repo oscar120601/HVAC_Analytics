@@ -26,6 +26,10 @@ class FeatureMetadata(BaseModel):
     unit: Optional[str] = Field(default=None, description="單位")
     description: Optional[str] = Field(default=None, description="欄位描述")
     column_name: Optional[str] = Field(default=None, description="原始欄位名稱")
+    # 🆕 v1.4: GNN 拓樸欄位
+    topology_node_id: Optional[str] = Field(default=None, description="GNN 節點 ID")
+    control_semantic: Optional[str] = Field(default=None, description="控制語意")
+    decay_factor: Optional[float] = Field(default=None, description="衰減係數")
     
     class Config:
         extra = "forbid"  # 禁止額外欄位，防止 device_role 洩漏
@@ -56,6 +60,30 @@ class EquipmentValidationAudit(BaseModel):
     violation_details: List[Dict[str, Any]] = Field(default_factory=list, description="違規詳情")
     precheck_timestamp: str = Field(default="", description="預檢執行時間戳")
     audit_generated_at: Optional[str] = Field(default=None, description="稽核軌跡產生時間")
+
+
+class TopologyNode(BaseModel):
+    """🆕 v1.4: GNN 拓樸節點定義"""
+    node_id: str = Field(..., description="節點唯一識別碼")
+    node_type: str = Field(default="equipment", description="節點類型 (equipment, sensor, control)")
+    equipment_id: Optional[str] = Field(default=None, description="關聯設備 ID")
+    features: List[str] = Field(default_factory=list, description="關聯的特徵欄位名稱列表")
+
+
+class TopologyEdge(BaseModel):
+    """🆕 v1.4: GNN 拓樸邊緣定義"""
+    source: str = Field(..., description="源節點 ID")
+    target: str = Field(..., description="目標節點 ID")
+    edge_type: str = Field(default="fluid", description="邊緣類型 (fluid, control_signal, heat_transfer)")
+    weight: Optional[float] = Field(default=None, description="邊緣權重")
+
+
+class TopologyContext(BaseModel):
+    """🆕 v1.4: GNN 完整拓樸上下文"""
+    nodes: List[TopologyNode] = Field(default_factory=list, description="節點列表")
+    edges: List[TopologyEdge] = Field(default_factory=list, description="邊緣列表")
+    adjacency_matrix_path: Optional[str] = Field(default=None, description="Parquet 中鄰接矩陣的儲存路徑")
+    decay_factors: Dict[str, float] = Field(default_factory=dict, description="節點 ID → 衰減係數映射")
 
 
 class TimestampSchema(BaseModel):
@@ -106,6 +134,12 @@ class Manifest(BaseModel):
     equipment_validation_audit: EquipmentValidationAudit = Field(
         default_factory=EquipmentValidationAudit,
         description="設備驗證稽核軌跡"
+    )
+    
+    # 🆕 v1.4: GNN 拓樸上下文
+    topology_context: Optional[TopologyContext] = Field(
+        default=None,
+        description="GNN 拓樸上下文（節點、邊緣、鄰接矩陣）"
     )
     
     # SSOT 版本快照

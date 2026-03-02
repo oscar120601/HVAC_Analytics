@@ -71,6 +71,7 @@ from src.etl.manifest import (
     EquipmentValidationAudit,
     TimestampSchema,
     ManifestStatistics,
+    TopologyContext,  # 🆕 v1.4
 )
 
 # 異常類別
@@ -299,6 +300,7 @@ class BatchProcessor:
         df: pl.DataFrame,
         column_metadata: Optional[Dict[str, Any]] = None,
         equipment_validation_audit: Optional[Dict] = None,
+        topology_context: Optional[TopologyContext] = None,  # 🆕 v1.4
         source_file: Optional[str] = None
     ) -> BatchResult:
         """
@@ -308,6 +310,7 @@ class BatchProcessor:
             df: 輸入 DataFrame（來自 Cleaner）
             column_metadata: 欄位元資料
             equipment_validation_audit: 設備驗證稽核軌跡
+            topology_context: 🆕 GNN 拓樸上下文（從 Annotation YAML 提取）
             source_file: 來源檔案名稱
             
         Returns:
@@ -335,6 +338,7 @@ class BatchProcessor:
                 df,
                 column_metadata=column_metadata,
                 equipment_audit=equipment_validation_audit,
+                topology_context=topology_context,  # 🆕 v1.4
                 output_files=[parquet_file.name]
             )
             
@@ -608,6 +612,7 @@ class BatchProcessor:
         df: pl.DataFrame,
         column_metadata: Optional[Dict[str, Any]] = None,
         equipment_audit: Optional[Dict] = None,
+        topology_context: Optional[TopologyContext] = None,  # 🆕 v1.4
         output_files: Optional[List[str]] = None
     ) -> Manifest:
         """
@@ -617,6 +622,7 @@ class BatchProcessor:
             df: 處理後的 DataFrame
             column_metadata: 欄位元資料
             equipment_audit: 設備驗證稽核
+            topology_context: 🆕 GNN 拓樸上下文
             output_files: 輸出檔案列表
             
         Returns:
@@ -695,6 +701,7 @@ class BatchProcessor:
             feature_metadata=feature_metadata,
             annotation_audit_trail=audit_trail,
             equipment_validation_audit=equip_audit,
+            topology_context=topology_context,  # 🆕 v1.4
             quality_flags_schema=list(VALID_QUALITY_FLAGS),  # SSOT 快照
             timestamp_schema=TimestampSchema(
                 format="INT64",

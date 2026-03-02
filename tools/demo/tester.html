@@ -377,6 +377,21 @@
                     <!-- 動態顯示預覽結果摘要 -->
                 </div>
 
+                <!-- v1.4 拓樸欄位提示 -->
+                <div style="margin-bottom: 15px; padding: 12px; background: rgba(167, 139, 250, 0.1); border: 1px solid rgba(167, 139, 250, 0.3); border-radius: 6px; font-size: 0.85rem;">
+                    <div style="color: var(--purple); font-weight: 500; margin-bottom: 8px;">
+                        📋 v1.4 Excel 範本包含以下拓樸欄位（供 GNN 使用）：
+                    </div>
+                    <div style="color: var(--text-dim); margin-left: 8px;">
+                        <div style="margin: 4px 0;">• <code>topology_node_id</code> - 設備拓樸節點 ID（用於 GNN 圖結構）</div>
+                        <div style="margin: 4px 0;">• <code>control_semantic</code> - 控制語義類型（valve/damper/setpoint）</div>
+                        <div style="margin: 4px 0;">• <code>decay_factor</code> - 熱慣性衰減係數（0.0-1.0）</div>
+                    </div>
+                    <div style="color: var(--text-dim); margin-top: 8px; font-size: 0.8rem; border-top: 1px solid rgba(167, 139, 250, 0.2); padding-top: 8px;">
+                        💡 <strong>提示：</strong>Excel 的 description 欄位會顯示 Point 對應關係，column_name 顯示標準化後的 snake_case 名稱
+                    </div>
+                </div>
+
                 <!-- 產生模式選擇 -->
                 <div style="margin-bottom: 15px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 6px;">
                     <div style="font-size: 0.85rem; margin-bottom: 8px; color: var(--text-dim);">選擇產生方式：</div>
@@ -423,6 +438,11 @@
             <p style="font-size: 0.9rem; color: var(--text-dim);">將您剛才填寫好（或我們預先準備好的）Excel 標註檔上傳，系統會驗證邏輯並轉換成 `.yaml` 放入
                 config/ 中。</p>
 
+            <!-- v1.4 提示 -->
+            <div style="margin-bottom: 15px; padding: 10px 12px; background: rgba(0, 212, 255, 0.05); border-left: 3px solid var(--cyan); border-radius: 4px; font-size: 0.85rem; color: var(--text-dim);">
+                <strong style="color: var(--cyan);">v1.4 支援：</strong>YAML 將包含拓樸設定（topology_node_id, control_semantic, decay_factor），供 GNN 模型訓練使用
+            </div>
+
             <label>案場名稱 (Site ID):</label>
             <input type="text" id="siteId2" value="demo_site">
             <input type="file" id="excelFile" accept=".xlsx">
@@ -435,9 +455,9 @@
         <!-- Step 4 -->
         <div class="step-card">
             <div class="step-badge">STEP 4 (Sprint 2)</div>
-            <h3>執行完整 ETL Pipeline (Parser -> Cleaner -> BatchProcessor)</h3>
+            <h3>執行完整 ETL Pipeline v1.4 (Parser → Cleaner → BatchProcessor)</h3>
             <p style="font-size: 0.9rem; color: var(--text-dim);">重新上傳 CSV，開始進行編碼自動偵測、時區校正、語意清洗，最終輸出 BatchProcessor
-                Manifest。<br><strong>前置條件：</strong>請確定 STEP 2 已經成功產生該案場名稱的 YAML。</p>
+                Manifest v1.4（含 GNN 拓樸資訊）。<br><strong>前置條件：</strong>請確定 STEP 2 已經成功產生該案場名稱的 YAML。</p>
 
             <div id="pipelineParserHint"
                 style="margin: 10px 0 12px 0; color: var(--cyan); font-size: 0.9rem; background: rgba(0, 212, 255, 0.08); border: 1px solid rgba(0, 212, 255, 0.25); border-radius: 6px; padding: 8px 10px;">
@@ -542,14 +562,28 @@
                     </div>
                 </div>
 
-                <h4 style="color:var(--purple); margin-top: 20px;">📦 批次輸出 Manifest (v1.3)</h4>
-                <div class="result-box-wrapper">
-                    <button class="copy-btn" onclick="copyToClipboard('manifestOutput', this)" style="right: 120px;">複製
-                        JSON</button>
-                    <button class="copy-btn" onclick="downloadParquet()"
-                        style="border-color: var(--green); color: var(--green); background: rgba(6, 214, 160, 0.1);">⬇️
-                        下載 Parquet</button>
-                    <div class="result-box" id="manifestOutput"></div>
+                <!-- Manifest 與拓樸摘要並排 -->
+                <div class="grid-2" style="margin-top: 20px;">
+                    <div>
+                        <h4 style="color:var(--purple);">📦 批次輸出 Manifest (v1.4)</h4>
+                        <div class="result-box-wrapper">
+                            <button class="copy-btn" onclick="copyToClipboard('manifestOutput', this)" style="right: 120px;">複製
+                                JSON</button>
+                            <button class="copy-btn" onclick="downloadParquet()"
+                                style="border-color: var(--green); color: var(--green); background: rgba(6, 214, 160, 0.1);">⬇️
+                                下載 Parquet</button>
+                            <div class="result-box" id="manifestOutput"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 style="color:var(--purple);">🕸️ GNN 拓樸摘要</h4>
+                        <div class="result-box-wrapper">
+                            <button class="copy-btn" onclick="copyToClipboard('topologyOutput', this)">複製 JSON</button>
+                            <div class="result-box" id="topologyOutput" style="max-height: 250px;">
+                                [尚未執行 Pipeline 或無拓樸資料]
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <h4 style="margin-top: 20px;">🔍 原始 vs 清洗資料預覽</h4>
@@ -1262,6 +1296,9 @@
                     document.getElementById('parsedOutput').textContent = JSON.stringify(pipelineData.parsed_sample, null, 2);
                     document.getElementById('cleanedOutput').textContent = JSON.stringify(pipelineData.cleaned_sample, null, 2);
 
+                    // 渲染拓樸摘要 (v1.4 新增)
+                    renderTopologySummary(pipelineData.manifest);
+
                     drawChart(pipelineData.stats);
                     resultSection.style.display = 'block';
                 }
@@ -1435,6 +1472,98 @@
             });
         }
 
+        // 渲染拓樸摘要 (v1.4 新增)
+        function renderTopologySummary(manifest) {
+            const output = document.getElementById('topologyOutput');
+            
+            if (!manifest) {
+                output.textContent = '[無 Manifest 資料]';
+                return;
+            }
+
+            const topologyContext = manifest.topology_context || {};
+            const nodes = topologyContext.nodes || [];
+            const edges = topologyContext.edges || [];
+            const adjacencyShape = topologyContext.adjacency_matrix_shape || [0, 0];
+            
+            if (nodes.length === 0 && edges.length === 0) {
+                output.innerHTML = `<div style="color: var(--text-dim);">⚠️ 未檢測到拓樸資料<br><span style="font-size: 0.8rem;">Manifest 中無 topology_context 或 nodes/edges 為空</span></div>`;
+                return;
+            }
+
+            // 計算節點類型統計
+            const nodeTypes = {};
+            nodes.forEach(node => {
+                const type = node.type || 'unknown';
+                nodeTypes[type] = (nodeTypes[type] || 0) + 1;
+            });
+
+            // 計算 control_semantic 欄位
+            const controlSemanticFields = topologyContext.control_semantic_fields || [];
+
+            let html = `<div style="color: var(--green); font-weight: 500; margin-bottom: 10px;">✅ 已載入拓樸資料</div>`;
+            
+            // 基本統計
+            html += `<div style="margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 6px;">`;
+            html += `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.85rem;">`;
+            html += `<div>🟢 節點數量: <strong>${nodes.length}</strong></div>`;
+            html += `<div>🔗 邊緣數量: <strong>${edges.length}</strong></div>`;
+            html += `<div>📐 鄰接矩陣: <strong>${adjacencyShape[0]}×${adjacencyShape[1]}</strong></div>`;
+            html += `<div>🎛️ Control Semantic: <strong>${controlSemanticFields.length} 欄位</strong></div>`;
+            html += `</div></div>`;
+
+            // 節點類型統計
+            if (Object.keys(nodeTypes).length > 0) {
+                html += `<div style="margin-bottom: 10px;"><div style="color: var(--cyan); font-size: 0.85rem; margin-bottom: 4px;">節點類型分布:</div>`;
+                html += `<div style="display: flex; flex-wrap: wrap; gap: 6px;">`;
+                for (const [type, count] of Object.entries(nodeTypes)) {
+                    html += `<span style="background: rgba(167, 139, 250, 0.15); color: var(--purple); padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">${type}: ${count}</span>`;
+                }
+                html += `</div></div>`;
+            }
+
+            // 節點預覽（前 5 個）
+            if (nodes.length > 0) {
+                html += `<div style="margin-bottom: 10px;"><div style="color: var(--cyan); font-size: 0.85rem; margin-bottom: 4px;">節點預覽 (前 5 個):</div>`;
+                html += `<div style="font-size: 0.8rem;">`;
+                nodes.slice(0, 5).forEach(node => {
+                    const features = (node.features || []).slice(0, 3).join(', ');
+                    const featuresText = features ? ` [${features}${(node.features || []).length > 3 ? '...' : ''}]` : '';
+                    html += `<div style="margin: 2px 0; color: var(--text-dim);">• ${node.id} (${node.type})${featuresText}</div>`;
+                });
+                if (nodes.length > 5) {
+                    html += `<div style="color: var(--text-dim); font-size: 0.75rem;">... 還有 ${nodes.length - 5} 個節點</div>`;
+                }
+                html += `</div></div>`;
+            }
+
+            // 邊緣預覽（前 3 條）
+            if (edges.length > 0) {
+                html += `<div style="margin-bottom: 10px;"><div style="color: var(--cyan); font-size: 0.85rem; margin-bottom: 4px;">邊緣預覽 (前 3 條):</div>`;
+                html += `<div style="font-size: 0.8rem;">`;
+                edges.slice(0, 3).forEach(edge => {
+                    const relation = edge.relation ? ` (${edge.relation})` : '';
+                    html += `<div style="margin: 2px 0; color: var(--text-dim);">→ ${edge.source} → ${edge.target}${relation}</div>`;
+                });
+                if (edges.length > 3) {
+                    html += `<div style="color: var(--text-dim); font-size: 0.75rem;">... 還有 ${edges.length - 3} 條邊緣</div>`;
+                }
+                html += `</div></div>`;
+            }
+
+            // Control Semantic 欄位
+            if (controlSemanticFields.length > 0) {
+                html += `<div><div style="color: var(--cyan); font-size: 0.85rem; margin-bottom: 4px;">Control Semantic 欄位:</div>`;
+                html += `<div style="display: flex; flex-wrap: wrap; gap: 6px;">`;
+                controlSemanticFields.forEach(field => {
+                    html += `<span style="background: rgba(0, 212, 255, 0.1); color: var(--cyan); padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">${field}</span>`;
+                });
+                html += `</div></div>`;
+            }
+
+            output.innerHTML = html;
+        }
+
         // ====================================================================
         // 階段性診斷功能 (整合至 Step 4)
         // ====================================================================
@@ -1502,6 +1631,34 @@
                         if (s.rows !== undefined) html += ` (${s.rows} 行)`;
                         html += '<br>';
                     });
+                    html += '</div>';
+                }
+
+                // 顯示拓樸摘要 (v1.4 新增)
+                if (data.topology_summary) {
+                    const ts = data.topology_summary;
+                    html += `<div style="margin: 10px 0; padding: 10px; background: rgba(167, 139, 250, 0.1); border: 1px solid rgba(167, 139, 250, 0.3); border-radius: 6px;">`;
+                    html += `<strong style="color: var(--purple);">🕸️ 拓樸檢測:</strong> `;
+                    if (ts.has_topology) {
+                        html += `<span style="color: var(--green);">✅ 已載入</span>`;
+                        html += `<div style="margin-top: 6px; font-size: 0.85rem; color: var(--text-dim);">`;
+                        html += `節點: ${ts.node_count || 0} | 邊緣: ${ts.edge_count || 0}`;
+                        if (ts.control_semantic_fields !== undefined) {
+                            html += ` | Control Semantic: ${ts.control_semantic_fields} 欄位`;
+                        }
+                        if (ts.present_columns && ts.present_columns.length > 0) {
+                            html += `<br>欄位: ${ts.present_columns.join(', ')}`;
+                        }
+                        if (ts.sample_nodes && ts.sample_nodes.length > 0) {
+                            html += `<br>節點預覽: ${ts.sample_nodes.slice(0, 3).join(', ')}${ts.sample_nodes.length > 3 ? '...' : ''}`;
+                        }
+                        html += `</div>`;
+                    } else {
+                        html += `<span style="color: var(--yellow);">⚠️ 未檢測到拓樸資料</span>`;
+                        html += `<div style="margin-top: 6px; font-size: 0.8rem; color: var(--text-dim);">`;
+                        html += `DataFrame 中未找到 topology_node_id、control_semantic 或 decay_factor 欄位`;
+                        html += `</div>`;
+                    }
                     html += '</div>';
                 }
 

@@ -59,8 +59,12 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 # 允許的 Metadata 鍵（白名單機制）
+# 🆕 v1.4: 擴充支援 GNN 拓樸欄位
 ALLOWED_METADATA_KEYS: Set[str] = frozenset({
-    'physical_type', 'unit', 'description', 'column_name'
+    'physical_type', 'unit', 'description', 'column_name',
+    'topology_node_id',      # 🆕 GNN 節點 ID
+    'control_semantic',      # 🆕 控制語意
+    'decay_factor',          # 🆕 衰減係數
 })
 
 # 禁止輸出的欄位（E500 防護）
@@ -1164,7 +1168,7 @@ class DataCleaner:
         return metadata
     
     def _extract_raw_metadata(self, column_name: str) -> Dict[str, Any]:
-        """從 Annotation 提取原始 Metadata"""
+        """從 Annotation 提取原始 Metadata（含 v1.4 拓樸欄位）"""
         if not self.annotation:
             return {"column_name": column_name}
         
@@ -1172,11 +1176,16 @@ class DataCleaner:
         if not anno:
             return {"column_name": column_name}
         
+        # 🆕 v1.4: 擴充提取 GNN 拓樸欄位
         return {
             "column_name": column_name,
             "physical_type": anno.physical_type.value if anno.physical_type else None,
             "unit": anno.unit,
             "description": anno.description,
+            # 🆕 GNN 拓樸欄位
+            "topology_node_id": getattr(anno, 'topology_node_id', None),
+            "control_semantic": getattr(anno, 'control_semantic', None),
+            "decay_factor": getattr(anno, 'decay_factor', None),
         }
     
     # =========================================================================
