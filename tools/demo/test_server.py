@@ -784,11 +784,18 @@ def process_pipeline_task(
 
         update_progress("計算資料品質統計報告...", stage="統計與收尾")
         
-        # 統計運算
-        missing_before = sum(df_parsed.null_count().row(0)) if len(df_parsed) > 0 else 0
-        total_cells = len(df_parsed) * len(df_parsed.columns)
+        # ==========================================
+        # 統計運算 - 增強版 (Cleaner v2.2 契約對齊)
+        # ==========================================
+        
+        # 1. 基本統計
+        rows_parsed = len(df_parsed)
+        rows_cleaned = len(df_cleaned)
+        missing_before = sum(df_parsed.null_count().row(0)) if rows_parsed > 0 else 0
+        total_cells = rows_parsed * len(df_parsed.columns)
         missing_rate_before = (missing_before / total_cells) * 100 if total_cells > 0 else 0
         
+        # 2. NaN/Inf 統計
         nan_inf_count = 0
         for col in df_parsed.columns:
             dtype = df_parsed[col].dtype
@@ -796,32 +803,81 @@ def process_pipeline_task(
                 nan_inf_count += df_parsed[col].is_nan().sum() if hasattr(df_parsed[col], 'is_nan') else 0
         nan_inf_rate = (nan_inf_count / total_cells) * 100 if total_cells > 0 else 0
         
-        if "quality_flags" in df_cleaned.columns:
+        # 3. Quality Flags 詳細統計
+        quality_flags_breakdown = {}
+        frozen_data_count = 0
+        equipment_violation_count = 0
+        future_data_count = 0
+        timezone_error_count = 0
+        format_error_count = 0
+        
+        if "quality_flags" in df_cleaned.columns and rows_cleaned > 0:
+            # FROZEN_DATA 統計
+            frozen_mask = pl.col("quality_flags").list.contains("FROZEN_DATA")
+            frozen_data_count = df_cleaned.filter(frozen_mask).height
+            
+            # PHYSICAL_IMPOSSIBLE / EQUIPMENT_VIOLATION 統計
+            e350_mask = pl.col("quality_flags").list.contains("PHYSICAL_IMPOSSIBLE")
+            eq_violation_mask = pl.col("quality_flags").list.contains("EQUIPMENT_VIOLATION")
+            equipment_violation_count = df_cleaned.filter(e350_mask | eq_violation_mask).height
+            
+            # FUTURE_DATA 統計
+            future_mask = pl.col("quality_flags").list.contains("FUTURE_DATA")
+            future_data_count = df_cleaned.filter(future_mask).height
+            
+            # TIMEZONE 錯誤統計
             tz_mask = (
                 pl.col("quality_flags").list.contains("TIMEZONE_MISMATCH") | 
                 pl.col("quality_flags").list.contains("DST_GAP")
             )
             timezone_errors = df_cleaned.filter(tz_mask)
-        else:
-            timezone_errors = None
-        timezone_error_rate = (len(timezone_errors) / len(df_cleaned)) * 100 if timezone_errors is not None and len(df_cleaned) > 0 else 0
-        
-        if "quality_flags" in df_cleaned.columns:
+            timezone_error_count = len(timezone_errors)
+            
+            # FORMAT 錯誤統計
             fmt_mask = (
                 pl.col("quality_flags").list.contains("FORMAT_INVALID") | 
                 pl.col("quality_flags").list.contains("ENCODING_ERROR")
             )
             format_errors = df_cleaned.filter(fmt_mask)
+            format_error_count = len(format_errors)
+            
+            # 構建 breakdown
+            quality_flags_breakdown = {
+                "FROZEN_DATA": frozen_data_count,
+                "PHYSICAL_IMPOSSIBLE": df_cleaned.filter(e350_mask).height,
+                "EQUIPMENT_VIOLATION": df_cleaned.filter(eq_violation_mask).height,
+                "FUTURE_DATA": future_data_count,
+                "TIMEZONE_MISMATCH": timezone_error_count,
+                "FORMAT_INVALID": format_error_count
+            }
         else:
+            timezone_errors = None
             format_errors = None
-        format_error_rate = (len(format_errors) / len(df_cleaned)) * 100 if format_errors is not None and len(df_cleaned) > 0 else 0
         
+        timezone_error_rate = (timezone_error_count / rows_cleaned) * 100 if rows_cleaned > 0 else 0
+        format_error_rate = (format_error_count / rows_cleaned) * 100 if rows_cleaned > 0 else 0
+        frozen_data_rate = (frozen_data_count / rows_cleaned) * 100 if rows_cleaned > 0 else 0
+        equipment_violation_rate = (equipment_violation_count / rows_cleaned) * 100 if rows_cleaned > 0 else 0
+        
+        # 4. E350 違規詳細資訊（結構化）
+        e350_violations = None
+        e350_structured = []
         if "quality_flags" in df_cleaned.columns:
             e350_mask = pl.col("quality_flags").list.contains("PHYSICAL_IMPOSSIBLE")
             e350_violations = df_cleaned.filter(e350_mask)
-        else:
-            e350_violations = None
-        outlier_rate = (len(e350_violations) / len(df_cleaned)) * 100 if e350_violations is not None and len(df_cleaned) > 0 else 0
+            
+            # 結構化違規資訊
+            if equipment_audit and equipment_audit.get("violation_details"):
+                for violation in equipment_audit["violation_details"]:
+                    e350_structured.append({
+                        "constraint_id": violation.get("constraint_id", "unknown"),
+                        "description": violation.get("description", ""),
+                        "count": violation.get("count", 0),
+                        "severity": violation.get("severity", "warning"),
+                        "timestamp": violation.get("timestamp", "")
+                    })
+        
+        outlier_rate = (len(e350_violations) / rows_cleaned) * 100 if e350_violations is not None and rows_cleaned > 0 else 0
         
         manifest_path = output_dir / "latest" / "manifest_v1.3.json"
         manifest_data = {}
@@ -845,23 +901,34 @@ def process_pipeline_task(
                 "equipment_violations": equipment_audit.get("violations_detected", 0)
             },
             "stats": {
-                "rows_processed": len(df_processed),
+                # 基本統計
+                "rows_parsed": rows_parsed,
+                "rows_cleaned": rows_cleaned,
                 "columns": len(df_processed.columns),
+                # 清洗品質指標（雷達圖用）
                 "missing_rate_before": round(missing_rate_before, 2),
                 "missing_rate_after": 0.0,
                 "nan_inf_rate": round(nan_inf_rate, 2),
                 "timezone_error_rate": round(timezone_error_rate, 2),
                 "format_error_rate": round(format_error_rate, 2),
+                "frozen_data_rate": round(frozen_data_rate, 2),
+                "equipment_violation_rate": round(equipment_violation_rate, 2),
                 "outlier_rate": round(outlier_rate, 2),
-                "e350_violations_count": len(e350_violations) if e350_violations is not None else 0,
+                # 詳細計數
                 "nan_inf_count": int(nan_inf_count),
-                "timezone_error_count": len(timezone_errors) if timezone_errors is not None else 0,
-                "format_error_count": len(format_errors) if format_errors is not None else 0
+                "timezone_error_count": timezone_error_count,
+                "format_error_count": format_error_count,
+                "frozen_data_count": frozen_data_count,
+                "equipment_violation_count": equipment_violation_count,
+                "e350_violations_count": len(e350_violations) if e350_violations is not None else 0,
+                # Quality Flags 分類統計
+                "quality_flags_breakdown": quality_flags_breakdown
             },
-            "e350_samples": e350_violations.head(3).to_dicts() if e350_violations is not None else [],
+            "e350_samples": e350_violations.head(5).to_dicts() if e350_violations is not None else [],
+            "e350_structured": e350_structured,
             "manifest": manifest_data,
-            "parsed_sample": df_parsed.head(3).to_dicts(),
-            "cleaned_sample": df_cleaned.head(3).to_dicts(),
+            "parsed_sample": df_parsed.head(10).to_dicts(),
+            "cleaned_sample": df_cleaned.head(10).to_dicts(),
             "equipment_audit": equipment_audit,
             "feature_engineer_input_ready": True
         }

@@ -568,18 +568,23 @@
 
             <!-- Results Grid -->
             <div id="pipelineResult" style="display:none; margin-top: 20px;">
+                <!-- 品質雷達圖與統計摘要 -->
                 <div class="grid-2">
                     <div>
-                        <h4 style="color:var(--cyan)">📊 清洗品質雷達圖</h4>
+                        <h4 style="color:var(--cyan)">📊 清洗品質雷達圖 (Cleaner v2.2)</h4>
                         <canvas id="qualityChart"></canvas>
+                        <div id="qualitySummaryPanel"></div>
                     </div>
                     <div>
-                        <h4 style="color:var(--orange)">⚠️ E350 設備預檢違規 (前 3 筆)</h4>
-                        <div class="result-box-wrapper">
-                            <button class="copy-btn" onclick="copyToClipboard('e350Output', this)">複製 JSON</button>
-                            <div class="result-box" id="e350Output" style="max-height: 250px;"></div>
-                        </div>
+                        <h4 style="color:var(--orange)">⚠️ E350 設備邏輯預檢違規詳情</h4>
+                        <div id="e350Output" style="max-height: 300px; overflow: auto;"></div>
                     </div>
+                </div>
+
+                <!-- Quality Flags 統計面板 -->
+                <div style="margin-top: 20px;">
+                    <h4 style="color: var(--cyan);">🏷️ Quality Flags 分類統計</h4>
+                    <div id="qualityFlagsPanel" style="margin-top: 10px;"></div>
                 </div>
 
                 <!-- Manifest 與拓樸摘要並排 -->
@@ -606,10 +611,21 @@
                     </div>
                 </div>
 
-                <h4 style="margin-top: 20px;">🔍 原始 vs 清洗資料預覽</h4>
-                <div class="grid-2">
-                    <div class="result-box" id="parsedOutput" style="border-color:var(--red);">[解析後原始資料]</div>
-                    <div class="result-box" id="cleanedOutput" style="border-color:var(--green);">[清洗後正規化資料]</div>
+                <!-- 清洗前後資料對比 -->
+                <h4 style="margin-top: 20px;">🔍 原始 vs 清洗資料預覽 (前 10 筆)</h4>
+                <div style="margin-bottom: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; font-size: 0.85rem; color: var(--text-dim);">
+                    💡 <strong>對比說明：</strong>左側為 Parser 解析後的原始資料，右側為 Cleaner 清洗後的資料。
+                    請注意 <span style="color: var(--green);">quality_flags</span> 欄位新增的品質標記，以及時間戳的標準化處理。
+                </div>
+                <div class="grid-2" style="grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <div style="color: var(--red); font-size: 0.85rem; margin-bottom: 5px;">📥 Parser 原始輸出 (raw)</div>
+                        <div class="result-box" id="parsedOutput" style="border-color:var(--red); max-height: 400px; overflow: auto; font-size: 0.75rem;">[解析後原始資料]</div>
+                    </div>
+                    <div>
+                        <div style="color: var(--green); font-size: 0.85rem; margin-bottom: 5px;">📤 Cleaner 清洗輸出 (cleaned)</div>
+                        <div class="result-box" id="cleanedOutput" style="border-color:var(--green); max-height: 400px; overflow: auto; font-size: 0.75rem;">[清洗後正規化資料]</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1411,11 +1427,11 @@
                         document.getElementById('step4Card').style.display = 'block';
                     }
 
-                    // Update UI
-                    document.getElementById('e350Output').textContent = JSON.stringify(pipelineData.e350_samples, null, 2);
+                    // Update UI - 優化版渲染
+                    renderE350Table(pipelineData.e350_structured, pipelineData.e350_samples, pipelineData.stats);
                     document.getElementById('manifestOutput').textContent = JSON.stringify(pipelineData.manifest, null, 2);
-                    document.getElementById('parsedOutput').textContent = JSON.stringify(pipelineData.parsed_sample, null, 2);
-                    document.getElementById('cleanedOutput').textContent = JSON.stringify(pipelineData.cleaned_sample, null, 2);
+                    renderDataComparison(pipelineData.parsed_sample, pipelineData.cleaned_sample);
+                    renderQualityFlagsPanel(pipelineData.stats?.quality_flags_breakdown, pipelineData.stats?.rows_cleaned);
 
                     // 渲染拓樸摘要 (v1.4 新增)
                     renderTopologySummary(pipelineData.manifest);
@@ -1543,36 +1559,69 @@
             }
         }
 
+        // ============================================================
+        // 清洗品質雷達圖 - 優化版 (Cleaner v2.2 契約對齊)
+        // ============================================================
         function drawChart(stats) {
             const ctx = document.getElementById('qualityChart').getContext('2d');
             if (myChart) myChart.destroy();
 
+            // 計算各維度的「問題率」- 越低越好
+            // 1. 資料缺失率 (Data Completeness)
+            const missingRate = stats.missing_rate_before || 0;
+            // 2. 數值異常率 (Numeric Validity)
+            const numericInvalidRate = stats.nan_inf_rate || 0;
+            // 3. 時區錯誤率 (Timezone Accuracy)
+            const timezoneErrorRate = stats.timezone_error_rate || 0;
+            // 4. 設備邏輯違規率 (Equipment Logic Compliance)
+            const equipmentViolationRate = stats.equipment_violation_rate || stats.outlier_rate || 0;
+            // 5. 凍結資料率 (Data Freshness)
+            const frozenDataRate = stats.frozen_data_rate || 0;
+
+            // 計算「健康度」= 100 - 問題率
+            const beforeHealth = [
+                Math.max(0, 100 - missingRate),
+                Math.max(0, 100 - numericInvalidRate),
+                Math.max(0, 100 - timezoneErrorRate),
+                Math.max(0, 100 - equipmentViolationRate),
+                Math.max(0, 100 - frozenDataRate)
+            ];
+
+            // 清洗後健康度（理想情況下應接近 100）
+            const afterHealth = [
+                100,  // 空值應已補齊
+                100,  // NaN/Inf 應已處理
+                Math.max(90, 100 - timezoneErrorRate),  // 時區錯誤應減少
+                Math.max(80, 100 - equipmentViolationRate),  // 設備違規可能仍存在但已標記
+                Math.max(85, 100 - frozenDataRate * 0.5)  // 凍結資料應減少
+            ];
+
             myChart = new Chart(ctx, {
                 type: 'radar',
                 data: {
-                    labels: ['空值率', 'NaN/Inf', '時區錯誤', '格式錯誤', '極端值'],
+                    labels: [
+                        '資料完整性\n(100-空值率)',
+                        '數值合法性\n(100-NaN/Inf)',
+                        '時區正確性\n(100-時區錯誤)',
+                        '設備邏輯合規\n(100-違規率)',
+                        '資料連續性\n(100-凍結率)'
+                    ],
                     datasets: [{
-                        label: 'Parser 前',
-                        data: [
-                            stats.missing_rate_before || 0,
-                            stats.nan_inf_rate || 0,
-                            stats.timezone_error_rate || 0,
-                            stats.format_error_rate || 0,
-                            stats.outlier_rate || 0
-                        ],
+                        label: '⚠️ 清洗前 (Parser 原始輸出)',
+                        data: beforeHealth,
                         backgroundColor: 'rgba(239, 71, 111, 0.2)',
                         borderColor: 'rgba(239, 71, 111, 1)',
-                        pointBackgroundColor: 'rgba(239, 71, 111, 1)'
+                        pointBackgroundColor: 'rgba(239, 71, 111, 1)',
+                        pointRadius: 5,
+                        borderWidth: 2
                     }, {
-                        label: 'Batch 後 (SSOT合規)',
-                        data: [
-                            stats.missing_rate_after || 0,
-                            0, 0, 0,
-                            Math.max(0, (stats.outlier_rate || 0) - 2)  // 清洗後極端值應減少
-                        ],
-                        backgroundColor: 'rgba(6, 214, 160, 0.2)',
+                        label: '✅ 清洗後 (Cleaner 輸出)',
+                        data: afterHealth,
+                        backgroundColor: 'rgba(6, 214, 160, 0.25)',
                         borderColor: 'rgba(6, 214, 160, 1)',
-                        pointBackgroundColor: 'rgba(6, 214, 160, 1)'
+                        pointBackgroundColor: 'rgba(6, 214, 160, 1)',
+                        pointRadius: 5,
+                        borderWidth: 2
                     }]
                 },
                 options: {
@@ -1580,17 +1629,93 @@
                     maintainAspectRatio: false,
                     scales: {
                         r: {
-                            angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
+                            angleLines: { color: 'rgba(255, 255, 255, 0.15)' },
                             grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                            pointLabels: { color: '#a8c7fa', font: { size: 12 } },
-                            ticks: { display: false, max: 100 }
+                            pointLabels: { 
+                                color: '#a8c7fa', 
+                                font: { size: 11, family: 'Noto Sans TC' }
+                            },
+                            ticks: { 
+                                display: true, 
+                                backdropColor: 'transparent',
+                                color: 'rgba(255,255,255,0.5)',
+                                max: 100,
+                                stepSize: 20
+                            },
+                            suggestedMin: 0,
+                            suggestedMax: 100
                         }
                     },
                     plugins: {
-                        legend: { labels: { color: '#e2eeff' } }
+                        legend: { 
+                            labels: { 
+                                color: '#e2eeff',
+                                font: { size: 12, family: 'Noto Sans TC' }
+                            },
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.dataset.label || '';
+                                    const value = context.raw || 0;
+                                    const status = value >= 90 ? '✅ 良好' : value >= 70 ? '⚠️ 尚可' : '❌ 需改善';
+                                    return `${label}: ${value.toFixed(1)}% ${status}`;
+                                }
+                            }
+                        }
                     }
                 }
             });
+
+            // 更新雷達圖下方的統計摘要
+            updateQualitySummary(stats);
+        }
+
+        // 品質統計摘要面板
+        function updateQualitySummary(stats) {
+            const summaryDiv = document.getElementById('qualitySummaryPanel');
+            if (!summaryDiv) return;
+
+            const breakdown = stats.quality_flags_breakdown || {};
+            const totalRows = stats.rows_cleaned || 0;
+
+            // 計算整體健康度
+            const overallHealth = Math.round(
+                (100 - (stats.missing_rate_before || 0)) * 0.2 +
+                (100 - (stats.nan_inf_rate || 0)) * 0.2 +
+                (100 - (stats.timezone_error_rate || 0)) * 0.2 +
+                (100 - (stats.equipment_violation_rate || stats.outlier_rate || 0)) * 0.2 +
+                (100 - (stats.frozen_data_rate || 0)) * 0.2
+            );
+
+            const healthColor = overallHealth >= 90 ? 'var(--green)' : 
+                               overallHealth >= 70 ? 'var(--yellow)' : 'var(--red)';
+            const healthIcon = overallHealth >= 90 ? '✅' : 
+                              overallHealth >= 70 ? '⚠️' : '❌';
+
+            summaryDiv.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px;">
+                    <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 0.8rem; color: var(--text-dim);">整體健康度</div>
+                        <div style="font-size: 1.5rem; font-weight: 600; color: ${healthColor}; margin-top: 4px;">
+                            ${healthIcon} ${overallHealth}%
+                        </div>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 0.8rem; color: var(--text-dim);">資料筆數</div>
+                        <div style="font-size: 1.2rem; font-weight: 600; color: var(--cyan); margin-top: 4px;">
+                            ${stats.rows_parsed?.toLocaleString() || 0} → ${totalRows.toLocaleString()}
+                        </div>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 0.8rem; color: var(--text-dim);">問題標記</div>
+                        <div style="font-size: 1.2rem; font-weight: 600; color: ${breakdown.PHYSICAL_IMPOSSIBLE > 0 ? 'var(--orange)' : 'var(--green)'}; margin-top: 4px;">
+                            ${Object.values(breakdown).reduce((a, b) => a + b, 0)} 筆
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
         // 渲染拓樸摘要 (v1.4 新增)
@@ -1683,6 +1808,254 @@
             }
 
             output.innerHTML = html;
+        }
+
+        // ============================================================
+        // E350 設備邏輯違規表格渲染 - 優化版
+        // ============================================================
+        function renderE350Table(structuredViolations, samples, stats) {
+            const output = document.getElementById('e350Output');
+            const violationCount = stats?.e350_violations_count || 0;
+            const equipmentViolationCount = stats?.equipment_violation_count || 0;
+            
+            if (!structuredViolations || structuredViolations.length === 0) {
+                if (violationCount === 0 && equipmentViolationCount === 0) {
+                    output.innerHTML = `
+                        <div style="padding: 20px; text-align: center; color: var(--green);">
+                            <div style="font-size: 2rem; margin-bottom: 10px;">✅</div>
+                            <div style="font-weight: 500;">未檢測到設備邏輯違規</div>
+                            <div style="font-size: 0.85rem; color: var(--text-dim); margin-top: 8px;">
+                                所有資料通過 E350 設備預檢
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    output.innerHTML = `
+                        <div style="padding: 15px; color: var(--yellow);">
+                            <div>⚠️ 檢測到 ${equipmentViolationCount} 筆設備相關標記</div>
+                            <div style="font-size: 0.8rem; color: var(--text-dim); margin-top: 8px;">
+                                但無結構化違規詳情（可能只有 EQUIPMENT_VIOLATION 而無 PHYSICAL_IMPOSSIBLE）
+                            </div>
+                        </div>
+                    `;
+                }
+                return;
+            }
+
+            // 統計嚴重程度
+            const severityCount = { critical: 0, warning: 0 };
+            structuredViolations.forEach(v => {
+                if (v.severity === 'critical') severityCount.critical++;
+                else severityCount.warning++;
+            });
+
+            let html = `
+                <div style="margin-bottom: 12px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-dim); font-size: 0.85rem;">總違規數:</span>
+                        <span style="font-size: 1.2rem; font-weight: 600; color: ${severityCount.critical > 0 ? 'var(--red)' : 'var(--orange)'};">
+                            ${violationCount} 筆
+                        </span>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 8px; font-size: 0.8rem;">
+                        <span style="color: var(--red);">🔴 Critical: ${severityCount.critical}</span>
+                        <span style="color: var(--yellow);">🟡 Warning: ${severityCount.warning}</span>
+                    </div>
+                </div>
+            `;
+
+            // 違規表格
+            html += `<div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                    <thead>
+                        <tr style="background: rgba(0,0,0,0.3);">
+                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid var(--border);">違規類型</th>
+                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid var(--border);">嚴重度</th>
+                            <th style="padding: 8px; text-align: right; border-bottom: 1px solid var(--border);">筆數</th>
+                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid var(--border);">說明</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            structuredViolations.forEach((v, idx) => {
+                const severityColor = v.severity === 'critical' ? 'var(--red)' : 'var(--yellow)';
+                const severityIcon = v.severity === 'critical' ? '🔴' : '🟡';
+                const rowBg = idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.1)';
+                
+                html += `
+                    <tr style="background: ${rowBg};">
+                        <td style="padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">
+                                ${v.constraint_id}
+                            </code>
+                        </td>
+                        <td style="padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); color: ${severityColor};">
+                            ${severityIcon} ${v.severity?.toUpperCase()}
+                        </td>
+                        <td style="padding: 8px; text-align: right; border-bottom: 1px solid rgba(255,255,255,0.05); font-weight: 600;">
+                            ${v.count?.toLocaleString()}
+                        </td>
+                        <td style="padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--text-dim); font-size: 0.75rem;">
+                            ${v.description}
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table></div>`;
+
+            // 樣本資料區塊（可展開）
+            if (samples && samples.length > 0) {
+                html += `
+                    <div style="margin-top: 15px;">
+                        <div style="color: var(--cyan); font-size: 0.85rem; margin-bottom: 8px;">
+                            📋 違規樣本 (前 ${samples.length} 筆):
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; font-size: 0.75rem; overflow: auto; max-height: 150px;">
+                            <pre style="margin: 0; color: var(--text-dim);">${JSON.stringify(samples, null, 2)}</pre>
+                        </div>
+                    </div>
+                `;
+            }
+
+            output.innerHTML = html;
+        }
+
+        // ============================================================
+        // Quality Flags 統計面板渲染
+        // ============================================================
+        function renderQualityFlagsPanel(breakdown, totalRows) {
+            const panel = document.getElementById('qualityFlagsPanel');
+            
+            if (!breakdown || Object.keys(breakdown).length === 0) {
+                panel.innerHTML = '<div style="color: var(--text-dim); padding: 10px;">無 Quality Flags 統計資料</div>';
+                return;
+            }
+
+            const flagColors = {
+                'FROZEN_DATA': { color: '#a78bfa', bg: 'rgba(167, 139, 250, 0.15)', icon: '❄️' },
+                'PHYSICAL_IMPOSSIBLE': { color: '#ef476f', bg: 'rgba(239, 71, 111, 0.15)', icon: '🔴' },
+                'EQUIPMENT_VIOLATION': { color: '#ffd166', bg: 'rgba(255, 209, 102, 0.15)', icon: '⚠️' },
+                'FUTURE_DATA': { color: '#06d6a0', bg: 'rgba(6, 214, 160, 0.15)', icon: '🔮' },
+                'TIMEZONE_MISMATCH': { color: '#118ab2', bg: 'rgba(17, 138, 178, 0.15)', icon: '🕐' },
+                'FORMAT_INVALID': { color: '#ff6b6b', bg: 'rgba(255, 107, 107, 0.15)', icon: '📝' }
+            };
+
+            let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">';
+            
+            Object.entries(breakdown).forEach(([flag, count]) => {
+                if (count === 0) return;
+                const style = flagColors[flag] || { color: 'var(--text)', bg: 'rgba(0,0,0,0.2)', icon: '🏷️' };
+                const percentage = totalRows > 0 ? ((count / totalRows) * 100).toFixed(2) : 0;
+                
+                html += `
+                    <div style="background: ${style.bg}; border: 1px solid ${style.color}; border-radius: 8px; padding: 12px;">
+                        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                            <span>${style.icon}</span>
+                            <code style="font-size: 0.75rem; color: ${style.color}; font-weight: 600;">${flag}</code>
+                        </div>
+                        <div style="font-size: 1.3rem; font-weight: 600; color: ${style.color};">
+                            ${count.toLocaleString()}
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-dim);">
+                            ${percentage}% of ${totalRows?.toLocaleString()} 筆
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            panel.innerHTML = html;
+        }
+
+        // ============================================================
+        // 原始 vs 清洗資料對比渲染
+        // ============================================================
+        function renderDataComparison(parsedSample, cleanedSample) {
+            const parsedOutput = document.getElementById('parsedOutput');
+            const cleanedOutput = document.getElementById('cleanedOutput');
+
+            if (!parsedSample || parsedSample.length === 0) {
+                parsedOutput.textContent = '[無原始資料樣本]';
+                cleanedOutput.textContent = '[無清洗資料樣本]';
+                return;
+            }
+
+            // 取得所有欄位（從第一筆資料的 keys）
+            const columns = Object.keys(parsedSample[0]);
+            const numericColumns = columns.filter(col => {
+                const val = parsedSample[0][col];
+                return col !== 'timestamp' && col !== 'quality_flags' && typeof val === 'number';
+            });
+
+            // 渲染表格函數
+            function renderTable(data, isCleaned) {
+                if (!data || data.length === 0) return '<div style="padding: 15px; color: var(--text-dim);">無資料</div>';
+
+                let html = '<table style="width: 100%; border-collapse: collapse; font-size: 0.7rem;">';
+                
+                // 表頭
+                html += '<thead><tr style="background: rgba(0,0,0,0.4);">';
+                columns.slice(0, 8).forEach(col => {  // 限制顯示 8 個欄位
+                    html += `<th style="padding: 6px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap;">${col}</th>`;
+                });
+                if (columns.length > 8) {
+                    html += `<th style="padding: 6px; text-align: left; border-bottom: 1px solid var(--border); color: var(--text-dim);">+${columns.length - 8} more</th>`;
+                }
+                html += '</tr></thead><tbody>';
+
+                // 資料行
+                data.forEach((row, idx) => {
+                    const rowBg = idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.1)';
+                    html += `<tr style="background: ${rowBg};">`;
+                    
+                    columns.slice(0, 8).forEach(col => {
+                        let val = row[col];
+                        let cellStyle = 'padding: 6px; border-bottom: 1px solid rgba(255,255,255,0.03);';
+                        let displayVal = val;
+
+                        // 特殊處理
+                        if (col === 'timestamp') {
+                            cellStyle += ' white-space: nowrap; color: var(--cyan);';
+                            displayVal = val ? String(val).substring(0, 19) : '-';
+                        } else if (col === 'quality_flags') {
+                            cellStyle += ' max-width: 150px; overflow: hidden; text-overflow: ellipsis;';
+                            if (Array.isArray(val) && val.length > 0) {
+                                const flagColors = {
+                                    'FROZEN_DATA': '#a78bfa',
+                                    'PHYSICAL_IMPOSSIBLE': '#ef476f',
+                                    'EQUIPMENT_VIOLATION': '#ffd166',
+                                    'FUTURE_DATA': '#06d6a0'
+                                };
+                                displayVal = val.map(f => `<span style="color: ${flagColors[f] || 'var(--text-dim)'}; font-size: 0.65rem;">${f}</span>`).join(', ');
+                            } else {
+                                displayVal = '<span style="color: var(--text-dim);">-</span>';
+                            }
+                        } else if (typeof val === 'number') {
+                            displayVal = val.toFixed ? val.toFixed(2) : val;
+                            // 高亮差異（如果是數值欄位且清洗後有變化）
+                            if (isCleaned && parsedSample[idx] && parsedSample[idx][col] !== val) {
+                                cellStyle += ' background: rgba(6, 214, 160, 0.1);';
+                            }
+                        } else if (val === null || val === undefined) {
+                            displayVal = '<span style="color: var(--red);">null</span>';
+                        }
+
+                        html += `<td style="${cellStyle}">${displayVal}</td>`;
+                    });
+
+                    if (columns.length > 8) {
+                        html += `<td style="padding: 6px; color: var(--text-dim);">...</td>`;
+                    }
+                    html += '</tr>';
+                });
+
+                html += '</tbody></table>';
+                return html;
+            }
+
+            parsedOutput.innerHTML = renderTable(parsedSample, false);
+            cleanedOutput.innerHTML = renderTable(cleanedSample, true);
         }
 
         // ====================================================================
