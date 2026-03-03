@@ -23,14 +23,17 @@
 **目標**：提供一個無需手動輸入終端機指令，透過網頁即可完整體驗從資料解析、特徵標註、設備預檢與批次落地的互動式測試平台。
 
 **核心設計理念**：**Step 1 → Step 2 無縫整合**
+
 - Step 1 解析 CSV 後，Step 2 **直接沿用**解析結果產生 Excel，無需重新上傳 CSV
 - 確保欄位名稱從 Step 1 到 Step 4 **完全一致**，避免 E409 (Header Annotation Mismatch) 錯誤
 
 **檔案位置**：
+
 - **後端 API**: `tools/demo/test_server.py` (FastAPI)
 - **前端 UI**: `tools/demo/tester.html` (HTML + CSS + JS)
 
 **啟動方式**：
+
 ```bash
 uvicorn tools.demo.test_server:app --reload --port 8000 --host 0.0.0.0
 ```
@@ -59,6 +62,7 @@ uvicorn tools.demo.test_server:app --reload --port 8000 --host 0.0.0.0
 | **Step 4** | 執行完整 ETL Pipeline | `POST /api/run-pipeline` | `ETLContainer` + 背景任務 |
 
 **支援 Parser 類型**：
+
 - **通用 CSV**：標準 Date/Time 格式
 - **Siemens Scheduler Report**：CGMH-TY, Farglory O3, KMUH 格式（含 Point_1~N 映射）
 
@@ -119,6 +123,7 @@ uvicorn tools.demo.test_server:app --reload --port 8000 --host 0.0.0.0
 ```
 
 **實作位置**：
+
 - `tools/features/wizard.py`: `_initialize_sheets()` 定義 17 欄結構
 - `tools/features/excel_to_yaml.py`: `header_map` 解析對應
 
@@ -129,6 +134,7 @@ uvicorn tools.demo.test_server:app --reload --port 8000 --host 0.0.0.0
 #### Gap 2: Manifest 契約與 device_role 隔離檢查 (v1.8.0) ✅
 
 **後端實作** (`test_server.py`):
+
 ```python
 def _check_device_role_isolation(df: pl.DataFrame) -> dict:
     """檢查 device_role 是否隔離於 Parquet（不應存在）"""
@@ -150,12 +156,14 @@ def _check_device_role_isolation(df: pl.DataFrame) -> dict:
 ```
 
 **前端實作** (`tester.html`):
+
 - `renderManifestContractPanel()` - 顯示時間基準、Checksum、E350 違規數
 - `renderDeviceRoleIsolation()` - 顯示隔離檢查狀態
 
 #### Gap 3: GNN 圖結構與多任務指標 (v1.9.0) ✅
 
 **鄰接矩陣視覺化**:
+
 ```javascript
 function renderAdjacencyMatrixPreview(topologyContext) {
     const { nodes, edges } = topologyContext;
@@ -170,6 +178,7 @@ function renderAdjacencyMatrixPreview(topologyContext) {
 ```
 
 **GNN 多任務指標面板**:
+
 ```javascript
 function renderGNNMetricsPanel(modelMetrics) {
     return `
@@ -183,6 +192,7 @@ function renderGNNMetricsPanel(modelMetrics) {
 #### Gap 4: Pipeline 初始化狀態指示器 (v2.0.0) ✅
 
 **API 端點**:
+
 ```python
 @app.get("/api/pipeline/init-status")
 async def get_pipeline_init_status(site_id: str):
@@ -197,6 +207,7 @@ async def get_pipeline_init_status(site_id: str):
 ```
 
 **前端整合**:
+
 - Step 1 成功後自動呼叫 `checkPipelineInitStatus()`
 - 顯示四階段狀態：E406 稽核 → YAML 鎖定 → Manager 載入 → Validator 就緒
 - `pipeline_ready` 為 true 時解鎖 Step 2 按鈕
@@ -212,39 +223,72 @@ async def get_pipeline_init_status(site_id: str):
 | **UI-009** | GNN Trainer 整合測試面板 | 2.0 天 | 🔴 High | v2.1.0 | `PRD_FEATURE_ENGINEER_V1.4.md` 部署 |
 | **UI-010** | Hybrid Consistency 檢查視覺化 (E751-E758) | 1.5 天 | 🟡 Medium | v2.2.0 | `PRD_Hybrid_Model_Consistency_v1.0.md` |
 | **UI-011** | 特徵工程即時預覽 | 2.0 天 | ✅ **已完成** | v2.3.0 | Feature Engineer API 就緒 |
+| **UI-012** | 模型訓練指標儀表板 (RMSE/R²/Feature Importance) | 2.0 天 | 🔴 High | v2.4.0 | `PRD_Model_Training_v1.4.md` |
+| **UI-013** | Model Registry 狀態預覽側邊欄 | 1.0 天 | 🟡 Medium | v2.5.0 | Model Training 模組就緒 |
+| **UI-014** | 最佳化建議與 Fallback 機制展示 | 2.0 天 | 🔴 High | v2.6.0 | `PRD_Chiller_Plant_Optimization_V1.2.md` |
+| **UI-015** | 序列資料饋送 (Time-travel) 與 CL 漂移檢測機制 | 2.5 天 | 🔴 High | v2.7.0 | `PRD_Continual_Learning_v1.1.md` |
+| **UI-016** | E2E 全域管線總覽儀表板 (Sprint 5 總結) | 1.5 天 | 🔴 High | v3.0.0 | 全部後端對接完成 |
+| **UI-017** | 全域錯誤診斷與合規攔截面板 (Error Console) | 1.5 天 | 🔴 High | 貫穿全階段 | Interface Contract v1.2 錯誤碼 |
 
 ### 2.2 相依性說明
 
-```
-Sprint 3 (v2.1.0~v2.3.0):
+```text
+Sprint 3 (v2.1.0~v2.5.0):
 ├── UI-009: GNN Trainer 整合
 │   ↑ 前置: Feature Engineer v1.4 部署完成
-│   ↑ 前置: Model Training v1.4 就緒
-│
-└── UI-010: Hybrid Consistency 檢查
-    ↑ 前置: Hybrid Model Consistency v1.0 就緒
+├── UI-010: Hybrid Consistency 檢查
+│   ↑ 前置: Model Training 就緒
+├── UI-012: 模型訓練指標儀表板
+│   ↑ 前置: Model Training 損失函數與驗證邏輯就緒
+└── UI-013: Model Registry 面板
+    ↑ 前置: Model Training 模組就緒
+
+Sprint 4 (v2.6.0~v2.7.0):
+├── UI-014: 最佳化建議與 Fallback
+│   ↑ 前置: 最佳化引擎就緒、特徵對齊驗證 (E901-E904)
+└── UI-015: 持續學習 (CL) 漂移檢測
+    ↑ 前置: UpdateOrchestrator 與 DriftDetector 就緒
+
+Sprint 5 (v3.0.0):
+└── UI-016: E2E 全域管線總覽儀表板
+    ↑ 前置: 所有 Sprint 模組串接完成
 ```
 
-### 2.3 Feature Engineer v1.4 測試 UI 實作規範與優化建議 (Sprint 3.1 審查結果)
+### 2.3 測試平台進階架構規劃 (Future Architectural Proposals)
+
+為了支撐 Model Training, Optimization 與 Continual Learning 的深度測試，測試 UI 需要進行以下四大架構升級：
+
+| 升級模組 | 目的與場景 | 核心實作方向 |
+|:---|:---|:---|
+| **A. 視覺化引擎擴充** | 支援 Sprint 3~5 驗收指標視覺化 | • Model Training: Feature Importance 條形圖、Hybrid Consistency 殘差折線圖<br>• Optimization: kW/RT 節能對比圖、Fallback 降級路徑動態圖<br>• Equipment Validation: 設備操作邊界檢查熱力圖 |
+| **B. 時間旅行模擬器 (Time-travel)** | 測試 CL 的資料漂移與重新訓練 | 將原先單一 CSV 上傳改為「**序列資料饋送 (Sequential Feed)**」。支援上傳多個微批次檔，模擬時間推移，主動觸發 Data Drift 與 `UpdateOrchestrator`。 |
+| **C. 全域錯誤合規面板** | 攔截並解譯複雜的演算法錯誤 | 建立獨立的錯誤攔截器 (Error Diagnostic Console)。當系統拋出 `E846` (系統模型不匹配) 或 `E815` (分散式鎖逾時) 時，提供人類可讀的排障指引，取代純 Traceback。 |
+| **D. 模型產物庫預覽 (Registry Explorer)** | 驗證檢查點 #7 合約傳遞狀態 | 在 Step 4 之後新增側邊欄，顯示虛擬 Model Registry 的產物 (如 `.joblib`, `scaler_params.json` 版本號)，直觀確認模型與特徵的生命週期。 |
+
+### 2.4 Feature Engineer v1.4 測試 UI 實作規範與優化建議 (Sprint 3.1 審查結果)
 
 針對剛完成的 **Feature Engineer 3.1 (v1.4) 任務**，目前的測試 UI (`test_server.py` 的 `/api/run-feature-engineer` 與 `tester.html` 中的預留區塊) 需要進行以下對齊與優化：
 
 #### ✅ 1. 規範對齊 (PRD v1.4 Alignment)
-*   **版本更新**: 前端 `tester.html` 的標題需從 `Feature Engineer v1.3` 更新為 `Feature Engineer v1.4`，並移除「預留擴充點」的臨時狀態。
-*   **介接 BatchProcessor 輸出**: API 需要接收 Step 4 產出的 Feature Manifest 與 Parquet 路徑，作為 `FeatureEngineer.load_from_batch_processor()` 的輸入，不再是從頭開始。
-*   **分層特徵可視化**: UI 回傳結果應包含 `feature_hierarchy` 的解析，並將特徵歸類至四個面板展示：
-    *   `L0` (原始特徵)
-    *   `L1` (時間、Lag、Rolling、Diff)
-    *   `L2` (Topology Aggregation 拓樸聚合)
-    *   `L3` (Control Deviation 控制偏差)
-*   **GNN 數據結構可視化**: 除了原本的節點與邊數量，必須增加顯示 ST-GNN `3D Tensor` 的維度大小 `(時間步 T, 節點數 N, 特徵數 F)`，以及對應的 `node_types` 陣列摘要。
-*   **Data Leakage 狀態**: 顯示 `strict_mode` 狀態，若觸發 `E306` 錯誤應有專屬的紅色警告區塊。
+
+- **版本更新**: 前端 `tester.html` 的標題需從 `Feature Engineer v1.3` 更新為 `Feature Engineer v1.4`，並移除「預留擴充點」的臨時狀態。
+
+- **介接 BatchProcessor 輸出**: API 需要接收 Step 4 產出的 Feature Manifest 與 Parquet 路徑，作為 `FeatureEngineer.load_from_batch_processor()` 的輸入，不再是從頭開始。
+- **分層特徵可視化**: UI 回傳結果應包含 `feature_hierarchy` 的解析，並將特徵歸類至四個面板展示：
+  - `L0` (原始特徵)
+  - `L1` (時間、Lag、Rolling、Diff)
+  - `L2` (Topology Aggregation 拓樸聚合)
+  - `L3` (Control Deviation 控制偏差)
+- **GNN 數據結構可視化**: 除了原本的節點與邊數量，必須增加顯示 ST-GNN `3D Tensor` 的維度大小 `(時間步 T, 節點數 N, 特徵數 F)`，以及對應的 `node_types` 陣列摘要。
+- **Data Leakage 狀態**: 顯示 `strict_mode` 狀態，若觸發 `E306` 錯誤應有專屬的紅色警告區塊。
 
 #### 🚀 2. 實作優化空間 (Optimization Opportunities)
-*   **背景任務與進度條機制 (Critical)**: Feature Engineering 計算量大，切勿讓 API 成為 Blocking call。請比照 `run-pipeline` 的實作，將 `run_feature_engineer` 改用 `BackgroundTasks`，並透過輪詢 (Polling) `job-status` API 顯示即時 Log (`_append_job_log`)。
-*   **記憶體降級成效展示**: UI 可顯示一項「記憶體優化指標」，計算特徵工程前後 DataFrame 的記憶體耗用率 (例如：`原始佔用 500MB -> 降級後 250MB`)，直觀展現 v1.4 加入的 `Float32` 轉換效益。
-*   **NaN / Null 穩定度報告**: 在特徵工程完成後，增加一欄「缺失值與異常值體檢」，檢測是否還有殘留的 NaN (針對 v1.4 剛修復的序列化漏洞作監測)。
-*   **抽樣折線圖 (Optional)**: 可在 L3 控制偏差特徵 (如 `delta_sensor`) 或 L2 設備聚合特徵旁，加一顆「預覽趨勢」按鈕，繪製前 100 筆資料的簡單折線圖，協助開發者快速確認偏差邏輯。
+
+- **背景任務與進度條機制 (Critical)**: Feature Engineering 計算量大，切勿讓 API 成為 Blocking call。請比照 `run-pipeline` 的實作，將 `run_feature_engineer` 改用 `BackgroundTasks`，並透過輪詢 (Polling) `job-status` API 顯示即時 Log (`_append_job_log`)。
+
+- **記憶體降級成效展示**: UI 可顯示一項「記憶體優化指標」，計算特徵工程前後 DataFrame 的記憶體耗用率 (例如：`原始佔用 500MB -> 降級後 250MB`)，直觀展現 v1.4 加入的 `Float32` 轉換效益。
+- **NaN / Null 穩定度報告**: 在特徵工程完成後，增加一欄「缺失值與異常值體檢」，檢測是否還有殘留的 NaN (針對 v1.4 剛修復的序列化漏洞作監測)。
+- **抽樣折線圖 (Optional)**: 可在 L3 控制偏差特徵 (如 `delta_sensor`) 或 L2 設備聚合特徵旁，加一顆「預覽趨勢」按鈕，繪製前 100 筆資料的簡單折線圖，協助開發者快速確認偏差邏輯。
 
 ---
 

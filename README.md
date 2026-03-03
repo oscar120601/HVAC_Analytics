@@ -3,9 +3,14 @@
 > 空調節能系統核心引擎 - 資料清洗與能源最佳化建議
 
 **專案狀態**: ✅ Sprint 3.1 Feature Engineer v1.4 完成 | Sprint 3.2 Model Training v1.4 待開始  
-**最後更新**: 2026-03-02
+**最後更新**: 2026-03-03
 
 ---
+
+## 📊 專案概覽
+
+...[unchanged middle ignored, wait, I should replace exactly]
+Let's do two replacements because `multi_replace_file_content` is better for non-contiguous changes.
 
 ## 📊 專案概覽
 
@@ -199,12 +204,14 @@ print(f"3D Tensor 形狀: {gnn_data['tensor_3d'].shape}")  # (T, N, F)
 ```
 
 **特徵分層**:
+
 - **L0**: 原始特徵 (直接從資料讀取)
 - **L1**: 統計特徵 (Lag, Rolling, Diff, 時間特徵)
 - **L2**: 拓樸特徵 (上游設備聚合: mean/max/min/std)
 - **L3**: 控制特徵 (Sensor-Setpoint 偏差)
 
 **GNN 輸出**:
+
 - 鄰接矩陣 (NxN)
 - 3D Tensor (Time, Nodes, Features)
 - 設備節點特徵
@@ -261,15 +268,26 @@ pytest tests/test_feature_engineer_v14.py -v  # 🆕 Feature Engineer v1.4
 
 ## 📅 近期更新
 
+### [v1.8.0] - 2026-03-03 (Interactive ETL Tester 介面對接與進階架構規劃)
+
+- ✅ **Interactive ETL Tester 升級** - 深度對接 Feature Engineer v1.4
+  - 修正 Polars 新版 API 產生的邊界錯誤 (`the truth value of a Series is ambiguous` 等)
+  - UI 介面可視化輸出: 支援記憶體優化指標 (Float32 降級比率)、缺失值體檢
+  - GNN 資料結構預覽: 顯示 3D Tensor `(T, N, F)` 與鄰接矩陣預覽
+- ✅ **測試平台進階架構藍圖 (Sprint 3~5)** - 更新 `Interactive_ETL_Tester.md`
+  - 規劃 Time-travel 模擬器 (支援 CL 漂移檢測) 與全域錯誤合規面板
+
 ### [v1.7.0] - 2026-03-02 (Sprint 3.1 完工與交付)
+
 - ✅ **Feature Engineer v1.4 完成** - 實作拓樸感知與控制語意特徵工程
   - 核心架構：L0-L3 分層特徵生成 (時間序列 → Lag/Rolling → 拓樸聚合 → 控制偏差)
   - 基礎設施：新增 `TopologyManager`, `ControlSemanticsManager`
   - 模型支援：GNN 專用資料匯出，包括鄰接矩陣 (Adjacency Matrix)、3D Tensor `(T, N, F)`，及相關設備特徵 (Node Types)
   - 安全與效能：實作 Data Leakage (資料洩露) 嚴格預防，並整合 Polars LazyFrame 記憶體優化與 Float32 降級
-  - 品質保證：完成 `tests/test_feature_engineer_v14.py` 單元與端到端測試，邊界防護落實 
+  - 品質保證：完成 `tests/test_feature_engineer_v14.py` 單元與端到端測試，邊界防護落實
 
 ### [v1.6.0] - 2026-03-02 (Phase 0 Retrofit)
+
 - ✅ **Phase 0 ETL 管線全線貫通** - 順利吞吐 GNN 資料
   - 錯誤重定義：實現 Interface Contract v1.2，釋放並重配 E750-E759 (GNN)、E800-E829 (CL)、E840-E859 (OPT) 保留位
   - 相容性修復：解決舊版 Parser, Cleaner, BatchProcessor 丟失 `topology` 與 `control_semantics` 型別及誤殺問題
@@ -277,6 +295,7 @@ pytest tests/test_feature_engineer_v14.py -v  # 🆕 Feature Engineer v1.4
 - ✅ Interactive ETL Tester v1.6 - 新增 GNN 拓樸摘要顯示面板
 
 ### [v1.5.0] - 2026-02-25
+
 - ✅ Parser V2.2 模組化重構完成
 - ✅ Interactive ETL Tester V1.5 - Step 1→2 無縫整合
 
@@ -285,6 +304,7 @@ pytest tests/test_feature_engineer_v14.py -v  # 🆕 Feature Engineer v1.4
 ## 👥 貢獻
 
 本專案採用嚴格的程式碼審查流程，所有變更需通過：
+
 1. 單元測試 (>80% 覆蓋率)
 2. 整合測試
 3. 程式碼審查 (A級標準)

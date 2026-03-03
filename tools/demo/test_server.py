@@ -1005,7 +1005,6 @@ def _run_feature_engineer_task(job_id: str, site_id: str):
     """
     import numpy as np
     from src.etl.feature_engineer import FeatureEngineer
-    from src.etl.config_models import FeatureEngineeringConfig
     
     job = pipeline_jobs[job_id]
     
@@ -1064,15 +1063,14 @@ def _run_feature_engineer_task(job_id: str, site_id: str):
         log("⚙️ 載入 Feature Engineering Config...", "INFO", "loading")
         
         config = FeatureEngineeringConfig(
-            version="1.4",
-            enable_lag_features=True,
-            enable_rolling_features=True,
-            enable_topology_features=True,
-            enable_control_deviation=True,
+            version="1.4.0",
+            site_id=site_id,
+            lag_enabled=True,
+            rolling_enabled=True,
             lag_intervals=[1, 2, 3, 6, 12, 24],  # 5min 間隔的假設
             rolling_windows=[12, 24, 48, 96],    # 1hr, 2hr, 4hr, 8hr
             strict_mode=True,  # Data Leakage 防護
-            float32_optimization=True  # 記憶體優化
+            memory_optimization=True  # 記憶體優化
         )
         
         # Stage 3: 初始化 FeatureEngineer
@@ -1098,7 +1096,7 @@ def _run_feature_engineer_task(job_id: str, site_id: str):
         result = engineer.process(df, fit_scaler=True)
         
         # 計算記憶體優化成效
-        final_memory_mb = result["dataframe"].estimated_size("mb")
+        final_memory_mb = result["feature_matrix"].estimated_size("mb")
         memory_saved_mb = original_memory_mb - final_memory_mb
         memory_saved_pct = (memory_saved_mb / original_memory_mb * 100) if original_memory_mb > 0 else 0
         
@@ -1135,10 +1133,10 @@ def _run_feature_engineer_task(job_id: str, site_id: str):
         job["stage"] = "validation"
         log("🔍 執行 NaN/Null 穩定度檢查...", "INFO", "validation")
         
-        df_result = result["dataframe"]
-        nan_counts = df_result.null_count().to_dict()
-        total_nan = sum(nan_counts.values())
-        nan_features = [k for k, v in nan_counts.items() if v > 0]
+        df_result = result["feature_matrix"]
+        nan_counts = df_result.null_count().to_dict(as_series=False)
+        total_nan = sum(v[0] for v in nan_counts.values() if v)
+        nan_features = [k for k, v in nan_counts.items() if v and v[0] > 0]
         
         if total_nan > 0:
             log(f"⚠️ 發現 {total_nan} 個 NaN 值 (分布於 {len(nan_features)} 個特徵)", "WARNING", "validation")
@@ -1165,7 +1163,7 @@ def _run_feature_engineer_task(job_id: str, site_id: str):
             "site_id": site_id,
             "manifest_path": str(manifest_path),
             "input_shape": {"rows": df.shape[0], "cols": df.shape[1]},
-            "output_shape": {"rows": result["dataframe"].shape[0], "cols": result["dataframe"].shape[1]},
+            "output_shape": {"rows": result["feature_matrix"].shape[0], "cols": result["feature_matrix"].shape[1]},
             
             # L0-L3 分層統計
             "feature_hierarchy_stats": {

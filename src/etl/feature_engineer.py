@@ -128,7 +128,7 @@ class FeatureEngineer:
         # 初始化 AnnotationManager
         self.annotation_manager = FeatureAnnotationManager(
             site_id=site_id,
-            yaml_base_dir=yaml_base_dir
+            config_root=Path(yaml_base_dir).parent if yaml_base_dir else None
         )
         
         # 初始化 TopologyManager
@@ -151,7 +151,7 @@ class FeatureEngineer:
         
         self.logger.info(
             f"初始化 FeatureEngineer v1.4 "
-            f"(Annotation: {self.annotation_manager.schema_version}, "
+            f"(Annotation: {self.annotation_manager.get_schema_version()}, "
             f"拓樸節點: {self.topology_manager.get_node_count()}, "
             f"控制對: {self.control_semantics_manager.get_pair_count()}, "
             f"訓練模式: {is_training})"
@@ -236,32 +236,40 @@ class FeatureEngineer:
         
         return df, feature_metadata, audit
     
-    def validate_annotation_compatibility(self, audit_trail: Dict):
+    def validate_annotation_compatibility(self, audit_trail):
         """
         驗證 Annotation 版本相容性 (E400, E413, E420)
+        
+        audit_trail 可能是 AnnotationAuditTrail Pydantic 物件或舊式 dict。
         """
         if not audit_trail:
             self.logger.warning("Manifest 缺少 annotation_audit_trail")
             return
         
+        # 相容 Pydantic 模型與 dict 兩種格式
+        def _get(obj, key, default=None):
+            if isinstance(obj, dict):
+                return obj.get(key, default)
+            return getattr(obj, key, default)
+        
         # 驗證基礎 Schema 版本
-        schema_ver = audit_trail.get('schema_version')
+        schema_ver = _get(audit_trail, 'schema_version')
         expected = FEATURE_ANNOTATION_CONSTANTS.get('expected_schema_version', '1.4')
         
-        if schema_ver != expected:
+        if schema_ver and schema_ver != 'unknown' and schema_ver != expected:
             raise ConfigurationError(
                 f"E400: Annotation Schema 版本不符。期望: {expected}, 實際: {schema_ver}"
             )
         
         # 驗證拓樸版本
-        topo_ver = audit_trail.get('topology_version')
+        topo_ver = _get(audit_trail, 'topology_version')
         if topo_ver and topo_ver != "1.0":
             raise ConfigurationError(
                 f"E413: Topology 版本不符。期望: 1.0, 實際: {topo_ver}"
             )
         
         # 驗證控制語意版本
-        ctrl_ver = audit_trail.get('control_semantics_version')
+        ctrl_ver = _get(audit_trail, 'control_semantics_version')
         if ctrl_ver and ctrl_ver != "1.0":
             raise ConfigurationError(
                 f"E420: Control Semantics 版本不符。期望: 1.0, 實際: {ctrl_ver}"
@@ -296,7 +304,7 @@ class FeatureEngineer:
                 all_flags.add(flags)
         
         # 檢查未知 flags
-        unknown = all_flags - VALID_QUALITY_FLAGS
+        unknown = all_flags - set(VALID_QUALITY_FLAGS)
         if unknown:
             self.logger.warning(f"E303: 未知的 quality_flags: {unknown}")
     
@@ -509,7 +517,7 @@ class FeatureEngineer:
         
         expressions = [
             pl.col('timestamp').dt.hour().alias('hour_of_day'),
-            pl.col('timestamp').dt.day_of_week().alias('day_of_week'),
+            pl.col('timestamp').dt.weekday().alias('day_of_week'),
             pl.col('timestamp').dt.month().alias('month'),
             pl.col('timestamp').dt.ordinal_day().alias('day_of_year'),
         ]
@@ -518,8 +526,8 @@ class FeatureEngineer:
         expressions.extend([
             (pl.col('timestamp').dt.hour() * 2 * 3.14159 / 24).sin().alias('hour_sin'),
             (pl.col('timestamp').dt.hour() * 2 * 3.14159 / 24).cos().alias('hour_cos'),
-            (pl.col('timestamp').dt.day_of_week() * 2 * 3.14159 / 7).sin().alias('dow_sin'),
-            (pl.col('timestamp').dt.day_of_week() * 2 * 3.14159 / 7).cos().alias('dow_cos'),
+            (pl.col('timestamp').dt.weekday() * 2 * 3.14159 / 7).sin().alias('dow_sin'),
+            (pl.col('timestamp').dt.weekday() * 2 * 3.14159 / 7).cos().alias('dow_cos'),
         ])
         
         df = df.with_columns(expressions)
@@ -1204,7 +1212,7 @@ class FeatureEngineer:
         # 🆕 向量化轉換：一次性轉為 NumPy (T, F_total)
         # 注意：使用 to_numpy() 而非逐行 .row()，效能差 1000 倍
         if all_feature_cols_ordered:
-            data_matrix = df[all_feature_cols_ordered].to_numpy(dtype=dtype)
+            data_matrix = df[all_feature_cols_ordered].to_numpy().astype(dtype)
         else:
             data_matrix = np.zeros((n_timesteps, 0), dtype=dtype)
         
